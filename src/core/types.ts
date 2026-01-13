@@ -1,5 +1,5 @@
 // src/core/types.ts
-// 10.01.2026 23:45
+// 13.01.2026 - FIX: Added 'chefPlaner' and missing profile fields (fixedDates, arrival description).
 // UPDATE: Added 'anreicherer' to WorkflowStepId for V30 parity.
 
 export type LanguageCode = 'de' | 'en';
@@ -16,7 +16,7 @@ export type WorkflowStepId =
   | 'accommodation'  // Hotels
   | 'sondertage'     // Wetter / Flex
   | 'transfers'      // Logistik
-  | 'chefPlaner';    // Chef-Planer (Analysis) - FIX: Added to resolve type error
+  | 'chefPlaner';    // Chef-Planer (Analysis)
 
 export interface WorkflowStepDef {
   id: WorkflowStepId;
@@ -212,3 +212,4 @@ export interface TripProject {
     days: any[];
   };
 }
+// --- END OF FILE 164 Zeilen ---

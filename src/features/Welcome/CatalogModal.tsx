@@ -1,5 +1,5 @@
 // src/features/Welcome/CatalogModal.tsx
-// 09.01.2026 23:00
+// 13.01.2026 - FIX: Removed unused 't' variable to fix TS6133.
 // REWRITE: V30 Clone (Single Page, Print-Ready, Info-Box)
 
 import React from 'react';
@@ -233,3 +233,4 @@ export const CatalogModal: React.FC<CatalogModalProps> = ({ isOpen, onClose }) =
     </div>
   );
 };
+// --- END OF FILE 181 Zeilen ---
