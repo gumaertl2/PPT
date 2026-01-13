@@ -1,0 +1,31 @@
+1. Node.js und npm löschen
+
+Öffne dein Terminal und kopiere die folgenden Befehle nacheinander hinein (du wirst eventuell nach deinem Mac-Passwort gefragt):
+
+Die Hauptdateien entfernen: sudo rm -rf /usr/local/lib/node_modules
+
+Die ausführbaren Dateien löschen: sudo rm /usr/local/bin/node
+
+npm löschen: sudo rm /usr/local/bin/npm
+
+2. Versteckte Ordner im Benutzerverzeichnis säubern
+
+Node.js und npm legen Konfigurationsdateien in deinem persönlichen Ordner ab. Diese löschst du so:
+
+npm-Cache und Einstellungen: rm -rf ~/.npm
+
+Node-Gyp (falls vorhanden): rm -rf ~/.node-gyp
+
+3. Vite und globale Pakete
+
+Da Vite meistens lokal im Projektordner installiert wird, löschst du es einfach, indem du deinen Projektordner in den Papierkorb wirfst. Falls du Vite (oder andere Tools) "global" installiert hast, wurden sie bereits durch den Befehl in Schritt 1 (Löschen von node_modules) mit entfernt.
+
+4. Der Check: Ist alles weg?
+
+Gib diese Befehle ein, um sicherzugehen:
+
+node -v
+
+npm -v
+
+Wenn bei beiden "command not found" erscheint, war die Deinstallation erfolgreich.
