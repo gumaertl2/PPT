@@ -5,16 +5,16 @@
 import { useEffect } from 'react';
 import { useTripStore } from './store/useTripStore';
 import { useTripGeneration } from './hooks/useTripGeneration';
-import { WorkflowSelectionModal } from './features/workflow/WorkflowSelectionModal';
+import { WorkflowSelectionModal } from './features/Workflow/WorkflowSelectionModal';
 import { WelcomeScreen } from './features/Welcome/WelcomeScreen';
-import { CockpitWizard } from './features/cockpit/CockpitWizard';
-import { AnalysisReviewView } from './features/cockpit/AnalysisReviewView';
-import { NotificationSystem } from './features/shared/NotificationSystem';
+import { CockpitWizard } from './features/Cockpit/CockpitWizard';
+import { AnalysisReviewView } from './features/Cockpit/AnalysisReviewView';
+import { NotificationSystem } from './features/Shared/NotificationSystem';
 import { InfoModal } from './features/Welcome/InfoModal';
 import { CatalogModal } from './features/Welcome/CatalogModal';
-import { ManualPromptModal } from './features/cockpit/ManualPromptModal';
-import { ConfirmModal } from './features/cockpit/ConfirmModal';
-import { SettingsModal } from './features/cockpit/SettingsModal';
+import { ManualPromptModal } from './features/Cockpit/ManualPromptModal';
+import { ConfirmModal } from './features/Cockpit/ConfirmModal';
+import { SettingsModal } from './features/Cockpit/SettingsModal';
 import type { WorkflowStepId } from './core/types';
 
 function App() {
