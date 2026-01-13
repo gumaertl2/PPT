@@ -1,10 +1,9 @@
 // src/features/shared/NotificationSystem.tsx
 // 10.01.2026 22:00
 // UPDATE: Implemented Centered Loading Modal (Blocking) + Toast System for others.
-// FIX: Removed missing import 'AppNotification' and defined locally. Fixed implicit any.
 
 import React from 'react';
-import { useTripStore } from '../../store/useTripStore';
+import { useTripStore } from '../../store/useTripStore'; // FIX: Removed AppNotification import
 import { 
   CheckCircle2, 
   AlertCircle, 
@@ -13,7 +12,7 @@ import {
   Loader2 
 } from 'lucide-react';
 
-// FIX: Local definition since it's missing in store export
+// FIX: Locally defined interface
 interface AppNotification {
   id: string;
   type: 'success' | 'error' | 'info' | 'loading';
@@ -58,6 +57,7 @@ export const NotificationSystem: React.FC = () => {
             {/* ACTIONS (z.B. Abbrechen) */}
             {loadingNotification.actions && loadingNotification.actions.length > 0 && (
               <div className="flex gap-3 w-full justify-center">
+                {/* FIX: Typed action and idx as any to resolve TS7006 */}
                 {loadingNotification.actions.map((action: any, idx: number) => (
                   <button
                     key={idx}

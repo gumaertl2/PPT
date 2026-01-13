@@ -62,7 +62,8 @@ export const ProfileStep = () => {
               onChange={(e) => setStrategy(e.target.value)}
               className="w-full border-blue-300 rounded-md shadow-sm focus:border-blue-600 focus:ring-blue-600 text-lg p-2 bg-white"
             >
-              {Object.entries(STRATEGY_DEFINITIONS).map(([key, def]) => (
+              {/* FIX: Cast to any to avoid implicit type error on 'def' */}
+              {Object.entries(STRATEGY_DEFINITIONS as any).map(([key, def]: [string, any]) => (
                 <option key={key} value={key}>
                   {t(def.labelKey)}
                 </option>

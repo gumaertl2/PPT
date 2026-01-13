@@ -1,7 +1,6 @@
 // src/features/Welcome/CatalogModal.tsx
 // 09.01.2026 23:00
 // REWRITE: V30 Clone (Single Page, Print-Ready, Info-Box)
-// FIX: Removed unused 't'
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -26,7 +25,7 @@ interface CatalogModalProps {
 }
 
 export const CatalogModal: React.FC<CatalogModalProps> = ({ isOpen, onClose }) => {
-  // FIX: Removed 't'
+  // FIX: Removed unused 't'
   const { i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
 

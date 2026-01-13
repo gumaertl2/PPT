@@ -3,7 +3,6 @@
  * SCHRITT 2: WER & WIE
  * UPDATE: Speicherung pro Option-ID (Fix für falsche "i"-Zuordnung).
  * UPDATE: Beim Wechseln der Option wird der passende Text geladen oder geleert.
- * FIX: Removed unused 'Check' import
  */
 
 import React, { useState } from 'react';
@@ -24,6 +23,7 @@ import {
   Briefcase,
   Coffee,
   Dog
+  // FIX: Removed unused 'Check' import
 } from 'lucide-react';
 import { 
   STRATEGY_OPTIONS, 
