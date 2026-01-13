@@ -1,5 +1,6 @@
 // src/features/Workflow/WorkflowSelectionModal.tsx
 // 13.01.2026 19:55 - FIX: Improved status logic for 'Enricher' and 'Accommodation'
+// FIX: Removed unused 't' variable.
 // --- END OF FILE 255 Zeilen ---
 
 import React, { useState, useEffect } from 'react';
@@ -31,7 +32,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
   onClose, 
   onStart 
 }) => {
-  const { t } = useTranslation();
+  // FIX: Removed unused 't'
   const { project } = useTripStore();
   const [selectedSteps, setSelectedSteps] = useState<WorkflowStepId[]>([]);
   const [showConfirm, setShowConfirm] = useState(false);

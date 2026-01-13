@@ -9,7 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useTripStore } from '../store/useTripStore';
 import { PayloadBuilder } from '../core/prompts/PayloadBuilder';
 import { GeminiService } from '../services/gemini';
-import { WORKFLOW_STEPS } from '../core/workflow/steps';
+import { WORKFLOW_STEPS } from '../core/Workflow/steps';
 import type { WorkflowStepId } from '../core/types';
 import type { TaskKey } from '../data/config';
 

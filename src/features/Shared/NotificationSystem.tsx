@@ -1,9 +1,10 @@
 // src/features/shared/NotificationSystem.tsx
 // 10.01.2026 22:00
 // UPDATE: Implemented Centered Loading Modal (Blocking) + Toast System for others.
+// FIX: Removed missing import 'AppNotification' and defined locally. Fixed implicit any.
 
 import React from 'react';
-import { useTripStore, type AppNotification } from '../../store/useTripStore';
+import { useTripStore } from '../../store/useTripStore';
 import { 
   CheckCircle2, 
   AlertCircle, 
@@ -12,6 +13,18 @@ import {
   Loader2 
 } from 'lucide-react';
 
+// FIX: Local definition since it's missing in store export
+interface AppNotification {
+  id: string;
+  type: 'success' | 'error' | 'info' | 'loading';
+  message: string;
+  actions?: {
+    label: string;
+    onClick: () => void;
+    variant?: 'default' | 'outline';
+  }[];
+}
+
 export const NotificationSystem: React.FC = () => {
   const { notifications, dismissNotification } = useTripStore();
 
@@ -19,8 +32,8 @@ export const NotificationSystem: React.FC = () => {
 
   // Strategie: Wir suchen EINE Loading-Notification für das Modal.
   // Alle anderen (Erfolg, Fehler) bleiben Toasts.
-  const loadingNotification = notifications.find(n => n.type === 'loading');
-  const toastNotifications = notifications.filter(n => n.type !== 'loading');
+  const loadingNotification = notifications.find((n: any) => n.type === 'loading');
+  const toastNotifications = notifications.filter((n: any) => n.type !== 'loading');
 
   return (
     <>
@@ -45,7 +58,7 @@ export const NotificationSystem: React.FC = () => {
             {/* ACTIONS (z.B. Abbrechen) */}
             {loadingNotification.actions && loadingNotification.actions.length > 0 && (
               <div className="flex gap-3 w-full justify-center">
-                {loadingNotification.actions.map((action, idx) => (
+                {loadingNotification.actions.map((action: any, idx: number) => (
                   <button
                     key={idx}
                     onClick={action.onClick}
@@ -68,7 +81,7 @@ export const NotificationSystem: React.FC = () => {
 
       {/* 2. TOAST STACK (Bottom Right) - Für Success/Error */}
       <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 w-full max-w-sm pointer-events-none">
-        {toastNotifications.map((notification) => (
+        {toastNotifications.map((notification: any) => (
           <Toast 
             key={notification.id} 
             notification={notification} 

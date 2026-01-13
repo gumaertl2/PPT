@@ -11,9 +11,9 @@ import { InfoModal } from './InfoModal';
 
 // NEU: Import der dedizierten Modals
 import { CatalogModal } from './CatalogModal';
-import { SettingsModal } from '../cockpit/SettingsModal';
+import { SettingsModal } from '../Cockpit/SettingsModal';
 
-import { getInfoText } from '../../data/texts';
+import { getInfoText } from '../../data/Texts';
 import type { InfoCategory } from '../../data/texts';
 
 export const WelcomeScreen = () => {

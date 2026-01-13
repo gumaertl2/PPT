@@ -1,6 +1,7 @@
 // src/core/types.ts
 // 10.01.2026 23:45
 // UPDATE: Added 'anreicherer' to WorkflowStepId for V30 parity.
+// FIX: Added 'chefPlaner' and missing profile fields.
 
 export type LanguageCode = 'de' | 'en';
 
@@ -15,7 +16,8 @@ export type WorkflowStepId =
   | 'food'           // Restaurants
   | 'accommodation'  // Hotels
   | 'sondertage'     // Wetter / Flex
-  | 'transfers';     // Logistik
+  | 'transfers'      // Logistik
+  | 'chefPlaner';    // Chef-Planer (Analysis)
 
 export interface WorkflowStepDef {
   id: WorkflowStepId;
@@ -98,10 +100,12 @@ export interface TripUserProfile {
     duration: number; 
     flexible: boolean;
     fixedEvents: CalendarEvent[];
+    fixedDates?: string; // FIX: Added for ProfileStep textarea
     arrival: {
       type?: 'flight' | 'train' | 'car' | 'camper' | 'suggestion' | 'other';
       details?: string; 
       time?: string;
+      description?: string; // FIX: Added for ProfileStep
     };
     departure?: DepartureDetails;
   };
