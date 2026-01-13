@@ -1,0 +1,105 @@
+/**
+ * src/data/texts/help.ts
+ * Inhalt: Hilfe & API Key Guide
+ */
+
+export const help = {
+  de: {
+    title: "Hilfe & API Key",
+    content: `### So erhalten Sie Ihren kostenlosen Google Gemini API-Key
+
+Um "Papa-Tours Reiseplaner" nutzen zu können, benötigen Sie einen eigenen API-Schlüssel von Google.
+Das klingt technisch, ist aber in wenigen Minuten erledigt und für die private Nutzung komplett kostenlos.
+
+---
+
+**1. Warum brauche ich einen eigenen Schlüssel?**
+Dieses Programm läuft zu 100% auf Ihrem Gerät (in Ihrem Browser).
+Es gibt keinen "Server" von uns, der Ihre Anfragen weiterleitet.
+Damit Sie direkt mit der künstlichen Intelligenz (Google Gemini) kommunizieren können, müssen Sie sich bei Google authentifizieren.
+Das hat für Sie zwei Vorteile:
+* **Datenschutz:** Ihre Reisepläne bleiben privat zwischen Ihnen und Google. Niemand sonst liest mit.
+* **Kostenlos:** Google bietet jedem Nutzer ein großzügiges kostenloses Kontingent, das für private Reiseplanungen mehr als ausreicht.
+
+**2. Schritt-für-Schritt Anleitung**
+
+* **Schritt A:** Gehen Sie auf die offizielle Google AI Studio Seite:
+  👉 https://aistudio.google.com/app/apikey
+
+* **Schritt B:** Melden Sie sich mit Ihrem normalen Google-Konto (Gmail) an.
+(Falls Sie noch keines haben, können Sie dort eines erstellen).
+* **Schritt C:** Klicken Sie auf den blauen Button **"Create API Key"**.
+  Es öffnet sich ein Fenster.
+Wählen Sie "Create API Key in new project" (oder ein bestehendes Projekt, falls vorhanden).
+* **Schritt D:** Kopieren Sie den Schlüssel.
+  Google zeigt Ihnen eine lange Zeichenkette (beginnt meist mit "AIza...").
+Klicken Sie auf "Copy", um den Schlüssel in die Zwischenablage zu kopieren.
+
+**3. Schlüssel im Programm eingeben**
+Kehren Sie zu diesem Programm zurück und fügen Sie den Schlüssel in das Eingabefeld ein.
+Klicken Sie auf "Speichern". Fertig!
+
+---
+
+**Häufige Fragen (FAQ)**
+
+* **Kostet das wirklich nichts?**
+  Ja.
+Der "Free Tier" von Google Gemini ist kostenlos. Er hat gewisse Limits (z.B. eine bestimmte Anzahl von Anfragen pro Minute), die für dieses Programm aber meist ausreichen.
+Sollten Sie das Limit erreichen, warten Sie einfach kurz oder wechseln Sie im Menü auf das Modell "Flash" (schneller & höhere Limits).
+* **Ist mein Schlüssel sicher?**
+  Dieses Programm speichert Ihren Schlüssel nur lokal in Ihrem Browser (verschlüsselt).
+Er wird niemals an uns oder andere Server gesendet, sondern nur direkt an Google, wenn Sie eine Anfrage stellen.
+* **Kann ich den Schlüssel später löschen?**
+  Ja. Sie können den Schlüssel jederzeit in Ihrem Google-Konto (AI Studio) widerrufen oder löschen.`
+  },
+  en: {
+    title: "Help & API Key",
+    content: `### How to get your free Google Gemini API Key
+
+To use "Papa-Tours Travel Planner", you need your own API key from Google.
+It sounds technical, but it's done in a few minutes and is completely free for private use.
+
+---
+
+**1. Why do I need my own key?**
+This program runs 100% on your device (in your browser).
+There is no "server" from us that forwards your requests.
+To communicate directly with the artificial intelligence (Google Gemini), you must authenticate yourself with Google.
+This has two advantages for you:
+* **Privacy:** Your travel plans remain private between you and Google. No one else reads them.
+* **Free:** Google offers every user a generous free quota that is more than sufficient for private travel planning.
+
+**2. Step-by-Step Instructions**
+
+* **Step A:** Go to the official Google AI Studio page:
+  👉 https://aistudio.google.com/app/apikey
+
+* **Step B:** Log in with your normal Google account (Gmail).
+(If you don't have one yet, you can create one there).
+* **Step C:** Click on the blue button **"Create API Key"**.
+  A window opens.
+Choose "Create API Key in new project" (or an existing project if available).
+* **Step D:** Copy the key.
+  Google shows you a long string (usually starting with "AIza...").
+Click "Copy" to copy the key to the clipboard.
+
+**3. Enter key in the program**
+Return to this program and paste the key into the input field.
+Click "Save". Done!
+
+---
+
+**Frequently Asked Questions (FAQ)**
+
+* **Is this really free?**
+  Yes.
+The "Free Tier" of Google Gemini is free. It has certain limits (e.g. a certain number of requests per minute), which are usually sufficient for this program.
+If you reach the limit, just wait a moment or switch to the "Flash" model in the menu (faster & higher limits).
+* **Is my key safe?**
+  This program saves your key only locally in your browser (encrypted).
+It is never sent to us or other servers, only directly to Google when you make a request.
+* **Can I delete the key later?**
+  Yes. You can revoke or delete the key at any time in your Google account (AI Studio).`
+  }
+};
