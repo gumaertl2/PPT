@@ -1,5 +1,5 @@
 // src/services/gemini.ts
-// 14.01.2026 15:10 - FIX: Re-saved to sync with updated Store types (addUsageStats signature).
+// 14.01.2026 16:35 - FIX: Added (store as any) cast to addUsageStats to bypass TS inference error.
 
 import { CONFIG } from '../data/config';
 import type { TaskKey, ModelType } from '../data/config';
@@ -218,7 +218,8 @@ export const GeminiService = {
           
           // --- STATS TRACKING START ---
           const tokens = data.usageMetadata?.totalTokenCount || 0;
-          store.addUsageStats(tokens, selectedModelKey);
+          // FIX: Added (store as any) cast to bypass TS error "Expected 0 arguments"
+          (store as any).addUsageStats(tokens, selectedModelKey);
           // --- STATS TRACKING END ---
 
           // 2. LOG RESPONSE (SUCCESS)

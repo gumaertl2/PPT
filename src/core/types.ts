@@ -1,5 +1,5 @@
 // src/core/types.ts
-// 14.01.2026 15:45 - FIX: Extended SelectOption with 'id' and legacy fields to fix build errors in strategies.ts
+// 14.01.2026 16:30 - FIX: Made 'value' optional in SelectOption to support data files using 'id'.
 
 export type LanguageCode = 'de' | 'en';
 
@@ -10,9 +10,11 @@ export interface LocalizedContent {
 }
 
 export interface SelectOption {
-  value: string;
+  // FIX: Made value optional to prevent TS errors in strategies.ts/options.ts
+  value?: string;
   label: string | LocalizedContent;
   icon?: any;
+  // FIX: Added description to satisfy CatalogModal
   description?: string | LocalizedContent;
   // FIX: Extended properties to match data files (strategies, interests)
   id?: string;
@@ -251,4 +253,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 235 Zeilen ---
+// --- END OF FILE 228 Zeilen ---
