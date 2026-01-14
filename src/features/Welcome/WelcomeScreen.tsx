@@ -1,6 +1,5 @@
 // src/features/Welcome/WelcomeScreen.tsx
-// 10.01.2026 18:45
-// UPDATE: Added Language Switcher to Header (Top Right)
+// 13.01.2026 17:50 - FIX: Fixed case-sensitive import path for 'data/Texts'.
 
 import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,7 +13,8 @@ import { CatalogModal } from './CatalogModal';
 import { SettingsModal } from '../Cockpit/SettingsModal';
 
 import { getInfoText } from '../../data/Texts';
-import type { InfoCategory } from '../../data/texts';
+// FIX: Corrected import path casing to Match 'Texts' folder
+import type { InfoCategory } from '../../data/Texts';
 
 export const WelcomeScreen = () => {
   const { t, i18n } = useTranslation();
@@ -232,3 +232,4 @@ export const WelcomeScreen = () => {
     </div>
   );
 };
+// --- END OF FILE 164 Zeilen ---

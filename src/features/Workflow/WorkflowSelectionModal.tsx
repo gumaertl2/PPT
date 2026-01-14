@@ -1,14 +1,13 @@
 // src/features/Workflow/WorkflowSelectionModal.tsx
-// 13.01.2026 19:55 - FIX: Improved status logic for 'Enricher' and 'Accommodation'
-// FIX: Removed unused 't' variable.
-// --- END OF FILE 255 Zeilen ---
+// 13.01.2026 17:55 - FIX: Fixed case-sensitive import (Cockpit) and removed unused useTranslation.
 
 import React, { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next'; // Added for translations
+// FIX: Removed unused 'useTranslation' import to satisfy linter
 import { useTripStore } from '../../store/useTripStore';
 import { WORKFLOW_STEPS } from '../../core/Workflow/steps';
 import type { WorkflowStepId } from '../../core/types';
-import { ConfirmModal } from '../cockpit/ConfirmModal';
+// FIX: Corrected import path casing: '../cockpit/...' -> '../Cockpit/...'
+import { ConfirmModal } from '../Cockpit/ConfirmModal';
 import { 
   CheckCircle2, 
   X,
@@ -32,7 +31,6 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
   onClose, 
   onStart 
 }) => {
-  // FIX: Removed unused 't'
   const { project } = useTripStore();
   const [selectedSteps, setSelectedSteps] = useState<WorkflowStepId[]>([]);
   const [showConfirm, setShowConfirm] = useState(false);

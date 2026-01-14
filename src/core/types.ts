@@ -1,6 +1,6 @@
 // src/core/types.ts
-// 13.01.2026 - FIX: Added 'chefPlaner' and missing profile fields (fixedDates, arrival description).
-// UPDATE: Added 'anreicherer' to WorkflowStepId for V30 parity.
+// 13.01.2026 - FIX: Added 'accommodationStatus' to logistics.
+// FIX: Added 'chefPlaner' and missing profile fields (fixedDates, arrival description).
 
 export type LanguageCode = 'de' | 'en';
 
@@ -110,6 +110,7 @@ export interface TripUserProfile {
   };
   logistics: {
     mode: 'stationaer' | 'mobil';
+    accommodationStatus?: 'needs_suggestions' | 'booked'; // FIX: Added field
     stationary: {
       region: string;
       destination: string;
@@ -212,4 +213,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 164 Zeilen ---
+// --- END OF FILE 165 Zeilen ---

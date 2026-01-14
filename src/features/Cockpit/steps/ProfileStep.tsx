@@ -1,11 +1,9 @@
-/**
- * src/features/cockpit/steps/ProfileStep.tsx
- * Update: Inklusive Destination, Strategie-Wahl und Anreise-Details.
- */
+// src/features/cockpit/steps/ProfileStep.tsx
+// 13.01.2026 17:45 - FIX: Corrected imports (STRATEGY_OPTIONS) and state access (removed phantom 'profile'/'config' objects).
 
 import { useTranslation } from 'react-i18next';
 import { useTripStore } from '../../../store/useTripStore';
-import { STRATEGY_DEFINITIONS } from '../../../data/staticData'; // NEU: Import für Dropdown
+import { STRATEGY_OPTIONS } from '../../../data/staticData'; // FIX: Renamed from STRATEGY_DEFINITIONS
 import { Users, Calendar, Home, MapPin, FileText, Globe, Compass, Plane } from 'lucide-react';
 
 export const ProfileStep = () => {
@@ -22,9 +20,13 @@ export const ProfileStep = () => {
     setArrival
   } = useTripStore();
   
-  const { travelers, dates, logistics, notes, destination } = project.userInputs.profile;
-  const { strategyId } = project.userInputs.config;
-  const isRoadtrip = project.userInputs.interests.includes('logistics_roadtrip');
+  // FIX: Access flat properties from userInputs (no 'profile' or 'config' objects)
+  // FIX: Map destination from logistics.stationary
+  const { travelers, dates, logistics, notes, strategyId, selectedInterests } = project.userInputs;
+  const destination = logistics.stationary.destination;
+  
+  // FIX: Use 'selectedInterests' instead of non-existent 'interests'
+  const isRoadtrip = selectedInterests?.includes('logistics_roadtrip') ?? false;
 
   return (
     <div className="space-y-8 animate-fade-in-up pb-10">
@@ -62,8 +64,8 @@ export const ProfileStep = () => {
               onChange={(e) => setStrategy(e.target.value)}
               className="w-full border-blue-300 rounded-md shadow-sm focus:border-blue-600 focus:ring-blue-600 text-lg p-2 bg-white"
             >
-              {/* FIX: Cast to any to avoid implicit type error on 'def' */}
-              {Object.entries(STRATEGY_DEFINITIONS as any).map(([key, def]: [string, any]) => (
+              {/* FIX: Use STRATEGY_OPTIONS and cast to any if needed for generic iteration */}
+              {Object.entries(STRATEGY_OPTIONS).map(([key, def]: [string, any]) => (
                 <option key={key} value={key}>
                   {t(def.labelKey)}
                 </option>
@@ -308,4 +310,4 @@ export const ProfileStep = () => {
     </div>
   );
 };
-// --- END OF FILE 250 Zeilen ---
+// --- END OF FILE 253 Zeilen ---

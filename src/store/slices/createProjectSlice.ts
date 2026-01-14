@@ -1,4 +1,6 @@
 // src/store/slices/createProjectSlice.ts
+// 13.01.2026 17:35 - FIX: Added setLogistics, setDestination, setStrategy, setRoundtripOptions.
+
 import type { StateCreator } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import type { 
@@ -30,9 +32,18 @@ export interface ProjectSlice {
   setTravelers: (data: Partial<TripUserProfile['travelers']>) => void;
   setDates: (data: Partial<TripUserProfile['dates']>) => void;
   setLogisticMode: (mode: 'stationaer' | 'mobil') => void;
+  
+  // FIX: Added generic setLogistics
+  setLogistics: (data: Partial<TripUserProfile['logistics']>) => void;
+  
   updateStationary: (data: Partial<TripUserProfile['logistics']['stationary']>) => void;
   updateRoundtrip: (data: Partial<TripUserProfile['logistics']['roundtrip']>) => void;
   updateSearchSettings: (settings: Partial<TripUserProfile['searchSettings']>) => void;
+
+  // FIX: Missing Actions requested by ProfileStep
+  setDestination: (destination: string) => void;
+  setStrategy: (strategyId: string) => void;
+  setRoundtripOptions: (data: Partial<TripUserProfile['logistics']['roundtrip']>) => void;
 
   // Complex Objects
   addRouteStop: () => void;
@@ -244,6 +255,17 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     }
   })),
 
+  // FIX: Implemented setLogistics
+  setLogistics: (data) => set((state: any) => ({
+    project: {
+      ...state.project,
+      userInputs: {
+        ...state.project.userInputs,
+        logistics: { ...state.project.userInputs.logistics, ...data }
+      }
+    }
+  })),
+
   updateStationary: (data) => set((state: any) => ({
     project: {
       ...state.project,
@@ -279,6 +301,37 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
       }
     }
   })),
+
+  // FIX: Implemented setDestination
+  setDestination: (destination) => set((state: any) => ({
+    project: {
+      ...state.project,
+      userInputs: {
+        ...state.project.userInputs,
+        logistics: {
+          ...state.project.userInputs.logistics,
+          stationary: { 
+            ...state.project.userInputs.logistics.stationary, 
+            destination 
+          }
+        }
+      }
+    }
+  })),
+
+  // FIX: Implemented setStrategy
+  setStrategy: (strategyId) => set((state: any) => ({
+    project: {
+      ...state.project,
+      userInputs: {
+        ...state.project.userInputs,
+        strategyId
+      }
+    }
+  })),
+
+  // FIX: Implemented setRoundtripOptions
+  setRoundtripOptions: (data) => get().updateRoundtrip(data),
 
   addRouteStop: () => set((state: any) => {
     const newStop: RouteStop = { id: uuidv4(), location: '', duration: 0 };
@@ -455,3 +508,4 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     }
   }))
 });
+// --- END OF FILE 375 Zeilen ---

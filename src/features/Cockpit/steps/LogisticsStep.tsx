@@ -1,5 +1,5 @@
 // src/features/cockpit/steps/LogisticsStep.tsx
-// 08.01.2026 14:58
+// 13.01.2026 17:40 - FIX: Renamed constraint properties to match types.ts (maxDriveTimePerLeg -> maxDriveTimeLeg, maxTotalDriveTime -> maxDriveTimeTotal).
 /**
  * src/features/cockpit/steps/LogisticsStep.tsx
  * SCHRITT 1: REISE-COCKPIT
@@ -71,10 +71,12 @@ export const LogisticsStep = () => {
       updateRoundtrip({
         constraints: {
           // Behalte manuellen Wert oder setze Default
-          maxDriveTimePerLeg: logistics.roundtrip.constraints?.maxDriveTimePerLeg || defaultLegMins,
+          // FIX: Renamed maxDriveTimePerLeg -> maxDriveTimeLeg
+          maxDriveTimeLeg: logistics.roundtrip.constraints?.maxDriveTimeLeg || defaultLegMins,
           // Diese Werte hängen direkt an der Dauer -> Aktualisieren (User kann danach überschreiben)
           // Wir aktualisieren sie immer, wenn sich die Dauer ändert, um Inkonsistenzen zu vermeiden.
-          maxTotalDriveTime: calcTotalDriveMins,
+          // FIX: Renamed maxTotalDriveTime -> maxDriveTimeTotal
+          maxDriveTimeTotal: calcTotalDriveMins,
           maxHotelChanges: calcHotelChanges
         }
       });
@@ -371,11 +373,13 @@ export const LogisticsStep = () => {
                     type="number"
                     placeholder="h"
                     className="w-full text-xs border-slate-300 rounded"
-                    value={logistics.roundtrip.constraints?.maxDriveTimePerLeg ? logistics.roundtrip.constraints.maxDriveTimePerLeg / 60 : ''}
+                    // FIX: Renamed maxDriveTimePerLeg -> maxDriveTimeLeg
+                    value={logistics.roundtrip.constraints?.maxDriveTimeLeg ? logistics.roundtrip.constraints.maxDriveTimeLeg / 60 : ''}
                     onChange={(e) => {
                         const val = parseFloat(e.target.value);
                         updateRoundtrip({ 
-                            constraints: { ...logistics.roundtrip.constraints, maxDriveTimePerLeg: isNaN(val) ? undefined : val * 60 } 
+                            // FIX: Renamed maxDriveTimePerLeg -> maxDriveTimeLeg
+                            constraints: { ...logistics.roundtrip.constraints, maxDriveTimeLeg: isNaN(val) ? undefined : val * 60 } 
                         });
                     }}
                  />
@@ -388,11 +392,13 @@ export const LogisticsStep = () => {
                     type="number"
                     placeholder="h"
                     className="w-full text-xs border-slate-300 rounded font-medium text-blue-600"
-                    value={logistics.roundtrip.constraints?.maxTotalDriveTime ? logistics.roundtrip.constraints.maxTotalDriveTime / 60 : ''}
+                    // FIX: Renamed maxTotalDriveTime -> maxDriveTimeTotal
+                    value={logistics.roundtrip.constraints?.maxDriveTimeTotal ? logistics.roundtrip.constraints.maxDriveTimeTotal / 60 : ''}
                     onChange={(e) => {
                         const val = parseFloat(e.target.value);
                         updateRoundtrip({ 
-                            constraints: { ...logistics.roundtrip.constraints, maxTotalDriveTime: isNaN(val) ? undefined : val * 60 } 
+                            // FIX: Renamed maxTotalDriveTime -> maxDriveTimeTotal
+                            constraints: { ...logistics.roundtrip.constraints, maxDriveTimeTotal: isNaN(val) ? undefined : val * 60 } 
                         });
                     }}
                  />
@@ -485,3 +491,4 @@ export const LogisticsStep = () => {
     </div>
   );
 };
+// --- END OF FILE 428 Zeilen ---
