@@ -1,7 +1,27 @@
 // src/core/types.ts
-// 13.01.2026 22:15 - FIX: Added 'roundtripOptions', 'dailyStartTime', 'dailyEndTime'.
+// 14.01.2026 12:30 - FIX: Added missing exported types (LocalizedContent, SelectOption, InterestCategory) and extended ChefPlanerResult (notes).
 
 export type LanguageCode = 'de' | 'en';
+
+// FIX: Added missing shared types required by data files
+export interface LocalizedContent {
+  de: string;
+  en: string;
+}
+
+export interface SelectOption {
+  value: string;
+  label: string | LocalizedContent;
+  icon?: any;
+}
+
+export interface InterestCategory {
+  id: string;
+  label: LocalizedContent;
+  isSystem?: boolean;
+  defaultUserPreference?: LocalizedContent;
+  aiInstruction?: LocalizedContent;
+}
 
 // --- WORKFLOW / MAGIC CHAIN ---
 export type WorkflowStepId = 
@@ -113,7 +133,7 @@ export interface TripUserProfile {
   logistics: {
     mode: 'stationaer' | 'mobil';
     accommodationStatus?: 'needs_suggestions' | 'booked'; 
-    // FIX: Added roundtripOptions (sibling to roundtrip, used in ProfileStep)
+    // FIX: Added roundtripOptions
     roundtripOptions?: {
         waypoints?: string;
         strictRoute?: boolean;
@@ -167,6 +187,9 @@ export interface ChefPlanerResult {
     destination?: string;
     dates?: string;
     hints: string[];
+    // FIX: Added notes and corrected_destination to match AnalysisReviewView
+    notes?: string[];
+    corrected_destination?: string;
   };
   assessment: {
     plausibility: string;
@@ -220,4 +243,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 176 Zeilen ---
+// --- END OF FILE 222 Zeilen ---

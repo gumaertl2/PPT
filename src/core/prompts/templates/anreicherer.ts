@@ -1,9 +1,9 @@
 // src/core/prompts/templates/anreicherer.ts
-// 12.01.2026 10:45
+// 14.01.2026 13:00 - FIX: Added type cast for LanguageCode to satisfy PromptBuilder.
 // TEMPLATE: ANREICHERER (Data Enricher) - V40 Port
 // UPDATE: Switch to ID-based matching. Input is now List<{id, name}>, Output must include ID.
 
-import type { TripProject } from '../../types';
+import type { TripProject, LanguageCode } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
 
 /**
@@ -96,6 +96,7 @@ ${JSON.stringify(SIGHT_SCHEMA, null, 2)}
 Response in valid JSON only. Start directly with \`\`\`json.
 `;
 
-    return PromptBuilder.build(prompt, "", outputLang);
+    // FIX: Cast outputLang to LanguageCode
+    return PromptBuilder.build(prompt, "", outputLang as LanguageCode);
 };
-// --- END OF FILE 98 Zeilen ---
+// --- END OF FILE 99 Zeilen ---

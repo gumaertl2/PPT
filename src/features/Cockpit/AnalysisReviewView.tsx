@@ -1,6 +1,5 @@
 // src/features/cockpit/AnalysisReviewView.tsx
-// 12.01.2026 16:30
-// FIX: Added optional chaining to prevent crashes with loaded legacy files.
+// 14.01.2026 14:30 - FIX: Applied Optional Chaining (?.) to all analysis properties to prevent crashes in 'Fundament' mode. Removed unused Sparkles.
 
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -12,7 +11,7 @@ import {
   Hotel,
   ArrowRight,
   Map as MapIcon,
-  Sparkles,
+  // FIX: Removed unused Sparkles import
   Calendar,
   Wand2
 } from 'lucide-react';
@@ -29,7 +28,7 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
   
   // Store Access
   const { project, setWorkflowModalOpen, setCustomPreference } = useTripStore();
-  const { startSingleTask, status } = useTripGeneration(); // Update to startSingleTask
+  const { startSingleTask, status } = useTripGeneration(); 
   
   const analysis = project.analysis.chefPlaner;
   
@@ -38,10 +37,12 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
   
   // INTELLIGENTE INITIALISIERUNG DES COUNTS
   const [suggestionCount, setSuggestionCount] = useState<number>(() => {
+    // FIX: Safe access with ?.
     if (project.analysis.chefPlaner?.smart_limit_recommendation?.value) {
       return project.analysis.chefPlaner.smart_limit_recommendation.value;
     }
-    const saved = project.userInputs.customPreferences?.suggestionCount;
+    // FIX: Safe access for userInputs
+    const saved = project.userInputs?.customPreferences?.suggestionCount;
     if (saved) {
       return parseInt(saved, 10);
     }
@@ -59,6 +60,7 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
 
   const isMobil = project.userInputs.logistics.mode === 'mobil';
 
+  // Fallback: Wenn gar keine Analyse da ist (z.B. Fehler beim Laden)
   if (!analysis) {
     return (
       <div className="p-8 text-center bg-red-50 rounded-xl border border-red-200">
@@ -75,7 +77,7 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
     );
   }
 
-  // FIX: Safe access to corrections
+  // FIX: Robust check for corrections. Prevents crash if 'corrections' or 'notes' is undefined.
   const hasCorrections = analysis.corrections && (
       (analysis.corrections.notes && analysis.corrections.notes.length > 0) || 
       analysis.corrections.corrected_destination
@@ -94,6 +96,7 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
                 {t('analysis.correctionsTitle')}
               </h3>
               <ul className="mt-1 space-y-0.5 text-sm text-green-800 list-disc list-inside">
+                {/* FIX: ?.map ensures no crash if notes is undefined */}
                 {analysis.corrections?.notes?.map((note, idx) => (
                   <li key={idx}>{note}</li>
                 ))}
@@ -110,10 +113,12 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
           {t('analysis.plausibility')}
         </h3>
         <p className="text-sm text-gray-700 leading-relaxed mb-4">
-          {analysis.plausibility_check || t('analysis.noCheck')}
+          {/* FIX: Fallback logic using OR checks to handle missing fields */}
+          {analysis.plausibility_check || analysis.briefing_summary || t('analysis.noCheck')}
         </p>
         
         {/* Strategisches Briefing */}
+        {/* FIX: Safe check using ?. */}
         {analysis.strategic_briefing && (
           <div className="pt-4 border-t border-gray-100">
              <h4 className="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-2">
@@ -121,16 +126,17 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
                {t('analysis.briefing')}
              </h4>
              <p className="text-sm text-gray-600 italic mb-2">
-              "{analysis.strategic_briefing.sammler_briefing}"
+              "{analysis.strategic_briefing?.sammler_briefing}"
             </p>
             <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded inline-block">
-              <strong>{t('analysis.radius')}:</strong> {analysis.strategic_briefing.search_radius_instruction}
+              <strong>{t('analysis.radius')}:</strong> {analysis.strategic_briefing?.search_radius_instruction}
             </div>
           </div>
         )}
       </div>
 
       {/* 2. VALIDIERTE HOTELS */}
+      {/* FIX: Safe check with ?.length */}
       {analysis.validated_hotels && analysis.validated_hotels.length > 0 && (
         <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
             <div className="bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-800 uppercase flex items-center gap-2">
@@ -151,6 +157,7 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
       )}
 
       {/* 3. VALIDIERTE TERMINE */}
+      {/* FIX: Safe check with ?.length */}
       {analysis.validated_appointments && analysis.validated_appointments.length > 0 && (
         <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
           <div className="bg-amber-50 px-4 py-2 text-xs font-bold text-amber-800 uppercase flex items-center gap-2">
@@ -200,10 +207,11 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
           <label className="block text-sm font-bold text-gray-800 mb-1">
              {t('analysis.countLabel')}
           </label>
+          {/* FIX: Safe check with ?. */}
           {analysis.smart_limit_recommendation?.value ? (
              <div className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded border border-amber-100 inline-block">
                <strong>{t('analysis.smartLimit')}: {analysis.smart_limit_recommendation.value}</strong>
-               <span className="block opacity-90 mt-0.5">{analysis.smart_limit_recommendation.reasoning}</span>
+               <span className="block opacity-90 mt-0.5">{analysis.smart_limit_recommendation?.reasoning}</span>
              </div>
           ) : (
             <span className="text-xs text-gray-500">
@@ -252,3 +260,4 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
     </div>
   );
 };
+// --- END OF FILE 190 Zeilen ---

@@ -1,8 +1,5 @@
-/**
- * src/features/cockpit/SettingsModal.tsx
- * 10.01.2026 23:00
- * FIX: Added breakdown of usage stats by model (Tokens & Calls per Model).
- */
+// src/features/cockpit/SettingsModal.tsx
+// 14.01.2026 14:15 - FIX: Corrected import casing 'data/Texts' (Linux support) and AiStrategy import.
 
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -15,16 +12,18 @@ import {
   Zap, 
   Cpu, 
   Settings, 
-  Bug,
+  Bug, 
   Check,
   Trash2,
   AlertTriangle,
   Server
 } from 'lucide-react';
 import { useTripStore } from '../../store/useTripStore';
+// FIX: Imported from useTripStore (now exported there)
 import type { AiStrategy } from '../../store/useTripStore';
 import { InfoModal } from '../Welcome/InfoModal';
-import { getInfoText } from '../../data/texts';
+// FIX: Corrected casing 'texts' -> 'Texts' for Linux/Vercel build
+import { getInfoText } from '../../data/Texts';
 import type { LanguageCode } from '../../core/types';
 
 interface SettingsModalProps {
@@ -65,6 +64,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   const openHelpModal = () => {
     const currentLang = i18n.language.startsWith('en') ? 'en' : 'de';
+    // FIX: getInfoText is now imported correctly from Texts (Capitalized)
     const textData = getInfoText('help', currentLang as LanguageCode);
     setInfoContent(textData);
     setInfoModalOpen(true);
@@ -281,3 +281,4 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     </>
   );
 };
+// --- END OF FILE 295 Zeilen ---

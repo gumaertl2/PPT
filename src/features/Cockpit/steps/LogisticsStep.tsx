@@ -1,15 +1,6 @@
 // src/features/cockpit/steps/LogisticsStep.tsx
-// 14.01.2026 12:20 - FIX: Removed unused 'React' import. Preserved previous variable renames.
-/**
- * src/features/cockpit/steps/LogisticsStep.tsx
- * SCHRITT 1: REISE-COCKPIT
- * UPDATE: 
- * - Zeiten & Anreise nach oben verschoben.
- * - Auto-Fill der Constraints basierend auf Reisedauer (Smart Defaults).
- * - Neues Feld für stationäre Ausflugs-Fahrzeit.
- */
+// 14.01.2026 14:45 - FIX: Added auto-calculation of duration when start/end dates change to trigger smart defaults.
 
-// FIX: Removed unused 'React' default import
 import { useEffect } from 'react';
 import { useTripStore } from '../../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
@@ -52,6 +43,28 @@ export const LogisticsStep = () => {
   const { userInputs } = project;
   const { logistics, dates } = userInputs;
 
+  // --- FIX: AUTO-CALC DURATION (Datum -> Dauer) ---
+  // Ohne das wird 'dates.duration' bei manueller Datumswahl nicht aktualisiert,
+  // und die Smart Defaults (unten) feuern nicht.
+  useEffect(() => {
+    if (!dates.flexible && dates.start && dates.end) {
+      const start = new Date(dates.start);
+      const end = new Date(dates.end);
+      
+      // Differenz in Millisekunden
+      const diffTime = Math.abs(end.getTime() - start.getTime());
+      // Umrechnung in Tage (aufgerundet, inkl. Starttag-Logik meist +1 oder rein rechnerisch Diff)
+      // Wir nehmen hier die reine Differenz in 24h Blöcken. Bei 1.1. bis 8.1. sind es 7 Tage.
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+      
+      // Nur updaten, wenn abweichend (verhindert Loop)
+      if (diffDays > 0 && dates.duration !== diffDays) {
+        setDates({ duration: diffDays });
+      }
+    }
+  }, [dates.start, dates.end, dates.flexible, dates.duration, setDates]);
+
+
   // --- SMART DEFAULTS LOGIC ---
   useEffect(() => {
     // 1. MOBIL: Automatische Berechnung basierend auf Dauer
@@ -72,11 +85,9 @@ export const LogisticsStep = () => {
       updateRoundtrip({
         constraints: {
           // Behalte manuellen Wert oder setze Default
-          // FIX: Renamed maxDriveTimePerLeg -> maxDriveTimeLeg (Persisted from previous fix)
           maxDriveTimeLeg: logistics.roundtrip.constraints?.maxDriveTimeLeg || defaultLegMins,
           // Diese Werte hängen direkt an der Dauer -> Aktualisieren (User kann danach überschreiben)
-          // Wir aktualisieren sie immer, wenn sich die Dauer ändert, um Inkonsistenzen zu vermeiden.
-          // FIX: Renamed maxTotalDriveTime -> maxDriveTimeTotal (Persisted from previous fix)
+          // Wir aktualisieren sie immer, wenn sich die Dauer ändert.
           maxDriveTimeTotal: calcTotalDriveMins,
           maxHotelChanges: calcHotelChanges
         }
@@ -94,8 +105,7 @@ export const LogisticsStep = () => {
         });
       }
     }
-  }, [dates.duration, logistics.mode]); 
-  // Dependency: Wenn Dauer oder Modus sich ändert, neu berechnen.
+  }, [dates.duration, logistics.mode]); // Trigger: Dauer oder Modus ändert sich
 
 
   // Optionen für Dropdown
@@ -120,7 +130,7 @@ export const LogisticsStep = () => {
     <div className="space-y-6 animate-fade-in">
 
       {/* -----------------------------------------------------------
-          1. ZEITEN & ANREISE (JETZT OBEN)
+          1. ZEITEN & ANREISE
          ----------------------------------------------------------- */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         
@@ -374,12 +384,10 @@ export const LogisticsStep = () => {
                     type="number"
                     placeholder="h"
                     className="w-full text-xs border-slate-300 rounded"
-                    // FIX: Renamed maxDriveTimePerLeg -> maxDriveTimeLeg (Persisted)
                     value={logistics.roundtrip.constraints?.maxDriveTimeLeg ? logistics.roundtrip.constraints.maxDriveTimeLeg / 60 : ''}
                     onChange={(e) => {
                         const val = parseFloat(e.target.value);
                         updateRoundtrip({ 
-                            // FIX: Renamed maxDriveTimePerLeg -> maxDriveTimeLeg (Persisted)
                             constraints: { ...logistics.roundtrip.constraints, maxDriveTimeLeg: isNaN(val) ? undefined : val * 60 } 
                         });
                     }}
@@ -393,12 +401,10 @@ export const LogisticsStep = () => {
                     type="number"
                     placeholder="h"
                     className="w-full text-xs border-slate-300 rounded font-medium text-blue-600"
-                    // FIX: Renamed maxTotalDriveTime -> maxDriveTimeTotal (Persisted)
                     value={logistics.roundtrip.constraints?.maxDriveTimeTotal ? logistics.roundtrip.constraints.maxDriveTimeTotal / 60 : ''}
                     onChange={(e) => {
                         const val = parseFloat(e.target.value);
                         updateRoundtrip({ 
-                            // FIX: Renamed maxTotalDriveTime -> maxDriveTimeTotal (Persisted)
                             constraints: { ...logistics.roundtrip.constraints, maxDriveTimeTotal: isNaN(val) ? undefined : val * 60 } 
                         });
                     }}
@@ -492,4 +498,4 @@ export const LogisticsStep = () => {
     </div>
   );
 };
-// --- END OF FILE 428 Zeilen ---
+// --- END OF FILE 455 Zeilen ---

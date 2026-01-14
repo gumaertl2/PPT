@@ -1,5 +1,5 @@
 // src/data/config.ts
-// 07.01.2026 19:10
+// 14.01.2026 13:45 - FIX: Added missing TaskKeys 'basis' and 'anreicherer' to support CockpitWizard workflow.
 // UPDATE: V30 Original-Modelle (Gemini 2.5) & Robustness Settings
 
 export type ModelType = 'pro' | 'flash';
@@ -25,7 +25,10 @@ export type TaskKey =
   | 'ideenScout' 
   | 'countryScout'
   | 'sondertage'
-  | 'durationEstimator';
+  | 'durationEstimator'
+  // FIX: Added missing keys for Wizard Workflow
+  | 'basis'
+  | 'anreicherer';
 
 export const CONFIG = {
   api: {
@@ -93,7 +96,11 @@ export const CONFIG = {
       transferUpdater: 'flash',
       ideenScout: 'flash',
       timeOptimizer: 'flash',
-      durationEstimator: 'flash'
+      durationEstimator: 'flash',
+
+      // FIX: Added defaults for new keys
+      basis: 'flash',      // Sammler ist schnell
+      anreicherer: 'flash' // Anreicherer ist Masse
     } as Record<TaskKey, ModelType>,
 
     labels: {
@@ -117,7 +124,12 @@ export const CONFIG = {
       ideenScout: "tasks.ideenScout",
       countryScout: "tasks.countryScout",
       timeOptimizer: "tasks.timeOptimizer",
-      durationEstimator: "tasks.durationEstimator"
+      durationEstimator: "tasks.durationEstimator",
+
+      // FIX: Added labels for new keys (using aliases to existing keys to avoid missing translation errors)
+      basis: "tasks.sightCollector", 
+      anreicherer: "tasks.intelligentEnricher"
     } as Record<TaskKey, string>
   }
 };
+// --- END OF FILE 135 Zeilen ---

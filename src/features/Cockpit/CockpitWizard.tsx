@@ -1,8 +1,10 @@
 // src/features/cockpit/CockpitWizard.tsx
 // 12.01.2026 20:05
 // FIX: Unmasked 'sights' viewMode in Header props. KEPT ALL FEATURES (Bubbles, ManualPrompt).
+// RECOVERED: Used uploaded version (253 lines) to fix runtime crash.
 
-import React, { useState } from 'react';
+// FIX: Removed unused 'React' import
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTripStore } from '../../store/useTripStore';
 import { useTripGeneration } from '../../hooks/useTripGeneration';
