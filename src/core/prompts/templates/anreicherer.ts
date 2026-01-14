@@ -29,7 +29,7 @@ const SIGHT_SCHEMA = {
 };
 
 export const buildAnreichererPrompt = (project: TripProject): string => {
-    const { userInputs, meta, analysis } = project;
+    const { userInputs, meta } = project;
     
     // UI Sprache für den Output bestimmen
     const outputLang = userInputs.aiOutputLanguage || meta.language;
