@@ -1,5 +1,5 @@
 // src/features/cockpit/steps/LogisticsStep.tsx
-// 14.01.2026 15:50 - FIX: Added resolveLabel helper to handle string | LocalizedContent labels safely.
+// 14.01.2026 16:00 - FIX: Added resolveLabel helper to safely handle localized labels (fixes TS build error).
 
 import { useEffect } from 'react';
 import { useTripStore } from '../../../store/useTripStore';
@@ -43,7 +43,7 @@ export const LogisticsStep = () => {
   const { userInputs } = project;
   const { logistics, dates } = userInputs;
 
-  // --- HELPER: Label Resolution ---
+  // --- HELPER: Label Resolution (Fix TS Error) ---
   const resolveLabel = (item: any): string => {
     if (!item || !item.label) return '';
     if (typeof item.label === 'string') return item.label;
@@ -51,20 +51,14 @@ export const LogisticsStep = () => {
   };
 
   // --- FIX: AUTO-CALC DURATION (Datum -> Dauer) ---
-  // Ohne das wird 'dates.duration' bei manueller Datumswahl nicht aktualisiert,
-  // und die Smart Defaults (unten) feuern nicht.
   useEffect(() => {
     if (!dates.flexible && dates.start && dates.end) {
       const start = new Date(dates.start);
       const end = new Date(dates.end);
       
-      // Differenz in Millisekunden
       const diffTime = Math.abs(end.getTime() - start.getTime());
-      // Umrechnung in Tage (aufgerundet, inkl. Starttag-Logik meist +1 oder rein rechnerisch Diff)
-      // Wir nehmen hier die reine Differenz in 24h Blöcken. Bei 1.1. bis 8.1. sind es 7 Tage.
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
       
-      // Nur updaten, wenn abweichend (verhindert Loop)
       if (diffDays > 0 && dates.duration !== diffDays) {
         setDates({ duration: diffDays });
       }
@@ -74,48 +68,37 @@ export const LogisticsStep = () => {
 
   // --- SMART DEFAULTS LOGIC ---
   useEffect(() => {
-    // 1. MOBIL: Automatische Berechnung basierend auf Dauer
     if (logistics.mode === 'mobil' && dates.duration) {
       const days = dates.duration;
       
-      // Formel: (Tage - 2) * 3h
-      // Math.max(0, ...), damit bei Kurztrips nichts Negatives rauskommt
       const calcTotalDriveHours = Math.max(0, (days - DEFAULT_MOBILE_TOTAL_DRIVE_OFFSET) * DEFAULT_MOBILE_TOTAL_DRIVE_FACTOR);
       const calcTotalDriveMins = calcTotalDriveHours * 60;
 
-      // Formel: Tage / 4
       const calcHotelChanges = Math.floor(days / DEFAULT_MOBILE_HOTEL_CHANGE_DIVISOR);
-
-      // Default Leg: 6h
       const defaultLegMins = DEFAULT_MOBILE_MAX_DRIVE_TIME_LEG * 60;
 
       updateRoundtrip({
         constraints: {
-          // Behalte manuellen Wert oder setze Default
           maxDriveTimeLeg: logistics.roundtrip.constraints?.maxDriveTimeLeg || defaultLegMins,
-          // Diese Werte hängen direkt an der Dauer -> Aktualisieren (User kann danach überschreiben)
-          // Wir aktualisieren sie immer, wenn sich die Dauer ändert.
           maxDriveTimeTotal: calcTotalDriveMins,
           maxHotelChanges: calcHotelChanges
         }
       });
     }
 
-    // 2. STATIONÄR: Default initialisieren, falls leer
     if (logistics.mode === 'stationaer') {
       const currentVal = logistics.stationary.constraints?.maxDriveTimeDay;
       if (!currentVal) {
         updateStationary({
           constraints: {
-            maxDriveTimeDay: DEFAULT_STATIONARY_MAX_DRIVE_TIME_DAY * 60 // 3h in Minuten
+            maxDriveTimeDay: DEFAULT_STATIONARY_MAX_DRIVE_TIME_DAY * 60
           }
         });
       }
     }
-  }, [dates.duration, logistics.mode]); // Trigger: Dauer oder Modus ändert sich
+  }, [dates.duration, logistics.mode]);
 
 
-  // Optionen für Dropdown
   const ARRIVAL_OPTIONS = [
     { value: 'suggestion', label: t('cockpit.arrival_options.suggestion') },
     { value: 'flight', label: t('cockpit.arrival_options.flight') },
@@ -148,7 +131,6 @@ export const LogisticsStep = () => {
           </h3>
           
           <div className="flex-1 flex flex-col gap-4">
-             {/* Radio Switch */}
              <div className="flex gap-4 border-b border-slate-100 pb-3">
                <label className="flex items-center gap-2 cursor-pointer">
                   <input 
@@ -172,7 +154,6 @@ export const LogisticsStep = () => {
                </label>
              </div>
 
-            {/* Inputs */}
             {dates.flexible ? (
                <div className="animate-fade-in">
                   <label className="text-xs font-bold text-slate-500 block mb-1">{t('cockpit.duration_label')}</label>
@@ -313,7 +294,7 @@ export const LogisticsStep = () => {
               />
             </div>
             
-            {/* NEW: Max Drive Time for Stationary */}
+            {/* Max Drive Time for Stationary */}
             <div>
                <label className="text-[10px] text-slate-500 block font-bold mb-1 flex items-center gap-1">
                  <Compass className="w-3 h-3"/> Max. Fahrzeit Ausflüge (h)
@@ -382,10 +363,9 @@ export const LogisticsStep = () => {
               </div>
             </div>
 
-            {/* Logistik Constraints (Automatisch befüllt) */}
+            {/* Logistik Constraints */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-3 rounded-lg border border-slate-100">
               
-              {/* Max Fahrzeit / Etappe */}
               <div>
                  <label className="text-[10px] text-slate-500 block font-bold mb-1">{t('cockpit.constraints_drive_leg')}</label>
                  <input 
@@ -402,7 +382,6 @@ export const LogisticsStep = () => {
                  />
               </div>
 
-              {/* Max Fahrzeit GESAMT */}
               <div>
                  <label className="text-[10px] text-slate-500 block font-bold mb-1">{t('cockpit.constraints_drive_total')}</label>
                  <input 
@@ -420,7 +399,6 @@ export const LogisticsStep = () => {
                  <span className="text-[9px] text-slate-400">Auto-calc: (Tage-2)*3h</span>
               </div>
 
-              {/* Hotelwechsel */}
               <div>
                  <label className="text-[10px] text-slate-500 block font-bold mb-1">{t('cockpit.constraints_hotel_changes')}</label>
                  <input 
@@ -441,7 +419,6 @@ export const LogisticsStep = () => {
               <div className="flex justify-between items-center mb-2">
                 <label className="text-xs font-bold text-slate-500 uppercase">{t('cockpit.stops_label')}</label>
                 
-                {/* Mode Toggle */}
                 <div className="flex bg-slate-100 rounded p-0.5">
                    <button 
                      onClick={() => updateRoundtrip({ tripMode: 'fix' })}
@@ -506,4 +483,4 @@ export const LogisticsStep = () => {
     </div>
   );
 };
-// --- END OF FILE 462 Zeilen ---
+// --- END OF FILE 459 Zeilen ---
