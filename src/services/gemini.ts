@@ -1,5 +1,5 @@
 // src/services/gemini.ts
-// 14.01.2026 18:50 - FIX: Apply (store as any) cast to addUsageStats to resolve TS2554 error.
+// 14.01.2026 19:30 - FIX: Updated UserAbortError constructor to accept an optional message (fixes TS2554 at line 86).
 
 import { CONFIG } from '../data/config';
 import type { TaskKey, ModelType } from '../data/config';
@@ -48,8 +48,9 @@ export class ServerOverloadError extends ApiError {
 }
 
 export class UserAbortError extends Error {
-  constructor() {
-    super('Vorgang vom Nutzer abgebrochen.');
+  // FIX: Allow optional message argument to support RateLimiter's custom error message
+  constructor(message?: string) {
+    super(message || 'Vorgang vom Nutzer abgebrochen.');
     this.name = 'UserAbortError';
   }
 }
@@ -83,6 +84,7 @@ const RateLimiter = {
     if (activeCalls.length >= limit) {
       const oldestCall = activeCalls[0] || now;
       const waitTimeMinutes = Math.ceil((oldestCall + 3600000 - now) / 60000);
+      // FIX: This call triggered the TS error because the constructor didn't accept arguments previously
       throw new UserAbortError(`Limit für ${model.toUpperCase()} erreicht (${limit}/h). Wartezeit: ${waitTimeMinutes} Min.`);
     }
     
@@ -218,7 +220,7 @@ export const GeminiService = {
           
           // --- STATS TRACKING START ---
           const tokens = data.usageMetadata?.totalTokenCount || 0;
-          // FIX: Added (store as any) cast to bypass TS error "Expected 0 arguments"
+          // FIX: Added (store as any) cast to bypass TS error in store method
           (store as any).addUsageStats(tokens, selectedModelKey);
           // --- STATS TRACKING END ---
 
