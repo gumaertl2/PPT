@@ -1,6 +1,5 @@
 // src/data/Texts/briefing.ts
-// 13.01.2026 18:00 - UPDATE: Added Sec 7 (Business Rules) & Sec 8 (Workflows/Chunking)
-// --- END OF FILE 280 Zeilen ---
+// 14.01.2026 19:55 - UPDATE: Added critical V40 learnings (Types, Errors, Budget) to sections 5 & 7.
 
 export const briefing = {
   de: {
@@ -65,12 +64,12 @@ interface TripProject {
   meta: { id, version, created... };
   userInputs: { ... }; // Travelers, Dates, Logistics
   analysis: {
-     chefPlaner: ChefPlanerResult;   // Fundamentalanalyse
+      chefPlaner: ChefPlanerResult;   // Fundamentalanalyse
   };
   data: {
-     places: Record<string, Place>;  // POIs (durch Basis/Anreicherer gefüllt)
-     routes: Record<string, Route>;
-     content: Record<string, Content>; // Lange Texte, Infos
+      places: Record<string, Place>;  // POIs (durch Basis/Anreicherer gefüllt)
+      routes: Record<string, Route>;
+      content: Record<string, Content>; // Lange Texte, Infos
   };
   itinerary: { days: DayPlan[] };    // Der finale Plan
 }
@@ -93,6 +92,9 @@ Wir senden keine rohen Strings mehr an die KI.
 1.  **Type Safety First:** \`any\` ist verboten.
 2.  **Strict Separation:** Keine Logik im UI, kein UI-String-Building im Service.
 3.  **Validation:** Zod Schemas für alle KI-Antworten.
+4.  **Internationalisierung (i18n):**
+    * Daten-Objekte nutzen \`LocalizedContent\` (z.B. \`label: { de: "...", en: "...", es: "..." }\`).
+    * Zugriff nie direkt (z.B. \`.de\`), sondern immer über Helper (z.B. \`resolveLabel\`) oder Fallbacks, da Felder optional sind (siehe \`src/core/types.ts\`).
 
 ---
 
@@ -123,6 +125,7 @@ Der Status eines Schritts im \`WorkflowSelectionModal\`:
 
 **C. Flight Recorder Architektur**
 Jeder KI-Aufruf **MUSS** über \`src/services/gemini.ts\` laufen. Dieser Service loggt Request/Response automatisch in den Store. Direkte \`fetch\`-Calls in Komponenten sind verboten.
+* Custom Errors (\`UserAbortError\`, \`ApiError\`) müssen konstruktorseitig Nachrichten akzeptieren, um spezifische Abbruchgründe (z.B. "Rate Limit") an die UI durchzureichen.
 
 **D. UX-Modi (Planen vs. Konsumieren)**
 * **Guide Mode (Default):** Reine Lese-Ansicht.
@@ -134,6 +137,7 @@ Verfügbare Zeit pro Tag (netto ohne Pausen):
 * **Fast:** 10 Std. (08:00 - 19:00, 1h Pause)
 * **Balanced:** 6 Std. (09:30 - 17:00, 1.5h Pause)
 * **Relaxed:** 4.5 Std. (10:00 - 16:00, 1.5h Pause)
+* *Hinweis:* Die Budget-Logik im Store (\`userInputs.dates\`) steuert Warnhinweise in der SightsView. Zeiten werden aus den User-Präferenzen oder Defaults berechnet.
 
 ---
 
@@ -168,4 +172,4 @@ Wir nutzen eine strikte **Chunking-Strategie**, da die KI bei großen Datenmenge
 `
   }
 };
-// --- END OF FILE 280 Zeilen ---
+// --- END OF FILE 294 Zeilen ---
