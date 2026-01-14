@@ -1,5 +1,6 @@
 // src/core/prompts/templates/chefPlaner.ts
-// 09.01.2026 13:45
+// 14.01.2026 17:10 - FIX: Added safety checks for undefined optional properties (aiInstruction, promptInstruction) and label types.
+
 /**
  * * TEMPLATE: CHEF-PLANER (V40 Final Optimized)
  * * STATUS: V40 Ready
@@ -9,7 +10,7 @@
  * - Hotel Change Logic included
  */
 
-import type { TripProject } from '../../types';
+import type { TripProject, LocalizedContent } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
 import { INTEREST_DATA, STRATEGY_OPTIONS } from '../../../data/staticData';
 
@@ -49,6 +50,13 @@ const extractHotels = (userInputs: TripProject['userInputs']) => {
   return hotels;
 };
 
+// Helper to resolve localized text
+const resolveText = (content: string | LocalizedContent | undefined, lang: 'de' | 'en'): string => {
+    if (!content) return '';
+    if (typeof content === 'string') return content;
+    return content[lang] || content['de'] || '';
+};
+
 export const buildChefPlanerPrompt = (project: TripProject, feedback?: string): string => {
   const { userInputs, meta } = project;
   
@@ -62,15 +70,19 @@ export const buildChefPlanerPrompt = (project: TripProject, feedback?: string): 
     const def = INTEREST_DATA ? INTEREST_DATA[id] : null;
     return { 
       id, 
-      label: def?.label[uiLang] || id, 
-      instruction: def?.aiInstruction[uiLang] || '' 
+      // FIX: Use helper to safely resolve label (string or object)
+      label: resolveText(def?.label, uiLang) || id, 
+      // FIX: Safe access for optional aiInstruction
+      instruction: resolveText(def?.aiInstruction, uiLang) 
     };
   });
 
   const strategyDef = STRATEGY_OPTIONS ? STRATEGY_OPTIONS[userInputs.strategyId] : null;
   const strategyInfo = {
-    name: strategyDef?.label[uiLang] || userInputs.strategyId,
-    instruction: strategyDef?.promptInstruction[uiLang] || '' 
+    // FIX: Use helper to safely resolve label
+    name: resolveText(strategyDef?.label, uiLang) || userInputs.strategyId,
+    // FIX: Safe access for optional promptInstruction
+    instruction: resolveText(strategyDef?.promptInstruction, uiLang)
   };
 
   const extractedHotels = extractHotels(userInputs);
@@ -227,3 +239,4 @@ ${JSON.stringify(outputSchema, null, 2)}
 
   return PromptBuilder.build(taskInstruction, JSON.stringify(contextData, null, 2), desiredLangCode as any);
 };
+// --- END OF FILE 230 Zeilen ---

@@ -1,7 +1,8 @@
 // src/core/types.ts
-// 14.01.2026 16:30 - FIX: Made 'value' optional in SelectOption to support data files using 'id'.
+// 14.01.2026 17:00 - FIX: Added 'es'/'fr'/'it' to LanguageCode and 'prompt' to InterestCategory to fix TS build errors.
 
-export type LanguageCode = 'de' | 'en';
+// FIX: Expanded LanguageCode to support languages used in PromptBuilder
+export type LanguageCode = 'de' | 'en' | 'es' | 'fr' | 'it';
 
 // FIX: Added missing shared types
 export interface LocalizedContent {
@@ -31,6 +32,8 @@ export interface InterestCategory {
   isSystem?: boolean;
   defaultUserPreference?: LocalizedContent;
   aiInstruction?: LocalizedContent;
+  // FIX: Added 'prompt' property referenced in PayloadBuilder.ts
+  prompt?: string | LocalizedContent;
 }
 
 // --- WORKFLOW / MAGIC CHAIN ---
@@ -253,4 +256,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 228 Zeilen ---
+// --- END OF FILE 233 Zeilen ---

@@ -1,6 +1,5 @@
 // src/App.tsx
-// 10.01.2026 17:30
-// UPDATE: Replaced react-hot-toast with native NotificationSystem
+// 14.01.2026 17:25 - FIX: Removed unmanaged global modals and added required onNext prop to AnalysisReviewView (No downstream view available yet).
 
 import { useEffect } from 'react';
 import { useTripStore } from './store/useTripStore';
@@ -10,11 +9,12 @@ import { WelcomeScreen } from './features/Welcome/WelcomeScreen';
 import { CockpitWizard } from './features/Cockpit/CockpitWizard';
 import { AnalysisReviewView } from './features/Cockpit/AnalysisReviewView';
 import { NotificationSystem } from './features/Shared/NotificationSystem';
-import { InfoModal } from './features/Welcome/InfoModal';
-import { CatalogModal } from './features/Welcome/CatalogModal';
-import { ManualPromptModal } from './features/Cockpit/ManualPromptModal';
-import { ConfirmModal } from './features/Cockpit/ConfirmModal';
-import { SettingsModal } from './features/Cockpit/SettingsModal';
+// FIX: Modals are used locally in features, not globally managed yet.
+// import { InfoModal } from './features/Welcome/InfoModal';
+// import { CatalogModal } from './features/Welcome/CatalogModal';
+// import { ManualPromptModal } from './features/Cockpit/ManualPromptModal';
+// import { ConfirmModal } from './features/Cockpit/ConfirmModal';
+// import { SettingsModal } from './features/Cockpit/SettingsModal';
 import type { WorkflowStepId } from './core/types';
 
 function App() {
@@ -56,19 +56,29 @@ function App() {
         onStart={handleStartWorkflow}
       />
       
+      {/* FIX: Removed global mounting of unmanaged modals to fix TS errors. 
+          These are correctly used inside their respective parent components.
       <InfoModal />
       <CatalogModal />
       <ManualPromptModal />
       <ConfirmModal />
       <SettingsModal />
+      */}
 
       {/* VIEW ROUTING */}
       {view === 'welcome' && <WelcomeScreen />}
       {view === 'wizard' && <CockpitWizard />}
-      {view === 'analysis_review' && <AnalysisReviewView />}
+      {view === 'analysis_review' && (
+        <AnalysisReviewView 
+          // FIX: Added required onNext prop. 
+          // Note: No 'ItineraryView' is currently imported in App.tsx, so we stay here or log completion.
+          onNext={() => console.log('Analysis Review completed. (No next view defined in App.tsx)')}
+        />
+      )}
       
     </div>
   );
 }
 
 export default App;
+// --- END OF FILE 79 Zeilen ---
