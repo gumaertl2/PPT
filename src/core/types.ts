@@ -1,5 +1,5 @@
 // src/core/types.ts
-// 14.01.2026 14:55 - FIX: Added 'description' to SelectOption and 'roundtripOptions' to TripUserProfile.
+// 14.01.2026 15:45 - FIX: Extended SelectOption with 'id' and legacy fields to fix build errors in strategies.ts
 
 export type LanguageCode = 'de' | 'en';
 
@@ -13,8 +13,14 @@ export interface SelectOption {
   value: string;
   label: string | LocalizedContent;
   icon?: any;
-  // FIX: Added description to satisfy CatalogModal
   description?: string | LocalizedContent;
+  // FIX: Extended properties to match data files (strategies, interests)
+  id?: string;
+  promptInstruction?: LocalizedContent;
+  defaultUserPreference?: LocalizedContent;
+  // Legacy support for older data structures
+  anweisung?: string;
+  praeferenz?: string;
 }
 
 export interface InterestCategory {
@@ -245,4 +251,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 227 Zeilen ---
+// --- END OF FILE 235 Zeilen ---

@@ -1,5 +1,5 @@
 // src/features/cockpit/steps/LogisticsStep.tsx
-// 14.01.2026 14:45 - FIX: Added auto-calculation of duration when start/end dates change to trigger smart defaults.
+// 14.01.2026 15:50 - FIX: Added resolveLabel helper to handle string | LocalizedContent labels safely.
 
 import { useEffect } from 'react';
 import { useTripStore } from '../../../store/useTripStore';
@@ -42,6 +42,13 @@ export const LogisticsStep = () => {
 
   const { userInputs } = project;
   const { logistics, dates } = userInputs;
+
+  // --- HELPER: Label Resolution ---
+  const resolveLabel = (item: any): string => {
+    if (!item || !item.label) return '';
+    if (typeof item.label === 'string') return item.label;
+    return item.label[currentLang] || item.label['de'] || '';
+  };
 
   // --- FIX: AUTO-CALC DURATION (Datum -> Dauer) ---
   // Ohne das wird 'dates.duration' bei manueller Datumswahl nicht aktualisiert,
@@ -269,7 +276,8 @@ export const LogisticsStep = () => {
                   : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              {option.label[currentLang]}
+              {/* FIX: Use resolveLabel helper */}
+              {resolveLabel(option)}
             </button>
           );
         })}
@@ -498,4 +506,4 @@ export const LogisticsStep = () => {
     </div>
   );
 };
-// --- END OF FILE 455 Zeilen ---
+// --- END OF FILE 462 Zeilen ---

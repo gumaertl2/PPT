@@ -23,6 +23,7 @@ Damit generierter Code sofort kompilierbar ist, nutze ausschließlich diesen Sta
 * **Styling:** Tailwind CSS (Utility First).
 * **Icons:** Lucide React.
 * **Date Handling:** Native Date API (oder date-fns wenn nötig).
+* **Wir verwenden Vercel.com für das deployment.
 
 ---
 
