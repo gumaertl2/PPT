@@ -1,5 +1,5 @@
 // src/features/Welcome/CatalogModal.tsx
-// 14.01.2026 18:30 - FIX: Updated resolveLabel to use LocalizedContent type (fixes TS7053 indexing error).
+// 14.01.2026 19:10 - FIX: Updated resolveLabel to use LocalizedContent type (fixes TS7053 indexing error).
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';

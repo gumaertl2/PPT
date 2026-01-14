@@ -1,5 +1,5 @@
 // src/core/prompts/PayloadBuilder.ts
-// 14.01.2026 18:40 - FIX: Added safe resolution for 'prompt' field (string vs LocalizedContent) to fix TS error.
+// 14.01.2026 19:20 - FIX: Added safe resolution for 'prompt' field (string vs LocalizedContent) to fix TS error.
 // V40 Update: Added 'anreicherer' (Enricher) to prompt routing.
 
 import { useTripStore } from '../../store/useTripStore';

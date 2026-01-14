@@ -1,7 +1,6 @@
-// src/features/cockpit/CockpitWizard.tsx
-// 14.01.2026 18:20 - FIX: Added fallbacks for LocalizedContent access to prevent 'undefined' assignment errors.
+// src/features/Cockpit/CockpitWizard.tsx
+// 14.01.2026 19:00 - FIX: Added fallbacks for LocalizedContent access to prevent 'undefined' assignment errors.
 
-// FIX: Removed unused 'React' import
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTripStore } from '../../store/useTripStore';
@@ -12,7 +11,7 @@ import { AnalysisReviewView } from './AnalysisReviewView';
 import { SightsView } from './SightsView';
 import { ConfirmModal } from './ConfirmModal';
 import { InfoModal } from '../Welcome/InfoModal';
-import { ManualPromptModal } from './ManualPromptModal'; // NEW
+import { ManualPromptModal } from './ManualPromptModal'; 
 
 // Layout Components
 import { CockpitHeader } from './Layout/CockpitHeader'; 
@@ -53,8 +52,8 @@ export const CockpitWizard = () => {
     status, 
     error, 
     cancelWorkflow,
-    manualPrompt,       // NEW
-    submitManualResult  // NEW
+    manualPrompt,       
+    submitManualResult  
   } = useTripGeneration();
 
   // Local State: Supports 'sights'
@@ -198,9 +197,6 @@ export const CockpitWizard = () => {
   return (
     <div className="min-h-screen bg-slate-50 pb-24 font-sans text-slate-900">
       
-      {/* FIX: Allow 'sights' to pass through to the Header 
-         Old Code: viewMode={viewMode === 'sights' ? 'analysis' : viewMode}
-      */}
       <CockpitHeader 
         viewMode={viewMode}
         setViewMode={setViewMode}
@@ -250,7 +246,7 @@ export const CockpitWizard = () => {
         {viewMode === 'analysis' ? (
           <AnalysisReviewView onNext={handleContinueFromAnalysis} />
         ) : viewMode === 'sights' ? (
-          <SightsView /> // HERE IS THE NEW VIEW INTEGRATION
+          <SightsView /> 
         ) : (
           <CurrentComponent onEdit={jumpToStep} />
         )}
@@ -286,7 +282,6 @@ export const CockpitWizard = () => {
         onCancel={handleRerunCancel}
       />
       
-      {/* MANUAL MODE MODAL */}
       <ManualPromptModal
         isOpen={!!manualPrompt}
         promptText={manualPrompt || ''}

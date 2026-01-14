@@ -1,5 +1,5 @@
 // src/services/gemini.ts
-// 14.01.2026 17:45 - FIX: Added (store as any) cast to addUsageStats to bypass TS inference error.
+// 14.01.2026 18:50 - FIX: Apply (store as any) cast to addUsageStats to resolve TS2554 error.
 
 import { CONFIG } from '../data/config';
 import type { TaskKey, ModelType } from '../data/config';
