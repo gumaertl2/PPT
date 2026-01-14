@@ -1,5 +1,5 @@
 // src/services/gemini.ts
-// 14.01.2026 19:30 - FIX: Updated UserAbortError constructor to accept an optional message (fixes TS2554 at line 86).
+// 14.01.2026 19:45 - UPDATE: Implemented dynamic model routing (Strategy + Overrides).
 
 import { CONFIG } from '../data/config';
 import type { TaskKey, ModelType } from '../data/config';
@@ -103,9 +103,28 @@ const RateLimiter = {
 export const GeminiService = {
 
   determineModel(taskKey: TaskKey | null): ModelType {
-    if (taskKey && CONFIG.taskRouting.defaults[taskKey]) {
-      return CONFIG.taskRouting.defaults[taskKey];
+    // 1. Zugriff auf den Store (SSOT)
+    const store = useTripStore.getState();
+    const { strategy, modelOverrides } = store.aiSettings;
+
+    // 2. Globale Strategien (Harte Überschreibung)
+    if (strategy === 'pro') return 'pro';
+    if (strategy === 'fast') return 'flash';
+
+    // 3. Strategie "Optimal" (Matrix-Modus)
+    if (taskKey) {
+        // A. Gibt es einen User-Override für diesen speziellen Task?
+        if (modelOverrides && modelOverrides[taskKey]) {
+            return modelOverrides[taskKey]!;
+        }
+
+        // B. Fallback auf Default-Matrix aus Config
+        if (CONFIG.taskRouting.defaults[taskKey]) {
+            return CONFIG.taskRouting.defaults[taskKey];
+        }
     }
+
+    // 4. Fallback of last resort
     return 'pro'; 
   },
 
@@ -301,4 +320,4 @@ export const GeminiService = {
     throw new Error("Unbekannter Fehler im API-Loop.");
   }
 };
-// --- END OF FILE 250 Zeilen ---
+// --- END OF FILE 271 Zeilen ---

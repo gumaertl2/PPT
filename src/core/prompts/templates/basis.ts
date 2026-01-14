@@ -2,6 +2,7 @@
 // 10.01.2026
 // TEMPLATE: BASIS (Sammler) - V40 Port of 'prompt-sammler.js'
 // Strategie: Nutzt ChefPlaner-Briefing & User-Interessen für präzise Kandidaten-Suche.
+// 14.01.2026 21:55 - FIX: Added Roundtrip Logic with STRICT Integrity (Original Content Preserved).
 
 import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
@@ -41,14 +42,35 @@ const generateCreativeBriefing = (project: TripProject, lang: 'de' | 'en'): stri
 export const buildBasisPrompt = (project: TripProject): string => {
     const { userInputs, meta, analysis } = project;
     const chefPlaner = analysis.chefPlaner;
+    const { logistics } = userInputs;
     
     // UI Sprache für Labels
     const uiLang = meta.language === 'en' ? 'en' : 'de';
     
     // 1. CHEF PLANER DATEN
     const strategicBriefing = chefPlaner?.strategic_briefing;
-    // Fallback falls leer (sollte nicht passieren)
-    const searchRadiusInstruction = strategicBriefing?.search_radius_instruction || "Search within the destination.";
+    
+    // --- START FIX: ROUNDTRIP LOGIC ---
+    // Wir nutzen die Instruktion vom Chef-Planer, überschreiben sie aber bei Rundreisen.
+    let searchRadiusInstruction = strategicBriefing?.search_radius_instruction || "Search within the destination.";
+    
+    if (logistics.mode === 'roundtrip') {
+        const stops = logistics.roundtrip.stops || [];
+        const region = logistics.roundtrip.region || "Region";
+        
+        const routeString = stops.length > 0
+             ? stops.map(s => s.location).join(" -> ")
+             : `Route through ${region}`;
+             
+        searchRadiusInstruction = `
+        **MODE: ROUNDTRIP**
+        Do not search in a single radius. 
+        Search strictly along this route corridor: ${routeString}.
+        Focus on stops and logical breaks along the path.
+        `;
+    }
+    // --- END FIX ---
+
     const sammlerBriefing = strategicBriefing?.sammler_briefing || ""; 
     const validierteTermine = chefPlaner?.validated_appointments || [];
     
@@ -123,5 +145,12 @@ Response in valid JSON only.
 `;
 
     // PromptBuilder handhabt die Wrapper und Zielsprache (meta.language)
-    return PromptBuilder.build(prompt, "", project.meta.language);
+    // FIX: Using type assertion 'as any' for language to ensure compatibility 
+    // with strict typing if meta.language is generic string.
+    return PromptBuilder.build({
+        system: prompt,
+        task: "",
+        language: project.meta.language as any
+    });
 };
+// --- END OF FILE 140 Zeilen ---

@@ -1,5 +1,6 @@
-// src/features/cockpit/SettingsModal.tsx
+// src/features/Cockpit/SettingsModal.tsx
 // 14.01.2026 14:15 - FIX: Corrected import casing 'data/Texts' (Linux support) and AiStrategy import.
+// 14.01.2026 19:55 - UPDATE: Added Matrix UI & Clean Labels (Phase 1 Complete)
 
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -16,7 +17,8 @@ import {
   Check,
   Trash2,
   AlertTriangle,
-  Server
+  Server,
+  Sliders // NEW: Icon for Matrix
 } from 'lucide-react';
 import { useTripStore } from '../../store/useTripStore';
 // FIX: Imported from useTripStore (now exported there)
@@ -25,6 +27,9 @@ import { InfoModal } from '../Welcome/InfoModal';
 // FIX: Corrected casing 'texts' -> 'Texts' for Linux/Vercel build
 import { getInfoText } from '../../data/Texts';
 import type { LanguageCode } from '../../core/types';
+// NEW: Config for Matrix Keys
+import { CONFIG } from '../../data/config';
+import type { TaskKey } from '../../data/config';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -38,12 +43,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     setApiKey, 
     usageStats, 
     aiSettings, 
-    setAiSettings 
+    setAiSettings,
+    // NEW: Actions for Matrix
+    setTaskModel,
+    resetModelOverrides
   } = useTripStore();
 
   const [keyInput, setKeyInput] = useState(apiKey || '');
   const [infoModalOpen, setInfoModalOpen] = useState(false);
   const [infoContent, setInfoContent] = useState({ title: '', content: '' });
+
+  // NEW: Toggle for Matrix View
+  const [showMatrix, setShowMatrix] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -99,6 +110,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   // Helper für Modell-Stats
   const modelStats = Object.entries(usageStats.byModel || {});
 
+  // NEW: Matrix Data Preparation
+  const tasks = Object.keys(CONFIG.taskRouting.defaults || {}) as TaskKey[];
+  // Wichtige Tasks zuerst oder filtern (hier alle)
+  const importantTasks = tasks;
+
   return (
     <>
       <InfoModal 
@@ -109,7 +125,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       />
 
       <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-scale-in">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-scale-in flex flex-col max-h-[90vh]">
           
           <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
             <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -124,7 +140,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             </button>
           </div>
 
-          <div className="p-6 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+          <div className="p-6 space-y-8 overflow-y-auto custom-scrollbar">
             
             <section>
               <label className="text-xs font-bold text-slate-500 uppercase mb-3 block flex items-center justify-between">
@@ -226,7 +242,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   return (
                     <button
                       key={strat.id}
-                      onClick={() => setAiSettings({ strategy: strat.id })}
+                      onClick={() => { setAiSettings({ strategy: strat.id }); setShowMatrix(false); }}
                       className={`relative p-3 rounded-xl border text-left transition-all ${
                         isActive 
                           ? `${strat.color} ring-1 ring-offset-1 ring-blue-100 shadow-sm` 
@@ -245,6 +261,78 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   );
                 })}
               </div>
+
+              {/* NEW: MATRIX ACCORDION (Inserted here) */}
+              {aiSettings.strategy === 'optimal' && (
+                <div className="mt-4">
+                    <button 
+                        onClick={() => setShowMatrix(!showMatrix)}
+                        className="w-full flex items-center justify-between px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors"
+                    >
+                        <span className="flex items-center gap-2"><Sliders className="w-3 h-3" /> Konfiguration anpassen (Matrix)</span>
+                        <span className={`transform transition-transform ${showMatrix ? 'rotate-180' : ''}`}>▼</span>
+                    </button>
+
+                    {showMatrix && (
+                        <div className="mt-3 border border-slate-200 rounded-xl overflow-hidden animate-fade-in">
+                            <div className="bg-slate-100 px-4 py-2 text-[10px] uppercase font-bold text-slate-500 flex justify-between">
+                                <span>Task / Workflow</span>
+                                <span>Modell-Wahl</span>
+                            </div>
+                            <div className="divide-y divide-slate-100">
+                                {importantTasks.map(taskKey => {
+                                    const defaultModel = CONFIG.taskRouting.defaults[taskKey];
+                                    const currentOverride = aiSettings.modelOverrides?.[taskKey];
+                                    const activeModel = currentOverride || defaultModel;
+                                    
+                                    // FIX: Clean Label Display (Capitalized Key)
+                                    const label = taskKey.charAt(0).toUpperCase() + taskKey.slice(1);
+
+                                    return (
+                                        <div key={taskKey} className="px-4 py-3 bg-white flex items-center justify-between">
+                                            <div>
+                                                <div className="text-xs font-medium text-slate-700">
+                                                    {label}
+                                                </div>
+                                                <div className="text-[10px] text-slate-400">
+                                                    Default: <span className="uppercase">{defaultModel}</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex bg-slate-100 rounded-lg p-0.5">
+                                                <button
+                                                    onClick={() => setTaskModel(taskKey, 'pro')}
+                                                    className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${
+                                                        activeModel === 'pro' 
+                                                        ? 'bg-purple-100 text-purple-700 shadow-sm' 
+                                                        : 'text-slate-400 hover:text-slate-600'
+                                                    }`}
+                                                >
+                                                    PRO
+                                                </button>
+                                                <button
+                                                    onClick={() => setTaskModel(taskKey, 'flash')}
+                                                    className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${
+                                                        activeModel === 'flash' 
+                                                        ? 'bg-amber-100 text-amber-700 shadow-sm' 
+                                                        : 'text-slate-400 hover:text-slate-600'
+                                                    }`}
+                                                >
+                                                    FLASH
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <div className="bg-slate-50 px-4 py-2 text-right">
+                                <button onClick={resetModelOverrides} className="text-[10px] text-red-500 hover:underline">
+                                    Alle zurücksetzen
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+              )}
             </section>
 
             <section>
@@ -281,4 +369,4 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     </>
   );
 };
-// --- END OF FILE 295 Zeilen ---
+// --- END OF FILE 365 Zeilen ---

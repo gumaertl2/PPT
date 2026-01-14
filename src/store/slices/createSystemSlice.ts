@@ -1,16 +1,20 @@
 // src/store/slices/createSystemSlice.ts
-// 14.01.2026 12:00 - FIX: Verified addUsageStats signature to fix TS2554 error in gemini.ts.
+// 14.01.2026 15:45 - FIX: Re-applying Phase 1 (Model Overrides) strictly on verified upload.
 
 import type { StateCreator } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import { SecurityService } from '../../services/security';
 import type { FlightRecorderEntry } from '../../core/types';
+// NEW: Import types for model config
+import type { ModelType, TaskKey } from '../../data/config';
 
 export type AiStrategy = 'optimal' | 'pro' | 'fast';
 
 export interface AiSettings {
   strategy: AiStrategy;
   debug: boolean;
+  // NEW: Granulare Kontrolle pro Task
+  modelOverrides: Partial<Record<TaskKey, ModelType>>;
 }
 
 export interface SystemSlice {
@@ -21,6 +25,9 @@ export interface SystemSlice {
   // AI Settings
   aiSettings: AiSettings;
   setAiSettings: (settings: Partial<AiSettings>) => void;
+  // NEW: Actions für Overrides
+  setTaskModel: (task: TaskKey, model: ModelType) => void;
+  resetModelOverrides: () => void;
 
   // Stats
   usageStats: {
@@ -46,7 +53,8 @@ export interface SystemSlice {
 
 const initialAiSettings: AiSettings = {
   strategy: 'optimal',
-  debug: false
+  debug: false,
+  modelOverrides: {} // Init empty
 };
 
 export const createSystemSlice: StateCreator<any, [], [], SystemSlice> = (set, get) => ({
@@ -64,6 +72,22 @@ export const createSystemSlice: StateCreator<any, [], [], SystemSlice> = (set, g
   
   setAiSettings: (settings) => set((state: any) => ({
     aiSettings: { ...state.aiSettings, ...settings }
+  })),
+
+  // NEW: Setzt einen spezifischen Task auf ein Modell
+  setTaskModel: (task, model) => set((state: any) => ({
+    aiSettings: {
+        ...state.aiSettings,
+        modelOverrides: {
+            ...state.aiSettings.modelOverrides,
+            [task]: model
+        }
+    }
+  })),
+
+  // NEW: Reset aller Overrides
+  resetModelOverrides: () => set((state: any) => ({
+      aiSettings: { ...state.aiSettings, modelOverrides: {} }
   })),
 
   // --- STATS ---
@@ -176,4 +200,4 @@ export const createSystemSlice: StateCreator<any, [], [], SystemSlice> = (set, g
      get().downloadFlightRecorder();
   }
 });
-// --- END OF FILE 164 Zeilen ---
+// --- END OF FILE 192 Zeilen ---

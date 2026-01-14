@@ -1,6 +1,6 @@
 // src/core/prompts/PayloadBuilder.ts
 // 14.01.2026 19:20 - FIX: Added safe resolution for 'prompt' field (string vs LocalizedContent) to fix TS error.
-// V40 Update: Added 'anreicherer' (Enricher) to prompt routing.
+// 14.01.2026 20:15 - UPDATE: Added 'routenArchitekt' template.
 
 import { useTripStore } from '../../store/useTripStore';
 import { INTEREST_DATA } from '../../data/interests';
@@ -8,6 +8,9 @@ import { INTEREST_DATA } from '../../data/interests';
 import { buildChefPlanerPrompt } from './templates/chefPlaner';
 import { buildBasisPrompt } from './templates/basis';
 import { buildAnreichererPrompt } from './templates/anreicherer';
+// NEW: Import Route Architect
+import { buildRouteArchitectPrompt } from './templates/routeArchitect';
+
 // FIX: Import type for safe checking
 import type { LocalizedContent } from '../types';
 
@@ -24,6 +27,10 @@ export const PayloadBuilder = {
       case 'chefPlaner':
         return buildChefPlanerPrompt(project, feedback);
       
+      // NEW: Routen-Architekt für Rundreisen
+      case 'routenArchitekt':
+        return buildRouteArchitectPrompt(project, feedback);
+
       case 'basis':
         return buildBasisPrompt(project);
       
@@ -89,4 +96,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 86 Zeilen ---
+// --- END OF FILE 92 Zeilen ---
