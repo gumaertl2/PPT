@@ -1,5 +1,5 @@
 // src/store/slices/createProjectSlice.ts
-// 13.01.2026 17:35 - FIX: Added setLogistics, setDestination, setStrategy, setRoundtripOptions.
+// 14.01.2026 11:45 - FIX: Corrected setRoundtripOptions to target logistics.roundtripOptions (not roundtrip). Updated Interface types.
 
 import type { StateCreator } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
@@ -43,7 +43,8 @@ export interface ProjectSlice {
   // FIX: Missing Actions requested by ProfileStep
   setDestination: (destination: string) => void;
   setStrategy: (strategyId: string) => void;
-  setRoundtripOptions: (data: Partial<TripUserProfile['logistics']['roundtrip']>) => void;
+  // FIX: Updated type to match new roundtripOptions structure
+  setRoundtripOptions: (data: Partial<{ waypoints: string; strictRoute: boolean }>) => void;
 
   // Complex Objects
   addRouteStop: () => void;
@@ -106,7 +107,9 @@ const createInitialProject = (): TripProject => ({
         tripMode: 'inspiration', 
         stops: [], 
         constraints: {} 
-      }
+      },
+      // FIX: Init roundtripOptions
+      roundtripOptions: { waypoints: '', strictRoute: false }
     },
     searchSettings: {
       sightsCount: DEFAULT_SIGHTS_COUNT,
@@ -330,8 +333,22 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     }
   })),
 
-  // FIX: Implemented setRoundtripOptions
-  setRoundtripOptions: (data) => get().updateRoundtrip(data),
+  // FIX: Implemented setRoundtripOptions correctly pointing to logistics.roundtripOptions
+  setRoundtripOptions: (data) => set((state: any) => ({
+    project: {
+      ...state.project,
+      userInputs: {
+        ...state.project.userInputs,
+        logistics: {
+          ...state.project.userInputs.logistics,
+          roundtripOptions: { 
+            ...state.project.userInputs.logistics.roundtripOptions, 
+            ...data 
+          }
+        }
+      }
+    }
+  })),
 
   addRouteStop: () => set((state: any) => {
     const newStop: RouteStop = { id: uuidv4(), location: '', duration: 0 };
@@ -508,4 +525,4 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     }
   }))
 });
-// --- END OF FILE 375 Zeilen ---
+// --- END OF FILE 387 Zeilen ---

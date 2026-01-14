@@ -1,5 +1,5 @@
 // src/features/cockpit/steps/LogisticsStep.tsx
-// 13.01.2026 17:40 - FIX: Renamed constraint properties to match types.ts (maxDriveTimePerLeg -> maxDriveTimeLeg, maxTotalDriveTime -> maxDriveTimeTotal).
+// 14.01.2026 12:20 - FIX: Removed unused 'React' import. Preserved previous variable renames.
 /**
  * src/features/cockpit/steps/LogisticsStep.tsx
  * SCHRITT 1: REISE-COCKPIT
@@ -9,7 +9,8 @@
  * - Neues Feld für stationäre Ausflugs-Fahrzeit.
  */
 
-import React, { useEffect } from 'react';
+// FIX: Removed unused 'React' default import
+import { useEffect } from 'react';
 import { useTripStore } from '../../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
 import { 
@@ -71,11 +72,11 @@ export const LogisticsStep = () => {
       updateRoundtrip({
         constraints: {
           // Behalte manuellen Wert oder setze Default
-          // FIX: Renamed maxDriveTimePerLeg -> maxDriveTimeLeg
+          // FIX: Renamed maxDriveTimePerLeg -> maxDriveTimeLeg (Persisted from previous fix)
           maxDriveTimeLeg: logistics.roundtrip.constraints?.maxDriveTimeLeg || defaultLegMins,
           // Diese Werte hängen direkt an der Dauer -> Aktualisieren (User kann danach überschreiben)
           // Wir aktualisieren sie immer, wenn sich die Dauer ändert, um Inkonsistenzen zu vermeiden.
-          // FIX: Renamed maxTotalDriveTime -> maxDriveTimeTotal
+          // FIX: Renamed maxTotalDriveTime -> maxDriveTimeTotal (Persisted from previous fix)
           maxDriveTimeTotal: calcTotalDriveMins,
           maxHotelChanges: calcHotelChanges
         }
@@ -373,12 +374,12 @@ export const LogisticsStep = () => {
                     type="number"
                     placeholder="h"
                     className="w-full text-xs border-slate-300 rounded"
-                    // FIX: Renamed maxDriveTimePerLeg -> maxDriveTimeLeg
+                    // FIX: Renamed maxDriveTimePerLeg -> maxDriveTimeLeg (Persisted)
                     value={logistics.roundtrip.constraints?.maxDriveTimeLeg ? logistics.roundtrip.constraints.maxDriveTimeLeg / 60 : ''}
                     onChange={(e) => {
                         const val = parseFloat(e.target.value);
                         updateRoundtrip({ 
-                            // FIX: Renamed maxDriveTimePerLeg -> maxDriveTimeLeg
+                            // FIX: Renamed maxDriveTimePerLeg -> maxDriveTimeLeg (Persisted)
                             constraints: { ...logistics.roundtrip.constraints, maxDriveTimeLeg: isNaN(val) ? undefined : val * 60 } 
                         });
                     }}
@@ -392,12 +393,12 @@ export const LogisticsStep = () => {
                     type="number"
                     placeholder="h"
                     className="w-full text-xs border-slate-300 rounded font-medium text-blue-600"
-                    // FIX: Renamed maxTotalDriveTime -> maxDriveTimeTotal
+                    // FIX: Renamed maxTotalDriveTime -> maxDriveTimeTotal (Persisted)
                     value={logistics.roundtrip.constraints?.maxDriveTimeTotal ? logistics.roundtrip.constraints.maxDriveTimeTotal / 60 : ''}
                     onChange={(e) => {
                         const val = parseFloat(e.target.value);
                         updateRoundtrip({ 
-                            // FIX: Renamed maxTotalDriveTime -> maxDriveTimeTotal
+                            // FIX: Renamed maxTotalDriveTime -> maxDriveTimeTotal (Persisted)
                             constraints: { ...logistics.roundtrip.constraints, maxDriveTimeTotal: isNaN(val) ? undefined : val * 60 } 
                         });
                     }}

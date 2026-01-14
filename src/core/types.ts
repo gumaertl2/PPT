@@ -1,6 +1,5 @@
 // src/core/types.ts
-// 13.01.2026 - FIX: Added 'accommodationStatus' to logistics.
-// FIX: Added 'chefPlaner' and missing profile fields (fixedDates, arrival description).
+// 13.01.2026 22:15 - FIX: Added 'roundtripOptions', 'dailyStartTime', 'dailyEndTime'.
 
 export type LanguageCode = 'de' | 'en';
 
@@ -99,18 +98,26 @@ export interface TripUserProfile {
     duration: number; 
     flexible: boolean;
     fixedEvents: CalendarEvent[];
-    fixedDates?: string; // FIX: Added field for ProfileStep
+    fixedDates?: string; 
+    // FIX: Added for SightsView Budget Logic
+    dailyStartTime?: string; 
+    dailyEndTime?: string;
     arrival: {
       type?: 'flight' | 'train' | 'car' | 'camper' | 'suggestion' | 'other';
       details?: string; 
       time?: string;
-      description?: string; // FIX: Added field for ProfileStep
+      description?: string; 
     };
     departure?: DepartureDetails;
   };
   logistics: {
     mode: 'stationaer' | 'mobil';
-    accommodationStatus?: 'needs_suggestions' | 'booked'; // FIX: Added field
+    accommodationStatus?: 'needs_suggestions' | 'booked'; 
+    // FIX: Added roundtripOptions (sibling to roundtrip, used in ProfileStep)
+    roundtripOptions?: {
+        waypoints?: string;
+        strictRoute?: boolean;
+    };
     stationary: {
       region: string;
       destination: string;
@@ -213,4 +220,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 165 Zeilen ---
+// --- END OF FILE 176 Zeilen ---

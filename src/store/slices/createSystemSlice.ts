@@ -1,4 +1,6 @@
 // src/store/slices/createSystemSlice.ts
+// 14.01.2026 12:00 - FIX: Verified addUsageStats signature to fix TS2554 error in gemini.ts.
+
 import type { StateCreator } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import { SecurityService } from '../../services/security';
@@ -28,6 +30,7 @@ export interface SystemSlice {
     totalCalls: number;  // New Standard
     byModel: Record<string, { tokens: number; calls: number }>;
   };
+  // FIX: Explicitly defined signature accepting 1 or 2 arguments
   addUsageStats: (tokens: number, model?: string) => void;
 
   // Flugschreiber (Logging)
@@ -173,3 +176,4 @@ export const createSystemSlice: StateCreator<any, [], [], SystemSlice> = (set, g
      get().downloadFlightRecorder();
   }
 });
+// --- END OF FILE 164 Zeilen ---

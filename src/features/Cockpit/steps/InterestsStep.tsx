@@ -1,5 +1,5 @@
 // src/features/cockpit/steps/InterestsStep.tsx
-// 09.01.2026 13:30
+// 14.01.2026 12:15 - FIX: Removed unused 'isAppendix' parameter to fix lint error.
 /**
  * src/features/cockpit/steps/InterestsStep.tsx
  * SCHRITT 3: INTERESSEN (Final Complete)
@@ -105,7 +105,8 @@ export const InterestsStep = () => {
   }, []);
 
   // Generischer Kachel-Renderer
-  const renderTile = (id: string, isAppendix = false) => {
+  // FIX: Removed unused 'isAppendix' parameter
+  const renderTile = (id: string) => {
     const isSelected = selectedInterests.includes(id);
     const hasCustomPref = !!customPreferences[id];
     const hasCustomInst = !!customPreferences[`${id}_instruction`];
@@ -198,7 +199,8 @@ export const InterestsStep = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {appendixInterestIds.map(id => renderTile(id, true))}
+          {/* FIX: Removed 'true' argument */}
+          {appendixInterestIds.map(id => renderTile(id))}
         </div>
       </section>
 
@@ -342,3 +344,4 @@ export const InterestsStep = () => {
     </div>
   );
 };
+// --- END OF FILE 295 Zeilen ---

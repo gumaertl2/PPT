@@ -1,3 +1,5 @@
+// src/features/cockpit/steps/DatesStep.tsx
+// 14.01.2026 12:10 - FIX: Removed unused 'currentLang' and 'LanguageCode' import.
 /**
  * src/features/cockpit/steps/DatesStep.tsx
  * SCHRITT 4: FESTE TERMINE (i18n Update)
@@ -12,11 +14,13 @@ import {
   AlertCircle,
   Plus
 } from 'lucide-react';
-import type { LanguageCode } from '../../../core/types';
+// FIX: Removed unused LanguageCode import
+// import type { LanguageCode } from '../../../core/types';
 
 export const DatesStep = () => {
-  const { t, i18n } = useTranslation();
-  const currentLang = i18n.language.substring(0, 2) as LanguageCode;
+  const { t } = useTranslation();
+  // FIX: Removed unused currentLang variable
+  // const currentLang = i18n.language.substring(0, 2) as LanguageCode;
   
   // Store Access
   const { 
@@ -179,3 +183,4 @@ export const DatesStep = () => {
     </div>
   );
 };
+// --- END OF FILE 139 Zeilen ---

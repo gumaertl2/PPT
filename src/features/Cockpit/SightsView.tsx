@@ -1,6 +1,6 @@
 // src/features/cockpit/SightsView.tsx
-// 13.01.2026 19:40 - FIX: Reserve List is now always visible (decoupled from Planning Mode)
-// --- END OF FILE 460 Zeilen ---
+// 14.01.2026 12:05 - FIX: Removed unused imports, fixed 'pace' access, corrected hasTours/hasDays checks.
+// --- END OF FILE 457 Zeilen ---
 
 import React, { useMemo, useState } from 'react';
 import { useTripStore } from '../../store/useTripStore';
@@ -9,11 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { 
   Search, 
   Filter, 
-  Clock, 
-  CheckCircle, 
-  AlertCircle,
-  ToggleLeft,
-  ToggleRight,
+  // FIX: Removed unused imports (Clock, CheckCircle, AlertCircle, ToggleLeft, ToggleRight)
   X,
   List,
   Grid,
@@ -38,7 +34,7 @@ export const SightsView: React.FC = () => {
     toggleSightFilter 
   } = useTripStore();
   
-  const { userInputs, data, analysis } = project; // analysis added for conditional sort
+  const { userInputs, data } = project; // analysis removed as unused here
   const places = Object.values(data.places || {});
 
   // Local State: Planning Mode (Default OFF -> Clean Guide View)
@@ -47,7 +43,8 @@ export const SightsView: React.FC = () => {
   // --- 1. BUDGET LOGIC ---
   const budgetStats = useMemo(() => {
     let totalMinutes = 0;
-    const pace = userInputs.logistics?.pace || 'balanced';
+    // FIX: 'pace' is a direct property of userInputs, not under logistics
+    const pace = userInputs.pace || 'balanced';
     const config = TRAVEL_PACE_CONFIG[pace] || TRAVEL_PACE_CONFIG['balanced'];
     
     // Berechne verfügbare Zeit
@@ -85,8 +82,9 @@ export const SightsView: React.FC = () => {
     return Array.from(cats).sort();
   }, [places]);
 
-  const hasTours = !!analysis?.route; // Check if route data exists
-  const hasDays = !!analysis?.dayPlan; // Check if day plan exists
+  // FIX: Check data.routes and itinerary.days instead of non-existent analysis properties
+  const hasTours = Object.keys(data.routes || {}).length > 0;
+  const hasDays = (project.itinerary?.days?.length || 0) > 0;
 
   const handleCategoryToggle = (cat: string) => {
     const current = uiState.categoryFilter || [];
@@ -389,4 +387,4 @@ export const SightsView: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 460 Zeilen ---
+// --- END OF FILE 457 Zeilen ---
