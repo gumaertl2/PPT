@@ -1,5 +1,5 @@
 // src/core/prompts/PayloadBuilder.ts
-// 10.01.2026 23:55
+// 14.01.2026 18:40 - FIX: Added safe resolution for 'prompt' field (string vs LocalizedContent) to fix TS error.
 // V40 Update: Added 'anreicherer' (Enricher) to prompt routing.
 
 import { useTripStore } from '../../store/useTripStore';
@@ -8,6 +8,8 @@ import { INTEREST_DATA } from '../../data/interests';
 import { buildChefPlanerPrompt } from './templates/chefPlaner';
 import { buildBasisPrompt } from './templates/basis';
 import { buildAnreichererPrompt } from './templates/anreicherer';
+// FIX: Import type for safe checking
+import type { LocalizedContent } from '../types';
 
 export const PayloadBuilder = {
   /**
@@ -51,6 +53,13 @@ export const PayloadBuilder = {
     const outputLangCode = userInputs.aiOutputLanguage || 'de';
     const outputLangName = langMap[outputLangCode] || 'Deutsch';
 
+    // FIX: Helper to safely resolve prompt which can be string or LocalizedContent
+    const resolvePrompt = (p: string | LocalizedContent | undefined): string => {
+        if (!p) return '';
+        if (typeof p === 'string') return p;
+        return p.de || '';
+    };
+
     return {
       lang: outputLangName,
       travelers: {
@@ -61,8 +70,10 @@ export const PayloadBuilder = {
       logistics: userInputs.logistics,
       interests: userInputs.selectedInterests.map(id => ({
         id,
+        // Label ist in Types immer LocalizedContent, daher ist .de hier sicher
         label: INTEREST_DATA[id]?.label.de || id,
-        prompt: INTEREST_DATA[id]?.prompt.de || '',
+        // FIX: Use resolvePrompt helper instead of direct .de access
+        prompt: resolvePrompt(INTEREST_DATA[id]?.prompt),
         custom: userInputs.customPreferences[id] || null
       })),
       preferences: {
@@ -78,3 +89,4 @@ export const PayloadBuilder = {
     };
   }
 };
+// --- END OF FILE 86 Zeilen ---

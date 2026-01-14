@@ -1,7 +1,5 @@
 // src/features/cockpit/CockpitWizard.tsx
-// 12.01.2026 20:05
-// FIX: Unmasked 'sights' viewMode in Header props. KEPT ALL FEATURES (Bubbles, ManualPrompt).
-// RECOVERED: Used uploaded version (253 lines) to fix runtime crash.
+// 14.01.2026 18:20 - FIX: Added fallbacks for LocalizedContent access to prevent 'undefined' assignment errors.
 
 // FIX: Removed unused 'React' import
 import { useState } from 'react';
@@ -167,7 +165,13 @@ export const CockpitWizard = () => {
     const stepKeys = ['step1', 'step2', 'step3', 'step4', 'step5', 'step6'];
     const key = stepKeys[currentStep] || 'step1';
     const data = HELP_TEXTS[key] || HELP_TEXTS['step1'];
-    setHelpContent({ title: data.title[currentLang], body: data.body[currentLang] });
+    
+    // FIX: Added fallbacks to ensure string type (fixes TS2322)
+    setHelpContent({ 
+      title: data.title[currentLang] || data.title.de || '', 
+      body: data.body[currentLang] || data.body.de || '' 
+    });
+    
     setShowHelp(true);
   };
 
@@ -294,4 +298,4 @@ export const CockpitWizard = () => {
     </div>
   );
 };
-// --- END OF FILE 253 Zeilen ---
+// --- END OF FILE 256 Zeilen ---

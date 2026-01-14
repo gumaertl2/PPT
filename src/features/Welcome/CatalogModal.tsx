@@ -1,5 +1,5 @@
 // src/features/Welcome/CatalogModal.tsx
-// 14.01.2026 15:05 - FIX: Added resolveLabel helper and fix type access for label/description.
+// 14.01.2026 18:30 - FIX: Updated resolveLabel to use LocalizedContent type (fixes TS7053 indexing error).
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -16,7 +16,8 @@ import {
   BUDGET_OPTIONS, 
   PACE_OPTIONS 
 } from '../../data/staticData';
-import type { LanguageCode } from '../../core/types';
+// FIX: Imported LocalizedContent to fix typing in resolveLabel
+import type { LanguageCode, LocalizedContent } from '../../core/types';
 
 interface CatalogModalProps {
   isOpen: boolean;
@@ -31,9 +32,11 @@ export const CatalogModal: React.FC<CatalogModalProps> = ({ isOpen, onClose }) =
   if (!isOpen) return null;
 
   // --- HELPER: Label Resolution ---
-  const resolveLabel = (label: string | { de: string; en: string } | undefined): string => {
+  // FIX: Changed type from hardcoded object to LocalizedContent to support all languages
+  const resolveLabel = (label: string | LocalizedContent | undefined): string => {
     if (!label) return '';
     if (typeof label === 'string') return label;
+    // Now safe because LocalizedContent has optional keys for all LanguageCodes
     return label[currentLang] || label['de'] || '';
   };
 

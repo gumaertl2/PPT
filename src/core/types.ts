@@ -1,14 +1,10 @@
 // src/core/types.ts
-// 14.01.2026 18:00 - FIX: Complete Type Definitions. Synced LanguageCode with LocalizedContent.
+// 14.01.2026 18:00 - FIX: Expanded LocalizedContent to support all LanguageCodes (fixes TS indexing errors).
 
-// FIX: Full list of supported languages (matches chefPlaner.ts)
-export type LanguageCode = 
-  | 'de' | 'en' | 'es' | 'fr' | 'it' 
-  | 'nl' | 'pl' | 'pt' | 'ru' | 'tr' 
-  | 'ja' | 'zh';
+// FIX: Expanded LanguageCode to support languages used in PromptBuilder
+export type LanguageCode = 'de' | 'en' | 'es' | 'fr' | 'it' | 'nl' | 'pl' | 'pt' | 'ru' | 'tr' | 'ja' | 'zh';
 
-// FIX: LocalizedContent now supports all languages optionally
-// This fixes "Property 'es' does not exist on type LocalizedContent"
+// FIX: Added missing shared types and expanded to match LanguageCode keys
 export interface LocalizedContent {
   de: string;
   en: string;
@@ -25,16 +21,17 @@ export interface LocalizedContent {
 }
 
 export interface SelectOption {
-  // FIX: Made value optional (legacy support)
+  // FIX: Made value optional to prevent TS errors in strategies.ts/options.ts
   value?: string;
   label: string | LocalizedContent;
   icon?: any;
-  // FIX: Added description for CatalogModal
+  // FIX: Added description to satisfy CatalogModal
   description?: string | LocalizedContent;
+  // FIX: Extended properties to match data files (strategies, interests)
   id?: string;
   promptInstruction?: LocalizedContent;
   defaultUserPreference?: LocalizedContent;
-  // Legacy support
+  // Legacy support for older data structures
   anweisung?: string;
   praeferenz?: string;
 }
@@ -45,29 +42,29 @@ export interface InterestCategory {
   isSystem?: boolean;
   defaultUserPreference?: LocalizedContent;
   aiInstruction?: LocalizedContent;
-  // FIX: Added 'prompt' for PayloadBuilder
+  // FIX: Added 'prompt' property referenced in PayloadBuilder.ts
   prompt?: string | LocalizedContent;
 }
 
 // --- WORKFLOW / MAGIC CHAIN ---
 export type WorkflowStepId = 
-  | 'basis'          // Sammler
-  | 'anreicherer'    // Daten-Anreicherer
-  | 'dayplan'        // Routen-Architekt
-  | 'guide'          // Reiseführer
-  | 'details'        // Detail-Inhalte
+  | 'basis'          // Sammler (Namen & Ideen)
+  | 'anreicherer'    // Daten-Anreicherer (Fakten, Adressen, Öffnungszeiten)
+  | 'dayplan'        // Routen-Architekt (Tagesplanung)
+  | 'guide'          // Reiseführer (Texte & Struktur)
+  | 'details'        // Detail-Inhalte (Deep Dive)
   | 'infos'          // A-Z Infos
   | 'food'           // Restaurants
   | 'accommodation'  // Hotels
   | 'sondertage'     // Wetter / Flex
   | 'transfers'      // Logistik
-  | 'chefPlaner';    // Chef-Planer
+  | 'chefPlaner';    // Chef-Planer (Analysis)
 
 export interface WorkflowStepDef {
   id: WorkflowStepId;
-  isMandatory: boolean;
-  requiresUserInteraction?: boolean; 
-  requires?: WorkflowStepId[];
+  isMandatory: boolean;       // Muss immer ausgeführt werden (bzw. ist Prämisse)
+  requiresUserInteraction?: boolean; // Wenn true: UI stoppt kurz für User-Input (z.B. Prio/Tempo)
+  requires?: WorkflowStepId[]; // Abhängigkeiten, z.B. Transfer braucht Dayplan
   label: {
     de: string;
     en: string;
@@ -84,11 +81,11 @@ export type LogType = 'request' | 'response' | 'error' | 'info' | 'system';
 export interface FlightRecorderEntry {
   id: string;
   timestamp: string;
-  task: string;
+  task: string;      // z.B. 'chefPlaner', 'workflow_manager'
   type: LogType;
-  model?: string;
-  content: string;
-  meta?: any;
+  model?: string;    // z.B. 'gemini-pro'
+  content: string;   // Der volle Prompt oder die JSON-Antwort
+  meta?: any;        // Zusätzliche Infos (Token Count, Status Code, Selected Steps)
 }
 
 // --- FEHLER-HANDLING ---
@@ -103,7 +100,7 @@ export type AppErrorType =
 export interface AppError {
   type: AppErrorType;
   message: string;
-  retryAfter?: number;
+  retryAfter?: number; // Millisekunden bis Retry erlaubt
   details?: string;
 }
 
@@ -111,7 +108,7 @@ export interface RouteStop {
   id: string;
   location: string;
   duration: number; // Nächte
-  hotel?: string;   
+  hotel?: string;   // Optional für Rundreise
 }
 
 export interface CalendarEvent {
@@ -119,7 +116,7 @@ export interface CalendarEvent {
   date: string; // YYYY-MM-DD
   title: string;
   description?: string;
-  duration?: string;
+  duration?: string; // z.B. "2h"
 }
 
 export interface DepartureDetails {
@@ -145,7 +142,7 @@ export interface TripUserProfile {
     flexible: boolean;
     fixedEvents: CalendarEvent[];
     fixedDates?: string; 
-    // FIX: SightsView Budget Logic
+    // FIX: Added for SightsView Budget Logic
     dailyStartTime?: string; 
     dailyEndTime?: string;
     arrival: {
@@ -159,7 +156,7 @@ export interface TripUserProfile {
   logistics: {
     mode: 'stationaer' | 'mobil';
     accommodationStatus?: 'needs_suggestions' | 'booked'; 
-    // FIX: Added roundtripOptions
+    // FIX: Added roundtripOptions (sibling to roundtrip, used in ProfileStep)
     roundtripOptions?: {
         waypoints?: string;
         strictRoute?: boolean;
@@ -213,6 +210,7 @@ export interface ChefPlanerResult {
     destination?: string;
     dates?: string;
     hints: string[];
+    // FIX: Added notes and corrected_destination to match UI usage
     notes?: string[];
     corrected_destination?: string;
   };
@@ -268,4 +266,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 244 Zeilen ---
+// --- END OF FILE 243 Zeilen ---
