@@ -1,6 +1,5 @@
 // src/features/Welcome/CatalogModal.tsx
-// 13.01.2026 - FIX: Removed unused 't' variable to fix TS6133.
-// REWRITE: V30 Clone (Single Page, Print-Ready, Info-Box)
+// 14.01.2026 15:05 - FIX: Added resolveLabel helper and fix type access for label/description.
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -31,6 +30,13 @@ export const CatalogModal: React.FC<CatalogModalProps> = ({ isOpen, onClose }) =
 
   if (!isOpen) return null;
 
+  // --- HELPER: Label Resolution ---
+  const resolveLabel = (label: string | { de: string; en: string } | undefined): string => {
+    if (!label) return '';
+    if (typeof label === 'string') return label;
+    return label[currentLang] || label['de'] || '';
+  };
+
   // --- HELPER: Resolve Text (V30 Logic) ---
   const getTextContent = (item: any): string => {
     if (!item) return "";
@@ -46,8 +52,8 @@ export const CatalogModal: React.FC<CatalogModalProps> = ({ isOpen, onClose }) =
     }
 
     // 3. Optionen -> Description
-    if (item.description && item.description[currentLang]) {
-      return item.description[currentLang];
+    if (item.description) {
+        return resolveLabel(item.description);
     }
 
     // Fallbacks für alte Datenstrukturen oder fehlende Translations
@@ -71,7 +77,8 @@ export const CatalogModal: React.FC<CatalogModalProps> = ({ isOpen, onClose }) =
       <div className="space-y-4">
         {Object.entries(data).map(([id, item]) => {
           const text = getTextContent(item);
-          const label = item.label ? item.label[currentLang] : id;
+          // FIX: Use resolveLabel instead of direct index access
+          const label = resolveLabel(item.label) || id;
           
           return (
             <div key={id} className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm break-inside-avoid hover:border-blue-200 transition-colors">
@@ -186,8 +193,8 @@ export const CatalogModal: React.FC<CatalogModalProps> = ({ isOpen, onClose }) =
                   <h4 className="font-bold text-slate-400 text-xs uppercase tracking-widest mt-2 mb-1">Pace (Tempo)</h4>
                   {Object.entries(PACE_OPTIONS).map(([id, item]) => (
                      <div key={id} className="bg-white p-3 rounded border border-slate-200 shadow-sm">
-                        <span className="font-bold text-slate-700 text-sm block">{item.label[currentLang]}</span>
-                        <span className="text-xs text-slate-500">{item.description[currentLang]}</span>
+                        <span className="font-bold text-slate-700 text-sm block">{resolveLabel(item.label)}</span>
+                        <span className="text-xs text-slate-500">{resolveLabel(item.description)}</span>
                      </div>
                   ))}
                 </div>
@@ -196,8 +203,8 @@ export const CatalogModal: React.FC<CatalogModalProps> = ({ isOpen, onClose }) =
                   <h4 className="font-bold text-slate-400 text-xs uppercase tracking-widest mt-2 mb-1">Budget</h4>
                   {Object.entries(BUDGET_OPTIONS).map(([id, item]) => (
                      <div key={id} className="bg-white p-3 rounded border border-slate-200 shadow-sm">
-                        <span className="font-bold text-slate-700 text-sm block">{item.label[currentLang]}</span>
-                        <span className="text-xs text-slate-500">{item.description[currentLang]}</span>
+                        <span className="font-bold text-slate-700 text-sm block">{resolveLabel(item.label)}</span>
+                        <span className="text-xs text-slate-500">{resolveLabel(item.description)}</span>
                      </div>
                   ))}
                 </div>
@@ -208,8 +215,8 @@ export const CatalogModal: React.FC<CatalogModalProps> = ({ isOpen, onClose }) =
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                    {Object.entries(VIBE_OPTIONS).map(([id, item]) => (
                      <div key={id} className="bg-white p-3 rounded border border-slate-200 shadow-sm">
-                        <span className="font-bold text-slate-700 text-sm block">{item.label[currentLang]}</span>
-                        <span className="text-xs text-slate-500">{item.description[currentLang]}</span>
+                        <span className="font-bold text-slate-700 text-sm block">{resolveLabel(item.label)}</span>
+                        <span className="text-xs text-slate-500">{resolveLabel(item.description)}</span>
                      </div>
                    ))}
                 </div>
@@ -233,4 +240,4 @@ export const CatalogModal: React.FC<CatalogModalProps> = ({ isOpen, onClose }) =
     </div>
   );
 };
-// --- END OF FILE 181 Zeilen ---
+// --- END OF FILE 196 Zeilen ---

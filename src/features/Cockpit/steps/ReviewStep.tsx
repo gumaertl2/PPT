@@ -1,5 +1,5 @@
-// src/features/cockpit/steps/ReviewStep.tsx - 07.01.2026 17:47
-// UPDATE: Added AI Output Language display in Misc section
+// src/features/cockpit/steps/ReviewStep.tsx
+// 14.01.2026 15:25 - FIX: Syntax error resolved (removed comment inside props). Added resolveLabel helper.
 
 import React from 'react';
 import { useTripStore } from '../../../store/useTripStore';
@@ -35,6 +35,15 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
   const { project } = useTripStore();
   const { userInputs } = project;
   const { logistics, travelers, dates, selectedInterests, notes, customPreferences, pace, budget, vibe, strategyId, aiOutputLanguage } = userInputs;
+
+  // --- HELPER: Label Resolution (Fix TS7053) ---
+  const resolveLabel = (item: any): string => {
+    if (!item || !item.label) return '';
+    // Wenn label ein String ist, direkt zurückgeben
+    if (typeof item.label === 'string') return item.label;
+    // Wenn es ein LocalizedContent Objekt ist, Sprache wählen
+    return item.label[currentLang] || item.label['de'] || '';
+  };
 
   // --- VALIDIERUNG ---
   const hasLogistics = logistics.mode === 'stationaer' ? !!logistics.stationary.region : !!logistics.roundtrip.region;
@@ -190,14 +199,16 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
           <div className="pt-2 border-t border-slate-50">
              <InfoRow 
                 label={t('review.label_strategy')} 
-                value={<span className="text-blue-600">{STRATEGY_OPTIONS[strategyId]?.label[currentLang] || strategyId}</span>} 
+                // FIX: Removed invalid comment inside props, using resolveLabel
+                value={<span className="text-blue-600">{resolveLabel(STRATEGY_OPTIONS[strategyId]) || strategyId}</span>} 
              />
           </div>
 
           <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-50">
-            <InfoRow label={t('profile.options_pace')} value={PACE_OPTIONS[pace]?.label[currentLang]} />
-            <InfoRow label={t('profile.options_budget')} value={BUDGET_OPTIONS[budget]?.label[currentLang]} />
-            <InfoRow label={t('profile.options_vibe')} value={VIBE_OPTIONS[vibe]?.label[currentLang]} />
+            {/* FIX: Use resolveLabel for Pace, Budget, Vibe */}
+            <InfoRow label={t('profile.options_pace')} value={resolveLabel(PACE_OPTIONS[pace])} />
+            <InfoRow label={t('profile.options_budget')} value={resolveLabel(BUDGET_OPTIONS[budget])} />
+            <InfoRow label={t('profile.options_vibe')} value={resolveLabel(VIBE_OPTIONS[vibe])} />
           </div>
         </Section>
 
@@ -218,7 +229,8 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {selectedInterests.map(id => (
                     <span key={id} className="px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded-md border border-slate-200">
-                      {INTEREST_DATA[id]?.label[currentLang] || id}
+                      {/* FIX: Use resolveLabel for Interests */}
+                      {resolveLabel(INTEREST_DATA[id]) || id}
                     </span>
                   ))}
                 </div>
@@ -302,3 +314,4 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
     </div>
   );
 };
+// --- END OF FILE 255 Zeilen ---

@@ -1,7 +1,5 @@
 // src/services/gemini.ts
-// 10.01.2026 22:50
-// UPDATE: Added store.addUsageStats call to track token usage per model.
-// NOTE: Preserved all Gemini 2.5 logic and Error Handling as requested.
+// 14.01.2026 15:10 - FIX: Re-saved to sync with updated Store types (addUsageStats signature).
 
 import { CONFIG } from '../data/config';
 import type { TaskKey, ModelType } from '../data/config';
@@ -300,3 +298,4 @@ export const GeminiService = {
     throw new Error("Unbekannter Fehler im API-Loop.");
   }
 };
+// --- END OF FILE 250 Zeilen ---

@@ -1,9 +1,9 @@
 // src/core/types.ts
-// 14.01.2026 12:30 - FIX: Added missing exported types (LocalizedContent, SelectOption, InterestCategory) and extended ChefPlanerResult (notes).
+// 14.01.2026 14:55 - FIX: Added 'description' to SelectOption and 'roundtripOptions' to TripUserProfile.
 
 export type LanguageCode = 'de' | 'en';
 
-// FIX: Added missing shared types required by data files
+// FIX: Added missing shared types
 export interface LocalizedContent {
   de: string;
   en: string;
@@ -13,6 +13,8 @@ export interface SelectOption {
   value: string;
   label: string | LocalizedContent;
   icon?: any;
+  // FIX: Added description to satisfy CatalogModal
+  description?: string | LocalizedContent;
 }
 
 export interface InterestCategory {
@@ -133,7 +135,7 @@ export interface TripUserProfile {
   logistics: {
     mode: 'stationaer' | 'mobil';
     accommodationStatus?: 'needs_suggestions' | 'booked'; 
-    // FIX: Added roundtripOptions
+    // FIX: Added roundtripOptions (sibling to roundtrip, used in ProfileStep)
     roundtripOptions?: {
         waypoints?: string;
         strictRoute?: boolean;
@@ -187,7 +189,7 @@ export interface ChefPlanerResult {
     destination?: string;
     dates?: string;
     hints: string[];
-    // FIX: Added notes and corrected_destination to match AnalysisReviewView
+    // FIX: Added notes and corrected_destination to match UI usage
     notes?: string[];
     corrected_destination?: string;
   };
@@ -243,4 +245,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 222 Zeilen ---
+// --- END OF FILE 227 Zeilen ---
