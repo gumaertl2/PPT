@@ -96,8 +96,7 @@ export const buildRouteArchitectPrompt = (project: TripProject, feedback?: strin
   };
 
   // 6. Finaler Prompt Zusammenbau
-  return PromptBuilder.build({
-    system: `
+  const system = `
       Du bist ein erfahrener Routen-Architekt für Rundreisen.
       Erstelle exakt 3 unterschiedliche Routen-Optionen für die Region "${region}".
       Startpunkt: ${startLoc}, Endpunkt: ${endLoc}.
@@ -105,8 +104,9 @@ export const buildRouteArchitectPrompt = (project: TripProject, feedback?: strin
       ${transportContext}
       ${userStationsBlock}
       ${timeConstraintsBlock}
-    `,
-    task: `
+    `;
+
+  const task = `
       TRIP PARAMETERS:
       - Duration: ${duration} days
       - Season: ${season}
@@ -118,9 +118,12 @@ export const buildRouteArchitectPrompt = (project: TripProject, feedback?: strin
       ${feedback ? `\nUSER FEEDBACK (CRITICAL): "${feedback}"` : ""}
 
       Erstelle 3 Varianten (z.B. "Der Klassiker", "Die Entpannte", "Der Geheimtipp").
-    `,
-    outputSchema,
-    language: userInputs.aiOutputLanguage as any || 'de'
-  });
+      
+      OUTPUT SCHEMA:
+      ${JSON.stringify(outputSchema, null, 2)}
+    `;
+
+  // FIX: Return 3 separate arguments instead of an object to fix TS2554
+  return PromptBuilder.build(system, task, userInputs.aiOutputLanguage as any || 'de');
 };
 // --- END OF FILE 109 Zeilen ---

@@ -54,7 +54,8 @@ export const buildBasisPrompt = (project: TripProject): string => {
     // Wir nutzen die Instruktion vom Chef-Planer, überschreiben sie aber bei Rundreisen.
     let searchRadiusInstruction = strategicBriefing?.search_radius_instruction || "Search within the destination.";
     
-    if (logistics.mode === 'roundtrip') {
+    // FIX: Match type 'mobil' instead of 'roundtrip'
+    if (logistics.mode === 'mobil') {
         const stops = logistics.roundtrip.stops || [];
         const region = logistics.roundtrip.region || "Region";
         
@@ -144,13 +145,7 @@ Example: ["Colosseum", "Forum Romanum", ...]
 Response in valid JSON only.
 `;
 
-    // PromptBuilder handhabt die Wrapper und Zielsprache (meta.language)
-    // FIX: Using type assertion 'as any' for language to ensure compatibility 
-    // with strict typing if meta.language is generic string.
-    return PromptBuilder.build({
-        system: prompt,
-        task: "",
-        language: project.meta.language as any
-    });
+    // FIX: Return 3 separate arguments instead of an object to fix TS2554
+    return PromptBuilder.build(prompt, "", project.meta.language);
 };
 // --- END OF FILE 140 Zeilen ---
