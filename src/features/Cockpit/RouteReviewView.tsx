@@ -1,6 +1,7 @@
 // src/features/Cockpit/RouteReviewView.tsx
 // 15.01.2026 17:50 - FEATURE: V30-Style Route Selection View with Keep & Regenerate Logic.
 // 15.01.2026 18:15 - UPDATE: Integrated ItineraryModal for night distribution (V30 Parity).
+// 16.01.2026 01:15 - FIX: Removed Header, Full-Width Feedback, Added i18n.
 
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -38,7 +39,7 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
   const [selectedRouteIndex, setSelectedRouteIndex] = useState<number | null>(null);
   const [keptRouteIndices, setKeptRouteIndices] = useState<Set<number>>(new Set());
   const [feedback, setFeedback] = useState('');
-  
+   
   // NEU: Modal State
   const [showItineraryModal, setShowItineraryModal] = useState(false);
 
@@ -92,7 +93,7 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
 
   const handleRegenerate = async () => {
     if (!feedback.trim()) {
-      addNotification({ type: 'error', message: 'Bitte geben Sie Feedback ein.' });
+      addNotification({ type: 'error', message: t('route.error_no_feedback', { defaultValue: 'Bitte geben Sie Feedback ein.' }) });
       return;
     }
 
@@ -123,7 +124,7 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
     return (
       <div className="p-8 text-center text-gray-500">
         <Info className="w-12 h-12 mx-auto mb-4 opacity-50" />
-        <p>Keine Routenvorschläge verfügbar.</p>
+        <p>{t('route.no_proposals', { defaultValue: 'Keine Routenvorschläge verfügbar.' })}</p>
       </div>
     );
   }
@@ -134,23 +135,14 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       
-      {/* HEADER */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2 mb-2">
-          <Map className="w-6 h-6 text-blue-600" />
-          {t('Phase 1: Strategische Routen-Auswahl')}
-        </h2>
-        <p className="text-slate-600">
-          {t('Hier sind die Vorschläge des Routen-Architekten. Vergleichen Sie die Optionen und wählen Sie Ihren Favoriten.')}
-        </p>
-      </div>
+      {/* HEADER ENTFERNT - FIX: Layout bereinigt */}
 
       {/* TABLE */}
       <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm bg-white">
         <table className="w-full text-sm text-left">
           <thead className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
             <tr>
-              <th className="p-4 w-1/4 min-w-[150px]">Kriterium</th>
+              <th className="p-4 w-1/4 min-w-[150px]">{t('route.criteria', { defaultValue: 'Kriterium' })}</th>
               {proposals.map((route, i) => (
                 <th key={i} className={`p-4 min-w-[200px] border-l border-slate-100 relative ${selectedRouteIndex === i ? 'bg-blue-50/50' : ''}`}>
                   <label className="flex items-start gap-3 cursor-pointer group">
@@ -173,7 +165,7 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
                       </span>
                       {selectedRouteIndex === i && (
                         <span className="text-xs text-blue-600 font-medium animate-pulse">
-                          Ausgewählt
+                          {t('route.selected', { defaultValue: 'Ausgewählt' })}
                         </span>
                       )}
                     </div>
@@ -186,7 +178,7 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
             
             {/* ROW: Charakter */}
             <tr>
-              <td className="p-4 font-medium text-slate-600 bg-slate-50/50">Charakter</td>
+              <td className="p-4 font-medium text-slate-600 bg-slate-50/50">{t('route.character', { defaultValue: 'Charakter' })}</td>
               {proposals.map((r, i) => (
                 <td key={i} className={`p-4 border-l border-slate-100 align-top ${selectedRouteIndex === i ? 'bg-blue-50/30' : ''}`}>
                   {r.charakter}
@@ -196,7 +188,7 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
 
             {/* ROW: Verlauf */}
             <tr>
-              <td className="p-4 font-medium text-slate-600 bg-slate-50/50">Verlauf</td>
+              <td className="p-4 font-medium text-slate-600 bg-slate-50/50">{t('route.itinerary', { defaultValue: 'Verlauf' })}</td>
               {proposals.map((r, i) => (
                 <td key={i} className={`p-4 border-l border-slate-100 align-top ${selectedRouteIndex === i ? 'bg-blue-50/30' : ''}`}>
                   <div className="flex flex-col gap-1">
@@ -213,7 +205,7 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
 
             {/* ROW: Stats */}
             <tr>
-              <td className="p-4 font-medium text-slate-600 bg-slate-50/50">Fakten</td>
+              <td className="p-4 font-medium text-slate-600 bg-slate-50/50">{t('route.facts', { defaultValue: 'Fakten' })}</td>
               {proposals.map((r, i) => (
                 <td key={i} className={`p-4 border-l border-slate-100 align-top ${selectedRouteIndex === i ? 'bg-blue-50/30' : ''}`}>
                   <div className="space-y-1">
@@ -223,7 +215,7 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
                     </div>
                     <div className="flex items-center gap-2 text-slate-600">
                       <Clock className="w-4 h-4" />
-                      <span>~{r.gesamtFahrzeitStunden} Std.</span>
+                      <span>~{r.gesamtFahrzeitStunden} {t('unit.hours', { defaultValue: 'Std.' })}</span>
                     </div>
                   </div>
                 </td>
@@ -232,7 +224,7 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
 
             {/* ROW: Map Link */}
             <tr>
-              <td className="p-4 font-medium text-slate-600 bg-slate-50/50">Karte</td>
+              <td className="p-4 font-medium text-slate-600 bg-slate-50/50">{t('route.map', { defaultValue: 'Karte' })}</td>
               {proposals.map((r, i) => {
                 const mapLocs = startLoc ? [startLoc, ...r.uebernachtungsorte, startLoc] : r.uebernachtungsorte;
                 const url = generateGoogleMapsRouteUrl(mapLocs);
@@ -247,7 +239,7 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
                         className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 font-medium text-sm hover:underline"
                       >
                         <ExternalLink className="w-4 h-4" />
-                        Auf Karte öffnen
+                        {t('route.open_map', { defaultValue: 'Auf Karte öffnen' })}
                       </a>
                     ) : (
                       <span className="text-slate-400">-</span>
@@ -262,7 +254,7 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
               <td className="p-4 font-medium text-amber-900/80 bg-amber-50/50 border-t border-amber-100">
                 <div className="flex items-center gap-2">
                   <Lock className="w-4 h-4" />
-                  Feedback-Option
+                  {t('route.feedback_option', { defaultValue: 'Feedback-Option' })}
                 </div>
               </td>
               {proposals.map((_, i) => (
@@ -274,7 +266,7 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
                       onChange={() => handleToggleKeep(i)}
                       className="rounded border-amber-300 text-amber-600 focus:ring-amber-500"
                     />
-                    <span className="text-sm font-medium">Behalten</span>
+                    <span className="text-sm font-medium">{t('route.keep', { defaultValue: 'Behalten' })}</span>
                   </label>
                 </td>
               ))}
@@ -284,23 +276,24 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
         </table>
       </div>
 
-      {/* FOOTER ACTIONS */}
-      <div className="grid md:grid-cols-2 gap-6">
+      {/* FOOTER ACTIONS - FIX: Changed to Flex-Col for Full Width Feedback */}
+      <div className="flex flex-col gap-6">
         
         {/* REGENERATE SECTION */}
-        <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 shadow-sm flex flex-col gap-3">
+        <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 shadow-sm flex flex-col gap-3 w-full">
           <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm uppercase tracking-wide">
             <RefreshCw className="w-4 h-4" />
-            Anpassen & Neu Generieren
+            {t('route.regenerate_title', { defaultValue: 'Anpassen & Neu Generieren' })}
           </h3>
           <p className="text-xs text-slate-500">
-            Markieren Sie oben "Behalten", um Favoriten zu sichern.
+            {t('route.regenerate_hint', { defaultValue: 'Markieren Sie oben "Behalten", um Favoriten zu sichern.' })}
           </p>
-          <div className="flex gap-2 mt-auto">
+          <div className="flex gap-2 mt-auto w-full">
+            {/* Full Width Textarea due to flex-1 and parent w-full */}
             <textarea
               value={feedback}
               onChange={(e) => setFeedback(e.target.value)}
-              placeholder="z.B. 'Weniger Fahrzeit', 'Mehr Berge'..."
+              placeholder={t('route.feedback_placeholder', { defaultValue: "z.B. 'Weniger Fahrzeit', 'Mehr Berge'..." })}
               className="flex-1 text-sm p-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 resize-none h-[42px]"
             />
             <button
@@ -308,7 +301,7 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
               disabled={status === 'generating'}
               className="bg-amber-500 hover:bg-amber-600 text-white px-4 rounded-lg font-bold text-sm shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
             >
-              {status === 'generating' ? '...' : 'Generieren'}
+              {status === 'generating' ? '...' : t('actions.generate', { defaultValue: 'Generieren' })}
             </button>
           </div>
         </div>
@@ -326,7 +319,7 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
             `}
           >
             <span>✅</span>
-            {t('Route übernehmen & weiter')}
+            {t('route.confirm_continue', { defaultValue: 'Route übernehmen & weiter' })}
           </button>
         </div>
 

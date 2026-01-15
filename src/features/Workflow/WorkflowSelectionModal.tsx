@@ -1,5 +1,7 @@
 // src/features/Workflow/WorkflowSelectionModal.tsx
 // 13.01.2026 17:55 - FIX: Fixed case-sensitive import (Cockpit) and removed unused useTranslation.
+// 16.01.2026 01:45 - FIX: Added missing status check for 'routeArchitect'.
+// 16.01.2026 02:00 - FIX: Hide Interaction Badge when step is done.
 
 import React, { useState, useEffect } from 'react';
 // FIX: Removed unused 'useTranslation' import to satisfy linter
@@ -49,6 +51,9 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
         // Check if analysis exists
         return project.analysis.chefPlaner ? 'done' : 'available';
 
+      case 'routeArchitect':
+        return project.analysis.routeArchitect ? 'done' : 'available';
+
       case 'basis':
         return hasPlaces ? 'done' : 'available';
       
@@ -92,7 +97,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
         return (manualHotel || hasValidatedHotels) ? 'done' : 'available';
       
       case 'sondertage':
-         return hasPlaces ? 'available' : 'locked';
+          return hasPlaces ? 'available' : 'locked';
 
       case 'transfers':
         const hasDayPlan = project.itinerary.days.length > 0;
@@ -252,7 +257,8 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
                               : (lang === 'de' ? 'Erledigt' : 'Done')}
                           </span>
                         )}
-                        {step.requiresUserInteraction && (
+                        {/* FIX: Hide Interaction Badge if step is already DONE */}
+                        {step.requiresUserInteraction && !isDone && (
                           <span className="text-[10px] uppercase font-bold tracking-wider text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full flex items-center gap-1">
                             <Settings2 className="w-3 h-3" />
                             {lang === 'de' ? 'Interaktion' : 'Interactive'}
@@ -267,14 +273,14 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
 
                     {/* HINWEIS BEI RE-RUN SELEKTION */}
                     {isSelected && isDone && (
-                       <div className="flex items-center gap-1 mt-2 text-xs text-amber-600 font-medium">
-                         <AlertCircle className="w-3 h-3" />
-                         <span>
-                           {lang === 'de' 
-                             ? 'Achtung: Vorhandene Daten werden überschrieben.' 
-                             : 'Warning: Existing data will be overwritten.'}
-                         </span>
-                       </div>
+                        <div className="flex items-center gap-1 mt-2 text-xs text-amber-600 font-medium">
+                          <AlertCircle className="w-3 h-3" />
+                          <span>
+                            {lang === 'de' 
+                              ? 'Achtung: Vorhandene Daten werden überschrieben.' 
+                              : 'Warning: Existing data will be overwritten.'}
+                          </span>
+                        </div>
                     )}
 
                     {/* HINWEIS BEI LOCK */}
@@ -341,4 +347,4 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
     </>
   );
 };
-// --- END OF FILE 255 Zeilen ---
+// --- END OF FILE 259 Zeilen ---

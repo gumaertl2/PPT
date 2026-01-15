@@ -1,6 +1,6 @@
 // src/features/Cockpit/ItineraryModal.tsx
 // 15.01.2026 18:00 - FEATURE: Itinerary Manager Modal (V30 Parity).
-// Allows user to distribute nights across stops before starting the Collector workflow.
+// 16.01.2026 01:25 - FIX: Full Internationalization (i18n).
 
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -54,10 +54,10 @@ export const ItineraryModal: React.FC<ItineraryModalProps> = ({ isOpen, onClose,
     // Soft Validation
     if (!isBalanced) {
       const msg = remainingNights > 0 
-        ? t(`Es sind noch ${remainingNights} Nächte offen.`) 
-        : t(`Es sind ${Math.abs(remainingNights)} Nächte zu viel verplant.`);
+        ? t('itinerary.remaining_nights_open', { count: remainingNights, defaultValue: `Es sind noch ${remainingNights} Nächte offen.` }) 
+        : t('itinerary.too_many_nights', { count: Math.abs(remainingNights), defaultValue: `Es sind ${Math.abs(remainingNights)} Nächte zu viel verplant.` });
       
-      const confirmMsg = `${msg}\n\n${t('Möchten Sie trotzdem fortfahren? Für die Ideensuche ist das okay, aber der Tagesplan könnte ungenau sein.')}`;
+      const confirmMsg = `${msg}\n\n${t('itinerary.confirm_unbalanced', { defaultValue: 'Möchten Sie trotzdem fortfahren? Für die Ideensuche ist das okay, aber der Tagesplan könnte ungenau sein.' })}`;
       
       if (!window.confirm(confirmMsg)) {
         return;
@@ -75,7 +75,7 @@ export const ItineraryModal: React.FC<ItineraryModalProps> = ({ isOpen, onClose,
 
     addNotification({
       type: 'success',
-      message: t('Reiseroute gespeichert.'),
+      message: t('itinerary.saved_success', { defaultValue: 'Reiseroute gespeichert.' }),
       autoClose: 1500
     });
 
@@ -93,10 +93,10 @@ export const ItineraryModal: React.FC<ItineraryModalProps> = ({ isOpen, onClose,
           <div>
             <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
               <BedDouble className="w-6 h-6 text-blue-600" />
-              {t('Übernachtungen planen')}
+              {t('itinerary.title', { defaultValue: 'Übernachtungen planen' })}
             </h3>
             <p className="text-sm text-slate-500 mt-1">
-              {t('Verteilen Sie Ihre Zeit auf die gewählten Orte.')}
+              {t('itinerary.subtitle', { defaultValue: 'Verteilen Sie Ihre Zeit auf die gewählten Orte.' })}
             </p>
           </div>
           <button 
@@ -117,21 +117,25 @@ export const ItineraryModal: React.FC<ItineraryModalProps> = ({ isOpen, onClose,
             </div>
             <div>
               <div className="text-sm font-semibold uppercase tracking-wider opacity-70">
-                {isBalanced ? t('Planung aufgeht') : t('Anpassung nötig')}
+                {isBalanced ? t('itinerary.status_balanced', { defaultValue: 'Planung aufgeht' }) : t('itinerary.status_unbalanced', { defaultValue: 'Anpassung nötig' })}
               </div>
               <div className="font-bold text-lg text-slate-800">
-                {t('Gesamt: ')} {totalNights} {t('Nächte')}
+                {t('itinerary.total', { defaultValue: 'Gesamt:' })} {totalNights} {t('unit.nights', { defaultValue: 'Nächte' })}
               </div>
             </div>
           </div>
 
           <div className="text-right">
-             <div className="text-sm text-slate-600">{t('Zugewiesen')}</div>
+             <div className="text-sm text-slate-600">{t('itinerary.assigned', { defaultValue: 'Zugewiesen' })}</div>
              <div className={`text-xl font-bold ${isBalanced ? 'text-green-700' : 'text-amber-700'}`}>
                {assignedNights}
              </div>
              <div className="text-xs text-slate-400">
-               {remainingNights > 0 ? `${remainingNights} ${t('offen')}` : remainingNights < 0 ? `${Math.abs(remainingNights)} ${t('zu viel')}` : ''}
+               {remainingNights > 0 
+                  ? `${remainingNights} ${t('itinerary.open', { defaultValue: 'offen' })}` 
+                  : remainingNights < 0 
+                    ? `${Math.abs(remainingNights)} ${t('itinerary.too_many', { defaultValue: 'zu viel' })}` 
+                    : ''}
              </div>
           </div>
         </div>
@@ -140,7 +144,7 @@ export const ItineraryModal: React.FC<ItineraryModalProps> = ({ isOpen, onClose,
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {stops.length === 0 ? (
             <div className="text-center p-8 text-gray-400">
-              {t('Keine Stationen definiert.')}
+              {t('itinerary.no_stops', { defaultValue: 'Keine Stationen definiert.' })}
             </div>
           ) : (
             stops.map((stop, index) => (
@@ -172,7 +176,7 @@ export const ItineraryModal: React.FC<ItineraryModalProps> = ({ isOpen, onClose,
                     className="w-16 text-center font-bold text-lg bg-transparent border-none focus:ring-0 p-0 text-blue-700"
                   />
                   <span className="text-xs font-semibold text-slate-400 pr-2">
-                    {t('Nächte')}
+                    {t('unit.nights', { defaultValue: 'Nächte' })}
                   </span>
                 </div>
 
@@ -187,7 +191,7 @@ export const ItineraryModal: React.FC<ItineraryModalProps> = ({ isOpen, onClose,
             onClick={onClose}
             className="px-6 py-3 rounded-xl font-semibold text-slate-600 hover:bg-slate-200 transition-colors"
           >
-            {t('Abbrechen')}
+            {t('actions.cancel', { defaultValue: 'Abbrechen' })}
           </button>
           
           <button
@@ -195,7 +199,9 @@ export const ItineraryModal: React.FC<ItineraryModalProps> = ({ isOpen, onClose,
             className={`px-8 py-3 rounded-xl font-bold text-white shadow-lg transition-all transform hover:-translate-y-0.5
               ${isBalanced ? 'bg-green-600 hover:bg-green-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
           >
-            {isBalanced ? t('Speichern & Starten') : t('Trotzdem Speichern')}
+            {isBalanced 
+              ? t('itinerary.save_start', { defaultValue: 'Speichern & Starten' }) 
+              : t('itinerary.save_anyway', { defaultValue: 'Trotzdem Speichern' })}
           </button>
         </div>
 

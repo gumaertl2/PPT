@@ -1,6 +1,6 @@
-// src/features/cockpit/SightCard.tsx
+// src/features/Cockpit/SightCard.tsx
 // 13.01.2026 18:00 - LAYOUT: V30 High-Density (Meta-Bar with Inputs & Icons)
-// --- END OF FILE 330 Zeilen ---
+// 16.01.2026 02:25 - FIX: Corrected Google Rating Count fallback and Debug Modal z-index.
 
 import React, { useState, useEffect } from 'react';
 import { useTripStore } from '../../store/useTripStore';
@@ -9,11 +9,11 @@ import {
   Trash2, 
   Database, 
   Star, 
-  X,
-  Plus,
-  Minus,
-  Globe,
-  Search,
+  X, 
+  Plus, 
+  Minus, 
+  Globe, 
+  Search, 
   Map as MapIcon
 } from 'lucide-react';
 
@@ -121,7 +121,8 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
       <div className="flex items-center gap-1 text-amber-500 text-xs font-medium whitespace-nowrap" title={`Google Rating: ${rating} (${userRatingsTotal})`}>
         <Star className="w-3 h-3 fill-amber-500" />
         <span>{rating}</span>
-        <span className="text-gray-400 font-normal">({userRatingsTotal})</span>
+        {/* FIX: Added fallback for google_ratings_count */}
+        <span className="text-gray-400 font-normal">({userRatingsTotal || data.google_ratings_count || 0})</span>
       </div>
     );
   };
@@ -345,7 +346,8 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
 
       {/* DEBUG MODAL */}
       {showDebug && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+        // FIX: Increased Z-Index to 9999
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
            <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
               <div className="flex justify-between items-center p-4 border-b">
                  <h3 className="font-bold text-lg">JSON Data: {name}</h3>
@@ -362,4 +364,4 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     </>
   );
 };
-// --- END OF FILE 330 Zeilen ---
+// --- END OF FILE 332 Zeilen ---
