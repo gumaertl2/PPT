@@ -3,6 +3,7 @@
 // 16.01.2026 04:20 - FIX: Consistently using TaskKey from core/types. Expanded defaults to include workflow steps.
 // UPDATE: V30 Original-Modelle (Gemini 2.5) & Robustness Settings
 
+// FIX: Importing TaskKey as the source of truth
 import type { TaskKey } from '../core/types';
 
 export type ModelType = 'pro' | 'flash';

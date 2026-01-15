@@ -1,12 +1,13 @@
 // src/store/slices/createSystemSlice.ts
 // 14.01.2026 15:45 - FIX: Re-applying Phase 1 (Model Overrides) strictly on verified upload.
+// 16.01.2026 05:50 - FINAL FIX: Consolidated TaskKey import from core/types to resolve TS2459.
 
 import type { StateCreator } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import { SecurityService } from '../../services/security';
-import type { FlightRecorderEntry } from '../../core/types';
+import type { FlightRecorderEntry, TaskKey } from '../../core/types'; // FIX: TaskKey from core/types
 // NEW: Import types for model config
-import type { ModelType, TaskKey } from '../../data/config';
+import type { ModelType } from '../../data/config'; // ModelType stays in config
 
 export type AiStrategy = 'optimal' | 'pro' | 'fast';
 

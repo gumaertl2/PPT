@@ -1,6 +1,7 @@
 // src/features/Cockpit/SettingsModal.tsx
 // 14.01.2026 14:15 - FIX: Corrected import casing 'data/Texts' (Linux support) and AiStrategy import.
 // 14.01.2026 19:55 - UPDATE: Added Matrix UI & Clean Labels (Phase 1 Complete)
+// 16.01.2026 05:45 - FIX: Switched TaskKey import to core/types to resolve TS2459/TS7053.
 
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -26,10 +27,10 @@ import type { AiStrategy } from '../../store/useTripStore';
 import { InfoModal } from '../Welcome/InfoModal';
 // FIX: Corrected casing 'texts' -> 'Texts' for Linux/Vercel build
 import { getInfoText } from '../../data/Texts';
-import type { LanguageCode } from '../../core/types';
+// FIX: TaskKey now strictly imported from core types
+import type { LanguageCode, TaskKey } from '../../core/types';
 // NEW: Config for Matrix Keys
 import { CONFIG } from '../../data/config';
-import type { TaskKey } from '../../data/config';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -112,7 +113,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   // NEW: Matrix Data Preparation
   const tasks = Object.keys(CONFIG.taskRouting.defaults || {}) as TaskKey[];
-  // Wichtige Tasks zuerst oder filtern (hier alle)
   const importantTasks = tasks;
 
   return (
@@ -200,16 +200,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               {/* TOTALS */}
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col items-center justify-center text-center">
-                  <span className="text-2xl font-bold text-slate-700">{usageStats.tokens.toLocaleString()}</span>
+                  <span className="text-2xl font-bold text-slate-700">{usageStats.totalTokens.toLocaleString()}</span>
                   <span className="text-[10px] text-slate-400 uppercase tracking-wider mt-1">{t('settings.stats_tokens', 'Tokens')}</span>
                 </div>
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col items-center justify-center text-center">
-                  <span className="text-2xl font-bold text-slate-700">{usageStats.calls}</span>
+                  <span className="text-2xl font-bold text-slate-700">{usageStats.totalCalls}</span>
                   <span className="text-[10px] text-slate-400 uppercase tracking-wider mt-1">{t('settings.stats_calls', 'API Calls')}</span>
                 </div>
               </div>
 
-              {/* DETAILS PER MODEL (New) */}
+              {/* DETAILS PER MODEL */}
               {modelStats.length > 0 && (
                 <div className="bg-slate-50 rounded-xl border border-slate-100 p-3">
                     <div className="text-[10px] font-bold text-slate-400 uppercase mb-2 px-1">Details nach Modell</div>
@@ -262,7 +262,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 })}
               </div>
 
-              {/* NEW: MATRIX ACCORDION (Inserted here) */}
+              {/* MATRIX ACCORDION */}
               {aiSettings.strategy === 'optimal' && (
                 <div className="mt-4">
                     <button 
@@ -284,8 +284,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                     const defaultModel = CONFIG.taskRouting.defaults[taskKey];
                                     const currentOverride = aiSettings.modelOverrides?.[taskKey];
                                     const activeModel = currentOverride || defaultModel;
-                                    
-                                    // FIX: Clean Label Display (Capitalized Key)
                                     const label = taskKey.charAt(0).toUpperCase() + taskKey.slice(1);
 
                                     return (
