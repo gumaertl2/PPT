@@ -1,6 +1,7 @@
 // src/core/types.ts
 // 14.01.2026 18:00 - FIX: Expanded LocalizedContent to support all LanguageCodes.
 // 15.01.2026 21:00 - FIX: Resolved Build Errors (TaskKey, Roundtrip Mode, CalendarEvent, MobileHome).
+// 16.01.2026 03:00 - CONFIRM: Ensuring 'routeArchitect' is present in TaskKey.
 
 export type LanguageCode = 'de' | 'en' | 'es' | 'fr' | 'it' | 'nl' | 'pl' | 'pt' | 'ru' | 'tr' | 'ja' | 'zh';
 

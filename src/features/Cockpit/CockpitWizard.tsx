@@ -1,6 +1,7 @@
 // src/features/Cockpit/CockpitWizard.tsx
 // 14.01.2026 19:00 - FIX: Added fallbacks for LocalizedContent access.
 // 16.01.2026 00:30 - FIX: Removed local state & toolbar. Synced Modal with TripStore.
+// 16.01.2026 03:15 - FIX: Renamed workflowModalOpen to isWorkflowModalOpen to match UISlice.
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -51,8 +52,8 @@ export const CockpitWizard = () => {
   const { 
       project, 
       setView, 
-      // FIX: Use Store State for Modal
-      workflowModalOpen, 
+      // FIX: Renamed to match UISlice definition
+      isWorkflowModalOpen, 
       setWorkflowModalOpen 
   } = useTripStore(); 
   
@@ -145,7 +146,7 @@ export const CockpitWizard = () => {
       
       if (mode === 'mobil' || mode === 'roundtrip') {
           if (!project.analysis.routeArchitect) {
-             await startSingleTask('routeArchitect');
+              await startSingleTask('routeArchitect');
           }
           setViewMode('routeArchitect');
           window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -324,9 +325,9 @@ export const CockpitWizard = () => {
         error={error}
       />
 
-      {/* FIX: Modal controlled by Store */}
+      {/* FIX: Modal controlled by Store - Renamed variable */}
       <WorkflowSelectionModal
-        isOpen={workflowModalOpen} 
+        isOpen={isWorkflowModalOpen} 
         onClose={() => setWorkflowModalOpen(false)}
         onStart={handleStartSelectedWorkflows}
       />

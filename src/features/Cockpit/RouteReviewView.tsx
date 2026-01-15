@@ -2,11 +2,11 @@
 // 15.01.2026 17:50 - FEATURE: V30-Style Route Selection View with Keep & Regenerate Logic.
 // 15.01.2026 18:15 - UPDATE: Integrated ItineraryModal for night distribution (V30 Parity).
 // 16.01.2026 01:15 - FIX: Removed Header, Full-Width Feedback, Added i18n.
+// 16.01.2026 03:25 - FIX: Removed unused import (Map) to resolve build errors.
 
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
-  Map, 
   Clock, 
   Navigation, 
   RefreshCw, 
@@ -14,7 +14,7 @@ import {
   Lock, 
   ExternalLink,
   Info 
-} from 'lucide-react';
+} from 'lucide-react'; // FIX: Removed unused Map import
 
 import { useTripStore } from '../../store/useTripStore';
 import { useTripGeneration } from '../../hooks/useTripGeneration';
@@ -103,7 +103,7 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
     // 2. Build Feedback Prompt
     // We inject the kept routes as JSON string so the AI knows what to preserve
     const keptBlock = keptRoutes.length > 0 
-        ? `\n\nKEEP THESE ROUTES EXACTLY AS IS:\n${JSON.stringify(keptRoutes, null, 2)}`
+        ? `\n\nKEEP THESE ROUTES EXACTLY AS IS:\n${JSON.stringify(keptRoutes, null, 2)}` 
         : "";
 
     const fullFeedback = `User Feedback: "${feedback}"${keptBlock}\n\nTask: Generate 3 routes. If routes are provided in the 'KEEP' block, return them unchanged at the same index/position if possible, and generate NEW variations for the others.`;
@@ -334,4 +334,4 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
     </div>
   );
 };
-// --- END OF FILE 279 Zeilen ---
+// --- END OF FILE 276 Zeilen ---

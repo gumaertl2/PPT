@@ -1,12 +1,13 @@
 // src/features/Cockpit/ItineraryModal.tsx
 // 15.01.2026 18:00 - FEATURE: Itinerary Manager Modal (V30 Parity).
 // 16.01.2026 01:25 - FIX: Full Internationalization (i18n).
+// 16.01.2026 03:20 - FIX: Removed unused imports (Moon, RouteStop) to resolve build errors.
 
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, Moon, AlertTriangle, CheckCircle, BedDouble } from 'lucide-react';
+import { X, AlertTriangle, CheckCircle, BedDouble } from 'lucide-react'; // FIX: Removed Moon
 import { useTripStore } from '../../store/useTripStore';
-import type { RouteStop } from '../../core/types';
+// FIX: Removed unused import of RouteStop
 
 interface ItineraryModalProps {
   isOpen: boolean;
@@ -209,4 +210,4 @@ export const ItineraryModal: React.FC<ItineraryModalProps> = ({ isOpen, onClose,
     </div>
   );
 };
-// --- END OF FILE 168 Zeilen ---
+// --- END OF FILE 165 Zeilen ---
