@@ -1,8 +1,6 @@
 // src/hooks/useTripGeneration.ts
-// 12.01.2026 19:00
-// UPDATE: Implemented result processing for 'basis' and 'anreicherer'.
-// FIXED: Data flow now persists results to global store using IDs.
-// 15.01.2026 16:45 - FIX: Added 'routeArchitect' result processor to close the data loop.
+// 12.01.2026 19:00 - UPDATE: Implemented result processing for 'basis' and 'anreicherer'.
+// 16.01.2026 03:40 - FIX: Corrected TaskKey import source to resolve build errors (TS2345).
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -11,8 +9,7 @@ import { useTripStore } from '../store/useTripStore';
 import { PayloadBuilder } from '../core/prompts/PayloadBuilder';
 import { GeminiService } from '../services/gemini';
 import { WORKFLOW_STEPS } from '../core/Workflow/steps';
-import type { WorkflowStepId } from '../core/types';
-import type { TaskKey } from '../data/config';
+import type { WorkflowStepId, TaskKey } from '../core/types'; // FIX: Unified import from types.ts
 
 export type GenerationStatus = 
   | 'idle' 
@@ -64,10 +61,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
   const [currentStep, setCurrentStep] = useState<WorkflowStepId | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Manual Mode State -> REMOVED (now in store)
-  // const [manualPrompt, setManualPrompt] = useState<string | null>(null);
-  // const [manualStepId, setManualStepId] = useState<WorkflowStepId | TaskKey | null>(null);
-  
   const initialQueueLength = useRef<number>(0);
   const progress = initialQueueLength.current > 0 
     ? Math.round(((initialQueueLength.current - queue.length) / initialQueueLength.current) * 100)
@@ -384,19 +377,19 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
       // NOTIFICATION: Start Analysis
       if (task === 'chefPlaner') {
-         addNotification({
+          addNotification({
             id: startToastId,
             type: 'loading',
             message: t('status.analysis_start'),
             autoClose: false 
-         });
+          });
       } else {
-         addNotification({
+          addNotification({
             id: startToastId,
             type: 'loading',
             message: t('status.workflow_start', { step: taskLabel }),
             autoClose: 3000
-         });
+          });
       }
       
       try {
@@ -493,4 +486,4 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     startSingleTask
   };
 };
-// --- END OF FILE 336 Zeilen ---
+// --- END OF FILE 335 Zeilen ---

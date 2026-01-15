@@ -1,6 +1,7 @@
 // src/store/slices/createProjectSlice.ts
 // 14.01.2026 11:45 - FIX: Corrected setRoundtripOptions to target logistics.roundtripOptions (not roundtrip). Updated Interface types.
 // 15.01.2026 22:00 - FIX: Added updateLogistics to support generic updates from RouteReviewView.
+// 16.01.2026 03:50 - FIX: Updated default strategyId to 'klassischEntdecker' and vibe to 'Entdeckerisch'.
 
 import type { StateCreator } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
@@ -88,7 +89,7 @@ const createInitialProject = (): TripProject => ({
       adults: 2,
       children: 0,
       origin: '',
-      nationality: 'de',
+      nationality: '',
       groupType: 'couple',
       pets: false
     },
@@ -123,8 +124,8 @@ const createInitialProject = (): TripProject => ({
     },
     pace: 'Ausgewogen',
     budget: 'Flexibel',
-    strategyId: 'balanced_explorer',
-    vibe: '',
+    strategyId: 'klassischEntdecker',
+    vibe: 'Entdeckerisch',
     selectedInterests: [],
     customPreferences: {},
     notes: '',
@@ -151,19 +152,19 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
         'meta' in fileOrProject && 
         'userInputs' in fileOrProject
       ) {
-         data = fileOrProject;
+          data = fileOrProject;
       } 
       // Case B: Input ist File Objekt
       else if (fileOrProject instanceof File) {
-         const text = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target?.result as string);
-            reader.onerror = reject;
-            reader.readAsText(fileOrProject);
-         });
-         data = JSON.parse(text);
+          const text = await new Promise<string>((resolve, reject) => {
+             const reader = new FileReader();
+             reader.onload = (e) => resolve(e.target?.result as string);
+             reader.onerror = reject;
+             reader.readAsText(fileOrProject);
+          });
+          data = JSON.parse(text);
       } else {
-         throw new Error("Invalid input format for loadProject");
+          throw new Error("Invalid input format for loadProject");
       }
       
       // Update State
@@ -544,4 +545,4 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     }
   }))
 });
-// --- END OF FILE 423 Zeilen ---
+// --- END OF FILE 424 Zeilen ---
