@@ -1,7 +1,8 @@
 // src/core/Workflow/steps.ts
 // 10.01.2026 17:40
 // UPDATE: Added 'chefPlaner' and 'anreicherer' while preserving existing steps.
-// CHAIN: chefPlaner -> basis -> anreicherer -> guide -> ...
+// 15.01.2026 16:15 - FIX: Added 'routeArchitect' step for Roundtrips (V30 Workflow Parity).
+// CHAIN: chefPlaner -> routeArchitect (optional) -> basis -> anreicherer -> guide -> ...
 
 import type { WorkflowStepDef } from '../types';
 
@@ -19,10 +20,25 @@ export const WORKFLOW_STEPS: WorkflowStepDef[] = [
       en: 'Analyzes logistics, strategy, and creates the briefing.'
     }
   },
+  // NEU: Routen-Architekt (Nur für Rundreisen relevant)
+  {
+    id: 'routeArchitect',
+    isMandatory: false, // Wird dynamisch gesteuert (nur bei Mode='roundtrip')
+    requires: ['chefPlaner'], // Baut auf der Analyse auf
+    requiresUserInteraction: true, // User MUSS eine Route wählen
+    label: {
+      de: '0b. Routen-Architekt',
+      en: '0b. Route Architect'
+    },
+    description: {
+      de: 'Entwickelt 3 Routenvorschläge basierend auf Ihren Wünschen.',
+      en: 'Develops 3 route proposals based on your preferences.'
+    }
+  },
   {
     id: 'basis', // Bestehend (angepasst auf Requirement)
     isMandatory: true,
-    requires: ['chefPlaner'], // Braucht das Briefing
+    requires: ['chefPlaner'], // Braucht das Briefing (und ggf. die Route vom Architekten)
     label: {
       de: '1. Basis: Kandidaten (Sammler)',
       en: '1. Base: Candidates (Collector)'
@@ -150,3 +166,4 @@ export const WORKFLOW_STEPS: WorkflowStepDef[] = [
     }
   }
 ];
+// --- END OF FILE 135 Zeilen ---

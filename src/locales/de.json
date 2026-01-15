@@ -111,7 +111,8 @@
       "interests": "3. Interessen",
       "dates": "4. Termine",
       "misc": "5. Sonstiges",
-      "review": "6. Start"
+      "review": "6. Start",
+      "routeArchitect": "0b. Routen-Architekt"
     },
     "toolbar": {
       "plan": "Plan",
@@ -355,5 +356,41 @@
     "planning_mode": "Planungsmodus",
     "planning_mode_desc": "Aktivieren Sie dies, um Budget, Prioritäten und die Reserve-Liste anzuzeigen.",
     "planning_active": "Planungsmodus aktiv"
+  },
+  "routeReview": {
+    "title": "Phase 1: Strategische Routen-Auswahl",
+    "subtitle": "Hier sind die Vorschläge des Routen-Architekten. Vergleichen Sie die Optionen und wählen Sie Ihren Favoriten.",
+    "criteria": "Kriterium",
+    "charakter": "Charakter",
+    "path": "Verlauf",
+    "stats": "Fakten",
+    "map": "Karte",
+    "openMap": "Auf Karte öffnen",
+    "keep": "Behalten",
+    "feedbackTitle": "Anpassen & Neu Generieren",
+    "feedbackHint": "Markieren Sie oben \"Behalten\", um Favoriten zu sichern.",
+    "feedbackPlaceholder": "z.B. 'Weniger Fahrzeit', 'Mehr Berge'...",
+    "generate": "Generieren",
+    "confirm": "Route übernehmen & weiter",
+    "selected": "Ausgewählt"
+  },
+  "itinerary": {
+    "title": "Übernachtungen planen",
+    "subtitle": "Verteilen Sie Ihre Zeit auf die gewählten Orte.",
+    "balanced": "Planung aufgeht",
+    "unbalanced": "Anpassung nötig",
+    "total": "Gesamt:",
+    "nights": "Nächte",
+    "assigned": "Zugewiesen",
+    "remaining": "offen",
+    "tooMany": "zu viel",
+    "saveStart": "Speichern & Starten",
+    "saveAnyway": "Trotzdem Speichern",
+    "cancel": "Abbrechen",
+    "noStops": "Keine Stationen definiert.",
+    "msgOpen": "Es sind noch {{count}} Nächte offen.",
+    "msgOver": "Es sind {{count}} Nächte zu viel verplant.",
+    "confirmMsg": "Möchten Sie trotzdem fortfahren? Für die Ideensuche ist das okay, aber der Tagesplan könnte ungenau sein.",
+    "success": "Reiseroute gespeichert."
   }
 }

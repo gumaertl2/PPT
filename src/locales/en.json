@@ -111,7 +111,8 @@
       "interests": "3. Interests",
       "dates": "4. Dates",
       "misc": "5. Misc",
-      "review": "6. Start"
+      "review": "6. Start",
+      "routeArchitect": "0b. Route Architect"
     },
     "toolbar": {
       "plan": "Plan",
@@ -355,5 +356,41 @@
     "planning_mode": "Planning Mode",
     "planning_mode_desc": "Enable this to show budget, priorities, and the reserve list.",
     "planning_active": "Planning Mode Active"
+  },
+  "routeReview": {
+    "title": "Phase 1: Strategic Route Selection",
+    "subtitle": "Here are the proposals from the Route Architect. Compare the options and select your favorite.",
+    "criteria": "Criteria",
+    "charakter": "Character",
+    "path": "Path",
+    "stats": "Stats",
+    "map": "Map",
+    "openMap": "Open on Map",
+    "keep": "Keep",
+    "feedbackTitle": "Adjust & Regenerate",
+    "feedbackHint": "Mark \"Keep\" above to save favorites.",
+    "feedbackPlaceholder": "e.g. 'Less driving time', 'More mountains'...",
+    "generate": "Generate",
+    "confirm": "Accept Route & Continue",
+    "selected": "Selected"
+  },
+  "itinerary": {
+    "title": "Plan Overnight Stays",
+    "subtitle": "Distribute your time among the selected locations.",
+    "balanced": "Planning balanced",
+    "unbalanced": "Adjustment needed",
+    "total": "Total:",
+    "nights": "Nights",
+    "assigned": "Assigned",
+    "remaining": "open",
+    "tooMany": "too many",
+    "saveStart": "Save & Start",
+    "saveAnyway": "Save Anyway",
+    "cancel": "Cancel",
+    "noStops": "No stops defined.",
+    "msgOpen": "There are still {{count}} nights open.",
+    "msgOver": "There are {{count}} nights too many planned.",
+    "confirmMsg": "Do you want to proceed anyway? This is okay for finding ideas, but the daily schedule might be inaccurate.",
+    "success": "Itinerary saved."
   }
 }

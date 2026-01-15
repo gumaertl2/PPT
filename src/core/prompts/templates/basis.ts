@@ -2,11 +2,26 @@
 // 10.01.2026
 // TEMPLATE: BASIS (Sammler) - V40 Port of 'prompt-sammler.js'
 // Strategie: Nutzt ChefPlaner-Briefing & User-Interessen für präzise Kandidaten-Suche.
-// 14.01.2026 21:55 - FIX: Added Roundtrip Logic with STRICT Integrity (Original Content Preserved).
+// 14.01.2026 21:55 - FIX: Added Roundtrip Logic.
+// 14.01.2026 22:15 - FIX: Vercel Type Fixes.
+// 15.01.2026 16:00 - UPDATE: Added Season, Transport Mode & Precise Routing (V30 Quality Restore).
 
 import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
 import { INTEREST_DATA } from '../../../data/interests'; 
+
+/**
+ * Helper: Extract month name from date string
+ */
+const getMonthName = (dateStr: string, lang: 'de' | 'en'): string => {
+    if (!dateStr) return '';
+    try {
+        const date = new Date(dateStr);
+        return date.toLocaleString(lang === 'de' ? 'de-DE' : 'en-US', { month: 'long' });
+    } catch (e) {
+        return '';
+    }
+};
 
 /**
  * Generiert das "Kreative Briefing" analog zu V30.
@@ -42,7 +57,7 @@ const generateCreativeBriefing = (project: TripProject, lang: 'de' | 'en'): stri
 export const buildBasisPrompt = (project: TripProject): string => {
     const { userInputs, meta, analysis } = project;
     const chefPlaner = analysis.chefPlaner;
-    const { logistics } = userInputs;
+    const { logistics, dates } = userInputs;
     
     // UI Sprache für Labels
     const uiLang = meta.language === 'en' ? 'en' : 'de';
@@ -50,18 +65,30 @@ export const buildBasisPrompt = (project: TripProject): string => {
     // 1. CHEF PLANER DATEN
     const strategicBriefing = chefPlaner?.strategic_briefing;
     
-    // --- START FIX: ROUNDTRIP LOGIC ---
-    // Wir nutzen die Instruktion vom Chef-Planer, überschreiben sie aber bei Rundreisen.
+    // --- CONTEXT: SEASON & TRANSPORT (V30 RESTORE) ---
+    const travelMonth = getMonthName(dates.start, uiLang) || "Unknown Season";
+    const transportMode = dates.arrival.type || 'car';
+    
+    let transportContext = "";
+    if (transportMode === 'camper' || transportMode === 'mobile_home') {
+        transportContext = "Transport: Large Camper/RV. Avoid narrow centers. Prefer nature & scenic stops.";
+    } else {
+        transportContext = `Transport: ${transportMode}.`;
+    }
+
+    // --- LOGIC: GEO CONTEXT ---
     let searchRadiusInstruction = strategicBriefing?.search_radius_instruction || "Search within the destination.";
     
-    // FIX: Match type 'mobil' instead of 'roundtrip'
     if (logistics.mode === 'mobil') {
         const stops = logistics.roundtrip.stops || [];
         const region = logistics.roundtrip.region || "Region";
+        const start = logistics.roundtrip.startLocation || region;
+        const end = logistics.roundtrip.endLocation || start;
         
+        // FIX: Build precise route vector even if stops are empty
         const routeString = stops.length > 0
-             ? stops.map(s => s.location).join(" -> ")
-             : `Route through ${region}`;
+             ? `${start} -> ${stops.map(s => s.location).join(" -> ")} -> ${end}`
+             : `Route from ${start} to ${end} through ${region}`;
              
         searchRadiusInstruction = `
         **MODE: ROUNDTRIP**
@@ -70,8 +97,7 @@ export const buildBasisPrompt = (project: TripProject): string => {
         Focus on stops and logical breaks along the path.
         `;
     }
-    // --- END FIX ---
-
+    
     const sammlerBriefing = strategicBriefing?.sammler_briefing || ""; 
     const validierteTermine = chefPlaner?.validated_appointments || [];
     
@@ -85,10 +111,14 @@ export const buildBasisPrompt = (project: TripProject): string => {
     // 4. GENERATE BRIEFING
     const creativeBriefingBlock = generateCreativeBriefing(project, uiLang);
     
-    // 5. BUILD PROMPT (System Instructions in English for performance)
+    // 5. BUILD PROMPT
     const prompt = `
 # YOUR ROLE & TASK
 You are a "Chief Curator" for a premium travel guide. Your reputation depends on the excellence and relevance of your selection. Your **sole task** is to create a qualitatively outstanding and suitable list of **NAMES** for sights and activities.
+
+# SEASON & LOGISTICS CONTEXT
+- **Travel Month:** ${travelMonth} (Respect opening times and weather suitability!)
+- **${transportContext}**
 
 # MANDATORY CONTEXT (FROM ARCHITECT)
 **Search Radius / Logistics Rule:**
@@ -148,4 +178,4 @@ Response in valid JSON only.
     // FIX: Return 3 separate arguments instead of an object to fix TS2554
     return PromptBuilder.build(prompt, "", project.meta.language);
 };
-// --- END OF FILE 140 Zeilen ---
+// --- END OF FILE 165 Zeilen ---

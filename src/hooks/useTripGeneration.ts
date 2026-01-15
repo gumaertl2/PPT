@@ -2,6 +2,7 @@
 // 12.01.2026 19:00
 // UPDATE: Implemented result processing for 'basis' and 'anreicherer'.
 // FIXED: Data flow now persists results to global store using IDs.
+// 15.01.2026 16:45 - FIX: Added 'routeArchitect' result processor to close the data loop.
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -139,6 +140,12 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       case 'chefPlaner':
          if (data) setAnalysisResult('chefPlaner', data);
          break;
+      
+      // FIX: Added Route Architect Processor to persist data in store
+      case 'routeArchitect':
+         if (data) setAnalysisResult('routeArchitect', data);
+         break;
+
       default:
         console.warn(`No processor defined for step: ${step}`, data);
     }
@@ -486,4 +493,4 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     startSingleTask
   };
 };
-// --- END OF FILE 332 Zeilen ---
+// --- END OF FILE 336 Zeilen ---

@@ -1,5 +1,6 @@
 // src/features/Cockpit/CockpitWizard.tsx
 // 14.01.2026 19:00 - FIX: Added fallbacks for LocalizedContent access to prevent 'undefined' assignment errors.
+// 15.01.2026 19:00 - RESTORE & ENHANCE: Integrated RouteArchitect into original Wizard flow.
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +9,7 @@ import { useTripGeneration } from '../../hooks/useTripGeneration';
 
 // Components
 import { AnalysisReviewView } from './AnalysisReviewView';
+import { RouteReviewView } from './RouteReviewView'; // NEU
 import { SightsView } from './SightsView';
 import { ConfirmModal } from './ConfirmModal';
 import { InfoModal } from '../Welcome/InfoModal';
@@ -56,8 +58,9 @@ export const CockpitWizard = () => {
     submitManualResult  
   } = useTripGeneration();
 
-  // Local State: Supports 'sights'
-  const [viewMode, setViewMode] = useState<'wizard' | 'analysis' | 'sights'>('wizard');
+  // Local State: Supports 'sights' AND 'routeArchitect'
+  // NEU: 'routeArchitect' als möglicher Mode
+  const [viewMode, setViewMode] = useState<'wizard' | 'analysis' | 'routeArchitect' | 'sights'>('wizard');
   const [currentStep, setCurrentStep] = useState(0);
   
   // Modals
@@ -127,8 +130,38 @@ export const CockpitWizard = () => {
   };
 
   // LINK: Basis (Sammler) -> Anreicherer -> SightsView
+  // UPDATE: Logic for Roundtrip -> RouteArchitect -> ...
   const handleContinueFromAnalysis = async () => {
     try {
+      const mode = project.userInputs.logistics.mode;
+      
+      if (mode === 'mobil' || mode === 'roundtrip') {
+          // ROUNDTRIP PATH: Go to Route Architect first
+          // Check if we already have route results? (Optional: re-run if needed)
+          // For now: Always run or show view if exists
+          if (!project.analysis.routeArchitect) {
+             await startSingleTask('routeArchitect');
+          }
+          setViewMode('routeArchitect');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+          // STATIONARY PATH: Direct to Sammler
+          await runCollectorChain();
+      }
+    } catch (e) {
+      console.error("Workflow sequence failed:", e);
+    }
+  };
+
+  // NEU: Callback wenn Route gewählt wurde (und Itinerary Modal fertig ist)
+  const handleContinueFromRoute = async () => {
+      // Route is selected and saved in store.
+      // Now start the collector chain.
+      await runCollectorChain();
+  };
+
+  // Helper: The classic "Zauberstab" chain
+  const runCollectorChain = async () => {
       // 1. Basis: Find Candidates
       await startSingleTask('basis');
       
@@ -138,10 +171,8 @@ export const CockpitWizard = () => {
       // 3. Switch View
       setViewMode('sights');
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (e) {
-      console.error("Workflow sequence failed:", e);
-    }
   };
+
 
   // --- HEADER ACTIONS ---
 
@@ -198,8 +229,8 @@ export const CockpitWizard = () => {
     <div className="min-h-screen bg-slate-50 pb-24 font-sans text-slate-900">
       
       <CockpitHeader 
-        viewMode={viewMode}
-        setViewMode={setViewMode}
+        viewMode={viewMode === 'routeArchitect' ? 'analysis' : viewMode} // Map new mode to analysis for header highlighting
+        setViewMode={(mode) => setViewMode(mode as any)}
         onReset={handleHeaderReset}
         onLoad={handleHeaderLoad}
         onOpenHelp={openHelp}
@@ -220,20 +251,20 @@ export const CockpitWizard = () => {
                 
                 return (
                   <div key={step.id} className="flex flex-col items-center relative group min-w-[70px]">
-                     {index < STEPS.length - 1 && (
+                      {index < STEPS.length - 1 && (
                         <div className={`absolute top-3.5 left-1/2 w-full h-0.5 -z-10 transition-colors duration-300 ${
                           (hasData || isActive) ? 'bg-blue-500' : 'bg-slate-100'
                         }`} />
-                     )}
-                     <button 
-                       onClick={() => jumpToStep(index)}
-                       className={`w-7 h-7 rounded-full flex items-center justify-center text-xs transition-all duration-200 z-10 border-2 ${bubbleClass}`}
-                     >
-                       {index + 1}
-                     </button>
-                     <span className={`text-[10px] mt-1.5 whitespace-nowrap px-2 py-0.5 rounded transition-colors ${isActive ? "text-blue-700 font-bold bg-blue-50" : "text-slate-400"}`}>
-                       {step.label}
-                     </span>
+                      )}
+                      <button 
+                        onClick={() => jumpToStep(index)}
+                        className={`w-7 h-7 rounded-full flex items-center justify-center text-xs transition-all duration-200 z-10 border-2 ${bubbleClass}`}
+                      >
+                        {index + 1}
+                      </button>
+                      <span className={`text-[10px] mt-1.5 whitespace-nowrap px-2 py-0.5 rounded transition-colors ${isActive ? "text-blue-700 font-bold bg-blue-50" : "text-slate-400"}`}>
+                        {step.label}
+                      </span>
                   </div>
                 );
               })}
@@ -245,6 +276,9 @@ export const CockpitWizard = () => {
       <main className="max-w-4xl mx-auto px-4 py-8 relative">
         {viewMode === 'analysis' ? (
           <AnalysisReviewView onNext={handleContinueFromAnalysis} />
+        ) : viewMode === 'routeArchitect' ? (
+          // NEU: Route View Integration
+          <RouteReviewView onNext={handleContinueFromRoute} />
         ) : viewMode === 'sights' ? (
           <SightsView /> 
         ) : (
@@ -293,4 +327,4 @@ export const CockpitWizard = () => {
     </div>
   );
 };
-// --- END OF FILE 256 Zeilen ---
+// --- END OF FILE 314 Zeilen ---

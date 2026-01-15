@@ -1,5 +1,6 @@
 // src/core/types.ts
 // 14.01.2026 18:00 - FIX: Expanded LocalizedContent to support all LanguageCodes (fixes TS indexing errors).
+// 15.01.2026 17:00 - FEATURE: Added RouteArchitect types for Roundtrip workflow.
 
 // FIX: Expanded LanguageCode to support languages used in PromptBuilder
 export type LanguageCode = 'de' | 'en' | 'es' | 'fr' | 'it' | 'nl' | 'pl' | 'pt' | 'ru' | 'tr' | 'ja' | 'zh';
@@ -58,7 +59,8 @@ export type WorkflowStepId =
   | 'accommodation'  // Hotels
   | 'sondertage'     // Wetter / Flex
   | 'transfers'      // Logistik
-  | 'chefPlaner';    // Chef-Planer (Analysis)
+  | 'chefPlaner'     // Chef-Planer (Analysis)
+  | 'routeArchitect'; // NEU: Routen-Architekt
 
 export interface WorkflowStepDef {
   id: WorkflowStepId;
@@ -243,6 +245,25 @@ export interface ChefPlanerResult {
   plausibility_check?: string;
 }
 
+// --- NEW: ROUTE ARCHITECT RESULT ---
+export interface RouteProposal {
+  routenName: string;
+  charakter: string;
+  gesamtKilometer: number;
+  gesamtFahrzeitStunden: number;
+  anzahlHotelwechsel: number | string;
+  uebernachtungsorte: string[];
+  ankerpunkte: Array<{
+    standortFuerKarte: string;
+    adresse: string;
+  }>;
+  begruendung: string;
+}
+
+export interface RouteArchitectResult {
+  routenVorschlaege: RouteProposal[];
+}
+
 // --- MAIN PROJECT STRUCTURE ---
 export interface TripProject {
   meta: {
@@ -256,6 +277,7 @@ export interface TripProject {
   userInputs: TripUserProfile;
   analysis: {
     chefPlaner: ChefPlanerResult | null;
+    routeArchitect?: RouteArchitectResult | null; // NEU
   };
   data: {
     places: Record<string, any>;
@@ -266,4 +288,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 243 Zeilen ---
+// --- END OF FILE 277 Zeilen ---

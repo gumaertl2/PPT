@@ -1,5 +1,7 @@
 // src/core/prompts/templates/chefPlaner.ts
-// 14.01.2026 17:10 - FIX: Added safety checks for undefined optional properties (aiInstruction, promptInstruction) and label types.
+// 14.01.2026 17:10 - FIX: Added safety checks for undefined optional properties.
+// 15.01.2026 15:30 - UPDATE: Filter empty appointments & Enforce Region Constraint (Roundtrip).
+// 15.01.2026 15:45 - FIX: Added Start/End Location & Transport Mode for precise routing (V30 Parity).
 
 /**
  * * TEMPLATE: CHEF-PLANER (V40 Final Optimized)
@@ -57,6 +59,17 @@ const resolveText = (content: string | LocalizedContent | undefined, lang: 'de' 
     return content[lang] || content['de'] || '';
 };
 
+// Helper: Extract month name from date string (YYYY-MM-DD)
+const getMonthName = (dateStr: string, lang: 'de' | 'en'): string => {
+    if (!dateStr) return '';
+    try {
+        const date = new Date(dateStr);
+        return date.toLocaleString(lang === 'de' ? 'de-DE' : 'en-US', { month: 'long' });
+    } catch (e) {
+        return '';
+    }
+};
+
 export const buildChefPlanerPrompt = (project: TripProject, feedback?: string): string => {
   const { userInputs, meta } = project;
   
@@ -86,7 +99,10 @@ export const buildChefPlanerPrompt = (project: TripProject, feedback?: string): 
   };
 
   const extractedHotels = extractHotels(userInputs);
-  const fixedEvents = userInputs.dates.fixedEvents || [];
+  
+  // FIX: Filter empty appointments to avoid AI confusion ("Ignored empty entry")
+  const rawEvents = userInputs.dates.fixedEvents || [];
+  const fixedEvents = rawEvents.filter(e => e.name && e.name.trim().length > 0);
 
   // 3. LOGISTIK-CONSTRAINTS VERBALISIEREN
   // Wir bereiten die Logistik-Regeln so auf, dass der Chefplaner sie direkt versteht.
@@ -118,10 +134,23 @@ export const buildChefPlanerPrompt = (project: TripProject, feedback?: string): 
     // damit der Chefplaner nicht POIs plant, die 5h vom Etappenziel weg sind.
     const localRadiusHours = 3; 
 
+    // FIX: Check for mandatory region constraint
+    const region = userInputs.logistics.roundtrip.region;
+    const regionConstraint = region 
+        ? `MANDATORY REGION: "${region}". The trip MUST take place INSIDE this region.` 
+        : "Region: Open.";
+
+    // FIX: Add Start/End Location for precise routing
+    const startLoc = userInputs.logistics.roundtrip.startLocation || region || "Not defined";
+    const endLoc = userInputs.logistics.roundtrip.endLocation || startLoc;
+
     logisticsBriefing = {
       type: "ROUNDTRIP (Moving Chain)",
+      start_location: startLoc,
+      end_location: endLoc,
       stops: userInputs.logistics.roundtrip.stops.map(s => s.location),
-      constraint_description: `Route Feasibility: Max ${maxLegHours} hours drive time between hotels (Legs). Max ${maxHotelChanges} hotel changes allowed. Local Exploration: Max ${localRadiusHours} hours radius around each stop.`,
+      mandatory_region: region || null, // Explicit field for AI
+      constraint_description: `Route Feasibility: Max ${maxLegHours} hours drive time between hotels (Legs). Max ${maxHotelChanges} hotel changes allowed. ${regionConstraint}`,
       max_drive_time_leg_hours: parseFloat(maxLegHours),
       max_hotel_changes: maxHotelChanges,
       implied_local_radius_hours: localRadiusHours
@@ -131,6 +160,9 @@ export const buildChefPlanerPrompt = (project: TripProject, feedback?: string): 
   // Target Count aus Search Settings (Default 50)
   const targetSightsCount = userInputs.searchSettings?.sightsCount || 50;
 
+  // FIX: Extract Month & Transport
+  const travelMonth = getMonthName(userInputs.dates.start, uiLang);
+  const transportMode = userInputs.dates.arrival.type || 'car'; // Fallback car
 
   const contextData = {
     // Basis-Daten
@@ -142,8 +174,10 @@ export const buildChefPlanerPrompt = (project: TripProject, feedback?: string): 
         start: userInputs.dates.start,
         end: userInputs.dates.end,
         duration: userInputs.dates.duration,
+        travel_month: travelMonth, // NEW: Context for weather/season
         arrival: userInputs.dates.arrival
     },
+    transport_mode: transportMode, // NEW: Context for driving times
     
     // --- NEU: Präzise Logistik-Anweisungen ---
     logistics_briefing: logisticsBriefing,
@@ -219,12 +253,14 @@ ${feedbackSection}
 You must strictly adhere to the 'logistics_briefing':
 1. **Stationary**: Ensure the search radius does not exceed the 'max_drive_time_day_hours' (round trip).
 2. **Roundtrip**: Ensure the legs between stops are feasible within 'max_drive_time_leg_hours'. Respect 'max_hotel_changes'.
-3. **Target Count**: Aim for a strategy that yields approx. **${targetSightsCount}** candidates (smart_limit_recommendation).
+3. **Region Constraint**: If 'mandatory_region' is set in logistics_briefing, you MUST NOT suggest places outside of it.
+4. **Target Count**: Aim for a strategy that yields approx. **${targetSightsCount}** candidates (smart_limit_recommendation).
+5. **Start/End**: Use 'start_location' and 'end_location' as fixed anchors for the route calculation.
 
 # WORKFLOW STEPS
 1. **ERROR SCAN**: Check for typos.
 2. **VALIDATION**: Research official names for hotels/appointments.
-3. **PLAUSIBILITY**: Check if the plan works with the given drive-time limits.
+3. **PLAUSIBILITY**: Check if the plan works with the given drive-time limits AND transport mode.
 4. **BRIEFING**: Write instructions for the "Collector" agent (next step).
 
 # LANGUAGE
@@ -239,4 +275,4 @@ ${JSON.stringify(outputSchema, null, 2)}
 
   return PromptBuilder.build(taskInstruction, JSON.stringify(contextData, null, 2), desiredLangCode as any);
 };
-// --- END OF FILE 230 Zeilen ---
+// --- END OF FILE 264 Zeilen ---
