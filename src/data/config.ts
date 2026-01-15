@@ -1,34 +1,11 @@
 // src/data/config.ts
 // 14.01.2026 13:45 - FIX: Added missing TaskKeys 'basis' and 'anreicherer' to support CockpitWizard workflow.
+// 16.01.2026 04:20 - FIX: Consistently using TaskKey from core/types. Expanded defaults to include workflow steps.
 // UPDATE: V30 Original-Modelle (Gemini 2.5) & Robustness Settings
 
-export type ModelType = 'pro' | 'flash';
+import type { TaskKey } from '../core/types';
 
-export type TaskKey = 
-  | 'chefPlaner' 
-  | 'routenArchitekt' 
-  | 'sightCollector' 
-  | 'intelligentEnricher' 
-  | 'initialTagesplaner' 
-  | 'modificationTagesplaner' 
-  | 'transferPlanner' 
-  | 'timeOptimizer' 
-  | 'sightsChefredakteur' 
-  | 'infoAutor' 
-  | 'foodCollector' 
-  | 'foodEnricher' 
-  | 'foodScout' 
-  | 'geoAnalyst' 
-  | 'hotelScout' 
-  | 'transferUpdater' 
-  | 'reisefuehrer' 
-  | 'ideenScout' 
-  | 'countryScout'
-  | 'sondertage'
-  | 'durationEstimator'
-  // FIX: Added missing keys for Wizard Workflow
-  | 'basis'
-  | 'anreicherer';
+export type ModelType = 'pro' | 'flash';
 
 export const CONFIG = {
   api: {
@@ -76,13 +53,18 @@ export const CONFIG = {
       // Komplexe Tasks -> PRO
       chefPlaner: 'pro',
       routenArchitekt: 'pro',
+      routeArchitect: 'pro', // Alias für Workflow
       reisefuehrer: 'pro',
+      guide: 'pro',          // Alias für Workflow
       initialTagesplaner: 'pro',
+      dayplan: 'pro',        // Alias für Workflow
       modificationTagesplaner: 'pro',
       sondertage: 'pro',
       geoAnalyst: 'pro',
       sightsChefredakteur: 'pro',
       infoAutor: 'pro',
+      details: 'pro',
+      infos: 'pro',
       
       // Geschwindigkeit/Masse -> FLASH
       sightCollector: 'flash',
@@ -97,19 +79,25 @@ export const CONFIG = {
       ideenScout: 'flash',
       timeOptimizer: 'flash',
       durationEstimator: 'flash',
+      food: 'flash',
+      accommodation: 'flash',
+      transfers: 'flash',
 
-      // FIX: Added defaults for new keys
-      basis: 'flash',      // Sammler ist schnell
-      anreicherer: 'flash' // Anreicherer ist Masse
-    } as Record<TaskKey, ModelType>,
+      // FIX: Defaults for Wizard keys
+      basis: 'flash',      
+      anreicherer: 'flash' 
+    } as Partial<Record<TaskKey, ModelType>>, // Changed to Partial for flexibility
 
     labels: {
       chefPlaner: "tasks.chefPlaner",
       routenArchitekt: "tasks.routenArchitekt",
+      routeArchitect: "tasks.routenArchitekt",
       sightCollector: "tasks.sightCollector",
       intelligentEnricher: "tasks.intelligentEnricher",
       reisefuehrer: "tasks.reisefuehrer",
+      guide: "tasks.reisefuehrer",
       initialTagesplaner: "tasks.initialTagesplaner",
+      dayplan: "tasks.initialTagesplaner",
       modificationTagesplaner: "tasks.modificationTagesplaner",
       sightsChefredakteur: "tasks.sightsChefredakteur",
       infoAutor: "tasks.infoAutor",
@@ -126,10 +114,15 @@ export const CONFIG = {
       timeOptimizer: "tasks.timeOptimizer",
       durationEstimator: "tasks.durationEstimator",
 
-      // FIX: Added labels for new keys (using aliases to existing keys to avoid missing translation errors)
+      // Mapping Workflow-Names to technical labels
       basis: "tasks.sightCollector", 
-      anreicherer: "tasks.intelligentEnricher"
-    } as Record<TaskKey, string>
+      anreicherer: "tasks.intelligentEnricher",
+      food: "tasks.foodCollector",
+      accommodation: "tasks.hotelScout",
+      transfers: "tasks.transferPlanner",
+      details: "tasks.infoAutor",
+      infos: "tasks.infoAutor"
+    } as Partial<Record<TaskKey, string>>
   }
 };
 // --- END OF FILE 135 Zeilen ---

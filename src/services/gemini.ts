@@ -1,8 +1,10 @@
 // src/services/gemini.ts
 // 14.01.2026 19:45 - UPDATE: Implemented dynamic model routing (Strategy + Overrides).
+// 16.01.2026 04:40 - FIX: Consolidating TaskKey import from core/types for build stability.
 
 import { CONFIG } from '../data/config';
-import type { TaskKey, ModelType } from '../data/config';
+import type { ModelType } from '../data/config'; // FIX: TaskKey removed from here
+import type { TaskKey } from '../core/types';   // FIX: Unified TaskKey import
 
 import { SecurityService } from './security';
 import { validateJson } from './validation';
@@ -48,7 +50,6 @@ export class ServerOverloadError extends ApiError {
 }
 
 export class UserAbortError extends Error {
-  // FIX: Allow optional message argument to support RateLimiter's custom error message
   constructor(message?: string) {
     super(message || 'Vorgang vom Nutzer abgebrochen.');
     this.name = 'UserAbortError';
@@ -84,7 +85,6 @@ const RateLimiter = {
     if (activeCalls.length >= limit) {
       const oldestCall = activeCalls[0] || now;
       const waitTimeMinutes = Math.ceil((oldestCall + 3600000 - now) / 60000);
-      // FIX: This call triggered the TS error because the constructor didn't accept arguments previously
       throw new UserAbortError(`Limit für ${model.toUpperCase()} erreicht (${limit}/h). Wartezeit: ${waitTimeMinutes} Min.`);
     }
     
@@ -109,7 +109,7 @@ export const GeminiService = {
 
     // 2. Globale Strategien (Harte Überschreibung)
     if (strategy === 'pro') return 'pro';
-    if (strategy === 'fast') return 'flash';
+    if (strategy === 'fast') return 'flash'; // FIX: Returned 'flash' to match ModelType
 
     // 3. Strategie "Optimal" (Matrix-Modus)
     if (taskKey) {
@@ -120,7 +120,7 @@ export const GeminiService = {
 
         // B. Fallback auf Default-Matrix aus Config
         if (CONFIG.taskRouting.defaults[taskKey]) {
-            return CONFIG.taskRouting.defaults[taskKey];
+            return CONFIG.taskRouting.defaults[taskKey]!;
         }
     }
 
@@ -239,7 +239,6 @@ export const GeminiService = {
           
           // --- STATS TRACKING START ---
           const tokens = data.usageMetadata?.totalTokenCount || 0;
-          // FIX: Added (store as any) cast to bypass TS error in store method
           (store as any).addUsageStats(tokens, selectedModelKey);
           // --- STATS TRACKING END ---
 
@@ -252,7 +251,7 @@ export const GeminiService = {
               content: text,
               meta: {
                 finishReason: data.candidates[0].finishReason,
-                tokens: data.usageMetadata, // Falls verfügbar
+                tokens: data.usageMetadata, 
                 attempt: attempt + 1
               }
             });
@@ -265,14 +264,14 @@ export const GeminiService = {
           // 3. LOG REPAIR ATTEMPT
           if (isDebug) {
              store.logEvent({
-                task: taskName,
-                type: 'info',
-                model: selectedModelKey,
-                content: `JSON Validation Failed. Starting Repair Attempt ${repairAttempts + 1}.`,
-                meta: {
-                   invalidJson: text,
-                   error: validation.error
-                }
+               task: taskName,
+               type: 'info',
+               model: selectedModelKey,
+               content: `JSON Validation Failed. Starting Repair Attempt ${repairAttempts + 1}.`,
+               meta: {
+                  invalidJson: text,
+                  error: validation.error
+               }
              });
           }
           

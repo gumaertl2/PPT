@@ -2,6 +2,7 @@
 // 14.01.2026 18:00 - FIX: Expanded LocalizedContent to support all LanguageCodes.
 // 15.01.2026 21:00 - FIX: Resolved Build Errors (TaskKey, Roundtrip Mode, CalendarEvent, MobileHome).
 // 16.01.2026 03:00 - CONFIRM: Ensuring 'routeArchitect' is present in TaskKey.
+// 16.01.2026 04:15 - FIX: Consolidated WorkflowStepId with TaskKey from config.ts to resolve Vercel build errors.
 
 export type LanguageCode = 'de' | 'en' | 'es' | 'fr' | 'it' | 'nl' | 'pl' | 'pt' | 'ru' | 'tr' | 'ja' | 'zh';
 
@@ -42,6 +43,7 @@ export interface InterestCategory {
 }
 
 // --- WORKFLOW / MAGIC CHAIN ---
+// Unified Step IDs including internal Agent Keys to prevent TS2345 mismatches
 export type WorkflowStepId = 
   | 'basis'          // Sammler (Namen & Ideen)
   | 'anreicherer'    // Daten-Anreicherer (Fakten, Adressen, Öffnungszeiten)
@@ -54,9 +56,29 @@ export type WorkflowStepId =
   | 'sondertage'     // Wetter / Flex
   | 'transfers'      // Logistik
   | 'chefPlaner'     // Chef-Planer (Analysis)
-  | 'routeArchitect'; // NEU: Routen-Architekt
+  | 'routeArchitect' // NEU: Routen-Architekt
+  // Agent Keys from config.ts for full type compatibility
+  | 'routenArchitekt'
+  | 'sightCollector'
+  | 'intelligentEnricher'
+  | 'initialTagesplaner'
+  | 'modificationTagesplaner'
+  | 'transferPlanner'
+  | 'timeOptimizer'
+  | 'sightsChefredakteur'
+  | 'infoAutor'
+  | 'foodCollector'
+  | 'foodEnricher'
+  | 'foodScout'
+  | 'geoAnalyst'
+  | 'hotelScout'
+  | 'transferUpdater'
+  | 'reisefuehrer'
+  | 'ideenScout'
+  | 'countryScout'
+  | 'durationEstimator';
 
-// FIX: Export TaskKey alias needed for CockpitWizard/UseTripGeneration
+// Export TaskKey as alias for WorkflowStepId to ensure consistency across the app
 export type TaskKey = WorkflowStepId;
 
 export interface WorkflowStepDef {
@@ -285,4 +307,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 291 Zeilen ---
+// --- END OF FILE 314 Zeilen ---
