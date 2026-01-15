@@ -1,11 +1,9 @@
 // src/core/types.ts
-// 14.01.2026 18:00 - FIX: Expanded LocalizedContent to support all LanguageCodes (fixes TS indexing errors).
-// 15.01.2026 17:00 - FEATURE: Added RouteArchitect types for Roundtrip workflow.
+// 14.01.2026 18:00 - FIX: Expanded LocalizedContent to support all LanguageCodes.
+// 15.01.2026 21:00 - FIX: Resolved Build Errors (TaskKey, Roundtrip Mode, CalendarEvent, MobileHome).
 
-// FIX: Expanded LanguageCode to support languages used in PromptBuilder
 export type LanguageCode = 'de' | 'en' | 'es' | 'fr' | 'it' | 'nl' | 'pl' | 'pt' | 'ru' | 'tr' | 'ja' | 'zh';
 
-// FIX: Added missing shared types and expanded to match LanguageCode keys
 export interface LocalizedContent {
   de: string;
   en: string;
@@ -22,17 +20,13 @@ export interface LocalizedContent {
 }
 
 export interface SelectOption {
-  // FIX: Made value optional to prevent TS errors in strategies.ts/options.ts
   value?: string;
   label: string | LocalizedContent;
   icon?: any;
-  // FIX: Added description to satisfy CatalogModal
   description?: string | LocalizedContent;
-  // FIX: Extended properties to match data files (strategies, interests)
   id?: string;
   promptInstruction?: LocalizedContent;
   defaultUserPreference?: LocalizedContent;
-  // Legacy support for older data structures
   anweisung?: string;
   praeferenz?: string;
 }
@@ -43,7 +37,6 @@ export interface InterestCategory {
   isSystem?: boolean;
   defaultUserPreference?: LocalizedContent;
   aiInstruction?: LocalizedContent;
-  // FIX: Added 'prompt' property referenced in PayloadBuilder.ts
   prompt?: string | LocalizedContent;
 }
 
@@ -62,11 +55,14 @@ export type WorkflowStepId =
   | 'chefPlaner'     // Chef-Planer (Analysis)
   | 'routeArchitect'; // NEU: Routen-Architekt
 
+// FIX: Export TaskKey alias needed for CockpitWizard/UseTripGeneration
+export type TaskKey = WorkflowStepId;
+
 export interface WorkflowStepDef {
   id: WorkflowStepId;
-  isMandatory: boolean;       // Muss immer ausgeführt werden (bzw. ist Prämisse)
-  requiresUserInteraction?: boolean; // Wenn true: UI stoppt kurz für User-Input (z.B. Prio/Tempo)
-  requires?: WorkflowStepId[]; // Abhängigkeiten, z.B. Transfer braucht Dayplan
+  isMandatory: boolean;       
+  requiresUserInteraction?: boolean; 
+  requires?: WorkflowStepId[]; 
   label: {
     de: string;
     en: string;
@@ -83,11 +79,11 @@ export type LogType = 'request' | 'response' | 'error' | 'info' | 'system';
 export interface FlightRecorderEntry {
   id: string;
   timestamp: string;
-  task: string;      // z.B. 'chefPlaner', 'workflow_manager'
+  task: string;      
   type: LogType;
-  model?: string;    // z.B. 'gemini-pro'
-  content: string;   // Der volle Prompt oder die JSON-Antwort
-  meta?: any;        // Zusätzliche Infos (Token Count, Status Code, Selected Steps)
+  model?: string;    
+  content: string;   
+  meta?: any;        
 }
 
 // --- FEHLER-HANDLING ---
@@ -102,7 +98,7 @@ export type AppErrorType =
 export interface AppError {
   type: AppErrorType;
   message: string;
-  retryAfter?: number; // Millisekunden bis Retry erlaubt
+  retryAfter?: number; 
   details?: string;
 }
 
@@ -117,6 +113,8 @@ export interface CalendarEvent {
   id: string;
   date: string; // YYYY-MM-DD
   title: string;
+  // FIX: Added 'name' optional property for legacy support
+  name?: string;
   description?: string;
   duration?: string; // z.B. "2h"
 }
@@ -144,11 +142,11 @@ export interface TripUserProfile {
     flexible: boolean;
     fixedEvents: CalendarEvent[];
     fixedDates?: string; 
-    // FIX: Added for SightsView Budget Logic
     dailyStartTime?: string; 
     dailyEndTime?: string;
     arrival: {
-      type?: 'flight' | 'train' | 'car' | 'camper' | 'suggestion' | 'other';
+      // FIX: Added 'mobile_home' for basis.ts compatibility
+      type?: 'flight' | 'train' | 'car' | 'camper' | 'mobile_home' | 'suggestion' | 'other';
       details?: string; 
       time?: string;
       description?: string; 
@@ -156,9 +154,9 @@ export interface TripUserProfile {
     departure?: DepartureDetails;
   };
   logistics: {
-    mode: 'stationaer' | 'mobil';
+    // FIX: Added 'roundtrip' for Wizard logic
+    mode: 'stationaer' | 'mobil' | 'roundtrip';
     accommodationStatus?: 'needs_suggestions' | 'booked'; 
-    // FIX: Added roundtripOptions (sibling to roundtrip, used in ProfileStep)
     roundtripOptions?: {
         waypoints?: string;
         strictRoute?: boolean;
@@ -212,7 +210,6 @@ export interface ChefPlanerResult {
     destination?: string;
     dates?: string;
     hints: string[];
-    // FIX: Added notes and corrected_destination to match UI usage
     notes?: string[];
     corrected_destination?: string;
   };
@@ -232,7 +229,7 @@ export interface ChefPlanerResult {
     official_name: string;
     address: string;
     estimated_duration_min: number;
-  }>;
+   }>;
   validated_hotels?: Array<{
     station: string;
     official_name: string;
@@ -245,7 +242,6 @@ export interface ChefPlanerResult {
   plausibility_check?: string;
 }
 
-// --- NEW: ROUTE ARCHITECT RESULT ---
 export interface RouteProposal {
   routenName: string;
   charakter: string;
@@ -277,7 +273,7 @@ export interface TripProject {
   userInputs: TripUserProfile;
   analysis: {
     chefPlaner: ChefPlanerResult | null;
-    routeArchitect?: RouteArchitectResult | null; // NEU
+    routeArchitect?: RouteArchitectResult | null;
   };
   data: {
     places: Record<string, any>;
@@ -288,4 +284,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 277 Zeilen ---
+// --- END OF FILE 291 Zeilen ---

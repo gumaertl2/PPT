@@ -1,21 +1,19 @@
 // src/features/Cockpit/CockpitWizard.tsx
-// 14.01.2026 19:00 - FIX: Added fallbacks for LocalizedContent access.
-// 16.01.2026 00:30 - FIX: Removed local state & toolbar. Synced Modal with TripStore.
+// 14.01.2026 19:00 - FIX: Added fallbacks for LocalizedContent access to prevent 'undefined' assignment errors.
+// 15.01.2026 19:00 - RESTORE & ENHANCE: Integrated RouteArchitect into original Wizard flow.
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useTripStore } from '../../store/useTripStore'; // FIX: Store-Access
+import { useTripStore } from '../../store/useTripStore';
 import { useTripGeneration } from '../../hooks/useTripGeneration';
-import type { WorkflowStepId } from '../../core/types';
 
 // Components
 import { AnalysisReviewView } from './AnalysisReviewView';
-import { RouteReviewView } from './RouteReviewView';
+import { RouteReviewView } from './RouteReviewView'; // NEU
 import { SightsView } from './SightsView';
 import { ConfirmModal } from './ConfirmModal';
 import { InfoModal } from '../Welcome/InfoModal';
 import { ManualPromptModal } from './ManualPromptModal'; 
-import { WorkflowSelectionModal } from '../Workflow/WorkflowSelectionModal';
 
 // Layout Components
 import { CockpitHeader } from './Layout/CockpitHeader'; 
@@ -48,18 +46,10 @@ export const CockpitWizard = () => {
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
   
   // Store & Hooks
-  const { 
-      project, 
-      setView, 
-      // FIX: Use Store State for Modal
-      workflowModalOpen, 
-      setWorkflowModalOpen 
-  } = useTripStore(); 
-  
+  const { project, setView } = useTripStore(); 
   const { userInputs } = project;
   
   const { 
-    startWorkflow,
     startSingleTask, 
     status, 
     error, 
@@ -68,7 +58,8 @@ export const CockpitWizard = () => {
     submitManualResult  
   } = useTripGeneration();
 
-  // Local State
+  // Local State: Supports 'sights' AND 'routeArchitect'
+  // NEU: 'routeArchitect' als möglicher Mode
   const [viewMode, setViewMode] = useState<'wizard' | 'analysis' | 'routeArchitect' | 'sights'>('wizard');
   const [currentStep, setCurrentStep] = useState(0);
   
@@ -138,42 +129,51 @@ export const CockpitWizard = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Stationärer Flow -> Analyse -> Modal
+  // LINK: Basis (Sammler) -> Anreicherer -> SightsView
+  // UPDATE: Logic for Roundtrip -> RouteArchitect -> ...
   const handleContinueFromAnalysis = async () => {
     try {
       const mode = project.userInputs.logistics.mode;
       
       if (mode === 'mobil' || mode === 'roundtrip') {
+          // ROUNDTRIP PATH: Go to Route Architect first
+          // Check if we already have route results? (Optional: re-run if needed)
+          // For now: Always run or show view if exists
           if (!project.analysis.routeArchitect) {
              await startSingleTask('routeArchitect');
           }
           setViewMode('routeArchitect');
           window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
-          // FIX: Open Modal via Store
-          setWorkflowModalOpen(true);
+          // STATIONARY PATH: Direct to Sammler
+          await runCollectorChain();
       }
     } catch (e) {
       console.error("Workflow sequence failed:", e);
     }
   };
 
-  // Rundreise Flow -> Route -> Modal
+  // NEU: Callback wenn Route gewählt wurde (und Itinerary Modal fertig ist)
   const handleContinueFromRoute = async () => {
-      // FIX: Open Modal via Store
-      setWorkflowModalOpen(true);
+      // Route is selected and saved in store.
+      // Now start the collector chain.
+      await runCollectorChain();
   };
 
-  // Start aus dem Modal heraus
-  const handleStartSelectedWorkflows = async (selectedSteps: WorkflowStepId[]) => {
-      setWorkflowModalOpen(false); // Close via Store
-      if (selectedSteps.length > 0) {
-          await startWorkflow(selectedSteps);
-          setViewMode('sights');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+  // Helper: The classic "Zauberstab" chain
+  const runCollectorChain = async () => {
+      // 1. Basis: Find Candidates
+      await startSingleTask('basis');
+      
+      // 2. Anreicherer: Enrich Data
+      await startSingleTask('anreicherer');
+
+      // 3. Switch View
+      setViewMode('sights');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
   };
-  
+
+
   // --- HEADER ACTIONS ---
 
   const handleHeaderReset = () => {
@@ -196,6 +196,7 @@ export const CockpitWizard = () => {
     const key = stepKeys[currentStep] || 'step1';
     const data = HELP_TEXTS[key] || HELP_TEXTS['step1'];
     
+    // FIX: Added fallbacks to ensure string type (fixes TS2322)
     setHelpContent({ 
       title: data.title[currentLang] || data.title.de || '', 
       body: data.body[currentLang] || data.body.de || '' 
@@ -228,7 +229,7 @@ export const CockpitWizard = () => {
     <div className="min-h-screen bg-slate-50 pb-24 font-sans text-slate-900">
       
       <CockpitHeader 
-        viewMode={viewMode === 'routeArchitect' ? 'analysis' : viewMode}
+        viewMode={viewMode === 'routeArchitect' ? 'analysis' : viewMode} // Map new mode to analysis for header highlighting
         setViewMode={(mode) => setViewMode(mode as any)}
         onReset={handleHeaderReset}
         onLoad={handleHeaderLoad}
@@ -276,6 +277,7 @@ export const CockpitWizard = () => {
         {viewMode === 'analysis' ? (
           <AnalysisReviewView onNext={handleContinueFromAnalysis} />
         ) : viewMode === 'routeArchitect' ? (
+          // NEU: Route View Integration
           <RouteReviewView onNext={handleContinueFromRoute} />
         ) : viewMode === 'sights' ? (
           <SightsView /> 
@@ -283,8 +285,6 @@ export const CockpitWizard = () => {
           <CurrentComponent onEdit={jumpToStep} />
         )}
       </main>
-
-      {/* NO TOOLBAR HERE, USING HEADER MENU */}
 
       {viewMode === 'wizard' && (
         <CockpitFooter 
@@ -324,14 +324,7 @@ export const CockpitWizard = () => {
         error={error}
       />
 
-      {/* FIX: Modal controlled by Store */}
-      <WorkflowSelectionModal
-        isOpen={workflowModalOpen} 
-        onClose={() => setWorkflowModalOpen(false)}
-        onStart={handleStartSelectedWorkflows}
-      />
-
     </div>
   );
 };
-// --- END OF FILE 332 Zeilen ---
+// --- END OF FILE 314 Zeilen ---

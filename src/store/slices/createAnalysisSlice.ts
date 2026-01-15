@@ -1,8 +1,15 @@
 // src/store/slices/createAnalysisSlice.ts
 // 15.01.2026 20:30 - FIX: Added 'routeArchitect' case to persist AI results in Store.
+// 15.01.2026 21:30 - FIX: Corrected State path to 'project.analysis' and adjusted Generic types for Store compatibility.
 
 import type { StateCreator } from 'zustand';
 import type { TripProject, ChefPlanerResult, RouteArchitectResult } from '../../core/types';
+
+// Helper Type to avoid circular dependency with TripStore
+// This represents the structure required by this slice
+type StoreState = {
+  project: TripProject;
+} & AnalysisSlice;
 
 // --- INTERFACE DEFINITION ---
 export interface AnalysisSlice {
@@ -21,7 +28,7 @@ export interface AnalysisSlice {
 
 // --- SLICE IMPLEMENTATION ---
 export const createAnalysisSlice: StateCreator<
-  TripProject & AnalysisSlice,
+  StoreState, // FIX: Use structural type compatible with TripStore
   [],
   [],
   AnalysisSlice
@@ -31,22 +38,25 @@ export const createAnalysisSlice: StateCreator<
   
   setAnalysisResult: (task, data) => {
     set((state) => {
-      // Deep Copy of analysis object to ensure immutability
-      const newAnalysis = { ...state.analysis };
+      // FIX: Access analysis via 'project' property
+      // We need to update nested immutable state
+      const newAnalysis = { ...state.project.analysis };
 
       if (task === 'chefPlaner') {
         newAnalysis.chefPlaner = data as ChefPlanerResult;
       } else if (task === 'routeArchitect') {
-        // FIX: Persist Route Architect Data
         newAnalysis.routeArchitect = data as RouteArchitectResult;
       }
 
       return {
-        analysis: newAnalysis,
-        // Update Meta Timestamp
-        meta: {
-          ...state.meta,
-          updatedAt: new Date().toISOString()
+        ...state,
+        project: {
+            ...state.project,
+            analysis: newAnalysis,
+            meta: {
+                ...state.project.meta,
+                updatedAt: new Date().toISOString()
+            }
         }
       };
     });
@@ -54,9 +64,13 @@ export const createAnalysisSlice: StateCreator<
 
   clearAnalysis: () => {
     set((state) => ({
-      analysis: {
-        chefPlaner: null,
-        routeArchitect: null 
+      ...state,
+      project: {
+          ...state.project,
+          analysis: {
+            chefPlaner: null,
+            routeArchitect: null 
+          }
       }
     }));
   },
@@ -64,12 +78,14 @@ export const createAnalysisSlice: StateCreator<
   // --- SELECTORS ---
   
   getChefPlanerResult: () => {
-    return get().analysis.chefPlaner;
+    // FIX: Access via project
+    return get().project.analysis.chefPlaner;
   },
 
   getRouteArchitectResult: () => {
-      return get().analysis.routeArchitect || null;
+      // FIX: Access via project
+      return get().project.analysis.routeArchitect || null;
   }
 
 });
-// --- END OF FILE 73 Zeilen ---
+// --- END OF FILE 98 Zeilen ---

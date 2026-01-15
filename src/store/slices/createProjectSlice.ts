@@ -1,5 +1,6 @@
 // src/store/slices/createProjectSlice.ts
 // 14.01.2026 11:45 - FIX: Corrected setRoundtripOptions to target logistics.roundtripOptions (not roundtrip). Updated Interface types.
+// 15.01.2026 22:00 - FIX: Added updateLogistics to support generic updates from RouteReviewView.
 
 import type { StateCreator } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
@@ -36,6 +37,9 @@ export interface ProjectSlice {
   // FIX: Added generic setLogistics
   setLogistics: (data: Partial<TripUserProfile['logistics']>) => void;
   
+  // FIX: Added generic updateLogistics (needed by RouteReviewView)
+  updateLogistics: (section: 'stationary' | 'roundtrip', data: any) => void;
+
   updateStationary: (data: Partial<TripUserProfile['logistics']['stationary']>) => void;
   updateRoundtrip: (data: Partial<TripUserProfile['logistics']['roundtrip']>) => void;
   updateSearchSettings: (settings: Partial<TripUserProfile['searchSettings']>) => void;
@@ -94,6 +98,7 @@ const createInitialProject = (): TripProject => ({
       duration: 7,
       flexible: false,
       fixedEvents: [],
+      fixedDates: undefined,
       arrival: { type: 'suggestion' },
       departure: {}
     },
@@ -265,6 +270,20 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
       userInputs: {
         ...state.project.userInputs,
         logistics: { ...state.project.userInputs.logistics, ...data }
+      }
+    }
+  })),
+
+  // FIX: Implemented updateLogistics
+  updateLogistics: (section, data) => set((state: any) => ({
+    project: {
+      ...state.project,
+      userInputs: {
+        ...state.project.userInputs,
+        logistics: {
+           ...state.project.userInputs.logistics,
+           [section]: { ...state.project.userInputs.logistics[section], ...data }
+        }
       }
     }
   })),
@@ -525,4 +544,4 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     }
   }))
 });
-// --- END OF FILE 387 Zeilen ---
+// --- END OF FILE 423 Zeilen ---

@@ -1,6 +1,6 @@
-// src/features/cockpit/Layout/CockpitHeader.tsx
+// src/features/Cockpit/Layout/CockpitHeader.tsx
 // 13.01.2026 19:30 - FEATURE: Added Quick Search Input to Navigation Bar
-// --- END OF FILE 380 Zeilen ---
+// 16.01.2026 00:30 - FIX: Enabled Route View navigation and synced Modal state via Store.
 
 import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -25,19 +25,20 @@ import {
   GitMerge,
   Edit3,
   Home,
-  Search, // NEW
-  X       // NEW
+  Search, 
+  X       
 } from 'lucide-react';
 
 import { useTripStore } from '../../../store/useTripStore';
 import { SettingsModal } from '../SettingsModal';
 
 interface CockpitHeaderProps {
-  viewMode: 'wizard' | 'analysis' | 'sights';
-  setViewMode: (mode: 'wizard' | 'analysis' | 'sights') => void;
-  onReset: () => void;      // Callback, wenn User "Neu" klickt
-  onLoad: (hasAnalysis: boolean) => void; // Callback nach erfolgreichem Laden
-  onOpenHelp: () => void;   // Callback für Hilfe-Button
+  // FIX: Extended viewMode type to include 'routeArchitect'
+  viewMode: 'wizard' | 'analysis' | 'sights' | 'routeArchitect';
+  setViewMode: (mode: 'wizard' | 'analysis' | 'sights' | 'routeArchitect') => void;
+  onReset: () => void;      
+  onLoad: (hasAnalysis: boolean) => void; 
+  onOpenHelp: () => void;   
 }
 
 export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
@@ -56,45 +57,46 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     apiKey, 
     usageStats,
     downloadFlightRecorder,
-    setWorkflowModalOpen,
-    setView, // Needed for Home navigation
-    toggleSightFilter, // NEW
-    isSightFilterOpen,  // NEW
-    uiState, // NEW: Needed for filter check
-    setUIState // NEW: Needed for Quick Search
+    setWorkflowModalOpen, // FIX: Uses Store Action to open Modal
+    setView, 
+    toggleSightFilter, 
+    isSightFilterOpen,  
+    uiState, 
+    setUIState 
   } = useTripStore();
   
   const hasAnalysisResult = !!project.analysis.chefPlaner;
+  const hasRouteResult = !!project.analysis.routeArchitect;
 
   // Local State
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   
-  // File Input Ref (lokal im Header verwaltet)
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- FILTER STATE CHECK ---
-  // FIX: SortMode is considered a "View", not a "Filter". Only Search & Category trigger the highlight.
   const isFilterActive = uiState.searchTerm || uiState.categoryFilter.length > 0;
 
   // --- ACTIONS LOGIC ---
 
   const handleOpenAiWorkflows = () => {
-    // Schließe Menü immer zuerst
     setShowActionsMenu(false);
-
-    // NEUE LOGIK: Einziges Kriterium ist die Existenz der Fundamentalanalyse.
-    // Das Modal selbst entscheidet dann, welche Schritte (Basisdaten, etc.) verfügbar sind.
     if (hasAnalysisResult) {
+        // FIX: Trigger Modal via Store
         setWorkflowModalOpen(true);
     } else {
-        // Fallback: Fehler anzeigen (lokalisiert)
         alert(t('analysis.errorTitle'));
     }
   };
+  
+  // FIX: Real implementation for Route Button
+  const handleOpenRoute = () => {
+      setShowActionsMenu(false);
+      if (hasRouteResult) {
+          setViewMode('routeArchitect');
+      }
+  };
 
   const handleSaveProject = () => {
-    // 1. Dateinamen generieren
     let baseName = "Papatours_Reise";
     const { logistics } = project.userInputs;
     
@@ -105,12 +107,10 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
         else if (dest) baseName = dest;
         else if (reg) baseName = reg;
     } else {
-        // Rundreise
         const reg = logistics.roundtrip.region?.trim();
         if (reg) baseName = `Rundreise_${reg}`;
     }
 
-    // Sanitize
     const safeName = baseName
         .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')
         .replace(/Ä/g, 'Ae').replace(/Ö/g, 'Oe').replace(/Ü/g, 'Ue')
@@ -119,7 +119,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
 
     const fileName = `${safeName}_${new Date().toISOString().slice(0,10)}.json`;
 
-    // 2. Download
     const data = JSON.stringify(project, null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -149,7 +148,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
         const json = JSON.parse(e.target?.result as string);
         if (json.meta && json.userInputs) {
           loadProject(json);
-          // Callback an Parent
           const hasAnalysis = !!json.analysis?.chefPlaner;
           onLoad(hasAnalysis);
         } else {
@@ -161,13 +159,13 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
       }
     };
     reader.readAsText(file);
-    event.target.value = ''; // Reset input
+    event.target.value = ''; 
   };
 
   const handleResetClick = () => {
     if (confirm("Wirklich alles löschen und neu starten?")) { 
       resetProject();
-      onReset(); // Parent Callback
+      onReset(); 
       setShowActionsMenu(false);
     }
   };
@@ -177,11 +175,8 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     setShowActionsMenu(false);
   };
 
-  // --- RENDER HELPERS ---
-
   const renderAutoManualButton = () => {
     if (apiKey) {
-      // Automatik Modus
       return (
         <button 
           onClick={() => setShowSettingsModal(true)} 
@@ -203,7 +198,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
         </button>
       );
     } else {
-      // Manueller Modus
       return (
         <button 
           onClick={() => setShowSettingsModal(true)} 
@@ -227,7 +221,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
           {/* --- LEFT GROUP: HOME + NAVIGATION --- */}
           <div className="flex items-center gap-1 md:gap-2">
             
-            {/* HOME BUTTON (Replaces Logo) */}
             <button 
               onClick={() => setView('welcome')} 
               className="p-2 text-slate-700 hover:bg-slate-100 hover:text-blue-600 rounded-lg transition-colors mr-2"
@@ -236,13 +229,11 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
               <Home className="w-6 h-6" />
             </button>
             
-            {/* NAV BUTTONS */}
              <button onClick={() => alert("Plan View placeholder")} className="flex flex-col items-center px-2 py-1 text-slate-500 hover:bg-slate-100 rounded transition-colors">
                <Edit3 className="w-4 h-4 lg:w-5 lg:h-5 mb-0.5" />
                <span className="text-[10px] font-bold uppercase tracking-wide hidden md:inline">{t('wizard.toolbar.plan')}</span>
              </button>
 
-             {/* GUIDE BUTTON (ACTIVATED & EXTENDED) */}
              <button 
                onClick={() => {
                  if (viewMode === 'sights') {
@@ -271,7 +262,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                <span className="text-[10px] font-bold uppercase tracking-wide hidden md:inline">{t('wizard.toolbar.map')}</span>
              </button>
 
-             {/* FILTER / SEARCH BUTTON (ACTIVATED) */}
              <button 
                onClick={() => {
                  if (viewMode !== 'sights') setViewMode('sights');
@@ -287,7 +277,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                <span className="text-[10px] font-bold uppercase tracking-wide hidden md:inline">{t('wizard.toolbar.search')}</span>
              </button>
 
-             {/* NEW: QUICK SEARCH INPUT */}
              <div className="relative flex items-center ml-1 group">
                 <Search className="absolute left-2 w-3 h-3 text-slate-400 pointer-events-none" />
                 <input 
@@ -311,7 +300,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
              </div>
           </div>
           
-          {/* --- RIGHT GROUP: SYSTEM + ACTIONS --- */}
           <div className="flex items-center gap-1 md:gap-2">
 
               {renderAutoManualButton()}
@@ -335,7 +323,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                 {showActionsMenu && (
                   <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2">
                     
-                    {/* MODUS UMSCHALTER: DATEN vs FUNDAMENT */}
                     <button 
                       onClick={() => { setViewMode('wizard'); setShowActionsMenu(false); }} 
                       className={`w-full text-left px-4 py-2 hover:bg-blue-50 flex items-center gap-3 text-sm font-medium ${viewMode === 'wizard' ? 'text-blue-600 bg-blue-50' : 'text-slate-700'}`}
@@ -356,11 +343,18 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                     
                     <div className="h-px bg-slate-100 my-1"></div>
 
-                    <button onClick={() => placeholderAction('Route')} className="w-full text-left px-4 py-2 hover:bg-blue-50 text-slate-700 flex items-center gap-3 text-sm font-medium">
-                      <MapIcon className="w-4 h-4 text-slate-400" /> {t('wizard.actions_menu.route')}
+                    {/* FIX: Connected Route Button */}
+                    <button 
+                      onClick={handleOpenRoute}
+                      disabled={!hasRouteResult}
+                      className={`w-full text-left px-4 py-2 hover:bg-blue-50 flex items-center gap-3 text-sm font-medium ${
+                         !hasRouteResult ? 'text-slate-300 cursor-not-allowed' :
+                         viewMode === 'routeArchitect' ? 'text-blue-600 bg-blue-50' : 'text-slate-700'
+                      }`}
+                    >
+                      <MapIcon className="w-4 h-4" /> {t('wizard.actions_menu.route')}
                     </button>
                     
-                    {/* KI WORKFLOWS - INTEGRATED & RELAXED CHECK */}
                     <button 
                       onClick={handleOpenAiWorkflows} 
                       className="w-full text-left px-4 py-2 hover:bg-blue-50 text-slate-700 flex items-center gap-3 text-sm font-medium"
@@ -390,7 +384,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                       <FileText className="w-4 h-4" /> {t('wizard.actions_menu.new')}
                     </button>
                     
-                    {/* FLUGSCHREIBER BUTTON: CONNECTED */}
                     <button 
                       onClick={() => { downloadFlightRecorder(); setShowActionsMenu(false); }} 
                       className="w-full text-left px-4 py-2 hover:bg-blue-50 text-slate-700 flex items-center gap-3 text-sm font-medium"
@@ -417,7 +410,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
         </div>
       </header>
       
-      {/* Settings Modal wird nun vom Header verwaltet und gerendert */}
       <SettingsModal 
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
@@ -425,4 +417,4 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     </>
   );
 };
-// --- END OF FILE 380 Zeilen ---
+// --- END OF FILE 397 Zeilen ---
