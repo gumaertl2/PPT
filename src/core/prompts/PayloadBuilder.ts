@@ -1,6 +1,6 @@
 // src/core/prompts/PayloadBuilder.ts
 // 14.01.2026 19:20 - FIX: Added safe resolution for 'prompt' field (string vs LocalizedContent) to fix TS error.
-// 15.01.2026 19:30 - FIX: Renamed task key 'routenArchitekt' to 'routeArchitect' to match Frontend calls.
+// 15.01.2026 20:20 - FIX: Standardized task key to 'routeArchitect' (English) to match Frontend calls.
 
 import { useTripStore } from '../../store/useTripStore';
 import { INTEREST_DATA } from '../../data/interests';
@@ -27,7 +27,8 @@ export const PayloadBuilder = {
       case 'chefPlaner':
         return buildChefPlanerPrompt(project, feedback);
       
-      // FIX: Key must match useTripGeneration / CockpitWizard (routeArchitect)
+      // NEW: Routen-Architekt für Rundreisen
+      // FIX: Changed from 'routenArchitekt' to 'routeArchitect' to match Frontend & Logs
       case 'routeArchitect':
         return buildRouteArchitectPrompt(project, feedback);
 
@@ -96,4 +97,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 92 Zeilen ---
+// --- END OF FILE 95 Zeilen ---

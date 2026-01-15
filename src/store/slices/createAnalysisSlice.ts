@@ -1,10 +1,7 @@
 // src/store/slices/createAnalysisSlice.ts
-// 14.01.2026 12:45
-// FEATURE: Analysis Slice for ChefPlaner Results
-// 15.01.2026 17:15 - UPDATE: Added 'routeArchitect' to AnalysisSlice (V30 Roundtrip Workflow).
-// 15.01.2026 18:50 - FIX: Use 'import type' for StateCreator to avoid runtime SyntaxError.
+// 15.01.2026 20:30 - FIX: Added 'routeArchitect' case to persist AI results in Store.
 
-import type { StateCreator } from 'zustand'; // FIX: Added 'type' keyword
+import type { StateCreator } from 'zustand';
 import type { TripProject, ChefPlanerResult, RouteArchitectResult } from '../../core/types';
 
 // --- INTERFACE DEFINITION ---
@@ -17,9 +14,9 @@ export interface AnalysisSlice {
   
   clearAnalysis: () => void;
   
-  // Selectors (optional helper)
+  // Selectors
   getChefPlanerResult: () => ChefPlanerResult | null;
-  getRouteArchitectResult: () => RouteArchitectResult | null; 
+  getRouteArchitectResult: () => RouteArchitectResult | null;
 }
 
 // --- SLICE IMPLEMENTATION ---
@@ -40,7 +37,7 @@ export const createAnalysisSlice: StateCreator<
       if (task === 'chefPlaner') {
         newAnalysis.chefPlaner = data as ChefPlanerResult;
       } else if (task === 'routeArchitect') {
-        // NEU: Speichern der Routen-Vorschläge
+        // FIX: Persist Route Architect Data
         newAnalysis.routeArchitect = data as RouteArchitectResult;
       }
 
@@ -75,4 +72,4 @@ export const createAnalysisSlice: StateCreator<
   }
 
 });
-// --- END OF FILE 65 Zeilen ---
+// --- END OF FILE 73 Zeilen ---
