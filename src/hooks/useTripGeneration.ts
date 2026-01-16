@@ -1,3 +1,4 @@
+// 16.01.2026 13:50 - FIX: Specific Task Labels in Loading Modal & Interactive Error Handling (Retry/Skip).
 // src/hooks/useTripGeneration.ts
 // 12.01.2026 19:00 - UPDATE: Implemented result processing for 'basis' and 'anreicherer'.
 // 16.01.2026 03:40 - FIX: Corrected TaskKey import source to resolve build errors (TS2345).
@@ -129,25 +130,55 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       }
       setCurrentStep(nextStepId);
       const stepLabel = stepDef?.label[lang] || nextStepId;
-      addNotification({ type: 'loading', message: t('status.workflow_start', { step: stepLabel }), autoClose: 2000 });
+      
+      // FIX: Modal stays open (autoClose: false) and shows specific label
+      const loadingId = addNotification({ 
+        type: 'loading', 
+        message: t('status.workflow_start', { step: stepLabel }), 
+        autoClose: false 
+      });
+
       const sendingToastId = `sending-${Date.now()}`; 
       try {
         const payload = PayloadBuilder.buildPrompt(nextStepId as TaskKey); 
         const apiKey = useTripStore.getState().apiKey;
         if (!apiKey) {
+            dismissNotification(loadingId);
             setManualMode(payload, nextStepId);
             setStatus('waiting_for_user');
             return;
         }
         const result = await GeminiService.call(payload, nextStepId as TaskKey);
-        dismissNotification(sendingToastId);
+        dismissNotification(loadingId);
         if (isMounted) {
             processResult(nextStepId, result);
             setQueue(prev => prev.slice(1));
         }
       } catch (err) {
-        dismissNotification(sendingToastId);
-        if (isMounted) { setError((err as Error).message); setStatus('error'); }
+        dismissNotification(loadingId);
+        if (!isMounted) return; 
+        const errorMessage = (err as Error).message;
+        setError(errorMessage);
+        setStatus('error');
+
+        // NEW: Error notification with Retry/Skip actions
+        addNotification({
+          type: 'error',
+          message: `Fehler in Schritt ${stepLabel}: ${errorMessage}`,
+          autoClose: false,
+          actions: [
+            { 
+              label: t('actions.retry', 'Wiederholen'), 
+              onClick: () => { setStatus('generating'); }, 
+              variant: 'default' 
+            },
+            { 
+              label: t('actions.skip', 'Schritt überspringen'), 
+              onClick: () => { setQueue(prev => prev.slice(1)); setStatus('generating'); }, 
+              variant: 'outline' 
+            }
+          ]
+        });
       }
     };
     executeNextStep();
@@ -183,16 +214,41 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
   const startSingleTask = useCallback(async (task: TaskKey, feedback?: string) => {
       setStatus('generating');
       setError(null);
+
+      // NEW: Fetch specific step label for the loading modal
+      const stepDef = WORKFLOW_STEPS.find(s => s.id === task);
+      const stepLabel = stepDef?.label[lang] || task;
+
+      const loadingId = addNotification({ 
+        type: 'loading', 
+        message: t('status.workflow_start', { step: stepLabel }), 
+        autoClose: false 
+      });
+
       try {
           const prompt = PayloadBuilder.buildPrompt(task, feedback);
           const apiKey = useTripStore.getState().apiKey;
-          if (!apiKey) { setManualMode(prompt, task); setStatus('waiting_for_user'); return; }
+          if (!apiKey) { 
+              dismissNotification(loadingId);
+              setManualMode(prompt, task); 
+              setStatus('waiting_for_user'); 
+              return; 
+          }
           const result = await GeminiService.call(prompt, task);
+          dismissNotification(loadingId);
           processResult(task, result);
           setStatus('success');
-      } catch (e) { setStatus('error'); }
-  }, [processResult, setManualMode]);
+      } catch (e) { 
+          dismissNotification(loadingId);
+          setStatus('error'); 
+          addNotification({
+            type: 'error',
+            message: (e as Error).message,
+            autoClose: 5000
+          });
+      }
+  }, [processResult, setManualMode, addNotification, dismissNotification, lang, t]);
 
   return { status, currentStep, queue, error, progress, manualPrompt, submitManualResult, startWorkflow, resumeWorkflow, cancelWorkflow, startSingleTask };
 };
-// --- END OF FILE 335 Zeilen ---
+// --- END OF FILE 363 Zeilen ---
