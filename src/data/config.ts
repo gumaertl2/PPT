@@ -1,7 +1,7 @@
 // src/data/config.ts
 // 14.01.2026 13:45 - FIX: Added missing TaskKeys 'basis' and 'anreicherer' to support CockpitWizard workflow.
 // 16.01.2026 04:20 - FIX: Consistently using TaskKey from core/types. Expanded defaults to include workflow steps.
-// UPDATE: V30 Original-Modelle (Gemini 2.5) & Robustness Settings
+// 16.01.2026 18:30 - FEAT: Added chunkDefaults to support granular batch processing per agent (V30 Parity).
 
 // FIX: Importing TaskKey as the source of truth
 import type { TaskKey } from '../core/types';
@@ -89,6 +89,37 @@ export const CONFIG = {
       anreicherer: 'flash' 
     } as Partial<Record<TaskKey, ModelType>>, // Changed to Partial for flexibility
 
+    // NEU: Standard-Batch-Größen pro Agent (V30 Logic Transfer)
+    chunkDefaults: {
+        // --- High Volume Data Agents ---
+        chefPlaner: { auto: 60, manual: 60 },      // Reine Datenanalyse, wenig Output-Token
+        sightCollector: { auto: 10, manual: 25 },  // Sammler (Namen)
+        basis: { auto: 10, manual: 25 },           // Alias
+        foodCollector: { auto: 20, manual: 40 },   // Restaurants (einfach)
+        food: { auto: 20, manual: 40 },            // Alias
+        
+        // --- Enrichment / Recherche Agents ---
+        intelligentEnricher: { auto: 15, manual: 25 }, // V30 war hier aggressiv (15)
+        anreicherer: { auto: 15, manual: 25 },         // Alias
+        foodEnricher: { auto: 10, manual: 20 },        // Detailsuche
+        hotelScout: { auto: 20, manual: 40 },          // Hotels
+        accommodation: { auto: 20, manual: 40 },       // Alias
+
+        // --- Text Generation Agents (Token Heavy) ---
+        sightsChefredakteur: { auto: 5, manual: 10 },  // Lange Texte -> kleine Chunks
+        details: { auto: 5, manual: 10 },              // Alias
+        infoAutor: { auto: 5, manual: 10 },            // Fakten & Texte
+        infos: { auto: 5, manual: 10 },                // Alias
+        reisefuehrer: { auto: 1, manual: 1 },          // Struktureller Agent (immer 1)
+        guide: { auto: 1, manual: 1 },                 // Alias
+
+        // --- Planning Agents (Time Based) ---
+        initialTagesplaner: { auto: 14, manual: 14 }, // Plant bis zu 2 Wochen am Stück
+        dayplan: { auto: 14, manual: 14 },            // Alias
+        transferPlanner: { auto: 14, manual: 14 },    // Logistik für ganze Reise
+        transfers: { auto: 14, manual: 14 }           // Alias
+    } as Partial<Record<TaskKey, { auto: number; manual: number }>>,
+
     labels: {
       chefPlaner: "tasks.chefPlaner",
       routenArchitekt: "tasks.routenArchitekt",
@@ -126,4 +157,4 @@ export const CONFIG = {
     } as Partial<Record<TaskKey, string>>
   }
 };
-// --- END OF FILE 135 Zeilen ---
+// --- END OF FILE 164 Zeilen ---

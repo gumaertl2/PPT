@@ -1,5 +1,5 @@
 // src/data/Texts/briefing.ts
-// 14.01.2026 19:55 - UPDATE: Added critical V40 learnings (Types, Errors, Budget) to sections 5 & 7.
+// 16.01.2026 16:30 - UPDATE: Completed Workflow Inventory (Section 8A) with missing V30 agents (Duration, Logistics, Hotels).
 
 export const briefing = {
   de: {
@@ -148,13 +148,17 @@ Verfügbare Zeit pro Tag (netto ohne Pausen):
 | ID | Name | Funktion |
 | :--- | :--- | :--- |
 | \`chefPlaner\` | Der Stratege | Validiert Logistik & Hotel. Erstellt Meta-Strategie. |
+| \`routeArchitect\` | Der Routen-Planer | Erstellt 3 Rundreise-Optionen (nur Mobil). |
 | \`basis\` | Der Sammler | Generiert POI-Namen (Strings). |
 | \`anreicherer\` | Der Rechercheur | **[Chunked]** Sucht Details (Coords, Dauer, Rating). |
-| \`food\` | Der Food-Scout | Sucht Restaurants. |
-| \`guide\` | Der Routen-Architekt | Gruppiert Orte zu Touren (Clustering). |
 | \`dayplan\` | Der Tagesplaner | **[Iterativ]** Erstellt Zeitpläne. |
+| \`durationEstimator\` | Der Zeit-Stratege | Berechnet Nächte pro Stopp (Rundreisen). |
+| \`transferPlanner\` | Der Logistiker | Berechnet Wege & Fahrzeiten (benötigt Dayplan). |
+| \`hotelScout\` | Der Hotel-Scout | Sucht Unterkünfte (inkl. Geo-Analyse). |
+| \`food\` | Der Food-Scout | Sucht Restaurants. |
+| \`guide\` | Der Reiseführer | Erstellt die Story & Tages-Intros. |
 | \`details\` | Der Texter | **[Chunked]** Schreibt lange Beschreibungen. |
-| \`infos\` | Der Info-Autor | Erstellt Tipps & Tricks. |
+| \`infos\` | Der Info-Autor | Erstellt Tipps & Tricks (Land & Leute). |
 | \`sondertage\` | Der Spezialist | Schlechtwetter & Events. |
 
 **B. Prompt Logik & Chunking Strategy**
@@ -172,4 +176,4 @@ Wir nutzen eine strikte **Chunking-Strategie**, da die KI bei großen Datenmenge
 `
   }
 };
-// --- END OF FILE 294 Zeilen ---
+// --- END OF FILE 301 Zeilen ---

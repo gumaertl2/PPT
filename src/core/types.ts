@@ -1,9 +1,9 @@
 // src/core/types.ts
-// 14.01.2026 18:00 - FIX: Expanded LocalizedContent to support all LanguageCodes.
-// 15.01.2026 21:00 - FIX: Resolved Build Errors (TaskKey, Roundtrip Mode, CalendarEvent, MobileHome).
-// 16.01.2026 03:00 - CONFIRM: Ensuring 'routeArchitect' is present in TaskKey.
-// 16.01.2026 04:15 - FIX: Consolidated WorkflowStepId with TaskKey from config.ts to resolve Vercel build errors.
+// 16.01.2026 17:00 - FEAT: Added all V30 Master Matrix Agent Keys to WorkflowStepId.
+// 16.01.2026 20:00 - REFACTOR: Centralized ChunkingState and AiSettings for SSOT.
+// 16.01.2026 23:30 - FEAT: Added GeoAnalystResult to support Accommodation Strategy (V30 Parity).
 
+// --- GENERAL TYPES ---
 export type LanguageCode = 'de' | 'en' | 'es' | 'fr' | 'it' | 'nl' | 'pl' | 'pt' | 'ru' | 'tr' | 'ja' | 'zh';
 
 export interface LocalizedContent {
@@ -43,42 +43,46 @@ export interface InterestCategory {
 }
 
 // --- WORKFLOW / MAGIC CHAIN ---
-// Unified Step IDs including internal Agent Keys to prevent TS2345 mismatches
+// Unified Step IDs including internal Agent Keys
 export type WorkflowStepId = 
+  // --- V40 UI Keys (Short) ---
   | 'basis'          // Sammler (Namen & Ideen)
-  | 'anreicherer'    // Daten-Anreicherer (Fakten, Adressen, Öffnungszeiten)
+  | 'anreicherer'    // Daten-Anreicherer
   | 'dayplan'        // Routen-Architekt (Tagesplanung)
   | 'guide'          // Reiseführer (Texte & Struktur)
-  | 'details'        // Detail-Inhalte (Deep Dive)
+  | 'details'        // Detail-Inhalte
   | 'infos'          // A-Z Infos
   | 'food'           // Restaurants
   | 'accommodation'  // Hotels
   | 'sondertage'     // Wetter / Flex
   | 'transfers'      // Logistik
-  | 'chefPlaner'     // Chef-Planer (Analysis)
-  | 'routeArchitect' // NEU: Routen-Architekt
-  // Agent Keys from config.ts for full type compatibility
-  | 'routenArchitekt'
-  | 'sightCollector'
-  | 'intelligentEnricher'
-  | 'initialTagesplaner'
-  | 'modificationTagesplaner'
-  | 'transferPlanner'
-  | 'timeOptimizer'
-  | 'sightsChefredakteur'
-  | 'infoAutor'
-  | 'foodCollector'
-  | 'foodEnricher'
-  | 'foodScout'
-  | 'geoAnalyst'
-  | 'hotelScout'
-  | 'transferUpdater'
-  | 'reisefuehrer'
-  | 'ideenScout'
-  | 'countryScout'
-  | 'durationEstimator';
 
-// Export TaskKey as alias for WorkflowStepId to ensure consistency across the app
+  // --- V30 Agent Keys (Master Matrix) ---
+  | 'chefPlaner'           // Fundamentalanalyse
+  | 'routeArchitect'       // Routenplaner (Mobil)
+  | 'sightCollector'       // Basis-Sourcing
+  | 'intelligentEnricher'  // Anreicherer
+  | 'initialTagesplaner'   // Tagesplan
+  | 'durationEstimator'    // Zeit-Stratege
+  | 'transferPlanner'      // Logistik
+  | 'timeOptimizer'        // Fallback
+  | 'hotelScout'           // Unterkunft
+  | 'geoAnalyst'           // Lage-Analyse
+  | 'foodCollector'        // Kulinarik Sourcing
+  | 'foodEnricher'         // Kulinarik Details
+  | 'foodScout'            // Kulinarik Guide
+  | 'reisefuehrer'         // Content Story
+  | 'sightsChefredakteur'  // Content Details
+  | 'infoAutor'            // Infos Fakten
+  | 'countryScout'         // Länderinfos
+  | 'ideenScout'           // Extras
+
+  // --- Compatibility / Legacy Keys ---
+  | 'routenArchitekt'         // Alias
+  | 'modificationTagesplaner' // Modifikation
+  | 'transferUpdater';        // Legacy
+
+// Export TaskKey as alias for WorkflowStepId
 export type TaskKey = WorkflowStepId;
 
 export interface WorkflowStepDef {
@@ -94,6 +98,39 @@ export interface WorkflowStepDef {
     de: string;
     en: string;
   };
+}
+
+// --- SYSTEM SETTINGS & CHUNKING (SSOT) ---
+
+export type AiStrategy = 'optimal' | 'pro' | 'fast';
+
+// Definition für Model-Types (um Zirkelbezüge zu vermeiden, definieren wir es hier oder importieren es)
+// Wir nutzen hier string literals für lose Kopplung, oder importieren aus config wenn nötig.
+// Für types.ts ist string | 'pro' | 'flash' sicher.
+export type ModelType = 'pro' | 'flash' | string;
+
+export interface ChunkLimits {
+    auto: number;   // Für API-Modus
+    manual: number; // Für Copy-Paste
+}
+
+export interface AiSettings {
+  strategy: AiStrategy;
+  debug: boolean;
+  // Granulare Kontrolle pro Task
+  modelOverrides: Partial<Record<TaskKey, ModelType>>;
+  // Globale Chunk-Größen (Fallback)
+  chunkLimits: ChunkLimits;
+  // Granulare Chunk-Größen pro Task (Overrides)
+  chunkOverrides: Partial<Record<TaskKey, Partial<ChunkLimits>>>;
+}
+
+export interface ChunkingState {
+    isActive: boolean;
+    currentChunk: number;
+    totalChunks: number;
+    dataChunks: any[]; // Die geschnittenen Häppchen
+    results: any[];    // Die gesammelten Ergebnisse
 }
 
 // --- FLUGSCHREIBER (DEBUG LOGS) ---
@@ -136,7 +173,6 @@ export interface CalendarEvent {
   id: string;
   date: string; // YYYY-MM-DD
   title: string;
-  // FIX: Added 'name' optional property for legacy support
   name?: string;
   description?: string;
   duration?: string; // z.B. "2h"
@@ -168,7 +204,6 @@ export interface TripUserProfile {
     dailyStartTime?: string; 
     dailyEndTime?: string;
     arrival: {
-      // FIX: Added 'mobile_home' for basis.ts compatibility
       type?: 'flight' | 'train' | 'car' | 'camper' | 'mobile_home' | 'suggestion' | 'other';
       details?: string; 
       time?: string;
@@ -177,7 +212,6 @@ export interface TripUserProfile {
     departure?: DepartureDetails;
   };
   logistics: {
-    // FIX: Added 'roundtrip' for Wizard logic
     mode: 'stationaer' | 'mobil' | 'roundtrip';
     accommodationStatus?: 'needs_suggestions' | 'booked'; 
     roundtripOptions?: {
@@ -223,7 +257,8 @@ export interface TripUserProfile {
   aiOutputLanguage: string; 
 }
 
-// --- ANALYSIS RESULT ---
+// --- ANALYSIS RESULTS ---
+
 export interface ChefPlanerResult {
   metadata: {
     analyzedAt: string;
@@ -283,6 +318,18 @@ export interface RouteArchitectResult {
   routenVorschlaege: RouteProposal[];
 }
 
+// NEU: Ergebnis des GeoAnalysten (Lage-Stratege)
+export interface GeoAnalystResult {
+  strategische_standorte: Array<{
+    ort_name: string;
+    such_radius_km: number;
+    fokus: string;
+    begruendung: string;
+    aufenthaltsdauer_empfehlung: string;
+  }>;
+  analyse_fazit: string;
+}
+export type FoodSearchMode = 'standard' | 'stars';
 // --- MAIN PROJECT STRUCTURE ---
 export interface TripProject {
   meta: {
@@ -297,6 +344,7 @@ export interface TripProject {
   analysis: {
     chefPlaner: ChefPlanerResult | null;
     routeArchitect?: RouteArchitectResult | null;
+    geoAnalyst?: GeoAnalystResult | null; // NEU: Slot für den Strategen
   };
   data: {
     places: Record<string, any>;
@@ -307,4 +355,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 314 Zeilen ---
+// --- END OF FILE 397 Zeilen ---

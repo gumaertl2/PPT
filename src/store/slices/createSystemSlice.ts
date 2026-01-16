@@ -1,22 +1,22 @@
 // src/store/slices/createSystemSlice.ts
 // 14.01.2026 15:45 - FIX: Re-applying Phase 1 (Model Overrides) strictly on verified upload.
 // 16.01.2026 05:50 - FINAL FIX: Consolidated TaskKey import from core/types to resolve TS2459.
+// 16.01.2026 17:30 - FEAT: Added Chunking Infrastructure (chunkLimits & chunkingState) for V30 migration.
+// 16.01.2026 18:45 - FEAT: Added granular chunkOverrides per Task (Phase 1.2).
+// 16.01.2026 20:05 - REFACTOR: Removed local types. Now importing SSOT types from core/types.
 
 import type { StateCreator } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import { SecurityService } from '../../services/security';
-import type { FlightRecorderEntry, TaskKey } from '../../core/types'; // FIX: TaskKey from core/types
+// FIX: Import consolidated types (SSOT)
+import type { 
+  FlightRecorderEntry, 
+  TaskKey, 
+  AiSettings, 
+  ChunkingState 
+} from '../../core/types';
 // NEW: Import types for model config
-import type { ModelType } from '../../data/config'; // ModelType stays in config
-
-export type AiStrategy = 'optimal' | 'pro' | 'fast';
-
-export interface AiSettings {
-  strategy: AiStrategy;
-  debug: boolean;
-  // NEW: Granulare Kontrolle pro Task
-  modelOverrides: Partial<Record<TaskKey, ModelType>>;
-}
+import type { ModelType } from '../../data/config'; 
 
 export interface SystemSlice {
   // API & Security
@@ -26,9 +26,22 @@ export interface SystemSlice {
   // AI Settings
   aiSettings: AiSettings;
   setAiSettings: (settings: Partial<AiSettings>) => void;
-  // NEW: Actions für Overrides
+  
+  // Model Overrides
   setTaskModel: (task: TaskKey, model: ModelType) => void;
   resetModelOverrides: () => void;
+  
+  // Chunking Limits (Global)
+  setChunkLimit: (mode: 'auto' | 'manual', limit: number) => void;
+
+  // Chunking Limits (Granular / Task-Specific)
+  setTaskChunkLimit: (task: TaskKey, mode: 'auto' | 'manual', limit: number) => void;
+  resetChunkOverrides: () => void;
+
+  // Chunking State Actions
+  chunkingState: ChunkingState;
+  setChunkingState: (state: Partial<ChunkingState>) => void;
+  resetChunking: () => void;
 
   // Stats
   usageStats: {
@@ -55,7 +68,20 @@ export interface SystemSlice {
 const initialAiSettings: AiSettings = {
   strategy: 'optimal',
   debug: false,
-  modelOverrides: {} // Init empty
+  modelOverrides: {}, 
+  chunkLimits: {
+      auto: 10,     // Konservativer Startwert
+      manual: 20    // Komfortabler Startwert
+  },
+  chunkOverrides: {} // Init empty
+};
+
+const initialChunkingState: ChunkingState = {
+    isActive: false,
+    currentChunk: 0,
+    totalChunks: 0,
+    dataChunks: [],
+    results: []
 };
 
 export const createSystemSlice: StateCreator<any, [], [], SystemSlice> = (set, get) => ({
@@ -86,10 +112,54 @@ export const createSystemSlice: StateCreator<any, [], [], SystemSlice> = (set, g
     }
   })),
 
-  // NEW: Reset aller Overrides
+  // NEW: Reset aller Model Overrides
   resetModelOverrides: () => set((state: any) => ({
       aiSettings: { ...state.aiSettings, modelOverrides: {} }
   })),
+
+  // NEU: Setzt das globale Chunk-Limit
+  setChunkLimit: (mode, limit) => set((state: any) => ({
+      aiSettings: {
+          ...state.aiSettings,
+          chunkLimits: {
+              ...state.aiSettings.chunkLimits,
+              [mode]: limit
+          }
+      }
+  })),
+
+  // NEU: Setzt ein spezifisches Chunk-Limit für einen Task
+  setTaskChunkLimit: (task, mode, limit) => set((state: any) => {
+      const currentOverrides = state.aiSettings.chunkOverrides || {};
+      const taskOverrides = currentOverrides[task] || {};
+
+      return {
+          aiSettings: {
+              ...state.aiSettings,
+              chunkOverrides: {
+                  ...currentOverrides,
+                  [task]: {
+                      ...taskOverrides,
+                      [mode]: limit
+                  }
+              }
+          }
+      };
+  }),
+
+  // NEU: Reset aller Chunk Overrides
+  resetChunkOverrides: () => set((state: any) => ({
+      aiSettings: { ...state.aiSettings, chunkOverrides: {} }
+  })),
+
+  // --- CHUNKING STATE ---
+  chunkingState: initialChunkingState,
+
+  setChunkingState: (newState) => set((state: any) => ({
+      chunkingState: { ...state.chunkingState, ...newState }
+  })),
+
+  resetChunking: () => set({ chunkingState: initialChunkingState }),
 
   // --- STATS ---
   usageStats: { 
@@ -136,8 +206,8 @@ export const createSystemSlice: StateCreator<any, [], [], SystemSlice> = (set, g
   }),
 
   addLogEntry: (entry) => set((state: any) => ({
-     flightRecorderLogs: [...state.flightRecorderLogs, entry],
-     flightRecorder: [...state.flightRecorder, entry]
+      flightRecorderLogs: [...state.flightRecorderLogs, entry],
+      flightRecorder: [...state.flightRecorder, entry]
   })),
 
   clearFlightRecorder: () => set({ flightRecorderLogs: [], flightRecorder: [] }),
@@ -201,4 +271,4 @@ export const createSystemSlice: StateCreator<any, [], [], SystemSlice> = (set, g
      get().downloadFlightRecorder();
   }
 });
-// --- END OF FILE 192 Zeilen ---
+// --- END OF FILE 254 Zeilen ---
