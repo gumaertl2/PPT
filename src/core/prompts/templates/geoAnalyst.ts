@@ -1,5 +1,6 @@
 // src/core/prompts/templates/geoAnalyst.ts
 // 16.01.2026 22:00 - FEAT: Initial creation. Strategic location analysis for accommodation planning.
+// 17.01.2026 12:00 - FIX: Used 'lang' variable to satisfy linter and control output language.
 
 import type { TripProject } from '../../types';
 
@@ -58,6 +59,8 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt.
 - Bei Rundreisen: Fasse nahegelegene Ziele zusammen, wenn es Sinn macht.
 - Bei Stationär: Empfiehl konkrete Stadtteile oder Regionen (z.B. "Marais" in Paris statt nur "Paris").
 - Berücksichtige, dass wir mit Kindern reisen (vermeide unsichere oder zu laute Gegenden, wenn nicht gewünscht).
+
+Antworte auf ${lang}.
 `;
 };
-// --- END OF FILE 50 Zeilen ---
+// --- END OF FILE 53 Zeilen ---

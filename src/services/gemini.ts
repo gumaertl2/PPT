@@ -1,6 +1,7 @@
 // src/services/gemini.ts
 // 14.01.2026 19:45 - UPDATE: Implemented dynamic model routing (Strategy + Overrides).
 // 16.01.2026 04:40 - FIX: Consolidating TaskKey import from core/types for build stability.
+// 17.01.2026 12:05 - FIX: Added type casting for dynamic model configuration lookups.
 
 import { CONFIG } from '../data/config';
 import type { ModelType } from '../data/config'; // FIX: TaskKey removed from here
@@ -115,12 +116,12 @@ export const GeminiService = {
     if (taskKey) {
         // A. Gibt es einen User-Override für diesen speziellen Task?
         if (modelOverrides && modelOverrides[taskKey]) {
-            return modelOverrides[taskKey]!;
+            return modelOverrides[taskKey]! as ModelType; // FIX: Added Cast
         }
 
         // B. Fallback auf Default-Matrix aus Config
         if (CONFIG.taskRouting.defaults[taskKey]) {
-            return CONFIG.taskRouting.defaults[taskKey]!;
+            return CONFIG.taskRouting.defaults[taskKey]! as ModelType; // FIX: Added Cast
         }
     }
 
@@ -269,8 +270,8 @@ export const GeminiService = {
                model: selectedModelKey,
                content: `JSON Validation Failed. Starting Repair Attempt ${repairAttempts + 1}.`,
                meta: {
-                  invalidJson: text,
-                  error: validation.error
+                 invalidJson: text,
+                 error: validation.error
                }
              });
           }
