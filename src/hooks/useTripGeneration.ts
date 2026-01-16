@@ -1,4 +1,4 @@
-// 16.01.2026 13:50 - FIX: Specific Task Labels in Loading Modal & Interactive Error Handling (Retry/Skip).
+// 16.01.2026 15:00 - FIX: Removed unused 'sendingToastId' variable to resolve Vercel build error TS6133.
 // src/hooks/useTripGeneration.ts
 // 12.01.2026 19:00 - UPDATE: Implemented result processing for 'basis' and 'anreicherer'.
 // 16.01.2026 03:40 - FIX: Corrected TaskKey import source to resolve build errors (TS2345).
@@ -138,7 +138,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
         autoClose: false 
       });
 
-      const sendingToastId = `sending-${Date.now()}`; 
       try {
         const payload = PayloadBuilder.buildPrompt(nextStepId as TaskKey); 
         const apiKey = useTripStore.getState().apiKey;
@@ -251,4 +250,4 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
   return { status, currentStep, queue, error, progress, manualPrompt, submitManualResult, startWorkflow, resumeWorkflow, cancelWorkflow, startSingleTask };
 };
-// --- END OF FILE 363 Zeilen ---
+// --- END OF FILE 362 Zeilen ---
