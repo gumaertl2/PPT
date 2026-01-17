@@ -4,8 +4,9 @@
 // 16.01.2026 23:55 - PERF: Added Address & OpeningHours to prompt for V30-level routing precision.
 // 17.01.2026 16:45 - REFACTOR: Migration to PromptBuilder Pattern.
 // 17.01.2026 17:05 - FIX: Applied Strict Types (Zero Error Policy).
+// 17.01.2026 17:45 - FIX: Corrected PromptBuilder import path.
 
-import { PromptBuilder } from '../builder';
+import { PromptBuilder } from '../PromptBuilder';
 import type { TripProject, Place, ChunkingContext } from '../../types';
 
 /**
@@ -151,4 +152,4 @@ export const buildInitialTagesplanerPrompt = (
 
   return builder.build();
 };
-// --- END OF FILE 136 Zeilen ---
+// --- END OF FILE 137 Zeilen ---

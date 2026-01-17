@@ -1,21 +1,24 @@
 // src/core/prompts/templates/tourGuide.ts
 // 17.01.2026 23:10 - REFACTOR: Migrated to PromptBuilder pattern (Unified Builder).
 // 17.01.2026 22:15 - FIX: Updated data access (places instead of sights).
+// 17.01.2026 17:55 - FIX: Added .flat() to handle Place[] arrays correctly (TS2339).
 
-import type { TripProject } from '../../types';
+import type { TripProject, Place } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
 
 export const buildTourGuidePrompt = (project: TripProject): string => {
   // Wir greifen auf die gesammelten Sights zu (V40: project.data.places)
-  const allSights = Object.values(project.data.places || {});
+  // FIX: .flat() nutzen, da places ein Record<Category, Place[]> ist.
+  const allSights = Object.values(project.data.places || {}).flat() as Place[];
 
   // Mapping für die KI
-  const sightsForPrompt = allSights.map(sight => ({
+  const sightsForPrompt = allSights.map((sight: Place) => ({
       id: sight.id,
       name: sight.name,
-      adresse: sight.adresse,
+      adresse: sight.address || sight.vicinity || "Unbekannt", // Fallback für V40 Strictness
       category: sight.category,
-      min_duration_minutes: sight.min_duration_minutes || 60 
+      // Fallback für optionale Properties
+      min_duration_minutes: (sight as any).min_duration_minutes || 60 
   }));
 
   const role = `Du bist ein erfahrener Reisebuchautor und geografischer Analyst. Deine Stärke ist es, eine lose Sammlung von Orten in eine fesselnde und logische Erzählung zu verwandeln, die ein Reisender für eine Erkundung auf eigene Faust nutzen kann.
@@ -57,4 +60,4 @@ Deine Aufgabe ist es, die **gesamte Liste** von Sehenswürdigkeiten zu nehmen un
     .withSelfCheck(['basic', 'planning'])
     .build();
 };
-// --- END OF FILE 62 Zeilen ---
+// --- END OF FILE 65 Zeilen ---

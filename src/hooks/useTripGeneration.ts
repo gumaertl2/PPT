@@ -1,17 +1,17 @@
-// 16.01.2026 15:00 - FIX: Removed unused 'sendingToastId' variable to resolve Vercel build error TS6133.
 // src/hooks/useTripGeneration.ts
 // 12.01.2026 19:00 - UPDATE: Implemented result processing for 'basis' and 'anreicherer'.
 // 16.01.2026 03:40 - FIX: Corrected TaskKey import source to resolve build errors (TS2345).
 // 16.01.2026 04:30 - FINAL FIX: Consolidated TaskKey import from core/types for Vercel parity.
+// 17.01.2026 18:45 - REFACTOR: Integrated TripOrchestrator for centralized logic handling.
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
 import { useTripStore } from '../store/useTripStore';
 import { PayloadBuilder } from '../core/prompts/PayloadBuilder';
-import { GeminiService } from '../services/gemini';
+// NEU: Orchestrator statt direktem Service-Aufruf
+import { TripOrchestrator } from '../services/orchestrator';
 import { WORKFLOW_STEPS } from '../core/Workflow/steps';
-// FIX: Using unified types from core/types to ensure 'dayplan' etc. are valid TaskKeys
 import type { WorkflowStepId, TaskKey } from '../core/types'; 
 
 export type GenerationStatus = 
@@ -131,7 +131,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       setCurrentStep(nextStepId);
       const stepLabel = stepDef?.label[lang] || nextStepId;
       
-      // FIX: Modal stays open (autoClose: false) and shows specific label
       const loadingId = addNotification({ 
         type: 'loading', 
         message: t('status.workflow_start', { step: stepLabel }), 
@@ -139,15 +138,22 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       });
 
       try {
-        const payload = PayloadBuilder.buildPrompt(nextStepId as TaskKey); 
         const apiKey = useTripStore.getState().apiKey;
+        
+        // Manual Mode Fallback: Wenn kein Key da ist, Prompt bauen und UI anzeigen
         if (!apiKey) {
+            // Wir nutzen PayloadBuilder hier nur für die UI-Vorschau
+            const payload = PayloadBuilder.buildPrompt(nextStepId as TaskKey); 
             dismissNotification(loadingId);
             setManualMode(payload, nextStepId);
             setStatus('waiting_for_user');
             return;
         }
-        const result = await GeminiService.call(payload, nextStepId as TaskKey);
+
+        // ORCHESTRATOR CALL (Ersetzt GeminiService direct call)
+        // Der Orchestrator kümmert sich um Prompt-Bau, API-Call und Validierung
+        const result = await TripOrchestrator.executeTask(nextStepId as TaskKey);
+        
         dismissNotification(loadingId);
         if (isMounted) {
             processResult(nextStepId, result);
@@ -160,7 +166,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
         setError(errorMessage);
         setStatus('error');
 
-        // NEW: Error notification with Retry/Skip actions
         addNotification({
           type: 'error',
           message: `Fehler in Schritt ${stepLabel}: ${errorMessage}`,
@@ -214,7 +219,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       setStatus('generating');
       setError(null);
 
-      // NEW: Fetch specific step label for the loading modal
       const stepDef = WORKFLOW_STEPS.find(s => s.id === task);
       const stepLabel = stepDef?.label[lang] || task;
 
@@ -225,15 +229,18 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       });
 
       try {
-          const prompt = PayloadBuilder.buildPrompt(task, feedback);
           const apiKey = useTripStore.getState().apiKey;
           if (!apiKey) { 
+              const prompt = PayloadBuilder.buildPrompt(task, feedback);
               dismissNotification(loadingId);
               setManualMode(prompt, task); 
               setStatus('waiting_for_user'); 
               return; 
           }
-          const result = await GeminiService.call(prompt, task);
+
+          // ORCHESTRATOR CALL
+          const result = await TripOrchestrator.executeTask(task, feedback);
+
           dismissNotification(loadingId);
           processResult(task, result);
           setStatus('success');

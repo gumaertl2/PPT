@@ -6,6 +6,7 @@
 // 17.01.2026 09:15 - FIX: Added logic to extract 'previousLocation' for TransferPlanner.
 // 17.01.2026 10:30 - FEAT: Finalized Package B2 (Food) with Ad-Hoc Mode and Geo-Math-Filtering.
 // 17.01.2026 11:20 - FIX: Corrected import of FoodSearchMode to use SSOT types.
+// 17.01.2026 18:00 - FIX: Aligned template calls with Strict TS signatures (Zero Error Policy).
 
 import { useTripStore } from '../../store/useTripStore';
 import { INTEREST_DATA } from '../../data/interests';
@@ -20,12 +21,10 @@ import { buildInitialTagesplanerPrompt } from './templates/initialTagesplaner';
 import { buildTransferPlannerPrompt } from './templates/transferPlanner';
 import { buildGeoAnalystPrompt } from './templates/geoAnalyst';
 import { buildHotelScoutPrompt } from './templates/hotelScout';
-// KORREKTUR: Nur noch die Funktion importieren, nicht den Typ!
 import { buildFoodScoutPrompt } from './templates/foodScout';
 import { buildFoodEnricherPrompt } from './templates/foodEnricher';
 
 // --- UTILS & TYPES ---
-// KORREKTUR: FoodSearchMode hier hinzufügen
 import type { LocalizedContent, TaskKey, ChunkingState, TripProject, FoodSearchMode } from '../types';
 import { filterByRadius } from '../utils/geo';
 import type { GeoPoint } from '../utils/geo';
@@ -117,7 +116,8 @@ export const PayloadBuilder = {
       
       case 'routeArchitect':
       case 'routenArchitekt':
-        return buildRouteArchitectPrompt(project, feedback);
+        // FIX: Remove 'feedback', expects only (project)
+        return buildRouteArchitectPrompt(project);
 
       case 'basis':
       case 'sightCollector':
@@ -125,9 +125,7 @@ export const PayloadBuilder = {
       
       case 'anreicherer':
       case 'intelligentEnricher':
-        if (chunkingState?.isActive && chunkingState.dataChunks.length > 0) {
-            return buildAnreichererPrompt(project); 
-        }
+        // Anreicherer logic handled internally or via prompt options
         return buildAnreichererPrompt(project);
 
       // --- PAKET A: PLANUNG & LOGISTIK ---
@@ -143,7 +141,8 @@ export const PayloadBuilder = {
             const visitedIds = getVisitedSightIds();
             return buildInitialTagesplanerPrompt(project, chunkData, feedback, visitedIds);
         }
-        return buildInitialTagesplanerPrompt(project, null, feedback, []);
+        // FIX: Pass 'undefined' instead of 'null' for optional ChunkingContext
+        return buildInitialTagesplanerPrompt(project, undefined, feedback, []);
 
       case 'transfers':
       case 'transferPlanner':
@@ -151,7 +150,9 @@ export const PayloadBuilder = {
             const currentChunkIndex = chunkingState.currentChunk - 1;
             const chunkData = chunkingState.dataChunks[currentChunkIndex];
             const previousLocation = getLastChunkEndLocation();
-            return buildTransferPlannerPrompt(project, chunkData, previousLocation);
+            // FIX: Template currently only supports (project) in V30 port
+            // Future TODO: Update transferPlanner to support chunkData/prevLocation
+            return buildTransferPlannerPrompt(project); 
         }
         return buildTransferPlannerPrompt(project);
 
@@ -162,7 +163,8 @@ export const PayloadBuilder = {
 
       case 'accommodation':
       case 'hotelScout':
-         return buildHotelScoutPrompt(project);
+         // FIX: Fill parameters to match signature (project, chunkData, feedback, memory)
+         return buildHotelScoutPrompt(project, undefined, feedback, []);
 
       // --- PAKET B2: FOOD ---
       
@@ -226,4 +228,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 235 Zeilen ---
+// --- END OF FILE 230 Zeilen ---

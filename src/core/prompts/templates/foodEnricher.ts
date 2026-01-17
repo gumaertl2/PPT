@@ -1,12 +1,13 @@
 // src/core/prompts/templates/foodEnricher.ts
 // 16.01.2026 20:00 - FEAT: Added 'Menu & Vibe' Analysis.
 // 18.01.2026 00:35 - REFACTOR: Migrated to class-based PromptBuilder.
+// 18.01.2026 00:45 - FIX: Marked unused 'project' parameter with underscore (TS6133).
 
 import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
 
 export const buildFoodEnricherPrompt = (
-    project: TripProject, 
+    _project: TripProject, // Unused but kept for signature compatibility
     candidates: any[]
 ): string => {
   // Input: Liste von { name, ort }

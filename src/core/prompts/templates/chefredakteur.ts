@@ -1,8 +1,9 @@
 // src/core/prompts/templates/chefredakteur.ts
 // 17.01.2026 19:10 - FEAT: Ported 'Chefredakteur' (Content Editor) from V30.
 // 17.01.2026 23:20 - REFACTOR: Migrated to PromptBuilder pattern (Unified Builder).
+// 17.01.2026 17:50 - FIX: Added .flat() to handle Place[] arrays correctly (TS2339).
 
-import type { TripProject } from '../../types';
+import type { TripProject, Place } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
 
 export const buildChefredakteurPrompt = (
@@ -22,7 +23,9 @@ export const buildChefredakteurPrompt = (
 
     // Helper: Finde Sight-Daten in Masterliste
     const findSightData = (anhangId: string) => {
-        const masterliste = Object.values(data.places || {});
+        // FIX: .flat() nutzen, da places ein Record<Category, Place[]> ist.
+        const masterliste = Object.values(data.places || {}).flat() as Place[];
+        
         if (masterliste.length === 0) return null;
 
         const cleanId = anhangId.replace('anhang_sight_', '').replace('anhang_', '');
@@ -38,9 +41,10 @@ export const buildChefredakteurPrompt = (
         let contextString = "";
         
         if (sightData) {
-            const stadt = sightData.stadt || "Unbekannt";
-            const land = sightData.land || "Unbekannt";
-            const adresse = sightData.adresse || "Keine Adresse";
+            // Sicherer Zugriff auf Properties (Fallback falls optional)
+            const stadt = (sightData as any).stadt || (sightData.vicinity) || "Unbekannt";
+            const land = (sightData as any).land || "Unbekannt";
+            const adresse = sightData.address || (sightData as any).adresse || "Keine Adresse";
             contextString = `\n  **KONTEXT (WICHTIG):** Ort: ${stadt}, Land: ${land}, Adresse: ${adresse}. Nutze diese Info, um Verwechslungen mit gleichnamigen Orten zu vermeiden.`;
         }
 
@@ -96,4 +100,4 @@ ${aufgabenListe}
         .withSelfCheck(['basic', 'research'])
         .build();
 };
-// --- END OF FILE 102 Zeilen ---
+// --- END OF FILE 105 Zeilen ---

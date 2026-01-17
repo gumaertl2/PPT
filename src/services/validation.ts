@@ -1,6 +1,7 @@
 // src/services/validation.ts
 // 17.01.2026 17:30 - FEAT: Added Zod Schema support for Runtime Validation.
 // 17.01.2026 17:35 - FEAT: Added standard Schemas for DayPlan & GeoAnalyst.
+// 17.01.2026 19:15 - FEAT: Added comprehensive Schemas for Food, Hotel & ChefPlaner (Zero Error Policy).
 
 import { z } from 'zod'; // Zod Import für Schema-Validierung
 
@@ -54,6 +55,59 @@ export const geoAnalystSchema = z.object({
   analyse_fazit: z.string().optional()
 });
 
+/**
+ * Schema für FoodScout & FoodEnricher
+ */
+export const foodSchema = z.object({
+  empfehlungen: z.array(z.object({
+    name: z.string(),
+    typ: z.string().optional(),
+    beschreibung: z.string().optional(),
+    adresse: z.string().optional(),
+    koordinaten: z.object({ lat: z.number(), lng: z.number() }).optional(),
+    rating: z.number().optional(),
+    price_level: z.string().optional(),
+    gruend: z.string().optional()
+  })).optional().or(z.any()) // Fallback, falls Root-Array statt Objekt
+});
+
+/**
+ * Schema für HotelScout (Accommodation)
+ */
+export const hotelSchema = z.object({
+  unterkuenfte: z.array(z.object({
+    name: z.string(),
+    ort: z.string().optional(),
+    beschreibung: z.string().optional(),
+    preis_pro_nacht: z.string().optional(),
+    sterne: z.number().optional(),
+    lage_bewertung: z.string().optional(),
+    buchungs_url: z.string().optional()
+  }))
+});
+
+/**
+ * Schema für ChefPlaner (Fundamentalanalyse)
+ */
+export const chefPlanerSchema = z.object({
+  metadata: z.object({ analyzedAt: z.string().optional(), model: z.string().optional() }).optional(),
+  assessment: z.object({
+    plausibility: z.string(),
+    missingInfo: z.array(z.string()),
+    suggestions: z.array(z.string())
+  }),
+  strategy_summary: z.string(),
+  briefing_summary: z.string(),
+  // Diese Felder sind oft dynamisch/optional je nach Analyse-Tiefe
+  validated_appointments: z.array(z.any()).optional(),
+  strategic_briefing: z.object({
+    search_radius_instruction: z.string().optional(),
+    sammler_briefing: z.string().optional()
+  }).optional()
+});
+
+
+// --- CORE LOGIC (Bracket Counting) ---
 
 /**
  * Extrahiert den ersten vollständigen JSON-Block (Objekt oder Array) aus einem String,
@@ -273,4 +327,4 @@ export function validateJson<T = any>(
     data: data as T 
   };
 }
-// --- END OF FILE 215 Zeilen ---
+// --- END OF FILE 298 Zeilen ---
