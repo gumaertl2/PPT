@@ -1,66 +1,70 @@
 // src/core/prompts/templates/geoAnalyst.ts
-// 16.01.2026 22:00 - FEAT: Initial creation. Strategic location analysis for accommodation planning.
-// 17.01.2026 12:00 - FIX: Used 'lang' variable to satisfy linter and control output language.
+// 17.01.2026 15:00 - UPDATE: Added 'Hub Identification' Logic.
+// 18.01.2026 00:40 - REFACTOR: Migrated to class-based PromptBuilder.
 
 import type { TripProject } from '../../types';
+import { PromptBuilder } from '../PromptBuilder';
 
 export const buildGeoAnalystPrompt = (project: TripProject): string => {
   const { userInputs } = project;
-  const { logistics, vibe, selectedInterests } = userInputs;
+  const { logistics } = userInputs;
 
-  // 1. Logistik-Kontext
-  let travelContext = "";
-  if (logistics.mode === 'roundtrip') {
-      const stops = logistics.roundtrip.stops.map(s => s.location).join(' -> ');
-      travelContext = `Rundreise mit folgenden Wegpunkten: ${stops}.
-      Constraint: Max. ${logistics.roundtrip.constraints.maxHotelChanges || 'unbegrenzt'} Hotelwechsel erwünscht.`;
+  // Kontext vorbereiten
+  let geoMode = "";
+  let routing = "";
+
+  if (logistics.mode === 'stationaer') {
+    geoMode = "STATIONARY (Hub & Spoke)";
+    routing = `Base Location: ${logistics.stationary.destination}.
+    Task: Validate if this base is suitable for day trips in the region: ${logistics.stationary.region || 'Region'}.`;
   } else {
-      travelContext = `Stationärer Aufenthalt in: ${logistics.stationary.destination} (Region: ${logistics.stationary.region}).`;
+    geoMode = "ROUNDTRIP";
+    routing = `Route: ${logistics.roundtrip.stops.map(s => s.location).join(' -> ')}.
+    Region: ${logistics.roundtrip.region}.
+    Task: Identify the best overnight stops (Hubs) along this route.`;
   }
 
-  // 2. Sprache
-  const lang = userInputs.aiOutputLanguage === 'en' ? 'English' : 'Deutsch';
+  const contextData = {
+    mode: geoMode,
+    arrival_type: (userInputs.dates.arrival as any).type,
+    routing_info: routing
+  };
 
-  return `
-DU BIST EIN GEOGRAFISCHER STRATEGE FÜR REISEPLANUNG.
-Deine Aufgabe ist es, die optimalen *Standorte* (Basis-Lager) für Übernachtungen zu bestimmen, bevor nach konkreten Hotels gesucht wird.
+  const role = `Du bist der "Geo Analyst". Deine Aufgabe ist die strategische Bewertung von Standorten (Hubs).
+  Du suchst NICHT nach konkreten Hotels, sondern nach den besten *Orten*, um zu übernachten.`;
 
-### REISE-PROFIL
-- Modus: ${logistics.mode}
-- Route/Ziel: ${travelContext}
-- Reisestil (Vibe): ${vibe}
-- Interessen: ${selectedInterests.join(', ')}
-- Gruppe: ${userInputs.travelers.adults} Erw., ${userInputs.travelers.children} Kinder
+  const instructions = `# AUFGABE
+${routing}
 
-### AUFGABE
-Analysiere die geografische Lage.
-Definiere die strategisch besten Orte für Übernachtungen, um:
-1. Fahrzeiten zu minimieren.
-2. Hotelwechsel gering zu halten (Hub-and-Spoke Strategie).
-3. Den gewünschten Vibe zu treffen (z.B. "Zentrumsnah" vs. "Ländliche Ruhe").
+# ZIEL
+1.  Identifiziere strategische "Hubs" (Städte/Dörfer), die sich als Basis eignen.
+2.  Bewerte die Lage hinsichtlich:
+    * Erreichbarkeit (Verkehrsanbindung)
+    * Infrastruktur (Restaurants, Supermärkte)
+    * Touristische Attraktivität (Vibe)
 
-### OUTPUT FORMAT (STRIKTES JSON)
-Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt.
+# OUTPUT
+Erstelle eine Liste von empfohlenen Hubs mit Begründung.`;
 
-{
-  "strategische_standorte": [
-    {
-      "ort_name": "Name der Stadt/Region",
-      "such_radius_km": 10,
-      "fokus": "Zentrum" | "Umland" | "Strandnähe",
-      "begruendung": "Warum dieser Ort? (z.B. 'Zentraler Hub für Ausflüge nach A und B')",
-      "aufenthaltsdauer_empfehlung": "ca. 3 Nächte"
-    }
-  ],
-  "analyse_fazit": "Kurze Zusammenfassung der Strategie (max 2 Sätze)."
-}
+  const outputSchema = {
+    "recommended_hubs": [
+      {
+        "hub_name": "String (Name der Stadt/Ort)",
+        "suitability_score": "Integer (1-10)",
+        "pros": ["String"],
+        "cons": ["String"],
+        "best_for": "String (z.B. 'Familien', 'Nightlife', 'Ruhe')"
+      }
+    ]
+  };
 
-### WICHTIG
-- Bei Rundreisen: Fasse nahegelegene Ziele zusammen, wenn es Sinn macht.
-- Bei Stationär: Empfiehl konkrete Stadtteile oder Regionen (z.B. "Marais" in Paris statt nur "Paris").
-- Berücksichtige, dass wir mit Kindern reisen (vermeide unsichere oder zu laute Gegenden, wenn nicht gewünscht).
-
-Antworte auf ${lang}.
-`;
+  return new PromptBuilder()
+    .withOS()
+    .withRole(role)
+    .withContext(contextData, "GEO-DATEN")
+    .withInstruction(instructions)
+    .withOutputSchema(outputSchema)
+    .withSelfCheck(['planning'])
+    .build();
 };
-// --- END OF FILE 53 Zeilen ---
+// --- END OF FILE 65 Zeilen ---

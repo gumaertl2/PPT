@@ -1,108 +1,76 @@
 // src/core/prompts/templates/hotelScout.ts
-// 16.01.2026 22:15 - FEAT: Initial creation. Accommodation search logic.
-// 16.01.2026 22:30 - FEAT: Added 'Itinerary Awareness'.
-// 16.01.2026 23:45 - FEAT: Added 'GeoAnalyst Integration' for strategic search locations (V30 Parity).
+// 17.01.2026 15:30 - UPDATE: Added 'Geo-Hub' Logic for strategic location search.
+// 18.01.2026 00:15 - REFACTOR: Migrated to class-based PromptBuilder.
 
 import type { TripProject } from '../../types';
+import { PromptBuilder } from '../PromptBuilder';
 
-export const buildHotelScoutPrompt = (project: TripProject): string => {
-  const { userInputs, itinerary, analysis } = project;
-  const { logistics, budget, vibe, travelers } = userInputs;
+export const buildHotelScoutPrompt = (
+    project: TripProject,
+    locationName: string,
+    checkInDate: string,
+    checkOutDate: string
+): string => {
+  const { userInputs } = project;
+  const { travelers, budget, logistics } = userInputs;
 
-  // 1. Kontext-Analyse: Prioritäten-Kette
-  const hasItinerary = itinerary?.days && itinerary.days.length > 0;
-  const hasGeoStrategy = !!analysis?.geoAnalyst;
+  // Kontext für die KI
+  const contextData = {
+    destination: locationName,
+    dates: { check_in: checkInDate, check_out: checkOutDate },
+    travelers: {
+        adults: travelers.adults,
+        children: travelers.children,
+        pets: travelers.pets // Wichtig für Filter!
+    },
+    budget_level: budget, // 'low', 'medium', 'high', 'luxury'
+    transport_needs: (logistics as any).arrivalType === 'car' ? 'Parking required' : 'Public transport proximity'
+  };
 
-  let searchContext = "";
-  let optimizationInstruction = "";
+  const role = `Du bist der "Hotel Scout". Deine Aufgabe ist es, für eine gegebene Destination und Reisedaten die perfekte Unterkunft zu finden.
+  Du suchst live nach **verfügbaren** Optionen, die zum Budget und Profil der Reisenden passen.`;
 
-  if (hasItinerary) {
-      // PRIO 1: Tagesplan existiert -> Wir optimieren Laufwege
-      const scheduleSummary = itinerary.days.map((d: any) => {
-          const activities = d.aktivitaeten?.map((a: any) => a.titel).join(', ') || 'Freizeit';
-          return `- Tag ${d.tag_nr} (${d.ort}): ${activities}`;
-      }).join('\n');
+  const instructions = `# AUFGABE
+Finde 3 konkrete Unterkunfts-Optionen in oder sehr nahe bei **"${locationName}"**.
 
-      searchContext = `
-EXISTIERENDER TAGESPLAN (Optimierungsgrundlage):
-${scheduleSummary}
+# STRATEGIE & FILTER
+1.  **Lage (Hub-Strategie):** Die Unterkunft muss strategisch gut liegen, um die Umgebung zu erkunden.
+2.  **Budget:** Halte dich strikt an das Budget-Level: ${budget}.
+3.  **Logistik:**
+    * Falls Reisende mit Auto: Parkplatz ist PFLICHT.
+    * Falls Haustiere dabei: "Haustiere erlaubt" ist PFLICHT.
+4.  **Qualität:** Nur Unterkünfte mit Google Rating > 4.0.
 
-HINWEIS: Der User hat bereits Aktivitäten geplant. Suche Unterkünfte, die verkehrsgünstig zu diesen Aktivitäten liegen (Zeit- & Wegeoptimierung).
-`;
-      optimizationInstruction = "WICHTIG: Plane PRO STADT nur EIN Hotel (Basis-Lager), auch wenn der Aufenthalt mehrere Tage dauert.";
-      
-  } else if (hasGeoStrategy && analysis?.geoAnalyst) {
-      // PRIO 2: Geo-Strategie existiert (aber kein Tagesplan) -> Wir nutzen die Hubs
-      const strategySummary = analysis.geoAnalyst.strategische_standorte.map(s => {
-          return `- ${s.ort_name} (Radius: ${s.such_radius_km}km): Fokus auf ${s.fokus}. Grund: ${s.begruendung}`;
-      }).join('\n');
+# OPTIONEN-MIX
+1.  **Option A (Der Preis-Leistungs-Sieger):** Beste Balance.
+2.  **Option B (Die besondere Lage):** Beste Aussicht oder Zentrumsnähe.
+3.  **Option C (Der Geheimtipp):** Kleines Boutique-Hotel oder charmantes Apartment.
 
-      searchContext = `
-STRATEGISCHE STANDORT-ANALYSE (Vorgabe):
-Der Geo-Analyst hat folgende ideale Übernachtungsorte ermittelt:
-${strategySummary}
+# OUTPUT-SCHEMA
+Fülle für jede Option das Schema exakt aus.
+WICHTIG: Recherchiere eine echte, funktionierende Buchungs-URL (Booking.com, Airbnb oder Direkt).`;
 
-HINWEIS: Halte dich strikt an diese Standort-Empfehlungen.
-`;
-      optimizationInstruction = "Suche Unterkünfte exakt in den definierten Zonen/Vierteln, um den Vibe zu treffen.";
-
-  } else {
-      // PRIO 3: Fallback (Nur Logistik) -> Wir suchen grob
-      if (logistics.mode === 'roundtrip') {
-        const stops = logistics.roundtrip.stops.map(s => s.location).join(', ');
-        searchContext = `Rundreise entlang dieser Stationen: ${stops}. Suche passende Unterkünfte an den Etappenzielen.`;
-      } else {
-        searchContext = `Stationärer Aufenthalt in: ${logistics.stationary.destination} (Region: ${logistics.stationary.region}).`;
+  const outputSchema = {
+    "accommodations": [
+      {
+        "name": "String (Offizieller Name)",
+        "address": "String (Adresse)",
+        "description": "String (Warum diese Wahl? 1-2 Sätze)",
+        "price_approx": "String (Geschätzter Preis pro Nacht)",
+        "booking_url": "String (URL zur Buchung oder Homepage)",
+        "pros": ["String (Vorteil 1)", "String (Vorteil 2)"],
+        "google_rating": "Number"
       }
-      optimizationInstruction = "Orientiere dich an strategisch günstigen Lagen (Zentrum oder verkehrsgünstig).";
-  }
+    ]
+  };
 
-  // 2. Spezifische Wünsche
-  const specialRequests = userInputs.notes ? `User Notizen: "${userInputs.notes}"` : "Keine speziellen Sonderwünsche.";
-
-  // 3. Sprache
-  const lang = userInputs.aiOutputLanguage === 'en' ? 'English' : 'Deutsch';
-
-  return `
-DU BIST EIN HOTEL-SCOUT UND UNTERKUNFTS-EXPERTE.
-Deine Aufgabe ist es, die perfekten Unterkünfte für diese Reise zu finden.
-
-### REISE-PROFIL
-- Budget: ${budget} (Halte dich strikt daran!)
-- Vibe: ${vibe}
-- Reisende: ${travelers.adults} Erw., ${travelers.children} Kinder
-- Extras: ${specialRequests}
-
-${searchContext}
-
-### AUFGABE
-Suche konkrete Unterkünfte (Hotels, B&Bs, Resorts oder Apartments), die zum Profil passen.
-${optimizationInstruction}
-
-### KRITERIEN
-1. **Budget-Treue:** Schlage nichts vor, was das Budget sprengt.
-2. **Lage-Effizienz:** Nutze die Vorgaben (Tagesplan oder Geo-Analyse) für die Standortwahl.
-3. **Stabilität:** Ein Basecamp pro Stadt/Region. Kein unnötiges Kofferpacken.
-
-### OUTPUT FORMAT (STRIKTES JSON)
-Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt.
-
-{
-  "unterkuenfte": [
-    {
-      "name": "Name des Hotels",
-      "ort": "Stadt/Region",
-      "art": "Hotel" | "Apartment" | "Resort" | "B&B",
-      "preis_niveau": "€€",
-      "match_grund": "Warum passt das? (z.B. 'Liegt im vom Geo-Analysten empfohlenen Marais-Viertel')",
-      "lage_vorteil": "Kurze Beschreibung der Lage",
-      "booking_keyword": "Suchbegriff für Booking.com"
-    }
-  ],
-  "budget_einschaetzung": "Kurzer Kommentar, ob das Budget realistisch ist."
-}
-
-Antworte auf ${lang}.
-`;
+  return new PromptBuilder()
+    .withOS()
+    .withRole(role)
+    .withContext(contextData, "BUCHUNGS-ANFRAGE")
+    .withInstruction(instructions)
+    .withOutputSchema(outputSchema)
+    .withSelfCheck(['basic', 'research'])
+    .build();
 };
-// --- END OF FILE 105 Zeilen ---
+// --- END OF FILE 72 Zeilen ---

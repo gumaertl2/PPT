@@ -1,6 +1,11 @@
+// src/services/validation.ts
+// 17.01.2026 17:30 - FEAT: Added Zod Schema support for Runtime Validation.
+// 17.01.2026 17:35 - FEAT: Added standard Schemas for DayPlan & GeoAnalyst.
+
+import { z } from 'zod'; // Zod Import für Schema-Validierung
+
 /**
- * src/services/validation.ts
- * * VALIDIERUNG & SELBSTHEILUNG
+ * VALIDIERUNG & SELBSTHEILUNG
  * Portierung von Papatours/validation.js nach TypeScript.
  * Enthält die robuste "Bracket-Counting" Logik zum Extrahieren von JSON aus KI-Antworten.
  */
@@ -11,6 +16,44 @@ export interface ValidationResult<T> {
   warning?: string | null;
   data?: T;
 }
+
+// --- STANDARD SCHEMAS (V40) ---
+
+/**
+ * Schema für den Tagesplan (Output von initialTagesplaner)
+ */
+export const dayPlanSchema = z.object({
+  tage: z.array(z.object({
+    tag_nr: z.number(),
+    datum: z.string().nullable().optional(),
+    titel: z.string().optional(),
+    ort: z.string().optional(),
+    aktivitaeten: z.array(z.object({
+      uhrzeit: z.string().optional(),
+      titel: z.string(),
+      beschreibung: z.string().optional(),
+      dauer: z.string().optional(), // z.B. "2h"
+      kosten: z.string().optional(),
+      original_sight_id: z.string().nullable().optional(), // Wichtig für Mapping!
+      art: z.enum(['sight', 'food', 'transfer', 'pause', 'other']).or(z.string()).optional()
+    }))
+  }))
+});
+
+/**
+ * Schema für GeoAnalyst Result
+ */
+export const geoAnalystSchema = z.object({
+  strategische_standorte: z.array(z.object({
+    ort_name: z.string(),
+    such_radius_km: z.number(),
+    fokus: z.string(),
+    begruendung: z.string().optional(),
+    aufenthaltsdauer_empfehlung: z.string().optional()
+  })),
+  analyse_fazit: z.string().optional()
+});
+
 
 /**
  * Extrahiert den ersten vollständigen JSON-Block (Objekt oder Array) aus einem String,
@@ -88,6 +131,7 @@ function checkSyntax(jsonString: string): { valid: boolean; error: string | null
   }
 }
 
+// Legacy Check (einfache Feld-Prüfung)
 function checkSchema(data: any, requiredFields: string[]): { valid: boolean; error: string | null } {
   for (const field of requiredFields) {
     const fieldParts = field.split('.');
@@ -117,7 +161,9 @@ function checkPlausibility(data: any): { valid: boolean; warning: string | null 
     for (const tag of data.tage) {
       if (!tag || !tag.aktivitaeten) continue;
       for (const akt of tag.aktivitaeten || []) {
-        if (akt && akt.dauerMinuten && (akt.dauerMinuten < 1 || akt.dauerMinuten > 720)) {
+        // Hinweis: Neue Prompts liefern "dauer" als String ("2h"). 
+        // Diese Prüfung greift nur, wenn "dauerMinuten" (Legacy/Number) existiert.
+        if (akt && typeof akt.dauerMinuten === 'number' && (akt.dauerMinuten < 1 || akt.dauerMinuten > 720)) {
           return { 
             valid: true, 
             warning: `Plausibilitäts-Warnung: Dauer von ${akt.dauerMinuten}min für '${akt.titel}' ist unrealistisch.` 
@@ -160,13 +206,13 @@ function validateAndRepairData(data: any, onRepair?: (msg: string) => void): any
 
 /**
  * Hauptfunktion zur Validierung.
- * @param jsonString Der rohe String von der KI.
- * @param requiredFields Liste der erforderlichen Felder (dot.notation).
- * @param onRepair Optionaler Callback für Reparatur-Meldungen (statt showToast).
+ * * @param jsonString Der rohe String von der KI.
+ * @param schemaOrFields Entweder eine Liste von Pflichtfeldern (Legacy Strings) ODER ein Zod Schema.
+ * @param onRepair Optionaler Callback für Reparatur-Meldungen.
  */
 export function validateJson<T = any>(
   jsonString: string, 
-  requiredFields: string[] = [], 
+  schemaOrFields: string[] | z.ZodType<T> = [], 
   onRepair?: (msg: string) => void
 ): ValidationResult<T> {
   
@@ -198,15 +244,27 @@ export function validateJson<T = any>(
   // Schritt 3: Auto-Repair
   data = validateAndRepairData(data, onRepair);
 
-  // Schema Check
-  const schemaResult = checkSchema(data, requiredFields);
-  if (!schemaResult.valid) {
-    return { valid: false, error: schemaResult.error };
+  // Schritt 4: Schema Check (Hybrid: Zod oder Legacy)
+  if (Array.isArray(schemaOrFields)) {
+      // Legacy Mode (String Arrays)
+      const schemaResult = checkSchema(data, schemaOrFields);
+      if (!schemaResult.valid) {
+        return { valid: false, error: schemaResult.error };
+      }
+  } else {
+      // Modern Mode (Zod)
+      const zodResult = schemaOrFields.safeParse(data);
+      if (!zodResult.success) {
+          // Formatiere Zod Fehler lesbar
+          const errorMsg = zodResult.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join(', ');
+          return { valid: false, error: `Validierungs-Fehler: ${errorMsg}` };
+      }
+      // Bei Zod übernehmen wir die geparsten/transformierten Daten
+      data = zodResult.data;
   }
   
   // Plausibilität
   const plausibilityResult = checkPlausibility(data);
-  // Warnungen geben wir mit zurück, aber valid ist true
   
   return { 
     valid: true, 
@@ -215,3 +273,4 @@ export function validateJson<T = any>(
     data: data as T 
   };
 }
+// --- END OF FILE 215 Zeilen ---

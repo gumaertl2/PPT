@@ -1,69 +1,73 @@
-/**
- * src/core/prompts/PromptBuilder.ts
- *
- * DER PROMPT-KONSTRUKTEUR
- * Fix: 'import type' hinzugefügt, um den Absturz zu verhindern.
- */
-
-// HIER WAR DER FEHLER: Es muss 'import type' heißen!
-import type { LanguageCode } from '../types';
+// src/core/prompts/PromptBuilder.ts
+// 17.01.2026 23:00 - ARCH: Enhanced Builder with centralized OS and Self-Check patterns for SOTA prompting.
 
 export class PromptBuilder {
-
-  /**
-   * Erstellt den universellen Header für alle Prompts.
-   */
-  private static getSystemHeader(targetLanguage: LanguageCode): string {
-    const langName = this.getLanguageName(targetLanguage);
-    
-    return `
-# SYSTEM OPERATING MODE: ENABLED
-You are "Papagtours AI", an advanced travel architect engine.
-
-### CRITICAL OUTPUT RULES
-1.  **LANGUAGE:** You must generate ALL content in **${langName}**.
-    (Internal reasoning or keys must remain English if specified, but user-facing text is ${langName}).
-2.  **FORMAT:** You must respond with valid **JSON** only. No Markdown blocks, no intro text.
-3.  **TONE:** Professional, inspiring, yet highly structured.
+  private parts: string[] = [];
+  
+  // Zentrales "Betriebssystem" für alle Agents
+  private static readonly SYSTEM_OS = `
+# DEIN BETRIEBSSYSTEM
+- **Rolle:** Du bist ein hochpräziser Reiseplanungs-Assistent.
+- **Prinzip 1 (CoT):** Nutze das Feld "_gedankenschritte" für komplexe Logik, BEVOR du finale Daten erzeugst.
+- **Prinzip 2 (Fakten):** Erfinde niemals Daten. Unbekanntes ist "null".
+- **Format:** Valides JSON.
 `.trim();
+
+  constructor() {
+    // Startet immer leer, Methoden fügen Teile hinzu
   }
 
   /**
-   * Hilfsfunktion: Wandelt den Sprach-Code in den vollen englischen Namen um.
+   * Fügt das Standard-Betriebssystem hinzu.
+   * Sollte fast immer als erstes aufgerufen werden.
    */
-  private static getLanguageName(code: LanguageCode): string {
-    switch (code) {
-      case 'de': return 'German';
-      case 'en': return 'English';
-      case 'es': return 'Spanish';
-      case 'fr': return 'French';
-      case 'it': return 'Italian';
-      default: return 'German';
-    }
+  public withOS(): this {
+    this.parts.push(PromptBuilder.SYSTEM_OS);
+    return this;
+  }
+
+  public withRole(roleDescription: string): this {
+    this.parts.push(`# ROLLE & AUFGABE\n${roleDescription}`);
+    return this;
+  }
+
+  public withContext(contextData: any, title: string = "KONTEXT DATEN"): this {
+    if (!contextData) return this;
+    const json = JSON.stringify(contextData, null, 2);
+    this.parts.push(`# ${title}\n\`\`\`json\n${json}\n\`\`\``);
+    return this;
+  }
+
+  public withInstruction(instruction: string): this {
+    this.parts.push(`# ARBEITSANWEISUNG\n${instruction}`);
+    return this;
+  }
+
+  public withOutputSchema(schema: any): this {
+    const json = JSON.stringify(schema, null, 2);
+    this.parts.push(`# VERBINDLICHES ZIELFORMAT\nAntworte strikt mit diesem JSON-Schema:\n\`\`\`json\n${json}\n\`\`\``);
+    return this;
   }
 
   /**
-   * Baut den finalen Prompt zusammen.
+   * Fügt standardisierte Self-Checks hinzu (SOTA Prompting).
    */
-  public static build(taskInstruction: string, dataContext: string, targetLanguage: LanguageCode): string {
-    const header = this.getSystemHeader(targetLanguage);
-    
-    return `
-${header}
+  public withSelfCheck(types: ('basic' | 'research' | 'planning')[] = ['basic']): this {
+    const checks = {
+      basic: "□ JSON-Validität & Schema-Einhaltung geprüft?",
+      research: "□ Fakten verifiziert & Halluzinationen vermieden?",
+      planning: "□ Logische Konsistenz & Zeitplanung validiert?"
+    };
 
-# CONTEXT DATA
-The following is the current project state provided by the user:
-\`\`\`json
-${dataContext}
-\`\`\`
+    const selectedChecks = types.map(t => checks[t]).join('\n');
+    this.parts.push(`# SELF-CHECK (Vor Ausgabe prüfen)\n${selectedChecks}`);
+    return this;
+  }
 
-# TASK INSTRUCTION
-${taskInstruction}
-
-# RESPONSE VALIDATION
-Before responding, check:
-1. Is it valid JSON?
-2. Is the language **${this.getLanguageName(targetLanguage)}**?
-`.trim();
+  public build(): string {
+    // Abschluss: Trigger für JSON Mode
+    this.parts.push("Beginne deine Antwort direkt mit ```json");
+    return this.parts.join('\n\n');
   }
 }
+// --- END OF FILE 67 Zeilen ---

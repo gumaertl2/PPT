@@ -1,64 +1,70 @@
-// src/core/prompts/templates/durationEstimator.ts
-// 16.01.2026 21:00 - FEAT: Initial creation. Logic based on V30 workflow requirements.
+// src/core/prompts/templates/geoAnalyst.ts
+// 17.01.2026 15:00 - UPDATE: Added 'Hub Identification' Logic.
+// 18.01.2026 00:40 - REFACTOR: Migrated to class-based PromptBuilder.
 
 import type { TripProject } from '../../types';
+import { PromptBuilder } from '../PromptBuilder';
 
-export const buildDurationEstimatorPrompt = (project: TripProject): string => {
+export const buildGeoAnalystPrompt = (project: TripProject): string => {
   const { userInputs } = project;
-  const { logistics, pace, selectedInterests } = userInputs;
+  const { logistics } = userInputs;
 
-  // 1. Kontext-Analyse: Was planen wir?
-  const isRoundTrip = logistics.mode === 'roundtrip' || logistics.mode === 'mobil';
-  let stationsList = '';
+  // Kontext vorbereiten
+  let geoMode = "";
+  let routing = "";
 
-  if (isRoundTrip && logistics.roundtrip?.stops) {
-    stationsList = logistics.roundtrip.stops.map(s => `- ${s.location}`).join('\n');
-  } else if (logistics.mode === 'stationaer') {
-    stationsList = `- ${logistics.stationary.destination} (Region: ${logistics.stationary.region})`;
+  if (logistics.mode === 'stationaer') {
+    geoMode = "STATIONARY (Hub & Spoke)";
+    routing = `Base Location: ${logistics.stationary.destination}.
+    Task: Validate if this base is suitable for day trips in the region: ${logistics.stationary.region || 'Region'}.`;
   } else {
-    // Fallback: Versuche generische Daten
-    stationsList = `- ${project.meta.name || 'Unbekanntes Reiseziel'}`;
+    geoMode = "ROUNDTRIP";
+    routing = `Route: ${logistics.roundtrip.stops.map(s => s.location).join(' -> ')}.
+    Region: ${logistics.roundtrip.region}.
+    Task: Identify the best overnight stops (Hubs) along this route.`;
   }
 
-  // 2. Sprache
-  const lang = userInputs.aiOutputLanguage === 'en' ? 'English' : 'Deutsch';
+  const contextData = {
+    mode: geoMode,
+    arrival_type: (userInputs.dates.arrival as any).type,
+    routing_info: routing
+  };
 
-  // 3. Prompt Construction
-  return `
-DU BIST EIN ERFAHRENER REISE-LOGISTIKER UND ZEIT-STRATEGE.
-Deine Aufgabe ist es, für eine gegebene Reiseroute die optimale Aufenthaltsdauer pro Station zu berechnen.
+  const role = `Du bist der "Geo Analyst". Deine Aufgabe ist die strategische Bewertung von Standorten (Hubs).
+  Du suchst NICHT nach konkreten Hotels, sondern nach den besten *Orten*, um zu übernachten.`;
 
-### REISE-PARAMTER
-- Reisetempo: ${pace || 'Ausgewogen'} (Beeinflusst die Aufenthaltsdauer maßgeblich!)
-- Interessen: ${selectedInterests.join(', ') || 'Allgemein'}
-- Reisende: ${userInputs.travelers.adults} Erwachsene, ${userInputs.travelers.children} Kinder
+  const instructions = `# AUFGABE
+${routing}
 
-### GEPLANTE STATIONEN
-${stationsList}
+# ZIEL
+1.  Identifiziere strategische "Hubs" (Städte/Dörfer), die sich als Basis eignen.
+2.  Bewerte die Lage hinsichtlich:
+    * Erreichbarkeit (Verkehrsanbindung)
+    * Infrastruktur (Restaurants, Supermärkte)
+    * Touristische Attraktivität (Vibe)
 
-### AUFGABE
-Analysiere jede Station basierend auf ihrer touristischen Relevanz, den Interessen der Reisenden und dem Reisetempo.
-Schätze die *empfohlene Anzahl an Übernachtungen* (Nights), um die wichtigsten Highlights stressfrei zu sehen.
+# OUTPUT
+Erstelle eine Liste von empfohlenen Hubs mit Begründung.`;
 
-### OUTPUT FORMAT (STRIKTES JSON)
-Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt. Kein Markdown, kein Text davor/danach.
+  const outputSchema = {
+    "recommended_hubs": [
+      {
+        "hub_name": "String (Name der Stadt/Ort)",
+        "suitability_score": "Integer (1-10)",
+        "pros": ["String"],
+        "cons": ["String"],
+        "best_for": "String (z.B. 'Familien', 'Nightlife', 'Ruhe')"
+      }
+    ]
+  };
 
-{
-  "stationen_planung": [
-    {
-      "station": "Name der Station aus der Liste",
-      "empfohlene_naechte": 3,
-      "begruendung": "Kurze Erklärung warum (z.B. 'Viel Kultur, benötigt Zeit' oder 'Nur Zwischenstopp'). Maximal 1 Satz."
-    }
-  ],
-  "gesamt_fazit": "Kurzes Fazit zur Gesamtdauer und Machbarkeit."
-}
-
-### REGELN
-1. 'empfohlene_naechte' muss eine Ganzzahl (Integer) sein.
-2. Minimum ist 1 Nacht (außer bei reinen Durchreise-Orten, die explizit 0 sein sollen).
-3. Berücksichtige das Reisetempo: '${pace}'. Bei 'Entspannt' addiere Puffer, bei 'Sportlich' straffe den Plan.
-4. Antworte in der Sprache: ${lang}.
-`;
+  return new PromptBuilder()
+    .withOS()
+    .withRole(role)
+    .withContext(contextData, "GEO-DATEN")
+    .withInstruction(instructions)
+    .withOutputSchema(outputSchema)
+    .withSelfCheck(['planning'])
+    .build();
 };
-// --- END OF FILE 59 Zeilen ---
+// --- END OF FILE 65 Zeilen ---

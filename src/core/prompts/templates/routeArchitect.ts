@@ -1,129 +1,69 @@
 // src/core/prompts/templates/routeArchitect.ts
-// 14.01.2026 20:10 - NEW: Ported 'Routen Architekt' logic from V30 (prompt-routen-architekt.js).
-// 14.01.2026 21:45 - FIX: Added 'type' keyword to TripProject import to fix runtime SyntaxError.
+// 17.01.2026 12:45 - UPDATE: Integrated Duration Estimator logic directly.
+// 18.01.2026 00:10 - REFACTOR: Migrated to class-based PromptBuilder.
 
 import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
 
-export const buildRouteArchitectPrompt = (project: TripProject, feedback?: string): string => {
+export const buildRouteArchitectPrompt = (project: TripProject): string => {
   const { userInputs } = project;
-  const { logistics, dates, travelers, budget, pace, selectedInterests } = userInputs;
+  const { logistics, dates } = userInputs;
 
-  // 1. Basis-Daten extrahieren
-  const region = logistics.roundtrip.region || "Unbekannte Region";
-  const startLoc = logistics.roundtrip.startLocation || region;
-  const endLoc = logistics.roundtrip.endLocation || startLoc;
-  
-  const duration = dates.duration;
-  const season = dates.start || "Unbekannte Reisezeit";
-  
-  const groupString = `${travelers.groupType} (${travelers.adults} Adults, ${travelers.children} Children)`;
-  
-  // 2. Transport-Mittel Logik (V30 Portierung)
-  const transportType = dates.arrival.type || 'car';
-  const isCamper = transportType === 'camper' || transportType === 'other'; 
-  
-  let transportContext = "";
-  if (isCamper) {
-      transportContext = `
-    # TRANSPORTMITTEL: WOHNMOBIL / CAMPER (KRITISCH)
-    Der Nutzer reist mit einem großen Wohnmobil. Dies hat massive Auswirkungen auf die Routenwahl:
-    1.  **Straßentauglichkeit:** Vermeide zwingend extrem enge Gassen, niedrige Unterführungen oder extrem steile Pässe.
-    2.  **Routen-Charakter:** "Der Weg ist das Ziel". Wähle landschaftlich schöne Strecken (Scenic Routes).
-    3.  **Etappenziele:** Plane so, dass die Tagesziele gut erreichbar sind und idealerweise in der Nähe von Camping-Möglichkeiten liegen.
-      `;
-  } else {
-      transportContext = `
-    # TRANSPORTMITTEL
-    Reiseart: ${transportType} (Standard-PKW Planung).
-      `;
-  }
+  // Kontext für die KI
+  const contextData = {
+    start_date: dates.start,
+    end_date: dates.end,
+    total_duration_days: dates.duration,
+    arrival_type: (dates.arrival as any).type || 'car',
+    logistics_mode: logistics.mode,
+    // Falls Roundtrip: Die Constraints
+    roundtrip_constraints: logistics.mode === 'mobil' ? logistics.roundtrip : null
+  };
 
-  // 3. Stationen-Vorgabe (V30 Portierung)
-  let userStationsBlock = '';
-  const forcedStops = logistics.roundtrip.stops || [];
-  const strictRoute = logistics.roundtripOptions?.strictRoute || false;
+  const role = `Du bist der "Route Architect". Deine Aufgabe ist es, für eine gegebene Reisedauer und Region logische Routen-Optionen (Rundreisen) zu entwerfen.
+  Du planst NUR die Übernachtungsstationen (Hubs), keine Tagesaktivitäten.`;
 
-  if (forcedStops.length > 0) {
-      const stationList = forcedStops.map(s => s.location).join(', ');
-      const exclusiveRule = strictRoute
-          ? "Du darfst KEINE weiteren Orte vorschlagen. Deine Routen MÜSSEN sich exakt auf diese Stationen beschränken."
-          : "Du kannst diese Stationen um weitere, logistisch passende Orte ergänzen, um die Reisedauer zu füllen.";
+  const instructions = `# AUFGABE
+Entwickle 3 verschiedene Routen-Optionen für die angegebene Reisedauer.
+Die Optionen sollen sich im "Vibe" unterscheiden (z.B. "Der Klassiker", "Natur pur", "Kultur & Geschichte").
 
-      userStationsBlock = `
-      # ZWINGENDE VORGABE: VOM NUTZER DEFINIERTE STATIONEN
-      Der Nutzer hat folgende Stationen für die Rundreise fest vorgegeben. Deine Routenvorschläge MÜSSEN auf diesen Orten basieren.
-      * **Vorgegebene Stationen:** ${stationList}
-      * **Regel:** ${exclusiveRule}
-      ---
-      `;
-  }
+# LOGISTIK-REGELN
+1.  **Start & Ende:** Beachte die fixen Start/Endpunkte aus den Constraints (falls gesetzt).
+2.  **Pace:** Plane realistische Fahrdistanzen. Max 4 Stunden reine Fahrzeit pro Stationwechsel.
+3.  **Dauer:** Die Summe der Nächte muss exakt der Reisedauer entsprechen.
+4.  **Stationen:** Wähle strategisch kluge Übernachtungsorte (Hubs), von denen aus man die Umgebung erkunden kann.
 
-  // 4. Zeit-Limits (Smart Constraints aus V30)
-  const constraints = logistics.roundtrip.constraints;
-  const maxEtappe = constraints?.maxDriveTimeLeg ? `${constraints.maxDriveTimeLeg} Stunden` : 'Nicht definiert';
-  const maxGesamt = constraints?.maxDriveTimeTotal ? `${constraints.maxDriveTimeTotal} Stunden` : 'Nicht definiert';
+# OUTPUT-SCHEMA
+Erstelle für jede Option eine Liste von "Stages" (Etappen).
+Jede Stage benötigt:
+- \`location_name\`: Name des Ortes.
+- \`nights\`: Anzahl der Nächte.
+- \`reasoning\`: Warum dieser Ort? (1 Satz).`;
 
-  const timeConstraintsBlock = `
-  # REGELWERK FÜR FAHRZEITEN (SMART CONSTRAINTS)
-  Der Nutzer hat folgende Zeit-Budgets definiert:
-  1.  **Max. Fahrzeit pro Etappe:** ${maxEtappe}
-  2.  **Max. Gesamtfahrzeit:** ${maxGesamt}
-
-  **WICHTIG (Soft Limits):**
-  Dies sind Richtwerte. Priorisiere "Sinnhaftigkeit des Erlebnisses" vor "strikter Mathematik".
-  `;
-
-  // 5. Output Schema Definition (V30 Style)
   const outputSchema = {
-    "routenVorschlaege": [
+    "route_options": [
       {
-        "routenName": "String (Peppiger Name)",
-        "charakter": "String (Kurzbeschreibung)",
-        "gesamtKilometer": "Integer",
-        "gesamtFahrzeitStunden": "Float",
-        "anzahlHotelwechsel": "String",
-        "uebernachtungsorte": ["String (Chronologische Liste der Orte)"],
-        "ankerpunkte": [
+        "id": "String (z.B. 'route_classic')",
+        "title": "String (Titel der Route)",
+        "description": "String (Kurze Beschreibung des Charakters)",
+        "stages": [
           {
-            "standortFuerKarte": "String (Ortsname für Geocoding)",
-            "adresse": "String (Konkrete Adresse für Marker)"
+            "location_name": "String",
+            "nights": "Integer",
+            "reasoning": "String"
           }
-        ],
-        "begruendung": "String (Warum passt diese Route zur Strategie?)"
+        ]
       }
     ]
   };
 
-  // 6. Finaler Prompt Zusammenbau
-  const system = `
-      Du bist ein erfahrener Routen-Architekt für Rundreisen.
-      Erstelle exakt 3 unterschiedliche Routen-Optionen für die Region "${region}".
-      Startpunkt: ${startLoc}, Endpunkt: ${endLoc}.
-      
-      ${transportContext}
-      ${userStationsBlock}
-      ${timeConstraintsBlock}
-    `;
-
-  const task = `
-      TRIP PARAMETERS:
-      - Duration: ${duration} days
-      - Season: ${season}
-      - Travelers: ${groupString}
-      - Budget: ${budget}
-      - Pace: ${pace}
-      - Interests: ${selectedInterests.join(', ')}
-
-      ${feedback ? `\nUSER FEEDBACK (CRITICAL): "${feedback}"` : ""}
-
-      Erstelle 3 Varianten (z.B. "Der Klassiker", "Die Entpannte", "Der Geheimtipp").
-      
-      OUTPUT SCHEMA:
-      ${JSON.stringify(outputSchema, null, 2)}
-    `;
-
-  // FIX: Return 3 separate arguments instead of an object to fix TS2554
-  return PromptBuilder.build(system, task, userInputs.aiOutputLanguage as any || 'de');
+  return new PromptBuilder()
+    .withOS()
+    .withRole(role)
+    .withContext(contextData, "LOGISTIK & RAHMENBEDINGUNGEN")
+    .withInstruction(instructions)
+    .withOutputSchema(outputSchema)
+    .withSelfCheck(['basic', 'planning'])
+    .build();
 };
-// --- END OF FILE 109 Zeilen ---
+// --- END OF FILE 65 Zeilen ---

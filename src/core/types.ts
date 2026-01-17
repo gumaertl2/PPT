@@ -2,6 +2,7 @@
 // 16.01.2026 17:00 - FEAT: Added all V30 Master Matrix Agent Keys to WorkflowStepId.
 // 16.01.2026 20:00 - REFACTOR: Centralized ChunkingState and AiSettings for SSOT.
 // 16.01.2026 23:30 - FEAT: Added GeoAnalystResult to support Accommodation Strategy (V30 Parity).
+// 17.01.2026 16:55 - FIX: Added Strict Types for Place, PlaceCategory & ChunkingContext (Zero Error Policy).
 
 // --- GENERAL TYPES ---
 export type LanguageCode = 'de' | 'en' | 'es' | 'fr' | 'it' | 'nl' | 'pl' | 'pt' | 'ru' | 'tr' | 'ja' | 'zh';
@@ -330,6 +331,41 @@ export interface GeoAnalystResult {
   analyse_fazit: string;
 }
 export type FoodSearchMode = 'standard' | 'stars';
+
+// --- DATA OBJECTS (PLACES & CONTENT) ---
+
+export type PlaceCategory = 'sight' | 'food' | 'accommodation' | 'hidden-gem' | string;
+
+export interface Place {
+  id: string;
+  name: string;
+  category: PlaceCategory;
+  
+  // Geo & Location (V30 Requirements)
+  address?: string;
+  vicinity?: string;
+  location?: { lat: number; lng: number };
+  
+  // User Metadaten
+  userPriority?: number; // -1, 0, 1, 2
+  rating?: number;
+  
+  // Content
+  shortDesc?: string;
+  description?: string;
+  openingHours?: string[] | string;
+  
+  // Status
+  visited?: boolean;
+  googlePlaceId?: string; // Legacy / Reference
+}
+
+export interface ChunkingContext {
+  dayOffset: number;   
+  days: number;        
+  stations: string[];  
+}
+
 // --- MAIN PROJECT STRUCTURE ---
 export interface TripProject {
   meta: {
@@ -344,10 +380,10 @@ export interface TripProject {
   analysis: {
     chefPlaner: ChefPlanerResult | null;
     routeArchitect?: RouteArchitectResult | null;
-    geoAnalyst?: GeoAnalystResult | null; // NEU: Slot für den Strategen
+    geoAnalyst?: GeoAnalystResult | null; 
   };
   data: {
-    places: Record<string, any>;
+    places: Record<string, Place[]>; // Strict Type: Categories (e.g. 'sights') contain Arrays of Places
     content: Record<string, any>; 
     routes: Record<string, any>;
   };
@@ -355,4 +391,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 397 Zeilen ---
+// --- END OF FILE 447 Zeilen ---

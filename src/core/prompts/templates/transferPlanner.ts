@@ -1,89 +1,78 @@
 // src/core/prompts/templates/transferPlanner.ts
-// 16.01.2026 21:15 - FEAT: Initial creation. Logistics & Transfer Logic.
-// 17.01.2026 09:00 - FIX: Added 'previousLocation' context for seamless chunk transitions (V30 Parity).
+// 17.01.2026 15:35 - UPDATE: Added 'Stationary Mode' (Hub & Spoke) Logic.
+// 18.01.2026 00:20 - REFACTOR: Migrated to class-based PromptBuilder.
 
 import type { TripProject } from '../../types';
+import { PromptBuilder } from '../PromptBuilder';
 
-export const buildTransferPlannerPrompt = (
-    project: TripProject, 
-    chunkData?: any, // Optional: Array von Tagen (V30 Logic)
-    previousLocation?: string // NEU: Kontext aus vorherigem Chunk
-): string => {
-  
-  const { userInputs } = project;
+export const buildTransferPlannerPrompt = (project: TripProject): string => {
+  const { userInputs, data } = project;
   const { logistics } = userInputs;
-  
-  // 1. Transportmittel bestimmen
-  let transportMode = "Auto/Mietwagen";
-  if (logistics.mode === 'roundtrip') {
-      if (userInputs.dates?.arrival?.type === 'train') transportMode = "Zug / Öffentliche Verkehrsmittel";
-      if (userInputs.dates?.arrival?.type === 'camper') transportMode = "Wohnmobil / Camper";
-  } else if (logistics.mode === 'stationaer') {
-      transportMode = "Mix aus ÖPNV, zu Fuß und Taxi/Mietwagen";
+
+  // Kontext für die KI
+  const placesList = Object.values(data.places || {}).map((p: any) => ({
+    id: p.id,
+    name: p.name,
+    geo: p.geo_koordinaten || p.geo, // Robustheit
+    base_location: logistics.mode === 'stationaer' ? logistics.stationary.destination : 'Variiert'
+  }));
+
+  const contextData = {
+    mode: logistics.mode,
+    // Falls Stationär: Die Basis
+    base: logistics.mode === 'stationaer' ? logistics.stationary.destination : null,
+    // Falls Rundreise: Die Route
+    stops: logistics.mode === 'mobil' ? logistics.roundtrip.stops : null,
+    // Die Orte, die wir verbinden müssen
+    places_to_connect: placesList
+  };
+
+  const role = `Du bist der "Transfer Planner". Deine Aufgabe ist es, logistische Verbindungen (Transfers) zwischen Orten zu berechnen.
+  Du erstellst KEINEN Tagesplan, sondern eine reine "Distanz-Matrix" und Wege-Empfehlungen.`;
+
+  // Anweisung abhängig vom Modus
+  let modeInstruction = "";
+  if (logistics.mode === 'stationaer') {
+    modeInstruction = `MODE: STATIONARY (Hub & Spoke).
+    Berechne für JEDEN Ort die Fahrzeit und Distanz von der Basis ("${logistics.stationary.destination}").
+    Das ist eine Stern-Topologie (Hin & Zurück).`;
+  } else {
+    modeInstruction = `MODE: ROUNDTRIP (Moving Chain).
+    Berechne die Distanzen zwischen den logisch aufeinanderfolgenden Orten (Cluster-Logik).
+    Versuche, Orte zu Clustern zusammenzufassen, um Fahrzeit zu minimieren.`;
   }
 
-  // 2. Datenaufbereitung (Was soll berechnet werden?)
-  let daysToAnalyze = [];
-  
-  if (chunkData && Array.isArray(chunkData)) {
-      daysToAnalyze = chunkData;
-  } else if (project.itinerary?.days) {
-      daysToAnalyze = project.itinerary.days;
-  }
+  const instructions = `# AUFGABE
+${modeInstruction}
 
-  const daysJson = JSON.stringify(daysToAnalyze, null, 2);
+# BERECHNUNGS-REGELN
+1.  **Realismus:** Nutze realistische Durchschnittsgeschwindigkeiten (Stadt 30km/h, Land 70km/h, Autobahn 110km/h).
+2.  **Puffer:** Schlage immer 15-20% Puffer auf die reine Google-Maps-Zeit auf (Parkplatzsuche, Verkehr).
+3.  **Transportmittel:** Gehe vom User-Input aus: ${(userInputs.dates.arrival as any).type || 'car'}.
 
-  // 3. Start-Kontext (Chunking Übergang)
-  const startContext = previousLocation 
-    ? `\n### START-SITUATION (ÜBERGANG)\nDer User befindet sich zu Beginn dieses Abschnitts (vor der ersten Aktivität) in: "${previousLocation}".\nBitte berechne den Transfer von dort zum ersten Programmpunkt.`
-    : "";
+# OUTPUT-SCHEMA
+Erstelle eine Liste von Transfer-Verbindungen.`;
 
-  // 4. Sprache
-  const lang = userInputs.aiOutputLanguage === 'en' ? 'English' : 'Deutsch';
+  const outputSchema = {
+    "transfers": [
+      {
+        "from_id": "String (ID oder 'BASE')",
+        "to_id": "String (ID)",
+        "duration_minutes": "Integer",
+        "distance_km": "Number",
+        "transport_mode": "String (car, public, walk)",
+        "notes": "String (z.B. 'Mautpflichtig' oder 'Schöne Panoramastraße')"
+      }
+    ]
+  };
 
-  return `
-DU BIST EIN LOGISTIK-EXPERTE FÜR REISEN.
-Deine Aufgabe ist es, die Transferzeiten und Routen für den folgenden Reiseplan zu berechnen.
-
-### PARAMETER
-- Verkehrsmittel: ${transportMode}
-- Sprache: ${lang}
-
-### INPUT DATEN (REISEPLAN)
-${daysJson}
-${startContext}
-
-### AUFGABE
-1. Analysiere die geografische Abfolge der Aktivitäten und Orte pro Tag.
-2. Identifiziere notwendige Transfers (z.B. Hotel -> Sight A, Sight A -> Sight B).
-3. Berechne realistische Reisezeiten und Distanzen für das gewählte Verkehrsmittel.
-4. Füge 'transfer'-Informationen in die Aktivitäten oder als eigene Slots ein, wo nötig.
-5. Wenn ein Tag einen Ortswechsel (Station A -> Station B) beinhaltet, erstelle detaillierte Angaben zur Hauptstrecke.
-
-### OUTPUT FORMAT (STRIKTES JSON)
-Antworte AUSSCHLIESSLICH mit dem aktualisierten JSON der Tage.
-Behalte die Struktur bei, ergänze aber Felder in den Aktivitäten oder auf Tagesebene:
-
-{
-  "tage": [
-    {
-       // ... bestehende Felder (tag_nr, datum, etc.) behalten ...
-       "aktivitaeten": [
-          {
-             // ... bestehende Aktivitäts-Daten behalten ...
-             "transfer_hinweis": "Ca. 20 min Fahrt (15km)",
-             "transport_mittel": "Mietwagen"
-          }
-       ],
-       "logistik_notiz": "Tagesstrecke gesamt: ca. 120km (2h reine Fahrtzeit)"
-    }
-  ]
-}
-
-### WICHTIG
-- Sei realistisch (Stau, Parkplatzsuche, Fußwege).
-- Bei "Öffis": Gib Linien oder Verbindungsarten an (z.B. "S-Bahn S8").
-- Verändere NICHT die Inhalte (Titel/Beschreibung) der Aktivitäten, nur die logistischen Metadaten.
-`;
+  return new PromptBuilder()
+    .withOS()
+    .withRole(role)
+    .withContext(contextData, "LOGISTIK-DATEN")
+    .withInstruction(instructions)
+    .withOutputSchema(outputSchema)
+    .withSelfCheck(['planning']) // Hier ist Planung wichtig
+    .build();
 };
-// --- END OF FILE 91 Zeilen ---
+// --- END OF FILE 70 Zeilen ---

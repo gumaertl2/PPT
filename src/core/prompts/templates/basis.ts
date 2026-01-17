@@ -1,17 +1,13 @@
 // src/core/prompts/templates/basis.ts
-// 10.01.2026
-// TEMPLATE: BASIS (Sammler) - V40 Port of 'prompt-sammler.js'
-// Strategie: Nutzt ChefPlaner-Briefing & User-Interessen für präzise Kandidaten-Suche.
-// 14.01.2026 21:55 - FIX: Added Roundtrip Logic.
-// 14.01.2026 22:15 - FIX: Vercel Type Fixes.
-// 15.01.2026 16:00 - UPDATE: Added Season, Transport Mode & Precise Routing (V30 Quality Restore).
+// 17.01.2026 23:50 - REFACTOR: Migrated to class-based PromptBuilder.
+// 15.01.2026 16:00 - UPDATE: Preserved Season, Transport Mode & Precise Routing Logic.
 
 import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
-import { INTEREST_DATA } from '../../../data/interests'; 
+import { INTEREST_DATA } from '../../../data/interests';
 
 /**
- * Helper: Extract month name from date string
+ * Helper: Extract month name
  */
 const getMonthName = (dateStr: string, lang: 'de' | 'en'): string => {
     if (!dateStr) return '';
@@ -24,8 +20,7 @@ const getMonthName = (dateStr: string, lang: 'de' | 'en'): string => {
 };
 
 /**
- * Generiert das "Kreative Briefing" analog zu V30.
- * Listet jedes gewählte Interesse mit seiner spezifischen AI-Instruktion ("Such-Regel") auf.
+ * Generiert das "Kreative Briefing" (Such-Regeln basierend auf Interessen)
  */
 const generateCreativeBriefing = (project: TripProject, lang: 'de' | 'en'): string => {
   const { userInputs } = project;
@@ -36,11 +31,12 @@ const generateCreativeBriefing = (project: TripProject, lang: 'de' | 'en'): stri
   let briefing = "### CREATIVE BRIEFING (Interests & Search Rules)\n";
   
   interests.forEach(id => {
-    const def = INTEREST_DATA[id];
+    // Safety check: INTEREST_DATA might be undefined if not loaded properly
+    const def = INTEREST_DATA ? INTEREST_DATA[id] : null;
     if (def) {
-      const label = def.label[lang] || id;
-      // Fallback: Falls keine explizite Regel da ist, nutzen wir den Label-Namen
-      const rule = def.aiInstruction?.[lang] || `Find places related to ${label}.`;
+      const label = (def.label as any)[lang] || id;
+      // Fallback: Falls keine explizite Regel da ist
+      const rule = (def.aiInstruction as any)?.[lang] || `Find places related to ${label}.`;
       
       const customPref = userInputs.customPreferences[id] 
         ? `(User Note: "${userInputs.customPreferences[id]}")` 
@@ -59,15 +55,14 @@ export const buildBasisPrompt = (project: TripProject): string => {
     const chefPlaner = analysis.chefPlaner;
     const { logistics, dates } = userInputs;
     
-    // UI Sprache für Labels
     const uiLang = meta.language === 'en' ? 'en' : 'de';
     
     // 1. CHEF PLANER DATEN
     const strategicBriefing = chefPlaner?.strategic_briefing;
     
-    // --- CONTEXT: SEASON & TRANSPORT (V30 RESTORE) ---
+    // 2. CONTEXT: SEASON & TRANSPORT
     const travelMonth = getMonthName(dates.start, uiLang) || "Unknown Season";
-    const transportMode = dates.arrival.type || 'car';
+    const transportMode = (dates.arrival as any).type || 'car';
     
     let transportContext = "";
     if (transportMode === 'camper' || transportMode === 'mobile_home') {
@@ -76,8 +71,8 @@ export const buildBasisPrompt = (project: TripProject): string => {
         transportContext = `Transport: ${transportMode}.`;
     }
 
-    // --- LOGIC: GEO CONTEXT ---
-    let searchRadiusInstruction = strategicBriefing?.search_radius_instruction || "Search within the destination.";
+    // 3. LOGIC: GEO CONTEXT
+    let searchRadiusInstruction = (strategicBriefing as any)?.search_radius_instruction || "Search within the destination.";
     
     if (logistics.mode === 'mobil') {
         const stops = logistics.roundtrip.stops || [];
@@ -85,7 +80,6 @@ export const buildBasisPrompt = (project: TripProject): string => {
         const start = logistics.roundtrip.startLocation || region;
         const end = logistics.roundtrip.endLocation || start;
         
-        // FIX: Build precise route vector even if stops are empty
         const routeString = stops.length > 0
              ? `${start} -> ${stops.map(s => s.location).join(" -> ")} -> ${end}`
              : `Route from ${start} to ${end} through ${region}`;
@@ -96,86 +90,77 @@ export const buildBasisPrompt = (project: TripProject): string => {
         Search strictly along this route corridor: ${routeString}.
         Focus on stops and logical breaks along the path.
         `;
+    } else if (logistics.mode === 'stationaer') {
+         // Explizite Übernahme der Base Location Logik
+         const base = logistics.stationary.destination;
+         searchRadiusInstruction = `**MODE: STATIONARY**\nBase Location: ${base}.\nSearch for day-trips reachable from here.`;
     }
     
-    const sammlerBriefing = strategicBriefing?.sammler_briefing || ""; 
+    const sammlerBriefing = (strategicBriefing as any)?.sammler_briefing || ""; 
     const validierteTermine = chefPlaner?.validated_appointments || [];
     
-    // 2. DEDUPLIZIERUNG (Bereits bekannte Orte ausschließen)
+    // 4. DEDUPLIZIERUNG
     const existingNames = Object.values(project.data.places || {}).map((p: any) => p.name);
 
-    // 3. TARGETS & CONSTRAINTS
+    // 5. TARGETS & CONSTRAINTS
     const targetCount = userInputs.searchSettings?.sightsCount || 30;
     const noGos = userInputs.customPreferences['noGos'] || (uiLang === 'de' ? 'Keine' : 'None');
 
-    // 4. GENERATE BRIEFING
+    // 6. GENERATE BRIEFING STRING
     const creativeBriefingBlock = generateCreativeBriefing(project, uiLang);
-    
-    // 5. BUILD PROMPT
-    const prompt = `
-# YOUR ROLE & TASK
-You are a "Chief Curator" for a premium travel guide. Your reputation depends on the excellence and relevance of your selection. Your **sole task** is to create a qualitatively outstanding and suitable list of **NAMES** for sights and activities.
 
-# SEASON & LOGISTICS CONTEXT
-- **Travel Month:** ${travelMonth} (Respect opening times and weather suitability!)
-- **${transportContext}**
+    // --- PROMPT CONSTRUCTION via Builder ---
 
-# MANDATORY CONTEXT (FROM ARCHITECT)
-**Search Radius / Logistics Rule:**
-"${searchRadiusInstruction}"
+    const role = `You are a "Chief Curator" for a premium travel guide. Your reputation depends on the excellence and relevance of your selection. Your **sole task** is to create a qualitatively outstanding and suitable list of **NAMES** for sights and activities.`;
 
-**Architect's Briefing:**
+    const contextData = {
+        travel_season: travelMonth,
+        transport_mode_context: transportContext,
+        already_known_places_block: existingNames, // DEDUPLICATION
+        mandatory_appointments: validierteTermine,  // MISSION 1
+        no_gos: noGos
+    };
+
+    const instructions = `# LOGISTICS & GEO CONTEXT (MANDATORY)
+${searchRadiusInstruction}
+
+# ARCHITECT'S STRATEGY
 "${sammlerBriefing}"
 
-# MISSION 1: THE IMMUTABLE FIXTURES (MOST IMPORTANT!)
-- **Goal:** Integrate **all** fixed appointments validated by the Architect.
-- **Data:** Use the list under "Validated Appointments" below.
-- **Action:** Adopt the exact **\`official_name\`** of EVERY appointment from this list into your final suggestion list.
+# MISSION 1: THE IMMUTABLE FIXTURES
+- Integrate **all** "mandatory_appointments" from the context.
+- Use their exact \`official_name\`.
 
-# MISSION 2: THE SECTION SEARCH (Quality through Specification)
-Go through the "Creative Briefing" (Interests) listed below step by step.
-- **Step A:** Identify the **"SEARCH RULE"** for EACH interest.
-- **Step B:** Find 3 to 5 **concrete candidates** that exactly satisfy this rule.
-- **Step C:** If a rule has technical limits (e.g., "Child-friendly"), you MUST NOT choose a place that violates it.
-
-# MISSION 3: THE INDISPENSABLE TOP SIGHTS
-- **Goal:** Identify the most famous and important sights ("Must-Sees") if they were not already covered by Mission 2.
-
-# YOUR WORKING METHOD & RULES
-
-### ⚠️ PRIME DIRECTIVE: TECHNICAL CONSTRAINTS ⚠️
-In the "Creative Briefing", you will find lines starting with **"SEARCH RULE:"**.
-- These rules are **hard filters**.
-- A suggestion violating one of these rules (e.g., a 20km hike when 15km is the limit) **MUST** be discarded, no matter how famous.
-
-### Additional Rules
-- **Rule 1 (Strict Deduplication):** Your final list must contain **no duplicates** and **NOT A SINGLE PLACE** from the "Already Known Places" list.
-- **Rule 2 (Strict Quantity):** The user wants exactly **${targetCount} suggestions**. Stick strictly to this number. Not more, not less (unless physically impossible).
-- **Rule 3 (Content):** **FORBIDDEN** are: \`Restaurants\`, \`Cafés\`, \`Bars\`. Do not invent "buffer" activities.
-- **Rule 4 (No-Gos):** The following topics are absolute No-Gos: **${noGos}**.
-
-# DATA BASIS
-
-### Already Known Places (Deduplication)
-\`\`\`json
-${JSON.stringify(existingNames, null, 2)}
-\`\`\`
-
-### Validated Appointments (Mission 1)
-\`\`\`json
-${JSON.stringify(validierteTermine, null, 2)}
-\`\`\`
-
+# MISSION 2: THE SECTION SEARCH
 ${creativeBriefingBlock}
+- For each Topic, find 3-5 concrete candidates that satisfy the SEARCH RULE.
+- Strictly obey technical limits (e.g. "Child-friendly").
 
-# MANDATORY OUTPUT FORMAT
-Your response MUST be a JSON Array containing the final, deduplicated names of the suggestions as strings.
-Example: ["Colosseum", "Forum Romanum", ...]
+# MISSION 3: TOP SIGHTS
+- Fill the rest with "Must-Sees" if not covered.
 
-Response in valid JSON only.
-`;
+# RULES
+1. **Deduplication:** NO names from "already_known_places_block".
+2. **Quantity:** Exactly **${targetCount} suggestions**.
+3. **No-Gos:** Strictly avoid "${noGos}".
+4. **Content:** No generic restaurants/bars. Focus on Sights, Nature, Activities.`;
 
-    // FIX: Return 3 separate arguments instead of an object to fix TS2554
-    return PromptBuilder.build(prompt, "", project.meta.language);
+    // Wir ändern das Output-Schema auf ein Objekt, da dies robuster ist als ein Root-Array
+    const outputSchema = {
+        "kandidaten_liste": [
+            "String (Name of Candidate 1)",
+            "String (Name of Candidate 2)",
+            "..."
+        ]
+    };
+
+    return new PromptBuilder()
+        .withOS()
+        .withRole(role)
+        .withContext(contextData, "DATA BASIS & CONSTRAINTS")
+        .withInstruction(instructions)
+        .withOutputSchema(outputSchema)
+        .withSelfCheck(['basic', 'research'])
+        .build();
 };
-// --- END OF FILE 165 Zeilen ---
+// --- END OF FILE 136 Zeilen ---

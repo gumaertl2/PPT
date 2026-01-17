@@ -1,16 +1,8 @@
 // src/core/prompts/templates/chefPlaner.ts
 // 14.01.2026 17:10 - FIX: Added safety checks for undefined optional properties.
-// 15.01.2026 15:30 - UPDATE: Filter empty appointments & Enforce Region Constraint (Roundtrip).
-// 15.01.2026 15:45 - FIX: Added Start/End Location & Transport Mode for precise routing (V30 Parity).
-
-/**
- * * TEMPLATE: CHEF-PLANER (V40 Final Optimized)
- * * STATUS: V40 Ready
- * * FEATURES: 
- * - Smart Time Constraints (Stationary vs. Roundtrip)
- * - Smart Override (Candidate Count)
- * - Hotel Change Logic included
- */
+// 15.01.2026 15:30 - UPDATE: Filter empty appointments & Enforce Region Constraint.
+// 15.01.2026 15:45 - FIX: Added Start/End Location & Transport Mode.
+// 17.01.2026 23:45 - REFACTOR: Migrated to new class-based PromptBuilder pattern.
 
 import type { TripProject, LocalizedContent } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
@@ -83,34 +75,26 @@ export const buildChefPlanerPrompt = (project: TripProject, feedback?: string): 
     const def = INTEREST_DATA ? INTEREST_DATA[id] : null;
     return { 
       id, 
-      // FIX: Use helper to safely resolve label (string or object)
       label: resolveText(def?.label, uiLang) || id, 
-      // FIX: Safe access for optional aiInstruction
       instruction: resolveText(def?.aiInstruction, uiLang) 
     };
   });
 
   const strategyDef = STRATEGY_OPTIONS ? STRATEGY_OPTIONS[userInputs.strategyId] : null;
   const strategyInfo = {
-    // FIX: Use helper to safely resolve label
     name: resolveText(strategyDef?.label, uiLang) || userInputs.strategyId,
-    // FIX: Safe access for optional promptInstruction
     instruction: resolveText(strategyDef?.promptInstruction, uiLang)
   };
 
   const extractedHotels = extractHotels(userInputs);
   
-  // FIX: Filter empty appointments to avoid AI confusion ("Ignored empty entry")
   const rawEvents = userInputs.dates.fixedEvents || [];
   const fixedEvents = rawEvents.filter(e => e.name && e.name.trim().length > 0);
 
   // 3. LOGISTIK-CONSTRAINTS VERBALISIEREN
-  // Wir bereiten die Logistik-Regeln so auf, dass der Chefplaner sie direkt versteht.
   let logisticsBriefing = {};
   
   if (userInputs.logistics.mode === 'stationaer') {
-    // STATIONÄR: Hub & Spoke
-    // Default 3h (180 min) falls nicht gesetzt
     const maxDriveTimeMins = userInputs.logistics.stationary.constraints?.maxDriveTimeDay || 180;
     const maxDriveTimeHours = (maxDriveTimeMins / 60).toFixed(1);
     
@@ -121,26 +105,16 @@ export const buildChefPlanerPrompt = (project: TripProject, feedback?: string): 
       max_drive_time_day_hours: parseFloat(maxDriveTimeHours)
     };
   } else {
-    // RUNDREISE: Moving Chain
-    // Default 6h (360 min) falls nicht gesetzt
-    // Fix: Zugriff auf 'maxDriveTimeLeg' laut types.ts (nicht PerLeg)
     const maxLegMins = userInputs.logistics.roundtrip.constraints?.maxDriveTimeLeg || 360;
     const maxLegHours = (maxLegMins / 60).toFixed(1);
-    
-    // Fix: Hotelwechsel Constraint
     const maxHotelChanges = userInputs.logistics.roundtrip.constraints?.maxHotelChanges || 99;
-
-    // Annahme für Radius vor Ort bei Rundreise: ~3h (ähnlich stationär), 
-    // damit der Chefplaner nicht POIs plant, die 5h vom Etappenziel weg sind.
     const localRadiusHours = 3; 
 
-    // FIX: Check for mandatory region constraint
     const region = userInputs.logistics.roundtrip.region;
     const regionConstraint = region 
         ? `MANDATORY REGION: "${region}". The trip MUST take place INSIDE this region.` 
         : "Region: Open.";
 
-    // FIX: Add Start/End Location for precise routing
     const startLoc = userInputs.logistics.roundtrip.startLocation || region || "Not defined";
     const endLoc = userInputs.logistics.roundtrip.endLocation || startLoc;
 
@@ -149,7 +123,7 @@ export const buildChefPlanerPrompt = (project: TripProject, feedback?: string): 
       start_location: startLoc,
       end_location: endLoc,
       stops: userInputs.logistics.roundtrip.stops.map(s => s.location),
-      mandatory_region: region || null, // Explicit field for AI
+      mandatory_region: region || null,
       constraint_description: `Route Feasibility: Max ${maxLegHours} hours drive time between hotels (Legs). Max ${maxHotelChanges} hotel changes allowed. ${regionConstraint}`,
       max_drive_time_leg_hours: parseFloat(maxLegHours),
       max_hotel_changes: maxHotelChanges,
@@ -157,15 +131,11 @@ export const buildChefPlanerPrompt = (project: TripProject, feedback?: string): 
     };
   }
 
-  // Target Count aus Search Settings (Default 50)
   const targetSightsCount = userInputs.searchSettings?.sightsCount || 50;
-
-  // FIX: Extract Month & Transport
   const travelMonth = getMonthName(userInputs.dates.start, uiLang);
-  const transportMode = userInputs.dates.arrival.type || 'car'; // Fallback car
+  const transportMode = userInputs.dates.arrival.type || 'car';
 
   const contextData = {
-    // Basis-Daten
     travelers: {
       ...userInputs.travelers,
       pets_included: userInputs.travelers.pets
@@ -174,32 +144,21 @@ export const buildChefPlanerPrompt = (project: TripProject, feedback?: string): 
         start: userInputs.dates.start,
         end: userInputs.dates.end,
         duration: userInputs.dates.duration,
-        travel_month: travelMonth, // NEW: Context for weather/season
+        travel_month: travelMonth,
         arrival: userInputs.dates.arrival
     },
-    transport_mode: transportMode, // NEW: Context for driving times
-    
-    // --- NEU: Präzise Logistik-Anweisungen ---
+    transport_mode: transportMode,
     logistics_briefing: logisticsBriefing,
-    
-    // Listen zur Validierung
     hotels_to_validate: extractedHotels,
     appointments_to_validate: fixedEvents,
-
-    // Strategie & Wünsche
-    target_sights_count: targetSightsCount, // <--- Zielwert für Chefplaner
+    target_sights_count: targetSightsCount,
     strategy: strategyInfo,
     interests: activeInterests,
-    
     custom_notes: userInputs.notes,
-    custom_preferences: userInputs.customPreferences, // Enthält auch No-Gos
-    
+    custom_preferences: userInputs.customPreferences,
     target_output_language: targetLanguageName
   };
 
-  // 3. JSON SCHEMA
-  // Wir definieren hier nur die Felder für den Prompt-Text zur Erklärung.
-  // Das eigentliche Schema wird durch die API/Types erzwungen, aber der Text hilft der KI.
   const outputSchema = {
     "_thought_process": [
       "String (Step 1: Verify inputs & logistics constraints...)", 
@@ -236,43 +195,38 @@ export const buildChefPlanerPrompt = (project: TripProject, feedback?: string): 
     }
   };
 
-  // 4. TASK INSTRUCTION
   let feedbackSection = '';
   if (feedback) {
     feedbackSection = `\n### IMPORTANT: USER FEEDBACK (CORRECTION LOOP)\nThe user reviewed your previous analysis and requests these changes:\n"""\n${feedback}\n"""\n`;
   }
 
-  const taskInstruction = `
-# ROLE & OBJECTIVE
-You are the **Lead Travel Architect** ("Chef-Planer").
-Your task is to analyze the trip inputs, fix errors, and establish a strategic foundation.
+  const role = `You are the **Lead Travel Architect** ("Chef-Planer").
+Your task is to analyze the trip inputs, fix errors, and establish a strategic foundation.${feedbackSection}`;
 
-${feedbackSection}
-
-# CRITICAL LOGISTICS INSTRUCTIONS
+  const instructions = `# CRITICAL LOGISTICS INSTRUCTIONS
 You must strictly adhere to the 'logistics_briefing':
 1. **Stationary**: Ensure the search radius does not exceed the 'max_drive_time_day_hours' (round trip).
 2. **Roundtrip**: Ensure the legs between stops are feasible within 'max_drive_time_leg_hours'. Respect 'max_hotel_changes'.
-3. **Region Constraint**: If 'mandatory_region' is set in logistics_briefing, you MUST NOT suggest places outside of it.
-4. **Target Count**: Aim for a strategy that yields approx. **${targetSightsCount}** candidates (smart_limit_recommendation).
-5. **Start/End**: Use 'start_location' and 'end_location' as fixed anchors for the route calculation.
+3. **Region Constraint**: If 'mandatory_region' is set, you MUST NOT suggest places outside of it.
+4. **Target Count**: Aim for a strategy that yields approx. **${targetSightsCount}** candidates.
+5. **Start/End**: Use 'start_location' and 'end_location' as fixed anchors.
 
 # WORKFLOW STEPS
 1. **ERROR SCAN**: Check for typos.
 2. **VALIDATION**: Research official names for hotels/appointments.
 3. **PLAUSIBILITY**: Check if the plan works with the given drive-time limits AND transport mode.
-4. **BRIEFING**: Write instructions for the "Collector" agent (next step).
+4. **BRIEFING**: Write instructions for the "Collector" agent.
 
 # LANGUAGE
-Generate ALL user-facing text in **${targetLanguageName}**.
+Generate ALL user-facing text in **${targetLanguageName}**.`;
 
-# RESPONSE FORMAT
-Respond with valid JSON only:
-\`\`\`json
-${JSON.stringify(outputSchema, null, 2)}
-\`\`\`
-`;
-
-  return PromptBuilder.build(taskInstruction, JSON.stringify(contextData, null, 2), desiredLangCode as any);
+  return new PromptBuilder()
+    .withOS()
+    .withRole(role)
+    .withContext(contextData, "PROJECT CONTEXT")
+    .withInstruction(instructions)
+    .withOutputSchema(outputSchema)
+    .withSelfCheck(['basic', 'planning'])
+    .build();
 };
-// --- END OF FILE 264 Zeilen ---
+// --- END OF FILE 230 Zeilen ---

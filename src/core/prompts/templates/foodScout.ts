@@ -1,19 +1,19 @@
 // src/core/prompts/templates/foodScout.ts
-// 16.01.2026 19:30 - FEAT: Initial creation. Guide-based Research Agent.
-// 16.01.2026 19:45 - FIX: Added V30 "Star-Filter" Logic (Standard vs. Gourmet Mode).
-// 17.01.2026 11:15 - REFACTOR: Imported FoodSearchMode from SSOT types.
+// 16.01.2026 19:45 - FIX: Added V30 "Star-Filter" Logic.
+// 18.01.2026 00:30 - REFACTOR: Migrated to class-based PromptBuilder.
 
-import type { TripProject, FoodSearchMode } from '../../types'; // <--- Importiert jetzt beide!
+import type { TripProject, FoodSearchMode } from '../../types';
+import { PromptBuilder } from '../PromptBuilder';
 import { getGuidesForCountry } from '../../../data/countries';
 
 export const buildFoodScoutPrompt = (
     project: TripProject, 
-    mode: FoodSearchMode = 'standard' // Default: Keine Sterne, nur gute Küche
+    mode: FoodSearchMode = 'standard'
 ): string => {
   const { userInputs } = project;
   const { logistics, budget, vibe } = userInputs;
 
-  // 1. Ort bestimmen
+  // 1. Ort & Guides bestimmen
   let location = "";
   let countryHint = "";
 
@@ -26,77 +26,63 @@ export const buildFoodScoutPrompt = (
       countryHint = logistics.roundtrip.region;
   }
 
-  // 2. Guides bestimmen
-  const guides = getGuidesForCountry(countryHint || location);
-  const guidesList = guides.join(', ');
+  const guides = getGuidesForCountry(countryHint || location).join(', ');
 
-  // 3. Modus-Logik (Das Herzstück der V30 Parität)
+  // 2. Modus-Logik (V30 Parität)
   let qualityFilterInstruction = "";
-  
   if (mode === 'standard') {
-      // TAGESPLAN-LOGIK: Gut, aber zügig. Keine Sterne-Marathons.
-      qualityFilterInstruction = `
-### QUALITÄTS-FILTER (STANDARD)
+      qualityFilterInstruction = `### QUALITÄTS-FILTER (STANDARD)
 Wir suchen exzellente Küche für den normalen Reise-Alltag, KEIN "Fine Dining" Event.
-1. **Quellen:** Nutze die Guides (${guidesList}).
-2. **Kategorie:** Suche nach Auszeichnungen wie "Bib Gourmand", "Assiette/Teller", "Empfehlung" oder lokalen "Tipp"-Kategorien.
-3. **EXCLUDE:** Ignoriere Restaurants mit 1, 2 oder 3 Michelin-Sternen (oder äquivalent hohen Auszeichnungen in anderen Guides), außer das Budget ist extrem hoch.
-      `;
+1. **Quellen:** Nutze die Guides (${guides}).
+2. **Kategorie:** Suche nach "Bib Gourmand", "Tipp", "Empfehlung".
+3. **EXCLUDE:** Ignoriere Restaurants mit Michelin-Sternen (außer Budget erlaubt es).`;
   } else {
-      // AD-HOC / GOURMET LOGIK: Volle Kraft voraus.
-      qualityFilterInstruction = `
-### QUALITÄTS-FILTER (GOURMET / STERNE)
+      qualityFilterInstruction = `### QUALITÄTS-FILTER (GOURMET / STERNE)
 Der User wünscht explizit gehobene Gastronomie.
-1. **Quellen:** Nutze die Guides (${guidesList}).
-2. **Kategorie:** Priorisiere Restaurants mit Sternen (1-3), Hauben oder hohen Punktzahlen.
-      `;
+1. **Quellen:** Nutze die Guides (${guides}).
+2. **Kategorie:** Priorisiere Restaurants mit Sternen (1-3) oder Hauben.`;
   }
 
-  const lang = userInputs.aiOutputLanguage === 'en' ? 'English' : 'Deutsch';
+  // 3. Prompt Builder
+  const role = `Du bist ein kulinarischer Recherche-Scout. Deine Aufgabe ist es, Restaurants zu finden, die in renommierten Guides gelistet sind.`;
 
-  return `
-DU BIST EIN KULINARISCHER RECHERCHE-SCOUT.
-Deine Aufgabe ist es, Restaurants zu finden, die in renommierten Guides gelistet sind.
+  const contextData = {
+    zielgebiet: { ort: location, land: countryHint },
+    zulässige_quellen: guides,
+    budget: budget,
+    vibe: vibe
+  };
 
-### ZIELGEBIET
-- Ort/Region: ${location}
-- Land: ${countryHint}
-
-### ZULÄSSIGE QUELLEN
-Guides: **${guidesList}**
+  const instructions = `# AUFGABE
+Suche nach Restaurants in ${location}, die den Filter-Kriterien entsprechen.
+Extrahiere die exakten Koordinaten (Lat/Lng).
 
 ${qualityFilterInstruction}
 
-### WEITERE KRITERIEN
-- Budget: ${budget}
-- Vibe: ${vibe}
-- **Geografische Daten sind PFLICHT.**
+# PFLICHT
+Geografische Daten sind PFLICHT für die Entfernungsberechnung.`;
 
-### AUFGABE
-Suche nach Restaurants in ${location}, die den obigen Filter-Kriterien entsprechen.
-Extrahiere die exakten Koordinaten (Lat/Lng) für die Entfernungsberechnung.
+  const outputSchema = {
+    "kandidaten": [
+      {
+        "name": "String",
+        "ort": "String",
+        "adresse": "String",
+        "geo": { "lat": "Number", "lng": "Number" },
+        "guides": ["String"],
+        "cuisine": "String",
+        "priceLevel": "String"
+      }
+    ]
+  };
 
-### OUTPUT FORMAT (STRIKTES JSON)
-Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt.
-
-{
-  "kandidaten": [
-    {
-      "name": "Name des Restaurants",
-      "ort": "Stadt/Bezirk",
-      "adresse": "Straße Hausnummer, PLZ Stadt",
-      "geo": {
-        "lat": 48.137, 
-        "lng": 11.575
-      },
-      "guides": ["Michelin (Bib Gourmand)", "Gault&Millau"],
-      "cuisine": "Art der Küche",
-      "priceLevel": "€€"
-    }
-  ]
-}
-
-Antworte auf ${lang}.
-`;
+  return new PromptBuilder()
+    .withOS()
+    .withRole(role)
+    .withContext(contextData, "KONTEXT")
+    .withInstruction(instructions)
+    .withOutputSchema(outputSchema)
+    .withSelfCheck(['basic', 'research'])
+    .build();
 };
-// --- END OF FILE 87 Zeilen ---
+// --- END OF FILE 85 Zeilen ---
