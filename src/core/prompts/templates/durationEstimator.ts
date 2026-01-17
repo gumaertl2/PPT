@@ -2,6 +2,7 @@
 // 17.01.2026 15:00 - FEAT: Initial Logic for Roundtrip Duration Estimation.
 // 18.01.2026 00:50 - FIX: Restored correct content (was overwritten by GeoAnalyst).
 // 18.01.2026 00:55 - REFACTOR: Migrated to PromptBuilder pattern.
+// 18.01.2026 00:05 - FIX: Removed invalid 'logic' self-check type (TS2322).
 
 import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
@@ -60,7 +61,7 @@ Gesamtdauer: ${totalDays} Tage`;
     .withContext(contextData, "ROUTEN-DATEN")
     .withInstruction(instructions)
     .withOutputSchema(outputSchema)
-    .withSelfCheck(['planning', 'logic'])
+    .withSelfCheck(['planning']) // FIX: Removed 'logic'
     .build();
 };
 // --- END OF FILE 61 Zeilen ---

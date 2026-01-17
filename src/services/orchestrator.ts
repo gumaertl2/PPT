@@ -1,12 +1,12 @@
 // src/services/orchestrator.ts
 // 17.01.2026 18:30 - FEAT: Initial creation. The "Brain" of the operation.
 // 17.01.2026 19:20 - FEAT: Registered full suite of Zod Schemas (Zero Error Policy).
+// 17.01.2026 23:55 - FIX: Removed unused 'validateJson' import (TS6133).
 
 import { z } from 'zod';
 import { GeminiService } from './gemini';
 import { PayloadBuilder } from '../core/prompts/PayloadBuilder';
 import { 
-  validateJson, 
   dayPlanSchema, 
   geoAnalystSchema,
   foodSchema,
@@ -33,7 +33,7 @@ const SCHEMA_MAP: Partial<Record<TaskKey, z.ZodType<any>>> = {
   // 3. Spezialisten (Paket B)
   food: foodSchema,
   foodScout: foodSchema,
-  foodEnricher: foodSchema, // Enricher liefert ähnliche Struktur (oder wir definieren ein eigenes, falls nötig)
+  foodEnricher: foodSchema, // Enricher liefert ähnliche Struktur
   
   accommodation: hotelSchema,
   hotelScout: hotelSchema
@@ -82,4 +82,4 @@ export const TripOrchestrator = {
     return rawResult;
   }
 };
-// --- END OF FILE 84 Zeilen ---
+// --- END OF FILE 83 Zeilen ---

@@ -2,6 +2,7 @@
 // 13.01.2026 17:55 - FIX: Fixed case-sensitive import (Cockpit) and removed unused useTranslation.
 // 16.01.2026 01:45 - FIX: Added missing status check for 'routeArchitect'.
 // 16.01.2026 02:00 - FIX: Hide Interaction Badge when step is done.
+// 18.01.2026 18:00 - FIX: Ignore 'dummy-example-id' to prevent premature 'done' state for Basis step.
 
 import React, { useState, useEffect } from 'react';
 // FIX: Removed unused 'useTranslation' import to satisfy linter
@@ -43,8 +44,10 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
   // 2. STATUS-LOGIK (Zentralisiert)
   const getStepStatus = (stepId: WorkflowStepId): StepStatus => {
     // Basis-Check: Haben wir überhaupt Orte?
+    // FIX: Wir ignorieren den "dummy-example-id", damit der Workflow nicht denkt, er sei schon fertig.
     const places = project.data.places || {};
-    const hasPlaces = Object.keys(places).length > 0;
+    const validPlaces = Object.values(places).filter((p: any) => p.id !== 'dummy-example-id');
+    const hasPlaces = validPlaces.length > 0;
     
     switch (stepId) {
       case 'chefPlaner':
@@ -61,7 +64,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
          // FIX: Check if places actually have enriched content (e.g. descriptions or logistics)
          if (!hasPlaces) return 'locked';
          
-         const isEnriched = Object.values(places).some((p: any) => 
+         const isEnriched = validPlaces.some((p: any) => 
             (p.kurzbeschreibung && p.kurzbeschreibung.length > 20) || 
             (p.logistics_info && p.logistics_info.length > 10)
          );
@@ -86,7 +89,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
 
       case 'food':
         if (!hasPlaces) return 'locked';
-        const hasRestaurants = Object.values(places).some((p: any) => p.category === 'restaurant' || p.kategorie?.toLowerCase().includes('restaurant'));
+        const hasRestaurants = validPlaces.some((p: any) => p.category === 'restaurant' || p.kategorie?.toLowerCase().includes('restaurant'));
         return hasRestaurants ? 'done' : 'available';
 
       case 'accommodation':
@@ -347,4 +350,4 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
     </>
   );
 };
-// --- END OF FILE 259 Zeilen ---
+// --- END OF FILE 266 Zeilen ---

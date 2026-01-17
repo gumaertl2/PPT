@@ -2,6 +2,7 @@
 // 16.01.2026 16:30 - UPDATE: Completed Workflow Inventory.
 // 17.01.2026 20:30 - FIX: Restored Sections 7D/E & Merged Functional + Technical Descriptions in Section 8.
 // 17.01.2026 21:15 - DOCS: Defined "PromptBuilder Pattern" & V40 Prompting Principles (Section 4).
+// 17.01.2026 22:00 - DOCS: Added "Zero Error Policy" (Zod) & Orchestrator Definition.
 
 export const briefing = {
   de: {
@@ -123,6 +124,11 @@ In V40 ist das manuelle Zusammenbauen von Strings ("String Soup") streng verbote
 4.  **Internationalisierung (i18n):**
     * Daten-Objekte nutzen \`LocalizedContent\` (z.B. \`label: { de: "...", en: "...", es: "..." }\`).
     * Zugriff nie direkt (z.B. \`.de\`), sondern immer über Helper (z.B. \`resolveLabel\`) oder Fallbacks, da Felder optional sind (siehe \`src/core/types.ts\`).
+5.  **Zero Error Policy (Zod Enforcement):**
+    Das Frontend vertraut keiner KI-Antwort ("Halluzinations-Gefahr").
+    Jeder API-Call durchläuft im \`TripOrchestrator\` eine strikte **Zod-Schema-Validierung**.
+    * Passt das JSON nicht zum Schema -> **Abbruch** (statt UI-Crash).
+    * Siehe: \`src/services/validation.ts\`.
 
 ---
 
@@ -132,7 +138,7 @@ In V40 ist das manuelle Zusammenbauen von Strings ("String Soup") streng verbote
 | :--- | :--- |
 | \`app-state.js\` | \`useTripStore.ts\` (Slices) |
 | \`render-*-view.js\` | Feature Components (\`src/features/...\`) |
-| \`workflow-orchestrator.js\` | \`useTripGeneration.ts\` Hook |
+| \`workflow-orchestrator.js\` | \`useTripGeneration.ts\` (Hook) + \`orchestrator.ts\` (Logic) |
 | \`prompt-*.js\` | \`src/core/prompts/templates/*.ts\` (via PromptBuilder) |
 
 ---
@@ -206,7 +212,14 @@ Wir nutzen eine strikte **Chunking-Strategie**, da die KI bei großen Datenmenge
 1. **Trial & Error Historie:** Limits (z.B. 5-10 Orte) sind empirisch ermittelt und in \`config.ts\` hinterlegt.
 2. **Die "Slice & Map" Taktik:** Listen werden zerteilt, sequenziell verarbeitet und gemerged.
 3. **Das "Merge" Protokoll:** Die KI muss zwingend die **ID** zurückgeben ("Pass-Through"), um Daten korrekt zuzuordnen.
+
+**D. The Orchestrator (Runtime Execution)**
+Der \`TripOrchestrator\` (\`src/services/orchestrator.ts\`) ist das "Gehirn", das die Wiring-Matrix zur Laufzeit exekutiert.
+Er kapselt die Komplexität von UI-Hooks ab und folgt strengem Protokoll:
+1.  **Select:** Wählt anhand \`TaskKey\` den passenden \`PromptBuilder\`.
+2.  **Execute:** Ruft \`GeminiService\` auf (Handling von Retries & API Keys).
+3.  **Validate:** Wählt das passende \`ZodSchema\` (z.B. \`foodSchema\`) und erzwingt Typ-Sicherheit.
 `
   }
 };
-// --- END OF FILE 332 Zeilen ---
+// --- END OF FILE 358 Zeilen ---

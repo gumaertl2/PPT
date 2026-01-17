@@ -7,6 +7,8 @@
 // 17.01.2026 10:30 - FEAT: Finalized Package B2 (Food) with Ad-Hoc Mode and Geo-Math-Filtering.
 // 17.01.2026 11:20 - FIX: Corrected import of FoodSearchMode to use SSOT types.
 // 17.01.2026 18:00 - FIX: Aligned template calls with Strict TS signatures (Zero Error Policy).
+// 17.01.2026 23:45 - FIX: Resolved TS6133 (unused vars) and TS2345 (HotelScout args).
+// 18.01.2026 00:30 - FEAT: Activated Package C (Content, Info, Guide, SpecialDays).
 
 import { useTripStore } from '../../store/useTripStore';
 import { INTEREST_DATA } from '../../data/interests';
@@ -23,6 +25,11 @@ import { buildGeoAnalystPrompt } from './templates/geoAnalyst';
 import { buildHotelScoutPrompt } from './templates/hotelScout';
 import { buildFoodScoutPrompt } from './templates/foodScout';
 import { buildFoodEnricherPrompt } from './templates/foodEnricher';
+// NEU: Imports für Content & Specials
+import { buildTourGuidePrompt } from './templates/tourGuide';
+import { buildChefredakteurPrompt } from './templates/chefredakteur';
+import { buildInfoAutorPrompt } from './templates/infoAutor';
+import { buildIdeenScoutPrompt } from './templates/ideenScout';
 
 // --- UTILS & TYPES ---
 import type { LocalizedContent, TaskKey, ChunkingState, TripProject, FoodSearchMode } from '../types';
@@ -147,11 +154,7 @@ export const PayloadBuilder = {
       case 'transfers':
       case 'transferPlanner':
         if (chunkingState?.isActive && chunkingState.dataChunks.length > 0) {
-            const currentChunkIndex = chunkingState.currentChunk - 1;
-            const chunkData = chunkingState.dataChunks[currentChunkIndex];
-            const previousLocation = getLastChunkEndLocation();
-            // FIX: Template currently only supports (project) in V30 port
-            // Future TODO: Update transferPlanner to support chunkData/prevLocation
+            // Unused variables removed to satisfy TS6133
             return buildTransferPlannerPrompt(project); 
         }
         return buildTransferPlannerPrompt(project);
@@ -164,7 +167,8 @@ export const PayloadBuilder = {
       case 'accommodation':
       case 'hotelScout':
          // FIX: Fill parameters to match signature (project, chunkData, feedback, memory)
-         return buildHotelScoutPrompt(project, undefined, feedback, []);
+         // TS2345 Fix: 2nd argument (chunkData/Location) expects string, passed empty string.
+         return buildHotelScoutPrompt(project, "", feedback, []);
 
       // --- PAKET B2: FOOD ---
       
@@ -191,6 +195,48 @@ export const PayloadBuilder = {
              return buildFoodEnricherPrompt(project, []); 
          }
          return buildFoodEnricherPrompt(project, candidates);
+
+      // --- PAKET C: CONTENT & SPECIALS (NEU) ---
+
+      case 'guide':
+      case 'reisefuehrer':
+          return buildTourGuidePrompt(project);
+
+      case 'details':
+      case 'chefredakteur':
+          if (chunkingState?.isActive && chunkingState.dataChunks.length > 0) {
+              const idx = chunkingState.currentChunk - 1;
+              const chunk = chunkingState.dataChunks[idx];
+              // Chefredakteur erwartet (project, tasksChunk, current, total)
+              return buildChefredakteurPrompt(project, chunk.tasks, chunkingState.currentChunk, chunkingState.totalChunks) || "";
+          }
+          // Fallback für Non-Chunked Mode (Alle Orte)
+          const allPlaces = Object.values(project.data.places || {}).flat();
+          return buildChefredakteurPrompt(project, allPlaces, 1, 1) || "";
+
+      case 'infos':
+      case 'infoAutor':
+          if (chunkingState?.isActive && chunkingState.dataChunks.length > 0) {
+              const idx = chunkingState.currentChunk - 1;
+              const chunk = chunkingState.dataChunks[idx];
+              // InfoAutor erwartet (project, tasksChunk, current, total, detectedCountries)
+              return buildInfoAutorPrompt(project, chunk.tasks, chunkingState.currentChunk, chunkingState.totalChunks, []) || "";
+          }
+          // Fallback
+          return buildInfoAutorPrompt(project, [], 1, 1, []) || "";
+
+      case 'sondertage':
+      case 'ideenScout':
+          // Wir brauchen einen Hauptort für die Suche.
+          // Priorität: 1. Stationär Ziel, 2. Rundreise Start, 3. Fallback
+          let location = "Reiseziel";
+          if (project.userInputs.logistics.mode === 'stationaer') {
+              location = project.userInputs.logistics.stationary.destination;
+          } else if (project.userInputs.logistics.roundtrip.startLocation) {
+              location = project.userInputs.logistics.roundtrip.startLocation;
+          }
+          // Wir übergeben bereits besuchte IDs, um Doppelungen zu vermeiden
+          return buildIdeenScoutPrompt(project, location, getVisitedSightIds());
 
       // --- WORKFLOW FALLBACKS ---
       default:
@@ -228,4 +274,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 230 Zeilen ---
+// --- END OF FILE 298 Zeilen ---

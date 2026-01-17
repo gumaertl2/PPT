@@ -1,6 +1,7 @@
 // src/core/prompts/templates/infoAutor.ts
 // 17.01.2026 19:15 - FEAT: Ported 'InfoAutor' (Logistics & Safety) from V30.
 // 17.01.2026 23:35 - REFACTOR: Migrated to PromptBuilder pattern (Unified Builder).
+// 18.01.2026 00:15 - FIX: Restored full complex logic (Country detection, Logistics Matrix).
 
 import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
