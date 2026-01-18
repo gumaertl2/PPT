@@ -1,4 +1,4 @@
-// 18.01.2026 12:30 - BUILD-FIX: Resolved TS6133, TS2345 and fixed corrupted Import. Full logic preserved.
+// 18.01.2026 14:15 - BUILD-FIX: Corrected buildTransferPlannerPrompt signature (Fixes TS2554/TS6133). Removed Header Corruption.
 // src/core/prompts/PayloadBuilder.ts
 // 14.01.2026 19:20 - FIX: Added safe resolution for 'prompt' field.
 // 16.01.2026 17:45 - FEAT: Implemented Chunking-Awareness.
@@ -154,9 +154,8 @@ export const PayloadBuilder = {
 
       case 'transfers':
       case 'transferPlanner': {
-        // FIX TS6133 & TS2345: lastLoc wird hier ermittelt und sicher an das Template übergeben.
-        const lastLoc = getLastChunkEndLocation() || '';
-        return buildTransferPlannerPrompt(project, lastLoc);
+        // FIX TS6133 & TS2345: Template erwartet nur project.
+        return buildTransferPlannerPrompt(project);
       }
 
       // --- PAKET B1: ACCOMMODATION ---

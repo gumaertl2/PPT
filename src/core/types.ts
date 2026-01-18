@@ -1,4 +1,4 @@
-// 18.01.2026 11:55 - REFACTOR: Extended types for Gold Standard strategy separation and fixed Build Errors.
+// 18.01.2026 13:05 - FIX: Expanded WorkflowStepDef description to include 'en' (Fixes TS2353/TS7053).
 // src/core/types.ts
 // 16.01.2026 17:00 - FEAT: Added all V30 Master Matrix Agent Keys to WorkflowStepId.
 // 16.01.2026 20:00 - REFACTOR: Centralized ChunkingState and AiSettings for SSOT.
@@ -101,6 +101,7 @@ export interface WorkflowStepDef {
   };
   description: {
     de: string;
+    en: string; // FIX: Added 'en' to match data in steps.ts
   };
 }
 
@@ -396,4 +397,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 453 Zeilen ---
+// --- END OF FILE 454 Zeilen ---

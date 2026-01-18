@@ -1,3 +1,4 @@
+// 18.01.2026 13:20 - FIX: Added updateProjectInput to support generic UserProfile updates (Fixes TS2339).
 // src/store/slices/createProjectSlice.ts
 // 14.01.2026 11:45 - FIX: Corrected setRoundtripOptions to target logistics.roundtripOptions (not roundtrip). Updated Interface types.
 // 15.01.2026 22:00 - FIX: Added updateLogistics to support generic updates from RouteReviewView.
@@ -65,6 +66,8 @@ export interface ProjectSlice {
   setDeparture: (data: Partial<DepartureDetails>) => void;
 
   setConfig: (key: 'pace' | 'budget' | 'vibe' | 'strategyId', value: string) => void;
+  // FIX: Added updateProjectInput for generic updates (e.g. customSearchStrategies)
+  updateProjectInput: (key: keyof TripUserProfile, value: any) => void;
   setNotes: (text: string) => void;
   toggleInterest: (id: string) => void;
   setCustomPreference: (interestId: string, text: string) => void;
@@ -510,6 +513,17 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     project: { ...state.project, userInputs: { ...state.project.userInputs, [key]: value } }
   })),
 
+  // FIX: Implemented updateProjectInput
+  updateProjectInput: (key, value) => set((state: any) => ({
+    project: {
+      ...state.project,
+      userInputs: {
+        ...state.project.userInputs,
+        [key]: value
+      }
+    }
+  })),
+
   setNotes: (text) => set((state: any) => ({
     project: { ...state.project, userInputs: { ...state.project.userInputs, notes: text } }
   })),
@@ -545,4 +559,4 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     }
   }))
 });
-// --- END OF FILE 424 Zeilen ---
+// --- END OF FILE 435 Zeilen ---
