@@ -1,4 +1,4 @@
-// 19.01.2026 10:05 - FIX: Final "Dual-Stack" Validation with Footer Fix. Supports Log-Output (English) and Legacy-File (German).
+// 18.01.2026 16:15 - FIX: Resolved TS6133 by renaming unused parameter 'logWarning' to '_logWarning'.
 // src/services/validation.ts
 
 import { z } from 'zod';
@@ -7,7 +7,7 @@ import { z } from 'zod';
 export const validateJson = <T>(
   text: string, 
   schema?: z.ZodType<T> | any, 
-  logWarning?: (msg: string) => void
+  _logWarning?: (msg: string) => void
 ): { valid: boolean; data?: T; error?: string } => {
   try {
     let cleanText = text.trim();
