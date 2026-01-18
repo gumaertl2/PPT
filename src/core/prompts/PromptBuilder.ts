@@ -1,3 +1,4 @@
+// 19.01.2026 10:00 - SEC: Added SYSTEM_GUARD to prevent JSON Key Translation (Strict Protocol).
 // src/core/prompts/PromptBuilder.ts
 // 17.01.2026 23:00 - ARCH: Enhanced Builder with centralized OS and Self-Check patterns for SOTA prompting.
 
@@ -11,6 +12,19 @@ export class PromptBuilder {
 - **Prinzip 1 (CoT):** Nutze das Feld "_gedankenschritte" für komplexe Logik, BEVOR du finale Daten erzeugst.
 - **Prinzip 2 (Fakten):** Erfinde niemals Daten. Unbekanntes ist "null".
 - **Format:** Valides JSON.
+`.trim();
+
+  // NEU: Der Schutzschild gegen Key-Übersetzungen
+  private static readonly SYSTEM_GUARD = `
+---
+### SYSTEM-SICHERHEITSPROTOKOLL (CRITICAL)
+1. **JSON-INTEGRITÄT:** Deine Antwort muss valides JSON sein.
+2. **SPRACHE:** Der *Inhalt* (Values) soll in der gewünschten Zielsprache (meist Deutsch) sein.
+3. **STRUKTUR-SCHUTZ:** Du darfst die **JSON-KEYS (Schlüssel)** NIEMALS verändern oder übersetzen.
+   - Wenn das Beispiel '{ "routenVorschlaege": ... }' zeigt, darfst du NICHT '{ "routes": ... }' oder '{ "suggestions": ... }' antworten.
+   - Halte dich strikt an die Keys aus den Beispielen oder Schemas.
+Hintergrund: Das Frontend stürzt ab, wenn sich ein Key ändert.
+---
 `.trim();
 
   constructor() {
@@ -65,9 +79,12 @@ export class PromptBuilder {
   }
 
   public build(): string {
+    // NEU: System Guard wird ZWINGEND angehängt
+    this.parts.push(PromptBuilder.SYSTEM_GUARD);
+
     // Abschluss: Trigger für JSON Mode
     this.parts.push("Beginne deine Antwort direkt mit ```json");
     return this.parts.join('\n\n');
   }
 }
-// --- END OF FILE 67 Zeilen ---
+// --- END OF FILE 87 Zeilen ---

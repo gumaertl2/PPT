@@ -1,9 +1,11 @@
-// 18.01.2026 19:30 - FIX: Corrected CONFIG path references (CONFIG.models -> CONFIG.api.models) to resolve runtime crash.
+// 19.01.2026 00:30 - FEAT: Added 'normalizeResult' adapter to auto-convert English AI outputs (Gemini 2.5) to German Legacy formats (V30 UI).
 // src/services/orchestrator.ts
 // 17.01.2026 18:30 - FEAT: Initial creation. The "Brain" of the operation.
 // 17.01.2026 19:20 - FEAT: Registered full suite of Zod Schemas (Zero Error Policy).
-// 17.01.2026 23:55 - FIX: Removed unused 'validateJson' import (TS6133).
 // 18.01.2026 18:30 - FEAT: Implemented Chunking-Initialization and Model-Switching Logic.
+// 18.01.2026 19:30 - FIX: Corrected CONFIG path references.
+// 18.01.2026 21:00 - FIX: Added detailed debug logging.
+// 18.01.2026 22:30 - FEAT: Registered 'routeArchitectSchema'.
 
 import { z } from 'zod';
 import { GeminiService } from './gemini';
@@ -15,17 +17,15 @@ import {
   geoAnalystSchema,
   foodSchema,
   hotelSchema,
-  chefPlanerSchema
+  chefPlanerSchema,
+  routeArchitectSchema
 } from './validation';
 import type { TaskKey } from '../core/types';
 
 /**
  * MAPPING: TaskKey -> Validation Schema
- * Hier wird definiert, wie die Antwort eines bestimmten Agents aussehen muss.
  */
 const SCHEMA_MAP: Partial<Record<TaskKey, z.ZodType<any>>> = {
-  // --- V40 AGENTS ---
-  
   // 1. Tagesplanung
   dayplan: dayPlanSchema,
   initialTagesplaner: dayPlanSchema,
@@ -33,78 +33,99 @@ const SCHEMA_MAP: Partial<Record<TaskKey, z.ZodType<any>>> = {
   // 2. Strategie & Geo
   geoAnalyst: geoAnalystSchema,
   chefPlaner: chefPlanerSchema,
+  routeArchitect: routeArchitectSchema,
+  routenArchitekt: routeArchitectSchema,
 
   // 3. Spezialisten (Paket B)
   food: foodSchema,
   foodScout: foodSchema,
-  foodEnricher: foodSchema, // Enricher liefert ähnliche Struktur
+  foodEnricher: foodSchema,
   
   accommodation: hotelSchema,
   hotelScout: hotelSchema
 };
 
-// HELPER: Ermittelt das Limit dynamisch aus den Settings (Matrix)
+// HELPER: Ermittelt das Limit dynamisch
 const getTaskLimit = (task: TaskKey, isManual: boolean): number => {
     const aiSettings = useTripStore.getState().aiSettings;
     const mode = isManual ? 'manual' : 'auto';
     
-    // 1. Task Override (Matrix)
     const taskOverride = aiSettings.chunkOverrides?.[task]?.[mode];
     if (taskOverride) return taskOverride;
     
-    // 2. Global Setting
     const globalLimit = aiSettings.chunkLimits?.[mode];
     if (globalLimit) return globalLimit;
 
-    // 3. Static Default (Config)
     return CONFIG.taskRouting.chunkDefaults?.[task]?.[mode] || 10;
 };
 
-// HELPER: Ermittelt das KI-Modell basierend auf Settings & Strategie
+// HELPER: Ermittelt das KI-Modell
 const resolveModelId = (task: TaskKey): string => {
     const aiSettings = useTripStore.getState().aiSettings;
     
-    // 1. Matrix Override (Höchste Prio)
     const taskOverride = aiSettings.modelOverrides?.[task];
     if (taskOverride === 'pro') return CONFIG.api.models.pro;
     if (taskOverride === 'flash') return CONFIG.api.models.flash;
 
-    // 2. Globale Strategie (Mittlere Prio)
     if (aiSettings.strategy === 'pro') return CONFIG.api.models.pro; 
     if (aiSettings.strategy === 'fast') return CONFIG.api.models.flash; 
 
-    // 3. Optimal (Default aus Config)
     const recommendedType = CONFIG.taskRouting.defaults[task] || 'flash';
-    // FIX: Corrected path CONFIG.api.models (was CONFIG.models causing crash)
     return CONFIG.api.models[recommendedType as 'pro'|'flash'] || CONFIG.api.models.flash;
+};
+
+// HELPER: ADAPTER (Englisch -> Deutsch Normalisierung)
+// Wandelt moderne KI-Antworten in das Format um, das das V30-Frontend erwartet.
+const normalizeResult = (task: TaskKey, data: any): any => {
+    // A. Route Architect: "routes" (EN) -> "routenVorschlaege" (DE)
+    if (task === 'routeArchitect' || task === 'routenArchitekt') {
+        if (data.routes && Array.isArray(data.routes) && !data.routenVorschlaege) {
+            console.log('[Orchestrator] ADAPTER: Converting RouteArchitect English -> German');
+            return {
+                routenVorschlaege: data.routes.map((r: any) => ({
+                    routenName: r.title,
+                    charakter: r.description || '',
+                    // Mapping der Stages zu einfachen Listen für das Legacy UI
+                    uebernachtungsorte: r.stages?.map((s: any) => s.location_name) || [],
+                    ankerpunkte: r.stages?.map((s: any) => ({
+                        standortFuerKarte: s.location_name,
+                        adresse: '' // Fallback, da meist nicht im EN-Prompt
+                    })) || [],
+                    gesamtKilometer: 0, // Fallback
+                    gesamtFahrzeitStunden: 0, // Fallback
+                    anzahlHotelwechsel: Math.max(0, (r.stages?.length || 1) - 1)
+                }))
+            };
+        }
+    }
+    
+    // B. ChefPlaner: Keys normalisieren falls nötig (Beispiel)
+    if (task === 'chefPlaner') {
+        // Hier könnte man 'plausibility_check' -> 'plausibilitaets_check' mappen,
+        // falls das UI darauf zugreift. Aktuell scheint es meist nur intern genutzt zu werden.
+    }
+
+    return data;
 };
 
 /**
  * ORCHESTRATOR
- * Kapselt die Komplexität von Prompt-Bau, API-Call und Validierung.
+ * Kapselt die Komplexität von Prompt-Bau, API-Call, Validierung UND Normalisierung.
  */
 export const TripOrchestrator = {
   
-  /**
-   * Führt einen einzelnen Task aus.
-   */
   async executeTask(task: TaskKey, feedback?: string): Promise<any> {
     const store = useTripStore.getState();
     const { project, chunkingState, setChunkingState, apiKey } = store;
 
     // --- 1. CHUNKING INITIALISIERUNG ---
-    // Wir prüfen VOR dem Prompt-Bau, ob wir eine Schleife brauchen.
-    // Nur initialisieren, wenn wir NICHT schon mitten drin sind (currentChunk > 0)
-    
     const listTasks: TaskKey[] = ['anreicherer', 'chefredakteur', 'infoAutor', 'foodEnricher', 'chefPlaner'];
     
     if (listTasks.includes(task) && (!chunkingState.isActive || chunkingState.currentChunk === 0)) {
-        
         let totalItems = 0;
         const isManual = !apiKey;
         const limit = getTaskLimit(task, isManual);
 
-        // A. Datenquelle je nach Task zählen
         if (task === 'anreicherer') {
             totalItems = Object.values(project.data.places || {}).flat().length;
         } 
@@ -118,9 +139,7 @@ export const TripOrchestrator = {
         else if (task === 'chefredakteur') {
             totalItems = Object.values(project.data.places || {}).flat().length;
         }
-        // InfoAutor ist dynamisch, hier kein Auto-Count möglich, wir verlassen uns auf Defaults
 
-        // B. State setzen
         if (totalItems > limit) {
             const totalChunks = Math.ceil(totalItems / limit);
             console.log(`[Orchestrator] Starting Chunk Loop for ${task}: ${totalItems} Items / Limit ${limit} = ${totalChunks} Chunks`);
@@ -132,10 +151,8 @@ export const TripOrchestrator = {
                 results: [] 
             });
             
-            // Kurzer Tick, damit Store update greift (Sicherheit)
             await new Promise(r => setTimeout(r, 20));
         } else {
-            // Reset falls vorher noch was drin war (Clean State)
             if (chunkingState.isActive) {
                 store.resetChunking();
             }
@@ -143,11 +160,7 @@ export const TripOrchestrator = {
     }
 
     // --- 2. PROMPT & MODEL ---
-
-    // Prompt bauen (PayloadBuilder nutzt jetzt den neuen chunkingState)
     const prompt = PayloadBuilder.buildPrompt(task, feedback);
-
-    // Modell auswählen (NEU)
     const modelId = resolveModelId(task);
     
     if (store.aiSettings.debug) {
@@ -155,24 +168,26 @@ export const TripOrchestrator = {
     }
 
     // --- 3. EXECUTION ---
-
     const schema = SCHEMA_MAP[task];
-
-    // API Call (NEU: Wir übergeben die modelId)
-    // Der Service kümmert sich um Retry, Rate-Limit und Error-Handling.
     const rawResult = await GeminiService.call(prompt, task, modelId);
 
     // --- 4. VALIDIERUNG ---
+    let validatedData = rawResult;
     if (schema) {
       const validation = schema.safeParse(rawResult);
       if (!validation.success) {
-        console.error(`Orchestrator Validation Error for ${task}:`, validation.error);
-        throw new Error(`Antwort entspricht nicht dem Schema für ${task}. Details im Log.`);
+        console.warn(`[Orchestrator] Validation Failed for ${task}. Model returned:`, JSON.stringify(rawResult, null, 2));
+        console.error(`[Orchestrator] Schema Errors:`, validation.error);
+        throw new Error(`Antwort entspricht nicht dem Schema für ${task}. (Siehe Konsole für Details)`);
       }
-      return validation.data;
+      validatedData = validation.data;
     }
 
-    return rawResult;
+    // --- 5. NORMALISIERUNG (NEU) ---
+    // Wir wandeln Englische KI-Antworten in Deutsche Legacy-Strukturen um
+    const finalData = normalizeResult(task, validatedData);
+
+    return finalData;
   }
 };
-// --- END OF FILE 137 Zeilen ---
+// --- END OF FILE 185 Zeilen ---

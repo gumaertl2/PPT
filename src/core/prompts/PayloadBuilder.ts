@@ -1,19 +1,9 @@
-// 18.01.2026 20:00 - FIX: Restored 'buildChefPlanerPayload' to resolve unused-vars errors and preserve legacy logic. Applied Anreicherer signature fix.
+// 18.01.2026 23:45 - FIX: Added SYSTEM_GUARD to prevent JSON-Key translation in multi-language scenarios.
 // src/core/prompts/PayloadBuilder.ts
-// 14.01.2026 19:20 - FIX: Added safe resolution for 'prompt' field.
-// 16.01.2026 17:45 - FEAT: Implemented Chunking-Awareness.
-// 16.01.2026 21:45 - FEAT: Activated Package A templates.
-// 16.01.2026 22:45 - FEAT: Activated Package B1 templates.
-// 17.01.2026 09:15 - FIX: Added logic to extract 'previousLocation' for TransferPlanner.
-// 17.01.2026 10:30 - FEAT: Finalized Package B2 (Food) with Ad-Hoc Mode and Geo-Math-Filtering.
-// 17.01.2026 11:20 - FIX: Corrected import of FoodSearchMode to use SSOT types.
-// 17.01.2026 18:00 - FIX: Aligned template calls with Strict TS signatures (Zero Error Policy).
-// 17.01.2026 23:45 - FIX: Resolved TS6133 (unused vars) and TS2345 (HotelScout args).
-// 18.01.2026 00:30 - FEAT: Activated Package C (Content, Info, Guide, SpecialDays).
-// 18.01.2026 17:50 - FIX: Applied Dynamic Limit Slicing to ALL list-based prompts.
+// 18.01.2026 20:00 - FIX: Restored 'buildChefPlanerPayload' & Anreicherer signature.
 
 import { useTripStore } from '../../store/useTripStore';
-import { INTEREST_DATA } from '../../data/interests'; // Behalten für buildChefPlanerPayload
+import { INTEREST_DATA } from '../../data/interests';
 import { CONFIG } from '../../data/config';
 
 // --- TEMPLATES ---
@@ -37,6 +27,19 @@ import { buildIdeenScoutPrompt } from './templates/ideenScout';
 import type { LocalizedContent, TaskKey, ChunkingState, TripProject, FoodSearchMode } from '../types';
 import { filterByRadius } from '../utils/geo';
 import type { GeoPoint } from '../utils/geo';
+
+// NEU: Globaler Schutzschild gegen Key-Übersetzungen
+const SYSTEM_GUARD = `
+---
+### SYSTEM-SICHERHEITSPROTOKOLL (WICHTIG)
+1. **JSON-FORMAT:** Deine Antwort muss valides JSON sein.
+2. **SPRACHE:** Der INHALT (Values) soll in der vom User gewünschten Zielsprache sein.
+3. **STRUKTUR-INTEGRITÄT:** Du darfst die **JSON-KEYS (Schlüssel)** NIEMALS übersetzen.
+   - Richtig: { "days": "Tag 1" } oder { "tage": "Tag 1" } (wie im Beispiel vorgegeben)
+   - Falsch: { "jours": ... } oder { "days_translated": ... }
+Hintergrund: Das Frontend erwartet exakt die Keys aus den Beispielen. Eine Änderung führt zum Absturz.
+---
+`;
 
 export const PayloadBuilder = {
   /**
@@ -125,12 +128,16 @@ export const PayloadBuilder = {
         return rawCandidates;
     };
 
+    // --- PROMPT GENERATION ---
+    let generatedPrompt = "";
+
     switch (task) {
       // --- EXISTING V40 AGENTS ---
       case 'chefPlaner': {
         const allAppointments = project.userInputs.dates.fixedEvents || [];
         const slicedAppointments = sliceData(allAppointments, 'chefPlaner');
         
+        // Wir müssen das Project-Objekt klonen/mocken, damit das Template nur die geschnittenen Events sieht
         const slicedProject = {
             ...project,
             userInputs: {
@@ -141,16 +148,19 @@ export const PayloadBuilder = {
                 }
             }
         };
-        return buildChefPlanerPrompt(slicedProject, feedback);
+        generatedPrompt = buildChefPlanerPrompt(slicedProject, feedback);
+        break;
       }
       
       case 'routeArchitect':
       case 'routenArchitekt':
-        return buildRouteArchitectPrompt(project);
+        generatedPrompt = buildRouteArchitectPrompt(project);
+        break;
 
       case 'basis':
       case 'sightCollector':
-        return buildBasisPrompt(project);
+        generatedPrompt = buildBasisPrompt(project);
+        break;
       
       case 'anreicherer':
       case 'intelligentEnricher': {
@@ -167,38 +177,44 @@ export const PayloadBuilder = {
                 }
             }
         };
-
-        return buildAnreichererPrompt(slicedProject);
+        generatedPrompt = buildAnreichererPrompt(slicedProject);
+        break;
       }
 
       // --- PAKET A: PLANUNG & LOGISTIK ---
       
       case 'durationEstimator':
-        return buildDurationEstimatorPrompt(project);
+        generatedPrompt = buildDurationEstimatorPrompt(project);
+        break;
 
       case 'dayplan':
       case 'initialTagesplaner':
         if (chunkingState?.isActive && chunkingState.dataChunks.length > 0) {
             const idx = chunkingState.currentChunk - 1;
             const chunkData = chunkingState.dataChunks[idx];
-            return buildInitialTagesplanerPrompt(project, chunkData, feedback, getVisitedSightIds());
+            generatedPrompt = buildInitialTagesplanerPrompt(project, chunkData, feedback, getVisitedSightIds());
+        } else {
+            generatedPrompt = buildInitialTagesplanerPrompt(project, undefined, feedback, []);
         }
-        return buildInitialTagesplanerPrompt(project, undefined, feedback, []);
+        break;
 
       case 'transfers':
       case 'transferPlanner': {
         const lastLoc = getLastChunkEndLocation() || '';
-        return buildTransferPlannerPrompt(project, lastLoc);
+        generatedPrompt = buildTransferPlannerPrompt(project, lastLoc);
+        break;
       }
 
       // --- PAKET B1: ACCOMMODATION ---
       
       case 'geoAnalyst':
-        return buildGeoAnalystPrompt(project);
+        generatedPrompt = buildGeoAnalystPrompt(project);
+        break;
 
       case 'accommodation':
       case 'hotelScout':
-         return buildHotelScoutPrompt(project, "", feedback || "", "");
+         generatedPrompt = buildHotelScoutPrompt(project, "", feedback || "", "");
+         break;
 
       // --- PAKET B2: FOOD ---
       
@@ -210,35 +226,40 @@ export const PayloadBuilder = {
              project.userInputs.customPreferences?.foodMode === 'stars') {
              mode = 'stars';
          }
-         return buildFoodScoutPrompt(project, mode);
+         generatedPrompt = buildFoodScoutPrompt(project, mode);
+         break;
       
       case 'foodEnricher': {
          const candidates = getFilteredFoodCandidates(project);
          const slicedCandidates = sliceData(candidates, 'foodEnricher');
          
          if (slicedCandidates.length === 0 && candidates.length === 0) {
-             return buildFoodEnricherPrompt(project, []); 
+             generatedPrompt = buildFoodEnricherPrompt(project, []); 
+         } else {
+             generatedPrompt = buildFoodEnricherPrompt(project, slicedCandidates);
          }
-         return buildFoodEnricherPrompt(project, slicedCandidates);
+         break;
       }
 
       // --- PAKET C: CONTENT & SPECIALS (NEU) ---
 
       case 'guide':
       case 'reisefuehrer':
-           return buildTourGuidePrompt(project);
+           generatedPrompt = buildTourGuidePrompt(project);
+           break;
 
       case 'details':
       case 'chefredakteur' as any: {
           const allPlaces = Object.values(project.data.places || {}).flat();
           const slicedPlaces = sliceData(allPlaces, 'chefredakteur' as TaskKey);
           
-          return buildChefredakteurPrompt(
+          generatedPrompt = buildChefredakteurPrompt(
               project, 
               slicedPlaces, 
               chunkingState?.currentChunk || 1, 
               chunkingState?.totalChunks || 1
           ) || "";
+          break;
       }
 
       case 'infos':
@@ -246,9 +267,11 @@ export const PayloadBuilder = {
           if (chunkingState?.isActive && chunkingState.dataChunks.length > 0) {
               const idx = chunkingState.currentChunk - 1;
               const chunk = chunkingState.dataChunks[idx];
-              return buildInfoAutorPrompt(project, chunk.tasks, chunkingState.currentChunk, chunkingState.totalChunks, []) || "";
+              generatedPrompt = buildInfoAutorPrompt(project, chunk.tasks, chunkingState.currentChunk, chunkingState.totalChunks, []) || "";
+          } else {
+              generatedPrompt = buildInfoAutorPrompt(project, [], 1, 1, []) || "";
           }
-          return buildInfoAutorPrompt(project, [], 1, 1, []) || "";
+          break;
       }
 
       case 'sondertage':
@@ -259,11 +282,15 @@ export const PayloadBuilder = {
           } else if (project.userInputs.logistics.roundtrip.startLocation) {
               location = project.userInputs.logistics.roundtrip.startLocation;
           }
-          return buildIdeenScoutPrompt(project, location, getVisitedSightIds());
+          generatedPrompt = buildIdeenScoutPrompt(project, location, getVisitedSightIds());
+          break;
 
       default:
         throw new Error(`PayloadBuilder: Unknown task '${task}'`);
     }
+
+    // SYSTEM GUARD wird am Ende JEDES Prompts angehängt
+    return generatedPrompt + SYSTEM_GUARD;
   },
 
   // WIEDERHERGESTELLT: Legacy-Methode für manuelle Calls & Typ-Sicherheit
@@ -297,4 +324,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 360 Zeilen ---
+// --- END OF FILE 385 Zeilen ---
