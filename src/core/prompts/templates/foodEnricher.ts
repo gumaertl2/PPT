@@ -1,17 +1,18 @@
-// 19.01.2026 13:30 - FIX: Restored V30 Legacy Schema (German Keys) for Consistency with FoodScout.
+// 18.01.2026 18:25 - FIX: Corrected PromptBuilder pattern and Signature for Build Compatibility.
 // src/core/prompts/templates/foodEnricher.ts
+// 19.01.2026 13:30 - FIX: Restored V30 Legacy Schema (German Keys) for Consistency with FoodScout.
 // 16.01.2026 20:00 - FEAT: Added 'Menu & Vibe' Analysis.
 // 18.01.2026 00:35 - REFACTOR: Migrated to class-based PromptBuilder.
-// 18.01.2026 00:45 - FIX: Marked unused 'project' parameter with underscore (TS6133).
 
 import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
 
 export const buildFoodEnricherPrompt = (
-    _project: TripProject, // Unused but kept for signature compatibility
+    project: TripProject,
     candidates: any[]
 ): string => {
-  // Input: Liste von { name, ort }
+  // 1. STRATEGISCHES BRIEFING HOLEN
+  const strategischesBriefing = project.analysis.chefPlaner?.strategisches_briefing?.sammler_briefing || "";
   
   const role = `Du bist ein kulinarischer Daten-Anreicherer. Deine Aufgabe ist es, zu einer Liste von Restaurant-Namen die Details zu finden.`;
 
@@ -52,9 +53,10 @@ Wenn ein Restaurant unauffindbar ist, markiere es als "NICHT GEFUNDEN". Erfinde 
     .withOS()
     .withRole(role)
     .withContext(contextData, "INPUT LISTE")
+    .withContext(strategischesBriefing, "STRATEGISCHE VORGABE") // FIX: Injected via Builder method
     .withInstruction(instructions)
     .withOutputSchema(outputSchema)
     .withSelfCheck(['basic', 'research'])
     .build();
 };
-// --- END OF FILE 58 Zeilen ---
+// --- END OF FILE 61 Zeilen ---
