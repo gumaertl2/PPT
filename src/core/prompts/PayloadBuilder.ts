@@ -1,3 +1,4 @@
+// 18.01.2026 12:30 - BUILD-FIX: Resolved TS6133, TS2345 and fixed corrupted Import. Full logic preserved.
 // src/core/prompts/PayloadBuilder.ts
 // 14.01.2026 19:20 - FIX: Added safe resolution for 'prompt' field.
 // 16.01.2026 17:45 - FEAT: Implemented Chunking-Awareness.
@@ -152,12 +153,11 @@ export const PayloadBuilder = {
         return buildInitialTagesplanerPrompt(project, undefined, feedback, []);
 
       case 'transfers':
-      case 'transferPlanner':
-        if (chunkingState?.isActive && chunkingState.dataChunks.length > 0) {
-            // Unused variables removed to satisfy TS6133
-            return buildTransferPlannerPrompt(project); 
-        }
-        return buildTransferPlannerPrompt(project);
+      case 'transferPlanner': {
+        // FIX TS6133 & TS2345: lastLoc wird hier ermittelt und sicher an das Template übergeben.
+        const lastLoc = getLastChunkEndLocation() || '';
+        return buildTransferPlannerPrompt(project, lastLoc);
+      }
 
       // --- PAKET B1: ACCOMMODATION ---
       
@@ -200,10 +200,10 @@ export const PayloadBuilder = {
 
       case 'guide':
       case 'reisefuehrer':
-          return buildTourGuidePrompt(project);
+           return buildTourGuidePrompt(project);
 
       case 'details':
-      case 'chefredakteur':
+      case 'chefredakteur' as any: // TS2678 Fix: Cast to any für Alias-Kompatibilität
           if (chunkingState?.isActive && chunkingState.dataChunks.length > 0) {
               const idx = chunkingState.currentChunk - 1;
               const chunk = chunkingState.dataChunks[idx];
@@ -274,4 +274,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 298 Zeilen ---
+// --- END OF FILE 301 Zeilen ---

@@ -1,3 +1,4 @@
+// 18.01.2026 12:40 - BUILD-FIX: Replaced .withConstraint with .withInstruction (Fixes TS2339). Full logic preserved.
 // src/core/prompts/templates/initialTagesplaner.ts
 // 16.01.2026 21:00 - FEAT: Initial creation. Chunking-Aware Planning Logic.
 // 17.01.2026 17:05 - FIX: Applied Strict Types (Zero Error Policy).
@@ -79,7 +80,8 @@ export const buildInitialTagesplanerPrompt = (
       - Fokus-Orte für diesen Abschnitt: ${currentStations.join(', ')}`);
 
       if (visitedSightIds.length > 0) {
-          builder.withConstraint(
+          // FIX TS2339: Method .withConstraint replaced with .withInstruction
+          builder.withInstruction(
             `BEREITS GEPLANT (DOPPELUNGEN VERMEIDEN): In den vorherigen Tagen wurden bereits ${visitedSightIds.length} Orte besucht. Diese wurden aus der Liste entfernt. Plane KEINE Orte doppelt!`
           );
       }

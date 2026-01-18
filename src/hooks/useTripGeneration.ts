@@ -3,6 +3,7 @@
 // 16.01.2026 03:40 - FIX: Corrected TaskKey import source to resolve build errors (TS2345).
 // 16.01.2026 04:30 - FINAL FIX: Consolidated TaskKey import from core/types for Vercel parity.
 // 17.01.2026 18:45 - REFACTOR: Integrated TripOrchestrator for centralized logic handling.
+// 18.01.2026 23:15 - FIX: Added 'Food' processor & robust Object/Array handling for all list-based agents.
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -86,27 +87,95 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     }
 
     switch (step) {
-      case 'basis': 
-        if (Array.isArray(data)) {
-            data.forEach((name: string) => {
+      case 'basis': {
+        // FIX: Robustheit für CoT-Wrapper (Object vs Array)
+        const candidates = Array.isArray(data) 
+            ? data 
+            : (data?.kandidaten_liste || []);
+
+        if (Array.isArray(candidates) && candidates.length > 0) {
+            candidates.forEach((name: string) => {
                 const id = uuidv4();
                 updatePlace(id, { id, name, source: 'ai_basis', createdAt: new Date().toISOString() });
             });
+            console.log(`[Basis] ${candidates.length} Orte gespeichert.`);
+        } else {
+            console.warn(`[Basis] Format-Warnung: Weder Array noch 'kandidaten_liste' gefunden.`, data);
         }
         break;
-      case 'anreicherer':
+      }
+
+      case 'anreicherer': {
+        // FIX: Robustheit für CoT-Wrapper
+        let enrichedItems: any[] = [];
         if (Array.isArray(data)) {
-            data.forEach((item: any) => { if (item.id) updatePlace(item.id, item); });
+            enrichedItems = data;
+        } else if (data?.ergebnisse && Array.isArray(data.ergebnisse)) {
+            enrichedItems = data.ergebnisse;
+        } else if (data?.ergebnis && Array.isArray(data.ergebnis)) {
+            enrichedItems = data.ergebnis;
+        }
+
+        if (enrichedItems.length > 0) {
+            enrichedItems.forEach((item: any) => { 
+                if (item.id) updatePlace(item.id, item); 
+            });
+            console.log(`[Anreicherer] ${enrichedItems.length} Orte angereichert.`);
+        } else {
+             console.warn(`[Anreicherer] Format-Warnung: Keine 'ergebnisse' gefunden.`, data);
         }
         break;
+      }
+
+      case 'food': {
+        // NEU: Robustheit für Food-Scout ({ kandidaten: [...] })
+        let foodItems: any[] = [];
+        if (Array.isArray(data)) {
+            foodItems = data;
+        } else if (data?.kandidaten && Array.isArray(data.kandidaten)) {
+            foodItems = data.kandidaten;
+        }
+
+        if (foodItems.length > 0) {
+            foodItems.forEach((item: any) => {
+                // Food Scout liefert oft neue Orte -> Neue ID generieren, falls keine existiert
+                const id = item.id || uuidv4(); 
+                // Wir mappen die Food-Felder auf unser Place-Schema
+                updatePlace(id, {
+                    id,
+                    name: item.name,
+                    category: 'Restaurant', // Erzwingen der Kategorie
+                    kategorie: 'Restaurant',
+                    source: 'ai_food',
+                    adresse: item.adresse,
+                    geo_koordinaten: item.geo || item.geo_koordinaten, // Fallback
+                    google_rating: item.rating || 0,
+                    preis_tendenz: item.priceLevel,
+                    kurzbeschreibung: `${item.cuisine || ''} (${item.guides?.join(', ') || ''})`,
+                    createdAt: new Date().toISOString()
+                });
+            });
+            console.log(`[Food] ${foodItems.length} Restaurants gespeichert.`);
+        } else {
+            console.warn(`[Food] Format-Warnung: Keine 'kandidaten' gefunden.`, data);
+        }
+        break;
+      }
+
       case 'chefPlaner':
          if (data) setAnalysisResult('chefPlaner', data);
          break;
       case 'routeArchitect':
          if (data) setAnalysisResult('routeArchitect', data);
          break;
+      
+      // HINWEIS: 'guide', 'details' und 'infos' speichern in V40 ihre Daten oft in
+      // spezifische Stores (z.B. Routes-Slice) oder müssen hier noch implementiert werden,
+      // sobald die Slices dafür bereitstehen. Aktuell werden sie geloggt aber nicht persistiert,
+      // wenn kein Handler existiert.
+      
       default:
-        console.warn(`No processor defined for step: ${step}`, data);
+        console.log(`Processor: No specific handler for ${step}`, data);
     }
   }, [aiSettings.debug, logEvent, setAnalysisResult, updatePlace]);
 
@@ -257,4 +326,4 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
   return { status, currentStep, queue, error, progress, manualPrompt, submitManualResult, startWorkflow, resumeWorkflow, cancelWorkflow, startSingleTask };
 };
-// --- END OF FILE 362 Zeilen ---
+// --- END OF FILE 423 Zeilen ---

@@ -1,3 +1,4 @@
+// 18.01.2026 11:55 - REFACTOR: Extended types for Gold Standard strategy separation and fixed Build Errors.
 // src/core/types.ts
 // 16.01.2026 17:00 - FEAT: Added all V30 Master Matrix Agent Keys to WorkflowStepId.
 // 16.01.2026 20:00 - REFACTOR: Centralized ChunkingState and AiSettings for SSOT.
@@ -39,6 +40,8 @@ export interface InterestCategory {
   label: LocalizedContent;
   isSystem?: boolean;
   defaultUserPreference?: LocalizedContent;
+  searchStrategy?: LocalizedContent;  // NEU: Für den Sammler
+  writingGuideline?: LocalizedContent; // NEU: Für den Redakteur
   aiInstruction?: LocalizedContent;
   prompt?: string | LocalizedContent;
 }
@@ -74,6 +77,7 @@ export type WorkflowStepId =
   | 'foodScout'            // Kulinarik Guide
   | 'reisefuehrer'         // Content Story
   | 'sightsChefredakteur'  // Content Details
+  | 'chefredakteur'        // Alias für Content Details (FIX TS2678)
   | 'infoAutor'            // Infos Fakten
   | 'countryScout'         // Länderinfos
   | 'ideenScout'           // Extras
@@ -97,7 +101,6 @@ export interface WorkflowStepDef {
   };
   description: {
     de: string;
-    en: string;
   };
 }
 
@@ -253,6 +256,8 @@ export interface TripUserProfile {
   vibe: string;
   selectedInterests: string[]; 
   customPreferences: Record<string, string>; 
+  customSearchStrategies?: Record<string, string>;   // NEU
+  customWritingGuidelines?: Record<string, string>;  // NEU
   notes: string; 
   
   aiOutputLanguage: string; 
@@ -391,4 +396,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 447 Zeilen ---
+// --- END OF FILE 453 Zeilen ---

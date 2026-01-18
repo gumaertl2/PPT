@@ -1,12 +1,7 @@
+// 18.01.2026 12:50 - THINKING-FIX: Verified 365 lines. Resolved lang ReferenceError. Full Triple-Editor logic.
 // src/features/cockpit/steps/InterestsStep.tsx
 // 14.01.2026 12:15 - FIX: Removed unused 'isAppendix' parameter to fix lint error.
-/**
- * src/features/cockpit/steps/InterestsStep.tsx
- * SCHRITT 3: INTERESSEN (Final Complete)
- * - Design: Native Tooltips (title) für Konsistenz mit ProfileStep.
- * - Inhalt: defaultUserPreference (DE/EN).
- * - Vollständig: Inklusive Qualitäts-Filter (Search Settings).
- */
+// 18.01.2026 14:10 - FIX: ReferenceError 'lang' fixed to 'currentLang'. Full strategy integration.
 
 import React, { useState, useMemo } from 'react';
 import { useTripStore } from '../../../store/useTripStore';
@@ -14,12 +9,15 @@ import { useTranslation } from 'react-i18next';
 import * as Icons from 'lucide-react'; 
 import { 
   Edit3, 
-  Info,
-  X,
-  Settings2,
-  ListOrdered,
-  Star,
-  Clock
+  Info, 
+  X, 
+  Settings2, 
+  ListOrdered, 
+  Star, 
+  Clock,
+  Search,
+  PenTool,
+  MessageSquare
 } from 'lucide-react';
 import { 
   INTEREST_DATA, 
@@ -38,16 +36,24 @@ export const InterestsStep = () => {
     project, 
     toggleInterest, 
     setCustomPreference,
+    updateProjectInput,
     updateSearchSettings 
   } = useTripStore();
 
   const { userInputs } = project;
-  const { selectedInterests, customPreferences, searchSettings } = userInputs;
+  const { 
+    selectedInterests, 
+    customPreferences, 
+    customSearchStrategies = {}, 
+    customWritingGuidelines = {},
+    searchSettings 
+  } = userInputs;
 
   // --- LOCAL STATE FOR EDITOR ---
   const [editingInterestId, setEditingInterestId] = useState<string | null>(null);
   const [tempPref, setTempPref] = useState(''); 
-  const [tempInst, setTempInst] = useState(''); 
+  const [tempSearch, setTempSearch] = useState(''); 
+  const [tempWriting, setTempWriting] = useState(''); 
 
   // --- HELPER ---
 
@@ -58,7 +64,6 @@ export const InterestsStep = () => {
       : 'HelpCircle';
     
     const LucideIcon = (Icons as any)[iconName];
-    
     if (!LucideIcon) return <Icons.Circle className={className} />;
     return <LucideIcon className={className} />;
   };
@@ -69,24 +74,37 @@ export const InterestsStep = () => {
     const storedPref = customPreferences[interestId];
     const defaultPref = INTEREST_DATA[interestId]?.defaultUserPreference?.[currentLang] || '';
     
-    const storedInst = customPreferences[`${interestId}_instruction`];
-    const defaultInst = INTEREST_DATA[interestId]?.aiInstruction?.[currentLang] || '';
+    const storedSearch = customSearchStrategies[interestId];
+    const defaultSearch = INTEREST_DATA[interestId]?.searchStrategy?.[currentLang] || '';
+    
+    const storedWriting = customWritingGuidelines[interestId];
+    const defaultWriting = INTEREST_DATA[interestId]?.writingGuideline?.[currentLang] || '';
     
     setTempPref(storedPref !== undefined ? storedPref : defaultPref);
-    setTempInst(storedInst !== undefined ? storedInst : defaultInst);
+    setTempSearch(storedSearch !== undefined ? storedSearch : defaultSearch);
+    setTempWriting(storedWriting !== undefined ? storedWriting : defaultWriting);
     
     setEditingInterestId(interestId);
   };
 
   const saveText = () => {
     if (editingInterestId) {
+      // 1. Vorliebe speichern (Standard)
       setCustomPreference(editingInterestId, tempPref);
-      setCustomPreference(`${editingInterestId}_instruction`, tempInst);
+      
+      // 2. Such-Strategie & Redaktion in die neuen Store-Felder
+      updateProjectInput('customSearchStrategies', { 
+        ...customSearchStrategies, 
+        [editingInterestId]: tempSearch 
+      });
+      updateProjectInput('customWritingGuidelines', { 
+        ...customWritingGuidelines, 
+        [editingInterestId]: tempWriting 
+      });
       
       if (!selectedInterests.includes(editingInterestId)) {
         toggleInterest(editingInterestId);
       }
-      
       setEditingInterestId(null);
     }
   };
@@ -104,13 +122,12 @@ export const InterestsStep = () => {
     return APPENDIX_ONLY_INTERESTS.filter(id => !INTEREST_DATA[id]?.isSystem);
   }, []);
 
-  // Generischer Kachel-Renderer
-  // FIX: Removed unused 'isAppendix' parameter
   const renderTile = (id: string) => {
     const isSelected = selectedInterests.includes(id);
     const hasCustomPref = !!customPreferences[id];
-    const hasCustomInst = !!customPreferences[`${id}_instruction`];
-    const isModified = hasCustomPref || hasCustomInst;
+    const hasCustomSearch = !!customSearchStrategies[id];
+    const hasCustomWriting = !!customWritingGuidelines[id];
+    const isModified = hasCustomPref || hasCustomSearch || hasCustomWriting;
     
     // Tooltip Content: defaultUserPreference
     const tooltipText = INTEREST_DATA[id]?.defaultUserPreference?.[currentLang];
@@ -154,7 +171,7 @@ export const InterestsStep = () => {
             onClick={(e) => openEditor(e, id)}
             className={`
               p-1.5 rounded-full hover:bg-slate-200 transition-colors
-              ${hasCustomPref || hasCustomInst ? 'text-amber-500 bg-amber-50' : 'text-slate-300'}
+              ${isModified ? 'text-amber-500 bg-amber-50' : 'text-slate-300'}
             `}
             title={t('actions.edit')}
           >
@@ -162,10 +179,9 @@ export const InterestsStep = () => {
           </button>
         </div>
 
-        {(hasCustomPref || hasCustomInst) && (
+        {isModified && (
           <div className="absolute top-[-4px] right-[-4px] w-2.5 h-2.5 bg-amber-500 rounded-full border border-white" />
         )}
-
       </div>
     );
   };
@@ -199,7 +215,6 @@ export const InterestsStep = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {/* FIX: Removed 'true' argument */}
           {appendixInterestIds.map(id => renderTile(id))}
         </div>
       </section>
@@ -270,12 +285,11 @@ export const InterestsStep = () => {
         </section>
       )}
 
-      {/* --- DUAL EDITOR MODAL --- */}
+      {/* --- TRIPLE EDITOR MODAL --- */}
       {editingInterestId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in-up flex flex-col max-h-[90vh]">
             
-            {/* Header */}
             <div className="px-5 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50 flex-shrink-0">
               <h3 className="font-bold text-slate-800 flex items-center gap-2">
                 {renderIcon(editingInterestId, "w-4 h-4 text-blue-600")}
@@ -286,43 +300,50 @@ export const InterestsStep = () => {
               </button>
             </div>
 
-            {/* Scrollable Content */}
             <div className="p-6 overflow-y-auto space-y-6">
               
-              {/* Feld 1: Persönliche Vorliebe */}
+              {/* Ebene 1: Vorliebe */}
               <div>
-                <label className="text-xs font-bold text-slate-700 uppercase block mb-2 flex justify-between">
+                <label className="text-xs font-bold text-slate-700 uppercase block mb-2 flex items-center gap-2">
+                  <MessageSquare className="w-3 h-3 text-blue-500" />
                   <span>{t('interests.pref_label')}</span>
-                  <span className="text-[10px] font-normal text-slate-400">{t('interests.pref_sub')}</span>
                 </label>
                 <textarea
-                  className="w-full h-28 border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm p-3 bg-white shadow-sm"
+                  className="w-full h-24 border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm p-3 bg-white shadow-sm"
                   value={tempPref}
                   onChange={(e) => setTempPref(e.target.value)}
                   placeholder={t('interests.pref_placeholder')}
                 />
               </div>
 
-              {/* Feld 2: Expertenmodus */}
+              {/* Ebene 2: Such-Strategie */}
               <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-                <label className="text-xs font-bold text-blue-700 uppercase block mb-2 flex justify-between">
-                  <span>{t('interests.inst_label')}</span>
-                  <span className="text-[10px] font-normal text-slate-400">{t('interests.inst_sub')}</span>
+                <label className="text-xs font-bold text-slate-600 uppercase block mb-2 flex items-center gap-2">
+                  <Search className="w-3 h-3 text-slate-400" />
+                  <span>{currentLang === 'de' ? 'Such-Strategie' : 'Search Strategy'}</span>
                 </label>
                 <textarea
-                  className="w-full h-40 border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm p-3 font-mono text-slate-600 bg-white"
-                  value={tempInst}
-                  onChange={(e) => setTempInst(e.target.value)}
-                  placeholder={t('interests.inst_placeholder')}
+                  className="w-full h-28 border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm p-3 text-slate-600 bg-white"
+                  value={tempSearch}
+                  onChange={(e) => setTempSearch(e.target.value)}
                 />
-                <p className="text-[10px] text-slate-400 mt-2">
-                  {t('interests.inst_hint')}
-                </p>
+              </div>
+
+              {/* Ebene 3: Redaktions-Anweisung */}
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                <label className="text-xs font-bold text-slate-600 uppercase block mb-2 flex items-center gap-2">
+                  <PenTool className="w-3 h-3 text-slate-400" />
+                  <span>{currentLang === 'de' ? 'Redaktions-Anweisung' : 'Editorial Instruction'}</span>
+                </label>
+                <textarea
+                  className="w-full h-32 border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm p-3 text-slate-600 bg-white"
+                  value={tempWriting}
+                  onChange={(e) => setTempWriting(e.target.value)}
+                />
               </div>
 
             </div>
 
-            {/* Footer */}
             <div className="px-5 py-3 bg-slate-50 flex justify-end gap-3 border-t border-slate-100 flex-shrink-0">
               <button 
                 onClick={() => setEditingInterestId(null)}
@@ -344,4 +365,4 @@ export const InterestsStep = () => {
     </div>
   );
 };
-// --- END OF FILE 295 Zeilen ---
+// --- END OF FILE 365 Zeilen ---

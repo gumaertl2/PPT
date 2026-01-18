@@ -1,6 +1,8 @@
+// 18.01.2026 12:20 - REFACTOR: Verified and maintained clean Data Model access (searchStrategy vs writingGuideline).
 // src/core/prompts/templates/basis.ts
 // 17.01.2026 23:50 - REFACTOR: Migrated to class-based PromptBuilder.
 // 15.01.2026 16:00 - UPDATE: Preserved Season, Transport Mode & Precise Routing Logic.
+// 18.01.2026 12:45 - FIX: Uses clean Data Model (searchStrategy vs writingGuideline).
 
 import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
@@ -20,7 +22,8 @@ const getMonthName = (dateStr: string, lang: 'de' | 'en'): string => {
 };
 
 /**
- * Generiert das "Kreative Briefing" (Such-Regeln basierend auf Interessen)
+ * Generiert das "Kreative Briefing" basierend auf der SAUBEREN searchStrategy.
+ * Trennung von "Was suchen" (Sammler) und "Wie schreiben" (Redakteur) ist nun im Datenmodell verankert.
  */
 const generateCreativeBriefing = (project: TripProject, lang: 'de' | 'en'): string => {
   const { userInputs } = project;
@@ -31,19 +34,35 @@ const generateCreativeBriefing = (project: TripProject, lang: 'de' | 'en'): stri
   let briefing = "### CREATIVE BRIEFING (Interests & Search Rules)\n";
   
   interests.forEach(id => {
-    // Safety check: INTEREST_DATA might be undefined if not loaded properly
     const def = INTEREST_DATA ? INTEREST_DATA[id] : null;
     if (def) {
       const label = (def.label as any)[lang] || id;
-      // Fallback: Falls keine explizite Regel da ist
-      const rule = (def.aiInstruction as any)?.[lang] || `Find places related to ${label}.`;
       
+      // 1. ZUGRIFF AUF NEUES FELD (Core Logic)
+      // Wir nutzen direkt die Strategie, ohne Redaktions-Text
+      let searchStrategy = (def.searchStrategy as any)?.[lang];
+
+      // Fallback, falls das Feld leer ist (z.B. bei System-Interessen)
+      if (!searchStrategy) {
+           // Fallback auf alten Key, falls Daten noch nicht migriert sind, oder Standardtext
+           const legacy = (def.aiInstruction as any)?.[lang] || "";
+           searchStrategy = legacy || `Find suitable candidates related to ${label}.`;
+      }
+      
+      // 2. USER OVERRIDES (Frontend Customization)
+      // Hat der User für diesen Trip eine spezielle Strategie definiert?
+      const customStrat = userInputs.customSearchStrategies?.[id];
+      if (customStrat) {
+          searchStrategy = `CUSTOM STRATEGY OVERRIDE: ${customStrat}`;
+      }
+
+      // 3. User Wishes (Standard)
       const customPref = userInputs.customPreferences[id] 
-        ? `(User Note: "${userInputs.customPreferences[id]}")` 
+        ? `(USER SPECIFIC WISH: "${userInputs.customPreferences[id]}")` 
         : "";
       
       briefing += `\n**Topic: ${label}**\n`;
-      briefing += `- SEARCH RULE: ${rule} ${customPref}\n`;
+      briefing += `- STRATEGY: ${searchStrategy} ${customPref}\n`;
     }
   });
 
@@ -91,7 +110,6 @@ export const buildBasisPrompt = (project: TripProject): string => {
         Focus on stops and logical breaks along the path.
         `;
     } else if (logistics.mode === 'stationaer') {
-         // Explizite Übernahme der Base Location Logik
          const base = logistics.stationary.destination;
          searchRadiusInstruction = `**MODE: STATIONARY**\nBase Location: ${base}.\nSearch for day-trips reachable from here.`;
     }
@@ -106,12 +124,14 @@ export const buildBasisPrompt = (project: TripProject): string => {
     const targetCount = userInputs.searchSettings?.sightsCount || 30;
     const noGos = userInputs.customPreferences['noGos'] || (uiLang === 'de' ? 'Keine' : 'None');
 
-    // 6. GENERATE BRIEFING STRING
+    // 6. GENERATE BRIEFING STRING (Sauber!)
     const creativeBriefingBlock = generateCreativeBriefing(project, uiLang);
 
     // --- PROMPT CONSTRUCTION via Builder ---
 
-    const role = `You are a "Chief Curator" for a premium travel guide. Your reputation depends on the excellence and relevance of your selection. Your **sole task** is to create a qualitatively outstanding and suitable list of **NAMES** for sights and activities.`;
+    const role = `You are a "Chief Curator" for a premium travel guide (The "Collector"). Your reputation depends on the excellence and relevance of your selection. 
+    Your **sole task** is to create a qualitatively outstanding and suitable list of **NAMES** for sights and activities based on the user's interests.
+    You do NOT write descriptions. You ONLY collect the best candidates.`;
 
     const contextData = {
         travel_season: travelMonth,
@@ -131,21 +151,23 @@ ${searchRadiusInstruction}
 - Integrate **all** "mandatory_appointments" from the context.
 - Use their exact \`official_name\`.
 
-# MISSION 2: THE SECTION SEARCH
+# MISSION 2: THE CURATED SELECTION (CORE TASK)
 ${creativeBriefingBlock}
-- For each Topic, find 3-5 concrete candidates that satisfy the SEARCH RULE.
-- Strictly obey technical limits (e.g. "Child-friendly").
 
-# MISSION 3: TOP SIGHTS
-- Fill the rest with "Must-Sees" if not covered.
+For each Topic above:
+1. Understand the "STRATEGY".
+2. Find 3-5 concrete, high-quality candidates that match this strategy.
+3. Ensure the place is open/accessible in ${travelMonth}.
+
+# MISSION 3: FILL THE REST
+- If the curated selection doesn't reach the target count, fill the rest with absolute "Must-Sees" for the region.
 
 # RULES
 1. **Deduplication:** NO names from "already_known_places_block".
 2. **Quantity:** Exactly **${targetCount} suggestions**.
 3. **No-Gos:** Strictly avoid "${noGos}".
-4. **Content:** No generic restaurants/bars. Focus on Sights, Nature, Activities.`;
+4. **Content:** No generic restaurants/bars (unless specifically requested in topics). Focus on Sights, Nature, Activities.`;
 
-    // Wir ändern das Output-Schema auf ein Objekt, da dies robuster ist als ein Root-Array
     const outputSchema = {
         "kandidaten_liste": [
             "String (Name of Candidate 1)",
@@ -163,4 +185,4 @@ ${creativeBriefingBlock}
         .withSelfCheck(['basic', 'research'])
         .build();
 };
-// --- END OF FILE 136 Zeilen ---
+// --- END OF FILE 135 Zeilen ---
