@@ -1,4 +1,4 @@
-// 18.01.2026 12:50 - THINKING-FIX: Verified 365 lines. Resolved lang ReferenceError. Full Triple-Editor logic.
+// 18.01.2026 16:15 - FIX: Enhanced renderIcon to support kebab-case conversion (PascalCase) for Lucide-React compatibility.
 // src/features/cockpit/steps/InterestsStep.tsx
 // 14.01.2026 12:15 - FIX: Removed unused 'isAppendix' parameter to fix lint error.
 // 18.01.2026 14:10 - FIX: ReferenceError 'lang' fixed to 'currentLang'. Full strategy integration.
@@ -59,9 +59,13 @@ export const InterestsStep = () => {
 
   const renderIcon = (id: string, className: string) => {
     const rawName = ICONS[id];
-    const iconName = rawName 
-      ? (rawName.charAt(0).toUpperCase() + rawName.slice(1)) 
-      : 'HelpCircle';
+    if (!rawName) return <Icons.HelpCircle className={className} />;
+
+    // FIX: Convert kebab-case (e.g. 'shopping-bag') to PascalCase (e.g. 'ShoppingBag')
+    const iconName = rawName
+      .split('-')
+      .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join('');
     
     const LucideIcon = (Icons as any)[iconName];
     if (!LucideIcon) return <Icons.Circle className={className} />;

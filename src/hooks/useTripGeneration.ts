@@ -1,9 +1,11 @@
+// 18.01.2026 15:35 - FIX: Implemented Chunking-Awareness in Workflow Manager. Tasks now repeat until all chunks are finished.
 // src/hooks/useTripGeneration.ts
 // 12.01.2026 19:00 - UPDATE: Implemented result processing for 'basis' and 'anreicherer'.
 // 16.01.2026 03:40 - FIX: Corrected TaskKey import source to resolve build errors (TS2345).
 // 16.01.2026 04:30 - FINAL FIX: Consolidated TaskKey import from core/types for Vercel parity.
 // 17.01.2026 18:45 - REFACTOR: Integrated TripOrchestrator for centralized logic handling.
 // 18.01.2026 23:15 - FIX: Added 'Food' processor & robust Object/Array handling for all list-based agents.
+// 18.01.2026 15:25 - FIX: Added functional 'Cancel' action to all loading notifications for blocking modal.
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -53,7 +55,11 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     project,
     manualPrompt,
     manualStepId,
-    setManualMode
+    setManualMode,
+    // NEU: Chunking-Steuerung für den Workflow-Manager
+    chunkingState,
+    setChunkingState,
+    resetChunking
   } = useTripStore();
   
   const lang = (project.meta.language === 'en' ? 'en' : 'de') as 'de' | 'en';
@@ -73,8 +79,9 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     setQueue([]);
     setCurrentStep(null);
     setManualMode(null, null);
+    resetChunking(); // FIX: Reset Chunking on Cancel
     if (aiSettings.debug) logEvent({ task: 'workflow_manager', type: 'system', content: 'Workflow CANCELLED' });
-  }, [aiSettings.debug, logEvent, setManualMode]);
+  }, [aiSettings.debug, logEvent, setManualMode, resetChunking]);
 
   const processResult = useCallback((step: WorkflowStepId | TaskKey, data: any) => {
     if (aiSettings.debug) {
@@ -203,7 +210,14 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       const loadingId = addNotification({ 
         type: 'loading', 
         message: t('status.workflow_start', { step: stepLabel }), 
-        autoClose: false 
+        autoClose: false,
+        actions: [
+          {
+            label: t('actions.cancel', 'Abbrechen'),
+            onClick: cancelWorkflow,
+            variant: 'outline'
+          }
+        ]
       });
 
       try {
@@ -211,7 +225,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
         
         // Manual Mode Fallback: Wenn kein Key da ist, Prompt bauen und UI anzeigen
         if (!apiKey) {
-            // Wir nutzen PayloadBuilder hier nur für die UI-Vorschau
             const payload = PayloadBuilder.buildPrompt(nextStepId as TaskKey); 
             dismissNotification(loadingId);
             setManualMode(payload, nextStepId);
@@ -219,14 +232,21 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
             return;
         }
 
-        // ORCHESTRATOR CALL (Ersetzt GeminiService direct call)
-        // Der Orchestrator kümmert sich um Prompt-Bau, API-Call und Validierung
+        // ORCHESTRATOR CALL
         const result = await TripOrchestrator.executeTask(nextStepId as TaskKey);
         
         dismissNotification(loadingId);
         if (isMounted) {
             processResult(nextStepId, result);
-            setQueue(prev => prev.slice(1));
+            
+            // CHUNKING WEICHE: Erst wenn alle Chunks durch sind, wird der Task aus der Queue entfernt
+            if (chunkingState.isActive && chunkingState.currentChunk < chunkingState.totalChunks) {
+              setChunkingState({ currentChunk: chunkingState.currentChunk + 1 });
+              // Wir bleiben beim currentStep, useEffect wird durch Dependency-Update (currentChunk) neu getriggert
+            } else {
+              setQueue(prev => prev.slice(1));
+              resetChunking();
+            }
         }
       } catch (err) {
         dismissNotification(loadingId);
@@ -256,7 +276,26 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     };
     executeNextStep();
     return () => { isMounted = false; };
-  }, [queue, status, currentStep, aiSettings.debug, logEvent, processResult, addNotification, dismissNotification, cancelWorkflow, t, lang, setManualMode]);
+  }, [
+    queue, 
+    status, 
+    currentStep, 
+    aiSettings.debug, 
+    logEvent, 
+    processResult, 
+    addNotification, 
+    dismissNotification, 
+    cancelWorkflow, 
+    t, 
+    lang, 
+    setManualMode,
+    // NEU: Re-trigger für Chunking-Iterationen
+    chunkingState.currentChunk,
+    chunkingState.isActive,
+    chunkingState.totalChunks,
+    setChunkingState,
+    resetChunking
+  ]);
 
   const startWorkflow = useCallback((steps: WorkflowStepId[]) => {
     if (steps.length === 0) return;
@@ -294,7 +333,14 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       const loadingId = addNotification({ 
         type: 'loading', 
         message: t('status.workflow_start', { step: stepLabel }), 
-        autoClose: false 
+        autoClose: false,
+        actions: [
+          {
+            label: t('actions.cancel', 'Abbrechen'),
+            onClick: cancelWorkflow,
+            variant: 'outline'
+          }
+        ]
       });
 
       try {
@@ -307,7 +353,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
               return; 
           }
 
-          // ORCHESTRATOR CALL
           const result = await TripOrchestrator.executeTask(task, feedback);
 
           dismissNotification(loadingId);
@@ -322,8 +367,8 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
             autoClose: 5000
           });
       }
-  }, [processResult, setManualMode, addNotification, dismissNotification, lang, t]);
+  }, [processResult, setManualMode, addNotification, dismissNotification, lang, t, cancelWorkflow]);
 
   return { status, currentStep, queue, error, progress, manualPrompt, submitManualResult, startWorkflow, resumeWorkflow, cancelWorkflow, startSingleTask };
 };
-// --- END OF FILE 423 Zeilen ---
+// --- END OF FILE 454 Zeilen ---
