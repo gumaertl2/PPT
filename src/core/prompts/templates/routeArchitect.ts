@@ -1,3 +1,4 @@
+// 19.01.2026 12:00 - FIX: Restored V30 Legacy Output Schema (routenVorschlaege) to match Frontend SSOT directly.
 // src/core/prompts/templates/routeArchitect.ts
 // 17.01.2026 12:45 - UPDATE: Integrated Duration Estimator logic directly.
 // 18.01.2026 00:10 - REFACTOR: Migrated to class-based PromptBuilder.
@@ -32,27 +33,37 @@ Die Optionen sollen sich im "Vibe" unterscheiden (z.B. "Der Klassiker", "Natur p
 2.  **Pace:** Plane realistische Fahrdistanzen. Max 4 Stunden reine Fahrzeit pro Stationwechsel.
 3.  **Dauer:** Die Summe der Nächte muss exakt der Reisedauer entsprechen.
 4.  **Stationen:** Wähle strategisch kluge Übernachtungsorte (Hubs), von denen aus man die Umgebung erkunden kann.
+5.  **Struktur:** Gib die Übernachtungsorte als einfache Liste an.
 
-# OUTPUT-SCHEMA
-Erstelle für jede Option eine Liste von "Stages" (Etappen).
-Jede Stage benötigt:
-- \`location_name\`: Name des Ortes.
-- \`nights\`: Anzahl der Nächte.
-- \`reasoning\`: Warum dieser Ort? (1 Satz).`;
+# OUTPUT-SCHEMA (Legacy Compatibility)
+Erstelle ein JSON mit dem Schlüssel "routenVorschlaege".
+Jeder Vorschlag benötigt:
+- \`routenName\`: Kreativer Titel.
+- \`charakter\`: Kurzbeschreibung des Vibes.
+- \`uebernachtungsorte\`: Ein Array von Strings (nur die Städtenamen in Reihenfolge).
+- \`ankerpunkte\`: Ein Array von Objekten für die Karten-Pins (standortFuerKarte).
+- \`gesamtKilometer\`: Geschätzte Distanz (Zahl).
+- \`gesamtFahrzeitStunden\`: Geschätzte reine Fahrzeit (Zahl).
+- \`anzahlHotelwechsel\`: Anzahl der nötigen Hotelwechsel (Zahl).`;
 
   const outputSchema = {
-    "route_options": [
+    "routenVorschlaege": [
       {
-        "id": "String (z.B. 'route_classic')",
-        "title": "String (Titel der Route)",
-        "description": "String (Kurze Beschreibung des Charakters)",
-        "stages": [
-          {
-            "location_name": "String",
-            "nights": "Integer",
-            "reasoning": "String"
-          }
-        ]
+        "routenName": "String (z.B. 'Alpen-Klassiker')",
+        "charakter": "String (Kurze Beschreibung)",
+        "uebernachtungsorte": [
+          "München",
+          "Garmisch-Partenkirchen",
+          "Berchtesgaden"
+        ],
+        "ankerpunkte": [
+          { "standortFuerKarte": "München" },
+          { "standortFuerKarte": "Garmisch-Partenkirchen" },
+          { "standortFuerKarte": "Berchtesgaden" }
+        ],
+        "gesamtKilometer": 350,
+        "gesamtFahrzeitStunden": 5.5,
+        "anzahlHotelwechsel": 2
       }
     ]
   };
@@ -66,4 +77,4 @@ Jede Stage benötigt:
     .withSelfCheck(['basic', 'planning'])
     .build();
 };
-// --- END OF FILE 65 Zeilen ---
+// --- END OF FILE 79 Zeilen ---

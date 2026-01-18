@@ -1,3 +1,4 @@
+// 19.01.2026 13:30 - FIX: Restored V30 Legacy Schema (German Keys) for Consistency with FoodScout.
 // src/core/prompts/templates/foodEnricher.ts
 // 16.01.2026 20:00 - FEAT: Added 'Menu & Vibe' Analysis.
 // 18.01.2026 00:35 - REFACTOR: Migrated to class-based PromptBuilder.
@@ -29,19 +30,20 @@ Recherchiere für jeden Kandidaten live im Web.
 5.  **Preis:** €, €€ oder €€€.
 
 # FALLBACK
-Wenn ein Restaurant unauffindbar ist, markiere es als "NOT FOUND". Erfinde nichts.`;
+Wenn ein Restaurant unauffindbar ist, markiere es als "NICHT GEFUNDEN". Erfinde nichts.`;
 
+  // FIX: Schema converted to German V30 keys to match FoodScout
   const outputSchema = {
-    "enriched_candidates": [
+    "angereicherte_kandidaten": [
       {
         "original_name": "String",
-        "found": "Boolean",
-        "address": "String",
-        "cuisine_type": "String",
-        "vibe_tags": ["String"],
-        "signature_dish": "String",
-        "price_level": "String",
-        "website_url": "String"
+        "gefunden": "Boolean",
+        "adresse": "String",
+        "kueche": "String",
+        "atmosphaere": ["String"],
+        "spezialitaet": "String",
+        "preisKategorie": "String",
+        "webseite": "String"
       }
     ]
   };
@@ -55,4 +57,4 @@ Wenn ein Restaurant unauffindbar ist, markiere es als "NOT FOUND". Erfinde nicht
     .withSelfCheck(['basic', 'research'])
     .build();
 };
-// --- END OF FILE 56 Zeilen ---
+// --- END OF FILE 58 Zeilen ---

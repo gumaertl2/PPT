@@ -1,3 +1,4 @@
+// 19.01.2026 13:05 - FIX: Restored V30 Legacy Schema (vorschlaege, geo_koordinaten) for SSOT compliance.
 // src/core/prompts/templates/foodScout.ts
 // 16.01.2026 19:45 - FIX: Added V30 "Star-Filter" Logic.
 // 18.01.2026 00:30 - REFACTOR: Migrated to class-based PromptBuilder.
@@ -55,23 +56,25 @@ Der User wünscht explizit gehobene Gastronomie.
 
   const instructions = `# AUFGABE
 Suche nach Restaurants in ${location}, die den Filter-Kriterien entsprechen.
-Extrahiere die exakten Koordinaten (Lat/Lng).
+Extrahiere die exakten Koordinaten.
 
 ${qualityFilterInstruction}
 
 # PFLICHT
 Geografische Daten sind PFLICHT für die Entfernungsberechnung.`;
 
+  // FIX: Schema completely reverted to German V30 Legacy names
   const outputSchema = {
-    "kandidaten": [
+    "vorschlaege": [
       {
         "name": "String",
         "ort": "String",
         "adresse": "String",
-        "geo": { "lat": "Number", "lng": "Number" },
+        "beschreibung": "String (Kurze Beschreibung der Küche/Vibe)",
+        "geo_koordinaten": { "breitengrad": "Number", "laengengrad": "Number" },
         "guides": ["String"],
-        "cuisine": "String",
-        "priceLevel": "String"
+        "kueche": "String (z.B. 'Regional', 'Modern')",
+        "preisKategorie": "String (z.B. '€€', '€€€')"
       }
     ]
   };
@@ -85,4 +88,4 @@ Geografische Daten sind PFLICHT für die Entfernungsberechnung.`;
     .withSelfCheck(['basic', 'research'])
     .build();
 };
-// --- END OF FILE 85 Zeilen ---
+// --- END OF FILE 87 Zeilen ---

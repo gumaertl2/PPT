@@ -1,3 +1,4 @@
+// 19.01.2026 13:10 - FIX: Restored V30 Legacy Schema (hotel_vorschlaege, beschreibung) for SSOT compliance.
 // src/core/prompts/templates/hotelScout.ts
 // 17.01.2026 15:30 - UPDATE: Added 'Geo-Hub' Logic for strategic location search.
 // 18.01.2026 00:15 - REFACTOR: Migrated to class-based PromptBuilder.
@@ -50,16 +51,17 @@ Finde 3 konkrete Unterkunfts-Optionen in oder sehr nahe bei **"${locationName}"*
 Fülle für jede Option das Schema exakt aus.
 WICHTIG: Recherchiere eine echte, funktionierende Buchungs-URL (Booking.com, Airbnb oder Direkt).`;
 
+  // FIX: Schema reverted to German V30 keys
   const outputSchema = {
-    "accommodations": [
+    "hotel_vorschlaege": [
       {
         "name": "String (Offizieller Name)",
-        "address": "String (Adresse)",
-        "description": "String (Warum diese Wahl? 1-2 Sätze)",
-        "price_approx": "String (Geschätzter Preis pro Nacht)",
-        "booking_url": "String (URL zur Buchung oder Homepage)",
-        "pros": ["String (Vorteil 1)", "String (Vorteil 2)"],
-        "google_rating": "Number"
+        "adresse": "String (Adresse)",
+        "beschreibung": "String (Warum diese Wahl? 1-2 Sätze)",
+        "preis": "String (Geschätzter Preis pro Nacht)",
+        "buchungs_url": "String (URL zur Buchung oder Homepage)",
+        "vorteile": ["String (Vorteil 1)", "String (Vorteil 2)"],
+        "bewertung": "Number (Google Rating)"
       }
     ]
   };

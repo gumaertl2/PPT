@@ -1,3 +1,4 @@
+// 19.01.2026 13:35 - FIX: Restored V30 Legacy Schema (German Keys) for GeoAnalyst.
 // src/core/prompts/templates/geoAnalyst.ts
 // 17.01.2026 15:00 - UPDATE: Added 'Hub Identification' Logic.
 // 18.01.2026 00:40 - REFACTOR: Migrated to class-based PromptBuilder.
@@ -46,14 +47,15 @@ ${routing}
 # OUTPUT
 Erstelle eine Liste von empfohlenen Hubs mit Begründung.`;
 
+  // FIX: Schema converted to German V30 keys
   const outputSchema = {
-    "recommended_hubs": [
+    "empfohlene_hubs": [
       {
         "hub_name": "String (Name der Stadt/Ort)",
-        "suitability_score": "Integer (1-10)",
-        "pros": ["String"],
-        "cons": ["String"],
-        "best_for": "String (z.B. 'Familien', 'Nightlife', 'Ruhe')"
+        "eignung_score": "Integer (1-10)",
+        "vorteile": ["String"],
+        "nachteile": ["String"],
+        "geeignet_fuer": "String (z.B. 'Familien', 'Nightlife', 'Ruhe')"
       }
     ]
   };

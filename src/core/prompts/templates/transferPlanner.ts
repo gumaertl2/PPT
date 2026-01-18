@@ -1,5 +1,6 @@
-// 18.01.2026 14:35 - FIX: Added previousLocation argument to support Chunking-Awareness (Fixes TS2345).
+// 19.01.2026 13:40 - FIX: Restored V30 Legacy Schema (German Keys) for TransferPlanner.
 // src/core/prompts/templates/transferPlanner.ts
+// 18.01.2026 14:35 - FIX: Added previousLocation argument to support Chunking-Awareness (Fixes TS2345).
 // 17.01.2026 15:35 - UPDATE: Added 'Stationary Mode' (Hub & Spoke) Logic.
 // 18.01.2026 00:20 - REFACTOR: Migrated to class-based PromptBuilder.
 
@@ -57,15 +58,16 @@ ${modeInstruction}
 # OUTPUT-SCHEMA
 Erstelle eine Liste von Transfer-Verbindungen.`;
 
+  // FIX: Schema converted to German V30 keys
   const outputSchema = {
     "transfers": [
       {
         "from_id": "String (ID oder 'BASE')",
         "to_id": "String (ID)",
-        "duration_minutes": "Integer",
-        "distance_km": "Number",
-        "transport_mode": "String (car, public, walk)",
-        "notes": "String (z.B. 'Mautpflichtig' oder 'Schöne Panoramastraße')"
+        "dauer_minuten": "Integer",
+        "distanz_km": "Number",
+        "transport_art": "String (car, public, walk)",
+        "hinweise": "String (z.B. 'Mautpflichtig' oder 'Schöne Panoramastraße')"
       }
     ]
   };

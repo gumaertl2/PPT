@@ -1,5 +1,6 @@
-// 18.01.2026 12:40 - BUILD-FIX: Replaced .withConstraint with .withInstruction (Fixes TS2339). Full logic preserved.
+// 19.01.2026 13:00 - FIX: Restored V30 Legacy Schema (tag_nr -> tagNummer) for SSOT compliance.
 // src/core/prompts/templates/initialTagesplaner.ts
+// 18.01.2026 12:40 - BUILD-FIX: Replaced .withConstraint with .withInstruction (Fixes TS2339). Full logic preserved.
 // 16.01.2026 21:00 - FEAT: Initial creation. Chunking-Aware Planning Logic.
 // 17.01.2026 17:05 - FIX: Applied Strict Types (Zero Error Policy).
 // 17.01.2026 17:45 - FIX: Corrected PromptBuilder import path.
@@ -119,7 +120,7 @@ export const buildInitialTagesplanerPrompt = (
   {
     "tage": [
       {
-        "tag_nr": ${dayOffset + 1}, // Startet beim korrekten Tag (Offset beachten)
+        "tagNummer": ${dayOffset + 1}, // Legacy-Key: tagNummer (nicht tag_nr)
         "datum": "YYYY-MM-DD" (wenn bekannt, sonst null),
         "titel": "Motto des Tages",
         "ort": "Hauptaufenthaltsort",

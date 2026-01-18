@@ -1,3 +1,4 @@
+// 19.01.2026 13:15 - FIX: Restored V30 Legacy Schema (German Keys) for SSOT compliance.
 // src/core/prompts/templates/chefPlaner.ts
 // 14.01.2026 17:10 - FIX: Added safety checks for undefined optional properties.
 // 15.01.2026 15:30 - UPDATE: Filter empty appointments & Enforce Region Constraint.
@@ -159,39 +160,40 @@ export const buildChefPlanerPrompt = (project: TripProject, feedback?: string): 
     target_output_language: targetLanguageName
   };
 
+  // FIX: Schema completely reverted to German V30 keys
   const outputSchema = {
-    "_thought_process": [
-      "String (Step 1: Verify inputs & logistics constraints...)", 
-      "String (Step 2: Check feasibility of distances based on logistics_briefing...)",
-      "String (Step 3: Define search strategy...)"
+    "gedankenschritte": [
+      "String (Schritt 1: Verifiziere Inputs & Logistik...)", 
+      "String (Schritt 2: Prüfe Machbarkeit der Distanzen...)",
+      "String (Schritt 3: Definiere Suchstrategie...)"
     ],
-    "plausibility_check": "String (Assessment: Is the route/base plausible given the drive time limits?) | null",
+    "plausibilitaets_check": "String (Einschätzung: Ist die Route/Basis machbar?) | null",
     
-    "corrections": {
+    "korrekturen": {
       "destination_typo_found": "Boolean",
       "corrected_destination": "String | null",
       "notes": [ "String" ]
     },
 
-    "validated_appointments": [
+    "validierte_termine": [
       {
         "original_input": "String", "official_name": "String", "address": "String",
         "estimated_duration_min": "Integer"
       }
     ],
-    "validated_hotels": [
+    "validierte_hotels": [
       { "station": "String", "official_name": "String", "address": "String" }
     ],
     
-    "strategic_briefing": {
-      "search_radius_instruction": "String (Specific instruction for the Collector based on logistics_briefing constraints)", 
-      "sammler_briefing": "String (Briefing for Collector: focus on strategy and pet requirements if applicable)", 
+    "strategisches_briefing": {
+      "search_radius_instruction": "String (Anweisung für den Sammler basierend auf Logistik)", 
+      "sammler_briefing": "String (Briefing für Sammler: Fokus auf Strategie & Pet Needs)", 
       "itinerary_rules": "String"
     },
     
-    "smart_limit_recommendation": { 
-        "reasoning": "String (Why this amount?)", 
-        "value": "Integer (The target amount. Usually close to target_sights_count unless specific reasons dictate otherwise)" 
+    "smart_limit_empfehlung": { 
+        "reasoning": "String (Warum diese Anzahl?)", 
+        "value": "Integer (Zielanzahl POIs, nah an target_sights_count)" 
     }
   };
 
@@ -215,7 +217,7 @@ You must strictly adhere to the 'logistics_briefing':
 1. **ERROR SCAN**: Check for typos.
 2. **VALIDATION**: Research official names for hotels/appointments.
 3. **PLAUSIBILITY**: Check if the plan works with the given drive-time limits AND transport mode.
-4. **BRIEFING**: Write instructions for the "Collector" agent.
+4. **BRIEFING**: Write instructions (field 'strategisches_briefing') for the "Collector" agent.
 
 # LANGUAGE
 Generate ALL user-facing text in **${targetLanguageName}**.`;

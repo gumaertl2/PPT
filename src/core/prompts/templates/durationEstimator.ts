@@ -1,3 +1,4 @@
+// 19.01.2026 13:45 - FIX: Restored V30 Legacy Schema (German Keys) for DurationEstimator.
 // src/core/prompts/templates/durationEstimator.ts
 // 17.01.2026 15:00 - FEAT: Initial Logic for Roundtrip Duration Estimation.
 // 18.01.2026 00:50 - FIX: Restored correct content (was overwritten by GeoAnalyst).
@@ -41,17 +42,18 @@ Verteile die verfügbaren ${totalDays} Reisetage sinnvoll auf die ${stops.length
 Route: ${stops.map(s => s.location).join(' -> ')}
 Gesamtdauer: ${totalDays} Tage`;
 
+  // FIX: Schema converted to German V30 keys
   const outputSchema = {
-    "estimation": {
-      "total_days_planned": "Integer",
-      "stops": [
+    "schaetzung": {
+      "geplante_tage_gesamt": "Integer",
+      "stationen": [
         {
-          "location": "String (Name aus Input)",
-          "recommended_nights": "Integer",
-          "reasoning": "String (Kurze Begründung, warum so lange/kurz)"
+          "ort": "String (Name aus Input)",
+          "empfohlene_naechte": "Integer",
+          "begruendung": "String (Kurze Begründung, warum so lange/kurz)"
         }
       ],
-      "feasibility_check": "String (Ist die Route in der Zeit machbar? 'Ja', 'Knapp' oder 'Nein')"
+      "machbarkeits_check": "String (Ist die Route in der Zeit machbar? 'Ja', 'Knapp' oder 'Nein')"
     }
   };
 
@@ -61,7 +63,7 @@ Gesamtdauer: ${totalDays} Tage`;
     .withContext(contextData, "ROUTEN-DATEN")
     .withInstruction(instructions)
     .withOutputSchema(outputSchema)
-    .withSelfCheck(['planning']) // FIX: Removed 'logic'
+    .withSelfCheck(['planning']) 
     .build();
 };
 // --- END OF FILE 61 Zeilen ---
