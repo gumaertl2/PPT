@@ -1,3 +1,4 @@
+// 19.01.2026 17:25 - FIX: Migrated UI to German V30 Keys (SSOT Consistency).
 // src/features/cockpit/AnalysisReviewView.tsx
 // 14.01.2026 14:30 - FIX: Applied Optional Chaining (?.) to all analysis properties to prevent crashes in 'Fundament' mode. Removed unused Sparkles.
 
@@ -37,9 +38,9 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
   
   // INTELLIGENTE INITIALISIERUNG DES COUNTS
   const [suggestionCount, setSuggestionCount] = useState<number>(() => {
-    // FIX: Safe access with ?.
-    if (project.analysis.chefPlaner?.smart_limit_recommendation?.value) {
-      return project.analysis.chefPlaner.smart_limit_recommendation.value;
+    // FIX: Updated to German Key (smart_limit_empfehlung)
+    if (project.analysis.chefPlaner?.smart_limit_empfehlung?.value) {
+      return project.analysis.chefPlaner.smart_limit_empfehlung.value;
     }
     // FIX: Safe access for userInputs
     const saved = project.userInputs?.customPreferences?.suggestionCount;
@@ -77,10 +78,10 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
     );
   }
 
-  // FIX: Robust check for corrections. Prevents crash if 'corrections' or 'notes' is undefined.
-  const hasCorrections = analysis.corrections && (
-      (analysis.corrections.notes && analysis.corrections.notes.length > 0) || 
-      analysis.corrections.corrected_destination
+  // FIX: Updated to German Key (korrekturen)
+  const hasCorrections = analysis.korrekturen && (
+      (analysis.korrekturen.notes && analysis.korrekturen.notes.length > 0) || 
+      analysis.korrekturen.corrected_destination
   );
 
   return (
@@ -96,8 +97,8 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
                 {t('analysis.correctionsTitle')}
               </h3>
               <ul className="mt-1 space-y-0.5 text-sm text-green-800 list-disc list-inside">
-                {/* FIX: ?.map ensures no crash if notes is undefined */}
-                {analysis.corrections?.notes?.map((note, idx) => (
+                {/* FIX: Updated to German Key (korrekturen) */}
+                {analysis.korrekturen?.notes?.map((note, idx) => (
                   <li key={idx}>{note}</li>
                 ))}
               </ul>
@@ -113,31 +114,31 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
           {t('analysis.plausibility')}
         </h3>
         <p className="text-sm text-gray-700 leading-relaxed mb-4">
-          {/* FIX: Fallback logic using OR checks to handle missing fields */}
-          {analysis.plausibility_check || analysis.briefing_summary || t('analysis.noCheck')}
+          {/* FIX: Updated to German Key (plausibilitaets_check). Removed briefing_summary as it's not in types.ts anymore. */}
+          {analysis.plausibilitaets_check || t('analysis.noCheck')}
         </p>
         
         {/* Strategisches Briefing */}
-        {/* FIX: Safe check using ?. */}
-        {analysis.strategic_briefing && (
+        {/* FIX: Updated to German Key (strategisches_briefing) */}
+        {analysis.strategisches_briefing && (
           <div className="pt-4 border-t border-gray-100">
              <h4 className="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-2">
                <Lightbulb className="w-3 h-3" />
                {t('analysis.briefing')}
              </h4>
              <p className="text-sm text-gray-600 italic mb-2">
-              "{analysis.strategic_briefing?.sammler_briefing}"
+              "{analysis.strategisches_briefing?.sammler_briefing}"
             </p>
             <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded inline-block">
-              <strong>{t('analysis.radius')}:</strong> {analysis.strategic_briefing?.search_radius_instruction}
+              <strong>{t('analysis.radius')}:</strong> {analysis.strategisches_briefing?.search_radius_instruction}
             </div>
           </div>
         )}
       </div>
 
       {/* 2. VALIDIERTE HOTELS */}
-      {/* FIX: Safe check with ?.length */}
-      {analysis.validated_hotels && analysis.validated_hotels.length > 0 && (
+      {/* FIX: Updated to German Key (validierte_hotels) */}
+      {analysis.validierte_hotels && analysis.validierte_hotels.length > 0 && (
         <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
             <div className="bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-800 uppercase flex items-center gap-2">
             <Hotel className="w-4 h-4" />
@@ -145,7 +146,7 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
           </div>
           <table className="w-full text-xs text-left">
             <tbody className="divide-y divide-gray-100">
-              {analysis.validated_hotels.map((hotel, idx) => (
+              {analysis.validierte_hotels.map((hotel, idx) => (
                 <tr key={idx} className="bg-white">
                   <td className="p-3 font-medium text-gray-900 w-1/3">{hotel.station}</td>
                   <td className="p-3 text-gray-800">{hotel.official_name}</td>
@@ -157,8 +158,8 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
       )}
 
       {/* 3. VALIDIERTE TERMINE */}
-      {/* FIX: Safe check with ?.length */}
-      {analysis.validated_appointments && analysis.validated_appointments.length > 0 && (
+      {/* FIX: Updated to German Key (validierte_termine) */}
+      {analysis.validierte_termine && analysis.validierte_termine.length > 0 && (
         <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
           <div className="bg-amber-50 px-4 py-2 text-xs font-bold text-amber-800 uppercase flex items-center gap-2">
             <Calendar className="w-4 h-4" />
@@ -166,7 +167,7 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
           </div>
           <table className="w-full text-xs text-left">
             <tbody className="divide-y divide-gray-100">
-              {analysis.validated_appointments.map((appt, idx) => (
+              {analysis.validierte_termine.map((appt, idx) => (
                 <tr key={idx} className="bg-white">
                   <td className="p-3 text-gray-500 w-1/4">{appt.original_input}</td>
                   <td className="p-3 font-medium text-gray-900">{appt.official_name}</td>
@@ -207,11 +208,11 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
           <label className="block text-sm font-bold text-gray-800 mb-1">
              {t('analysis.countLabel')}
           </label>
-          {/* FIX: Safe check with ?. */}
-          {analysis.smart_limit_recommendation?.value ? (
+          {/* FIX: Updated to German Key (smart_limit_empfehlung) */}
+          {analysis.smart_limit_empfehlung?.value ? (
              <div className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded border border-amber-100 inline-block">
-               <strong>{t('analysis.smartLimit')}: {analysis.smart_limit_recommendation.value}</strong>
-               <span className="block opacity-90 mt-0.5">{analysis.smart_limit_recommendation?.reasoning}</span>
+               <strong>{t('analysis.smartLimit')}: {analysis.smart_limit_empfehlung.value}</strong>
+               <span className="block opacity-90 mt-0.5">{analysis.smart_limit_empfehlung?.reasoning}</span>
              </div>
           ) : (
             <span className="text-xs text-gray-500">

@@ -1,3 +1,4 @@
+// 19.01.2026 17:10 - FIX: Updated Schemas to explicitly validate German V30 Keys (Grand Unification).
 // 18.01.2026 16:15 - FIX: Resolved TS6133 by renaming unused parameter 'logWarning' to '_logWarning'.
 // src/services/validation.ts
 
@@ -45,11 +46,16 @@ export const chefPlanerSchema = z.union([
     validated_hotels: z.array(z.any()).optional()
   }).passthrough(),
   
-  // Variante B: Deutsch (Legacy Vermutung)
+  // Variante B: Deutsch (Legacy/V30 - SSOT)
   z.object({
     gedankenschritte: z.array(z.string()).optional(),
     plausibilitaets_check: z.string().nullable().optional(),
-    strategisches_briefing: z.any().optional()
+    strategisches_briefing: z.any().optional(),
+    // NEU: Explizite Validierung der V30 Keys
+    korrekturen: z.any().optional(),
+    validierte_termine: z.array(z.any()).optional(),
+    validierte_hotels: z.array(z.any()).optional(),
+    smart_limit_empfehlung: z.any().optional()
   }).passthrough()
 ]);
 
@@ -89,7 +95,8 @@ export const foodSchema = z.union([
   })),
   // Variante B: Objekt Wrapper (V40 Style)
   z.object({
-    candidates: z.array(z.any()).optional()
+    candidates: z.array(z.any()).optional(),
+    vorschlaege: z.array(z.any()).optional() // NEU: Unterstützt { vorschlaege: [...] }
   }).passthrough()
 ]);
 
@@ -124,6 +131,7 @@ export const geoAnalystSchema = z.object({
   // Hier akzeptieren wir einfach jedes flache Objekt, da GeoAnalyst neu ist
   strategy: z.string().optional(),
   optimale_stadtviertel: z.array(z.any()).optional(),
-  suggested_hubs: z.array(z.any()).optional()
+  suggested_hubs: z.array(z.any()).optional(),
+  empfohlene_hubs: z.array(z.any()).optional() // NEU: V30 Parity
 }).passthrough();
-// --- END OF FILE 137 Zeilen ---
+// --- END OF FILE 147 Zeilen ---

@@ -1,4 +1,4 @@
-// 18.01.2026 13:05 - FIX: Expanded WorkflowStepDef description to include 'en' (Fixes TS2353/TS7053).
+// 19.01.2026 17:00 - FIX: Reverted ChefPlanerResult & GeoAnalystResult to German V30 Keys (SSOT Consistency).
 // src/core/types.ts
 // 16.01.2026 17:00 - FEAT: Added all V30 Master Matrix Agent Keys to WorkflowStepId.
 // 16.01.2026 20:00 - REFACTOR: Centralized ChunkingState and AiSettings for SSOT.
@@ -271,40 +271,39 @@ export interface ChefPlanerResult {
     analyzedAt: string;
     model: string;
   };
-  corrections: {
-    destination?: string;
-    dates?: string;
-    hints: string[];
+  // UPDATE: Zurück auf deutsche V30 Keys (passend zum Template)
+  gedankenschritte?: string[];
+  plausibilitaets_check?: string | null;
+  
+  korrekturen: {
+    destination_typo_found?: boolean;
+    corrected_destination?: string | null;
     notes?: string[];
-    corrected_destination?: string;
   };
-  assessment: {
-    plausibility: string;
-    missingInfo: string[];
-    suggestions: string[];
-  };
-  strategy_summary: string;
-  briefing_summary: string;
-  smart_limit_recommendation?: {
-    value: number;
-    reasoning: string;
-  };
-  validated_appointments: Array<{
+
+  validierte_termine: Array<{
     original_input: string;
     official_name: string;
     address: string;
     estimated_duration_min: number;
-   }>;
-  validated_hotels?: Array<{
+  }>;
+
+  validierte_hotels?: Array<{
     station: string;
     official_name: string;
     address?: string;
   }>;
-  strategic_briefing: {
+
+  strategisches_briefing: {
     search_radius_instruction: string;
     sammler_briefing: string;
+    itinerary_rules?: string;
   };
-  plausibility_check?: string;
+
+  smart_limit_empfehlung?: {
+    value: number;
+    reasoning: string;
+  };
 }
 
 export interface RouteProposal {
@@ -316,26 +315,26 @@ export interface RouteProposal {
   uebernachtungsorte: string[];
   ankerpunkte: Array<{
     standortFuerKarte: string;
-    adresse: string;
+    adresse?: string; // Optional
   }>;
-  begruendung: string;
+  begruendung?: string; // Optional, da im Template nicht explizit gefordert
 }
 
 export interface RouteArchitectResult {
   routenVorschlaege: RouteProposal[];
 }
 
-// NEU: Ergebnis des GeoAnalysten (Lage-Stratege)
+// UPDATE: Ergebnis des GeoAnalysten (V30 Keys)
 export interface GeoAnalystResult {
-  strategische_standorte: Array<{
-    ort_name: string;
-    such_radius_km: number;
-    fokus: string;
-    begruendung: string;
-    aufenthaltsdauer_empfehlung: string;
+  empfohlene_hubs: Array<{
+    hub_name: string;
+    eignung_score: number;
+    vorteile: string[];
+    nachteile: string[];
+    geeignet_fuer: string;
   }>;
-  analyse_fazit: string;
 }
+
 export type FoodSearchMode = 'standard' | 'stars';
 
 // --- DATA OBJECTS (PLACES & CONTENT) ---

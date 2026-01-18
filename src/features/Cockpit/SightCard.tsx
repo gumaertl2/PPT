@@ -1,3 +1,4 @@
+// 19.01.2026 17:40 - FIX: Added Polyglott-Support (German V30 Fallbacks) for Description, Rating & Category.
 // src/features/Cockpit/SightCard.tsx
 // 13.01.2026 18:00 - LAYOUT: V30 High-Density (Meta-Bar with Inputs & Icons)
 // 16.01.2026 02:25 - FIX: Corrected Google Rating Count fallback and Debug Modal z-index.
@@ -40,11 +41,15 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   const isStandard = viewLevel === 'standard';
   const [showDebug, setShowDebug] = useState(false);
 
-  // Fallback für Daten
+  // Fallback für Daten (Polyglott: V40 Englisch + V30 Deutsch)
   const name = data.name || 'Unbekannter Ort';
-  const description = data.kurzbeschreibung || data.description || '';
-  const category = data.kategorie || data.category || 'Allgemein';
-  const rating = data.google_rating || 0;
+  // FIX: Added 'data.beschreibung' fallback
+  const description = data.kurzbeschreibung || data.description || data.beschreibung || '';
+  // FIX: Added 'data.art' fallback
+  const category = data.kategorie || data.category || data.art || 'Allgemein';
+  // FIX: Added 'data.bewertung' fallback
+  const rating = data.google_rating || data.bewertung || 0;
+  
   const userRatingsTotal = data.user_ratings_total || 0;
   
   // User Selection State
@@ -364,4 +369,4 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     </>
   );
 };
-// --- END OF FILE 332 Zeilen ---
+// --- END OF FILE 336 Zeilen ---

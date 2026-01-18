@@ -1,5 +1,6 @@
-// 18.01.2026 12:20 - REFACTOR: Verified and maintained clean Data Model access (searchStrategy vs writingGuideline).
+// 19.01.2026 17:05 - FIX: Updated property access to match German keys in types.ts (ChefPlanerResult).
 // src/core/prompts/templates/basis.ts
+// 18.01.2026 12:20 - REFACTOR: Verified and maintained clean Data Model access (searchStrategy vs writingGuideline).
 // 17.01.2026 23:50 - REFACTOR: Migrated to class-based PromptBuilder.
 // 15.01.2026 16:00 - UPDATE: Preserved Season, Transport Mode & Precise Routing Logic.
 // 18.01.2026 12:45 - FIX: Uses clean Data Model (searchStrategy vs writingGuideline).
@@ -76,8 +77,8 @@ export const buildBasisPrompt = (project: TripProject): string => {
     
     const uiLang = meta.language === 'en' ? 'en' : 'de';
     
-    // 1. CHEF PLANER DATEN
-    const strategicBriefing = chefPlaner?.strategic_briefing;
+    // 1. CHEF PLANER DATEN (UPDATE: Deutsche Keys aus types.ts)
+    const strategicBriefing = chefPlaner?.strategisches_briefing;
     
     // 2. CONTEXT: SEASON & TRANSPORT
     const travelMonth = getMonthName(dates.start, uiLang) || "Unknown Season";
@@ -115,7 +116,8 @@ export const buildBasisPrompt = (project: TripProject): string => {
     }
     
     const sammlerBriefing = (strategicBriefing as any)?.sammler_briefing || ""; 
-    const validierteTermine = chefPlaner?.validated_appointments || [];
+    // UPDATE: Deutsche Keys für Termine
+    const validierteTermine = chefPlaner?.validierte_termine || [];
     
     // 4. DEDUPLIZIERUNG
     const existingNames = Object.values(project.data.places || {}).map((p: any) => p.name);

@@ -1,3 +1,4 @@
+// 19.01.2026 17:30 - CHECK: Verified V30 Legacy Key Compatibility (routenVorschlaege).
 // src/features/Cockpit/RouteReviewView.tsx
 // 15.01.2026 17:50 - FEATURE: V30-Style Route Selection View with Keep & Regenerate Logic.
 // 15.01.2026 18:15 - UPDATE: Integrated ItineraryModal for night distribution (V30 Parity).
@@ -32,6 +33,7 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
   const { startSingleTask, status } = useTripGeneration();
 
   // ROUTE DATA
+  // CHECK: Correctly accesses 'routenVorschlaege' defined in types.ts (RouteArchitectResult)
   const routeResult = project.analysis.routeArchitect;
   const proposals = routeResult?.routenVorschlaege || [];
 
@@ -85,6 +87,7 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
     if (!selectedRoute) return;
 
     // 1. Convert to RouteStop Format
+    // CHECK: 'uebernachtungsorte' matches German key in RouteProposal
     const stops = selectedRoute.uebernachtungsorte.map((loc, i) => ({
       id: `stop-${Date.now()}-${i}`,
       location: loc,
@@ -123,6 +126,7 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
         ? `\n\nKEEP THESE ROUTES EXACTLY AS IS:\n${JSON.stringify(keptRoutes, null, 2)}` 
         : "";
 
+    // CHECK: Validated legacy output format instructions
     const fullFeedback = `User Feedback: "${feedback}"${keptBlock}\n\nTask: Generate a total of ${targetCount} route proposals in the known JSON format. Include the "kept" routes provided above unchanged at the beginning of the list, and generate exactly 2 NEW additional variations based on the user feedback. The output must contain a 'routenVorschlaege' array with exactly ${targetCount} objects.`;
 
     // 4. Trigger AI
@@ -174,6 +178,7 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
                       </div>
                     </div>
                     <div>
+                      {/* CHECK: routenName matches type */}
                       <span className={`block text-lg font-bold ${selectedRouteIndex === i ? 'text-blue-700' : 'text-slate-800'}`}>
                         {route.routenName}
                       </span>
@@ -206,6 +211,7 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
               {proposals.map((r, i) => (
                 <td key={i} className={`p-4 border-l border-slate-100 align-top ${selectedRouteIndex === i ? 'bg-blue-50/30' : ''}`}>
                   <div className="flex flex-col gap-1">
+                    {/* CHECK: uebernachtungsorte matches type */}
                     {r.uebernachtungsorte.map((loc, idx) => (
                       <div key={idx} className="flex items-center gap-2 text-slate-700">
                         <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
