@@ -1,3 +1,4 @@
+// 19.01.2026 17:50 - FIX: Updated Hotel check to use German key 'validierte_hotels' (V30 Parity).
 // src/features/Workflow/WorkflowSelectionModal.tsx
 // 13.01.2026 17:55 - FIX: Fixed case-sensitive import (Cockpit) and removed unused useTranslation.
 // 16.01.2026 01:45 - FIX: Added missing status check for 'routeArchitect'.
@@ -96,7 +97,8 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
         if (!hasPlaces) return 'locked';
         // FIX: Check for manual hotel input OR validated hotels from AI
         const manualHotel = project.userInputs.logistics?.stationary?.hotel;
-        const hasValidatedHotels = (project.analysis.chefPlaner?.validated_hotels?.length || 0) > 0;
+        // UPDATE: Using correct German key 'validierte_hotels'
+        const hasValidatedHotels = (project.analysis.chefPlaner?.validierte_hotels?.length || 0) > 0;
         return (manualHotel || hasValidatedHotels) ? 'done' : 'available';
       
       case 'sondertage':
