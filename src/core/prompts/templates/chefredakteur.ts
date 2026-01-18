@@ -1,3 +1,4 @@
+// 19.01.2026 19:05 - FIX: Integrated Strategic Briefing context and updated to German ChefPlaner keys (Grand Unification).
 // src/core/prompts/templates/chefredakteur.ts
 // 17.01.2026 19:10 - FEAT: Ported 'Chefredakteur' (Content Editor) from V30.
 // 17.01.2026 23:20 - REFACTOR: Migrated to PromptBuilder pattern (Unified Builder).
@@ -18,8 +19,12 @@ export const buildChefredakteurPrompt = (
         return null;
     }
 
-    const { data } = project;
+    const { data, analysis } = project;
     const chunkingInfo = totalChunks > 1 ? ` (Block ${currentChunk}/${totalChunks})` : '';
+
+    // 1. STRATEGISCHES BRIEFING (NEU: V30 Parity)
+    // FIX: Nutzt jetzt den deutschen Key aus types.ts für den Zugriff
+    const strategischesBriefing = analysis.chefPlaner?.strategisches_briefing?.sammler_briefing || "";
 
     // Helper: Finde Sight-Daten in Masterliste
     const findSightData = (anhangId: string) => {
@@ -69,8 +74,14 @@ export const buildChefredakteurPrompt = (
 
     const role = `Du bist ein erfahrener Chefredakteur für Premium-Reiseführer. Deine Aufgabe ist es, für eine gegebene Liste von Sehenswürdigkeiten (Museen, Architektur, Stadtbezirke etc.) ansprechende, informative und gut strukturierte Detailtexte im Markdown-Format zu schreiben.`;
 
+    const contextData = {
+        strategische_vorgabe: strategischesBriefing,
+        aufgaben_liste: aufgabenListe
+    };
+
     const instructions = `# REDAKTIONELLER STIL (VERBINDLICH)
 - **Stilvorgabe:** Dein Schreibstil muss sachlich, detailliert und informativ sein.
+- **Strategie:** Berücksichtige bei der Tonalität und inhaltlichen Gewichtung die "strategische_vorgabe".
 - **Inhaltliche Tiefe:** Reichere deine Texte aktiv mit interessanten Hintergrundgeschichten, historischen Fakten und unterhaltsamen Anekdoten an.
 - **Verbotene Elemente:** Ignoriere bei der Texterstellung explizit die allgemeine "Emotionale Stimmung" der Reise. Der Tonfall soll enzyklopädisch sein.
 
@@ -95,9 +106,10 @@ ${aufgabenListe}
     return new PromptBuilder()
         .withOS()
         .withRole(role)
+        .withContext(contextData, "REDAKTIONS-BRIEFING")
         .withInstruction(instructions)
         .withOutputSchema(outputSchema)
         .withSelfCheck(['basic', 'research'])
         .build();
 };
-// --- END OF FILE 105 Zeilen ---
+// --- END OF FILE 115 Zeilen ---

@@ -1,4 +1,4 @@
-// 19.01.2026 00:30 - FEAT: Added 'normalizeResult' adapter to auto-convert English AI outputs (Gemini 2.5) to German Legacy formats (V30 UI).
+// 19.01.2026 18:30 - FIX: Added 'basis' Adapter to map 'kandidaten_liste' to 'candidates' (Grand Unification Phase 2).
 // src/services/orchestrator.ts
 // 17.01.2026 18:30 - FEAT: Initial creation. The "Brain" of the operation.
 // 17.01.2026 19:20 - FEAT: Registered full suite of Zod Schemas (Zero Error Policy).
@@ -6,6 +6,7 @@
 // 18.01.2026 19:30 - FIX: Corrected CONFIG path references.
 // 18.01.2026 21:00 - FIX: Added detailed debug logging.
 // 18.01.2026 22:30 - FEAT: Registered 'routeArchitectSchema'.
+// 19.01.2026 00:30 - FEAT: Added 'normalizeResult' adapter to auto-convert English AI outputs (Gemini 2.5) to German Legacy formats (V30 UI).
 
 import { z } from 'zod';
 import { GeminiService } from './gemini';
@@ -99,10 +100,19 @@ const normalizeResult = (task: TaskKey, data: any): any => {
         }
     }
     
-    // B. ChefPlaner: Keys normalisieren falls nötig (Beispiel)
+    // B. ChefPlaner: Keys normalisieren falls nötig
     if (task === 'chefPlaner') {
-        // Hier könnte man 'plausibility_check' -> 'plausibilitaets_check' mappen,
-        // falls das UI darauf zugreift. Aktuell scheint es meist nur intern genutzt zu werden.
+        // Hier könnte man 'plausibility_check' -> 'plausibilitaets_check' mappen
+    }
+
+    // C. Basis / Sammler: "kandidaten_liste" (DE) -> "candidates" (Intern/Store)
+    if (task === 'basis' || task === 'sightCollector') {
+        if (data.kandidaten_liste && Array.isArray(data.kandidaten_liste) && !data.candidates) {
+             console.log('[Orchestrator] ADAPTER: Converting Basis German (kandidaten_liste) -> Internal (candidates)');
+             return {
+                 candidates: data.kandidaten_liste.map((name: string) => ({ name }))
+             };
+        }
     }
 
     return data;
@@ -184,10 +194,10 @@ export const TripOrchestrator = {
     }
 
     // --- 5. NORMALISIERUNG (NEU) ---
-    // Wir wandeln Englische KI-Antworten in Deutsche Legacy-Strukturen um
+    // Wir wandeln Englische/Deutsche KI-Antworten in das Format um, das der Store erwartet
     const finalData = normalizeResult(task, validatedData);
 
     return finalData;
   }
 };
-// --- END OF FILE 185 Zeilen ---
+// --- END OF FILE 200 Zeilen ---
