@@ -1,3 +1,4 @@
+// 18.01.2026 19:00 - FIX: Added 'modelIdOverride' to support Orchestrator routing. Validated against Zero-Build-Error policy.
 // src/services/gemini.ts
 // 14.01.2026 19:45 - UPDATE: Implemented dynamic model routing (Strategy + Overrides).
 // 16.01.2026 04:40 - FIX: Consolidating TaskKey import from core/types for build stability.
@@ -132,6 +133,8 @@ export const GeminiService = {
   async call<T = any>(
     prompt: string, 
     taskKey: TaskKey | null = null,
+    // NEU: Modell-ID Override vom Orchestrator (z.B. "gemini-2.5-pro:generateContent")
+    modelIdOverride?: string,
     onRetryDelay?: (delay: number, msg: string) => void,
     signal?: AbortSignal
   ): Promise<T> {
@@ -146,7 +149,22 @@ export const GeminiService = {
       throw new NoRetryError("Kein API-Key gefunden. Bitte Key in den Einstellungen speichern.", 401);
     }
 
-    const selectedModelKey = this.determineModel(taskKey);
+    // MODEL SELECTION: Override > Auto-Determine
+    // Wir brauchen 'selectedModelKey' als ModelType ('pro'|'flash') für den RateLimiter und Stats.
+    let selectedModelKey: ModelType = 'pro'; 
+    let modelEndpoint = '';
+
+    if (modelIdOverride) {
+        // Fall A: Orchestrator gibt uns den exakten Endpoint String (z.B. "gemini-2.5-flash:generateContent")
+        modelEndpoint = modelIdOverride;
+        // Wir leiten den Typ ab für RateLimiter (enthält 'flash' -> flash, sonst pro)
+        selectedModelKey = modelIdOverride.toLowerCase().includes('flash') ? 'flash' : 'pro';
+    } else {
+        // Fall B: Legacy / Direkter Aufruf -> Wir ermitteln selbst
+        selectedModelKey = this.determineModel(taskKey);
+        modelEndpoint = CONFIG.api.models[selectedModelKey] || CONFIG.api.models.pro;
+    }
+
     RateLimiter.checkRateLimit(selectedModelKey);
 
     // 1. LOG REQUEST
@@ -154,12 +172,11 @@ export const GeminiService = {
       store.logEvent({
         task: taskName,
         type: 'request',
-        model: selectedModelKey,
+        model: selectedModelKey, // Log logic type
         content: prompt
       });
     }
 
-    const modelEndpoint = CONFIG.api.models[selectedModelKey] || CONFIG.api.models.pro;
     const apiUrl = `${CONFIG.api.baseUrl}${modelEndpoint}?key=${apiKey}`;
 
     let currentPrompt = prompt;
@@ -169,7 +186,7 @@ export const GeminiService = {
 
     // Dev-Log
     if (import.meta.env.DEV) {
-      console.log(`>>> API CALL [${selectedModelKey}]`, apiUrl);
+      console.log(`>>> API CALL [${selectedModelKey}] -> ${modelEndpoint}`, apiUrl);
     }
 
     for (let attempt = 0; attempt <= INTERNAL_RETRIES; attempt++) {
@@ -195,7 +212,7 @@ export const GeminiService = {
           
           if (response.status === 404) {
              throw new NoRetryError(
-               `Modell nicht gefunden (404). URL: ${modelEndpoint}. Bitte prüfen, ob der API-Key korrekt ist und Zugriff auf Gemini 2.5 hat.`, 
+               `Modell nicht gefunden (404). URL: ${modelEndpoint}. Bitte prüfen, ob der API-Key korrekt ist und Zugriff auf das Modell hat.`, 
                404, errorBody, currentPrompt
              );
           }
@@ -320,4 +337,4 @@ export const GeminiService = {
     throw new Error("Unbekannter Fehler im API-Loop.");
   }
 };
-// --- END OF FILE 271 Zeilen ---
+// --- END OF FILE 287 Zeilen ---

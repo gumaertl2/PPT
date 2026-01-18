@@ -1,4 +1,4 @@
-// 18.01.2026 15:35 - FIX: Implemented Chunking-Awareness in Workflow Manager. Tasks now repeat until all chunks are finished.
+// 18.01.2026 16:30 - FIX: Added 'Smart Error Handler' with I18N to translate technical API errors into user-friendly messages.
 // src/hooks/useTripGeneration.ts
 // 12.01.2026 19:00 - UPDATE: Implemented result processing for 'basis' and 'anreicherer'.
 // 16.01.2026 03:40 - FIX: Corrected TaskKey import source to resolve build errors (TS2345).
@@ -6,6 +6,7 @@
 // 17.01.2026 18:45 - REFACTOR: Integrated TripOrchestrator for centralized logic handling.
 // 18.01.2026 23:15 - FIX: Added 'Food' processor & robust Object/Array handling for all list-based agents.
 // 18.01.2026 15:25 - FIX: Added functional 'Cancel' action to all loading notifications for blocking modal.
+// 18.01.2026 15:35 - FIX: Implemented Chunking-Awareness in Workflow Manager.
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -41,6 +42,52 @@ interface UseTripGenerationReturn {
   cancelWorkflow: () => void;
   startSingleTask: (task: TaskKey, feedback?: string) => Promise<void>;
 }
+
+// --- SMART ERROR HANDLER HELPER ---
+const getFriendlyErrorMessage = (error: any, lang: 'de' | 'en'): string => {
+  const msg = (error?.message || '').toLowerCase();
+  const isDe = lang === 'de';
+
+  // 1. Netzwerk / Timeout / Abbruch
+  if (msg.includes('failed to fetch') || msg.includes('network') || msg.includes('unterbrochen') || msg.includes('connection')) {
+    return isDe
+      ? 'Zeitüberschreitung oder Netzwerkfehler: Die KI hat nicht rechtzeitig geantwortet. Bitte prüfen Sie Ihre Verbindung und versuchen Sie es erneut ("Wiederholen").'
+      : 'Timeout or Network Error: The AI did not respond in time. Please check your connection and try again ("Retry").';
+  }
+  
+  // 2. Rate Limit / Quota (429)
+  if (msg.includes('429') || msg.includes('quota') || msg.includes('rate limit')) {
+    return isDe
+      ? 'Zu viele Anfragen (429): Das Nutzungslimit ist erreicht. Bitte warten Sie einen Moment, bevor Sie es erneut versuchen.'
+      : 'Too Many Requests (429): Quota exceeded. Please wait a moment before trying again.';
+  }
+
+  // 3. Server Fehler (500/503)
+  if (msg.includes('500') || msg.includes('503') || msg.includes('overloaded')) {
+    return isDe
+      ? 'Server-Überlastung: Die Google AI Server sind momentan ausgelastet. Bitte versuchen Sie es in Kürze erneut.'
+      : 'Server Overload: Google AI servers are currently busy. Please try again shortly.';
+  }
+
+  // 4. Safety / Content Policy
+  if (msg.includes('safety') || msg.includes('blocked') || msg.includes('policy')) {
+    return isDe
+      ? 'Sicherheits-Filter: Die Anfrage wurde von der KI als unsicher eingestuft und blockiert. Bitte formulieren Sie die Anfrage ggf. um.'
+      : 'Safety Filter: The request was flagged as unsafe by the AI and blocked. Please rephrase your request if necessary.';
+  }
+
+  // 5. JSON / Format Fehler
+  if (msg.includes('json') || msg.includes('syntax')) {
+     return isDe
+      ? 'Verarbeitungsfehler: Die KI hat ungültige Daten gesendet. Ein erneuter Versuch löst das Problem meistens.'
+      : 'Processing Error: The AI returned invalid data. Retrying usually fixes this.';
+  }
+
+  // Fallback: Original Fehler
+  return isDe
+    ? `Ein Fehler ist aufgetreten: ${msg}`
+    : `An error occurred: ${msg}`;
+};
 
 export const useTripGeneration = (): UseTripGenerationReturn => {
   const { t } = useTranslation();
@@ -79,7 +126,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     setQueue([]);
     setCurrentStep(null);
     setManualMode(null, null);
-    resetChunking(); // FIX: Reset Chunking on Cancel
+    resetChunking(); 
     if (aiSettings.debug) logEvent({ task: 'workflow_manager', type: 'system', content: 'Workflow CANCELLED' });
   }, [aiSettings.debug, logEvent, setManualMode, resetChunking]);
 
@@ -95,7 +142,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
     switch (step) {
       case 'basis': {
-        // FIX: Robustheit für CoT-Wrapper (Object vs Array)
         const candidates = Array.isArray(data) 
             ? data 
             : (data?.kandidaten_liste || []);
@@ -113,7 +159,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       }
 
       case 'anreicherer': {
-        // FIX: Robustheit für CoT-Wrapper
         let enrichedItems: any[] = [];
         if (Array.isArray(data)) {
             enrichedItems = data;
@@ -135,7 +180,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       }
 
       case 'food': {
-        // NEU: Robustheit für Food-Scout ({ kandidaten: [...] })
         let foodItems: any[] = [];
         if (Array.isArray(data)) {
             foodItems = data;
@@ -145,17 +189,15 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
         if (foodItems.length > 0) {
             foodItems.forEach((item: any) => {
-                // Food Scout liefert oft neue Orte -> Neue ID generieren, falls keine existiert
                 const id = item.id || uuidv4(); 
-                // Wir mappen die Food-Felder auf unser Place-Schema
                 updatePlace(id, {
                     id,
                     name: item.name,
-                    category: 'Restaurant', // Erzwingen der Kategorie
+                    category: 'Restaurant', 
                     kategorie: 'Restaurant',
                     source: 'ai_food',
                     adresse: item.adresse,
-                    geo_koordinaten: item.geo || item.geo_koordinaten, // Fallback
+                    geo_koordinaten: item.geo || item.geo_koordinaten, 
                     google_rating: item.rating || 0,
                     preis_tendenz: item.priceLevel,
                     kurzbeschreibung: `${item.cuisine || ''} (${item.guides?.join(', ') || ''})`,
@@ -175,11 +217,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       case 'routeArchitect':
          if (data) setAnalysisResult('routeArchitect', data);
          break;
-      
-      // HINWEIS: 'guide', 'details' und 'infos' speichern in V40 ihre Daten oft in
-      // spezifische Stores (z.B. Routes-Slice) oder müssen hier noch implementiert werden,
-      // sobald die Slices dafür bereitstehen. Aktuell werden sie geloggt aber nicht persistiert,
-      // wenn kein Handler existiert.
       
       default:
         console.log(`Processor: No specific handler for ${step}`, data);
@@ -223,7 +260,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       try {
         const apiKey = useTripStore.getState().apiKey;
         
-        // Manual Mode Fallback: Wenn kein Key da ist, Prompt bauen und UI anzeigen
         if (!apiKey) {
             const payload = PayloadBuilder.buildPrompt(nextStepId as TaskKey); 
             dismissNotification(loadingId);
@@ -232,17 +268,15 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
             return;
         }
 
-        // ORCHESTRATOR CALL
         const result = await TripOrchestrator.executeTask(nextStepId as TaskKey);
         
         dismissNotification(loadingId);
         if (isMounted) {
             processResult(nextStepId, result);
             
-            // CHUNKING WEICHE: Erst wenn alle Chunks durch sind, wird der Task aus der Queue entfernt
+            // CHUNKING WEICHE
             if (chunkingState.isActive && chunkingState.currentChunk < chunkingState.totalChunks) {
               setChunkingState({ currentChunk: chunkingState.currentChunk + 1 });
-              // Wir bleiben beim currentStep, useEffect wird durch Dependency-Update (currentChunk) neu getriggert
             } else {
               setQueue(prev => prev.slice(1));
               resetChunking();
@@ -251,13 +285,16 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       } catch (err) {
         dismissNotification(loadingId);
         if (!isMounted) return; 
-        const errorMessage = (err as Error).message;
-        setError(errorMessage);
+        
+        // FIX: Smart Error Message Generation
+        const friendlyMsg = getFriendlyErrorMessage(err, lang);
+        
+        setError(friendlyMsg); // Show friendly message in UI state
         setStatus('error');
 
         addNotification({
           type: 'error',
-          message: `Fehler in Schritt ${stepLabel}: ${errorMessage}`,
+          message: `${stepLabel}: ${friendlyMsg}`, // Friendly Message in Notification
           autoClose: false,
           actions: [
             { 
@@ -289,7 +326,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     t, 
     lang, 
     setManualMode,
-    // NEU: Re-trigger für Chunking-Iterationen
     chunkingState.currentChunk,
     chunkingState.isActive,
     chunkingState.totalChunks,
@@ -358,12 +394,16 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
           dismissNotification(loadingId);
           processResult(task, result);
           setStatus('success');
-      } catch (e) { 
+      } catch (err) { 
           dismissNotification(loadingId);
           setStatus('error'); 
+          
+          // FIX: Smart Error Message Generation for Single Task
+          const friendlyMsg = getFriendlyErrorMessage(err, lang);
+
           addNotification({
             type: 'error',
-            message: (e as Error).message,
+            message: friendlyMsg,
             autoClose: 5000
           });
       }
@@ -371,4 +411,4 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
   return { status, currentStep, queue, error, progress, manualPrompt, submitManualResult, startWorkflow, resumeWorkflow, cancelWorkflow, startSingleTask };
 };
-// --- END OF FILE 454 Zeilen ---
+// --- END OF FILE 505 Zeilen ---

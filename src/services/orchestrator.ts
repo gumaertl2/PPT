@@ -1,3 +1,4 @@
+// 18.01.2026 18:30 - FEAT: Implemented Chunking-Initialization and Model-Switching Logic (Settings Matrix).
 // src/services/orchestrator.ts
 // 17.01.2026 18:30 - FEAT: Initial creation. The "Brain" of the operation.
 // 17.01.2026 19:20 - FEAT: Registered full suite of Zod Schemas (Zero Error Policy).
@@ -6,6 +7,8 @@
 import { z } from 'zod';
 import { GeminiService } from './gemini';
 import { PayloadBuilder } from '../core/prompts/PayloadBuilder';
+import { useTripStore } from '../store/useTripStore';
+import { CONFIG } from '../data/config';
 import { 
   dayPlanSchema, 
   geoAnalystSchema,
@@ -39,6 +42,41 @@ const SCHEMA_MAP: Partial<Record<TaskKey, z.ZodType<any>>> = {
   hotelScout: hotelSchema
 };
 
+// HELPER: Ermittelt das Limit dynamisch aus den Settings (Matrix)
+const getTaskLimit = (task: TaskKey, isManual: boolean): number => {
+    const aiSettings = useTripStore.getState().aiSettings;
+    const mode = isManual ? 'manual' : 'auto';
+    
+    // 1. Task Override (Matrix)
+    const taskOverride = aiSettings.chunkOverrides?.[task]?.[mode];
+    if (taskOverride) return taskOverride;
+    
+    // 2. Global Setting
+    const globalLimit = aiSettings.chunkLimits?.[mode];
+    if (globalLimit) return globalLimit;
+
+    // 3. Static Default (Config)
+    return CONFIG.taskRouting.chunkDefaults?.[task]?.[mode] || 10;
+};
+
+// HELPER: Ermittelt das KI-Modell basierend auf Settings & Strategie
+const resolveModelId = (task: TaskKey): string => {
+    const aiSettings = useTripStore.getState().aiSettings;
+    
+    // 1. Matrix Override (Höchste Prio)
+    const taskOverride = aiSettings.modelOverrides?.[task];
+    if (taskOverride === 'pro') return CONFIG.models.pro;
+    if (taskOverride === 'flash') return CONFIG.models.flash;
+
+    // 2. Globale Strategie (Mittlere Prio)
+    if (aiSettings.strategy === 'pro') return CONFIG.models.pro; 
+    if (aiSettings.strategy === 'fast') return CONFIG.models.flash; 
+
+    // 3. Optimal (Default aus Config)
+    const recommendedType = CONFIG.taskRouting.defaults[task] || 'flash';
+    return CONFIG.models[recommendedType as 'pro'|'flash'] || CONFIG.models.flash;
+};
+
 /**
  * ORCHESTRATOR
  * Kapselt die Komplexität von Prompt-Bau, API-Call und Validierung.
@@ -49,37 +87,90 @@ export const TripOrchestrator = {
    * Führt einen einzelnen Task aus.
    */
   async executeTask(task: TaskKey, feedback?: string): Promise<any> {
-    // 1. Prompt bauen
-    // Der PayloadBuilder kümmert sich um den Inhalt (inkl. Chunking-State aus dem Store)
+    const store = useTripStore.getState();
+    const { project, chunkingState, setChunkingState, apiKey } = store;
+
+    // --- 1. CHUNKING INITIALISIERUNG ---
+    // Wir prüfen VOR dem Prompt-Bau, ob wir eine Schleife brauchen.
+    // Nur initialisieren, wenn wir NICHT schon mitten drin sind (currentChunk > 0)
+    
+    const listTasks: TaskKey[] = ['anreicherer', 'chefredakteur', 'infoAutor', 'foodEnricher', 'chefPlaner'];
+    
+    if (listTasks.includes(task) && (!chunkingState.isActive || chunkingState.currentChunk === 0)) {
+        
+        let totalItems = 0;
+        const isManual = !apiKey;
+        const limit = getTaskLimit(task, isManual);
+
+        // A. Datenquelle je nach Task zählen
+        if (task === 'anreicherer') {
+            totalItems = Object.values(project.data.places || {}).flat().length;
+        } 
+        else if (task === 'foodEnricher') {
+            const raw = (project.data.content as any)?.rawFoodCandidates || [];
+            totalItems = raw.length; 
+        }
+        else if (task === 'chefPlaner') {
+            totalItems = project.userInputs.dates.fixedEvents?.length || 0;
+        }
+        else if (task === 'chefredakteur') {
+            totalItems = Object.values(project.data.places || {}).flat().length;
+        }
+        // InfoAutor ist dynamisch, hier kein Auto-Count möglich, wir verlassen uns auf Defaults
+
+        // B. State setzen
+        if (totalItems > limit) {
+            const totalChunks = Math.ceil(totalItems / limit);
+            console.log(`[Orchestrator] Starting Chunk Loop for ${task}: ${totalItems} Items / Limit ${limit} = ${totalChunks} Chunks`);
+            
+            setChunkingState({
+                isActive: true,
+                currentChunk: 1, 
+                totalChunks: totalChunks,
+                results: [] 
+            });
+            
+            // Kurzer Tick, damit Store update greift (Sicherheit)
+            await new Promise(r => setTimeout(r, 20));
+        } else {
+            // Reset falls vorher noch was drin war (Clean State)
+            if (chunkingState.isActive) {
+                store.resetChunking();
+            }
+        }
+    }
+
+    // --- 2. PROMPT & MODEL ---
+
+    // Prompt bauen (PayloadBuilder nutzt jetzt den neuen chunkingState)
     const prompt = PayloadBuilder.buildPrompt(task, feedback);
 
-    // 2. Schema wählen
+    // Modell auswählen (NEU)
+    const modelId = resolveModelId(task);
+    
+    if (store.aiSettings.debug) {
+        console.log(`[Orchestrator] Task: ${task} -> Model: ${modelId}`);
+    }
+
+    // --- 3. EXECUTION ---
+
     const schema = SCHEMA_MAP[task];
 
-    // 3. API Call via GeminiService
+    // API Call (NEU: Wir übergeben die modelId)
     // Der Service kümmert sich um Retry, Rate-Limit und Error-Handling.
-    // Wir übergeben KEIN Schema an GeminiService.call, da wir die Validierung hier kontrollieren wollen,
-    // um spezifische Fehlermeldungen zu generieren oder Fallbacks zu ermöglichen.
-    const rawResult = await GeminiService.call(prompt, task);
+    const rawResult = await GeminiService.call(prompt, task, modelId);
 
-    // 4. Validierung (Post-Processing)
+    // --- 4. VALIDIERUNG ---
     if (schema) {
-      // Wenn wir ein Zod-Schema haben, validieren wir strikt
       const validation = schema.safeParse(rawResult);
-      
       if (!validation.success) {
         console.error(`Orchestrator Validation Error for ${task}:`, validation.error);
-        // Im Fehlerfall: Wir werfen einen Fehler, der im Hook gefangen wird.
-        // Der GeminiService hat bereits eine grundlegende JSON-Validierung gemacht,
-        // aber hier prüfen wir die fachliche Struktur (Zod).
         throw new Error(`Antwort entspricht nicht dem Schema für ${task}. Details im Log.`);
       }
       return validation.data;
     }
 
-    // Fallback: Wenn kein Schema definiert ist, geben wir das Ergebnis so zurück 
-    // (es ist bereits valides JSON dank GeminiService).
     return rawResult;
   }
 };
-// --- END OF FILE 83 Zeilen ---
+// --- END OF FILE 137 Zeilen ---
