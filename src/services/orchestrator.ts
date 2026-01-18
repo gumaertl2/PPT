@@ -1,8 +1,9 @@
-// 18.01.2026 18:30 - FEAT: Implemented Chunking-Initialization and Model-Switching Logic (Settings Matrix).
+// 18.01.2026 19:30 - FIX: Corrected CONFIG path references (CONFIG.models -> CONFIG.api.models) to resolve runtime crash.
 // src/services/orchestrator.ts
 // 17.01.2026 18:30 - FEAT: Initial creation. The "Brain" of the operation.
 // 17.01.2026 19:20 - FEAT: Registered full suite of Zod Schemas (Zero Error Policy).
 // 17.01.2026 23:55 - FIX: Removed unused 'validateJson' import (TS6133).
+// 18.01.2026 18:30 - FEAT: Implemented Chunking-Initialization and Model-Switching Logic.
 
 import { z } from 'zod';
 import { GeminiService } from './gemini';
@@ -65,16 +66,17 @@ const resolveModelId = (task: TaskKey): string => {
     
     // 1. Matrix Override (Höchste Prio)
     const taskOverride = aiSettings.modelOverrides?.[task];
-    if (taskOverride === 'pro') return CONFIG.models.pro;
-    if (taskOverride === 'flash') return CONFIG.models.flash;
+    if (taskOverride === 'pro') return CONFIG.api.models.pro;
+    if (taskOverride === 'flash') return CONFIG.api.models.flash;
 
     // 2. Globale Strategie (Mittlere Prio)
-    if (aiSettings.strategy === 'pro') return CONFIG.models.pro; 
-    if (aiSettings.strategy === 'fast') return CONFIG.models.flash; 
+    if (aiSettings.strategy === 'pro') return CONFIG.api.models.pro; 
+    if (aiSettings.strategy === 'fast') return CONFIG.api.models.flash; 
 
     // 3. Optimal (Default aus Config)
     const recommendedType = CONFIG.taskRouting.defaults[task] || 'flash';
-    return CONFIG.models[recommendedType as 'pro'|'flash'] || CONFIG.models.flash;
+    // FIX: Corrected path CONFIG.api.models (was CONFIG.models causing crash)
+    return CONFIG.api.models[recommendedType as 'pro'|'flash'] || CONFIG.api.models.flash;
 };
 
 /**

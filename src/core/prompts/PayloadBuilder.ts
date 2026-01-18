@@ -1,9 +1,19 @@
-// 18.01.2026 17:50 - FIX: Applied Dynamic Limit Slicing to ALL list-based prompts (Anreicherer, Food, ChefPlaner, Details).
+// 18.01.2026 20:00 - FIX: Restored 'buildChefPlanerPayload' to resolve unused-vars errors and preserve legacy logic. Applied Anreicherer signature fix.
 // src/core/prompts/PayloadBuilder.ts
-// ... (Header History wird fortgeführt)
+// 14.01.2026 19:20 - FIX: Added safe resolution for 'prompt' field.
+// 16.01.2026 17:45 - FEAT: Implemented Chunking-Awareness.
+// 16.01.2026 21:45 - FEAT: Activated Package A templates.
+// 16.01.2026 22:45 - FEAT: Activated Package B1 templates.
+// 17.01.2026 09:15 - FIX: Added logic to extract 'previousLocation' for TransferPlanner.
+// 17.01.2026 10:30 - FEAT: Finalized Package B2 (Food) with Ad-Hoc Mode and Geo-Math-Filtering.
+// 17.01.2026 11:20 - FIX: Corrected import of FoodSearchMode to use SSOT types.
+// 17.01.2026 18:00 - FIX: Aligned template calls with Strict TS signatures (Zero Error Policy).
+// 17.01.2026 23:45 - FIX: Resolved TS6133 (unused vars) and TS2345 (HotelScout args).
+// 18.01.2026 00:30 - FEAT: Activated Package C (Content, Info, Guide, SpecialDays).
+// 18.01.2026 17:50 - FIX: Applied Dynamic Limit Slicing to ALL list-based prompts.
 
 import { useTripStore } from '../../store/useTripStore';
-import { INTEREST_DATA } from '../../data/interests';
+import { INTEREST_DATA } from '../../data/interests'; // Behalten für buildChefPlanerPayload
 import { CONFIG } from '../../data/config';
 
 // --- TEMPLATES ---
@@ -29,9 +39,16 @@ import { filterByRadius } from '../utils/geo';
 import type { GeoPoint } from '../utils/geo';
 
 export const PayloadBuilder = {
+  /**
+   * ZENTRALE SCHNITTSTELLE FÜR USETRIPGENERATION (V40)
+   * Wählt anhand des Task-Keys das richtige Prompt-Template.
+   * "The Intelligent Dispatcher": Checks for chunking state, executes math, and routes to agents.
+   */
   buildPrompt: (task: TaskKey, feedback?: string): string => {
     const state = useTripStore.getState();
     const { project, aiSettings, apiKey } = state; 
+    
+    // Zugriff auf den Chunking State (via SystemSlice im Store)
     const chunkingState = (state as any).chunkingState as ChunkingState;
 
     // --- HELPER FUNCTIONS ---
@@ -58,7 +75,7 @@ export const PayloadBuilder = {
         return items.slice(startIndex, endIndex);
     };
 
-    // ... (restliche Helper getVisitedSightIds, getLastChunkEndLocation, getFilteredFoodCandidates bleiben)
+    // 2. Gedächtnis: Sammle bereits besuchte IDs aus vorherigen Chunks
     const getVisitedSightIds = (): string[] => {
         if (!chunkingState?.results || chunkingState.results.length === 0) return [];
         const ids = new Set<string>();
@@ -76,6 +93,7 @@ export const PayloadBuilder = {
         return Array.from(ids);
     };
 
+    // 3. Transfer-Logik: Ermittle den End-Ort des vorherigen Chunks
     const getLastChunkEndLocation = (): string | undefined => {
         if (!chunkingState?.isActive || chunkingState.currentChunk <= 1 || !chunkingState.results) return undefined;
         const prevIndex = chunkingState.currentChunk - 2;
@@ -87,12 +105,16 @@ export const PayloadBuilder = {
         return undefined;
     };
 
+    // 4. Food-Logik: Geo-Filterung (V30 Parität)
     const getFilteredFoodCandidates = (project: TripProject) => {
         const rawCandidates = (project.data.content as any)?.rawFoodCandidates || 
                               Object.values(project.data.places || {}).flat(); 
+        
         if (!rawCandidates || rawCandidates.length === 0) return [];
+
         const userLat = (project.userInputs as any).currentLocation?.lat;
         const userLng = (project.userInputs as any).currentLocation?.lng;
+
         if (userLat && userLng) {
             const center: GeoPoint = { lat: userLat, lng: userLng };
             let filtered = filterByRadius(rawCandidates, center, 0.5, (c: any) => c.geo);
@@ -107,10 +129,8 @@ export const PayloadBuilder = {
       // --- EXISTING V40 AGENTS ---
       case 'chefPlaner': {
         const allAppointments = project.userInputs.dates.fixedEvents || [];
-        // Slicing für ChefPlaner anwenden
         const slicedAppointments = sliceData(allAppointments, 'chefPlaner');
         
-        // Wir müssen das Project-Objekt klonen/mocken, damit das Template nur die geschnittenen Events sieht
         const slicedProject = {
             ...project,
             userInputs: {
@@ -136,10 +156,23 @@ export const PayloadBuilder = {
       case 'intelligentEnricher': {
         const allPlaces = Object.values(project.data.places || {}).flat();
         const slicedCandidates = sliceData(allPlaces, 'anreicherer');
-        return buildAnreichererPrompt(project, slicedCandidates);
+
+        // FIX TS2554: Slicing via Klon statt Argument
+        const slicedProject = {
+            ...project,
+            data: {
+                ...project.data,
+                places: {
+                    "current_batch": slicedCandidates
+                }
+            }
+        };
+
+        return buildAnreichererPrompt(slicedProject);
       }
 
-      // --- PAKET A ---
+      // --- PAKET A: PLANUNG & LOGISTIK ---
+      
       case 'durationEstimator':
         return buildDurationEstimatorPrompt(project);
 
@@ -158,7 +191,8 @@ export const PayloadBuilder = {
         return buildTransferPlannerPrompt(project, lastLoc);
       }
 
-      // --- PAKET B ---
+      // --- PAKET B1: ACCOMMODATION ---
+      
       case 'geoAnalyst':
         return buildGeoAnalystPrompt(project);
 
@@ -166,6 +200,8 @@ export const PayloadBuilder = {
       case 'hotelScout':
          return buildHotelScoutPrompt(project, "", feedback || "", "");
 
+      // --- PAKET B2: FOOD ---
+      
       case 'food':
       case 'foodScout':
       case 'foodCollector': 
@@ -178,7 +214,6 @@ export const PayloadBuilder = {
       
       case 'foodEnricher': {
          const candidates = getFilteredFoodCandidates(project);
-         // SLICING für FoodEnricher
          const slicedCandidates = sliceData(candidates, 'foodEnricher');
          
          if (slicedCandidates.length === 0 && candidates.length === 0) {
@@ -187,7 +222,8 @@ export const PayloadBuilder = {
          return buildFoodEnricherPrompt(project, slicedCandidates);
       }
 
-      // --- PAKET C ---
+      // --- PAKET C: CONTENT & SPECIALS (NEU) ---
+
       case 'guide':
       case 'reisefuehrer':
            return buildTourGuidePrompt(project);
@@ -195,7 +231,6 @@ export const PayloadBuilder = {
       case 'details':
       case 'chefredakteur' as any: {
           const allPlaces = Object.values(project.data.places || {}).flat();
-          // SLICING für Chefredakteur (Beschreibungen)
           const slicedPlaces = sliceData(allPlaces, 'chefredakteur' as TaskKey);
           
           return buildChefredakteurPrompt(
@@ -208,12 +243,6 @@ export const PayloadBuilder = {
 
       case 'infos':
       case 'infoAutor': {
-          // InfoAutor nutzt meist eine separate Task-Liste. 
-          // Falls wir Tasks im chunkingState haben (via Orchestrator-Logic für Infos), nutzen wir die.
-          // Da InfoAutor in V40 oft "On Demand" ist, lassen wir den Default,
-          // oder slicen eine hypothetische Liste falls vorhanden.
-          // Hier nutzen wir sliceData NICHT direkt, da die Quelle variiert.
-          
           if (chunkingState?.isActive && chunkingState.dataChunks.length > 0) {
               const idx = chunkingState.currentChunk - 1;
               const chunk = chunkingState.dataChunks[idx];
@@ -237,15 +266,35 @@ export const PayloadBuilder = {
     }
   },
 
+  // WIEDERHERGESTELLT: Legacy-Methode für manuelle Calls & Typ-Sicherheit
   buildChefPlanerPayload: () => {
-    // ... (bleibt unverändert)
     const state = useTripStore.getState();
     const { userInputs, meta } = state.project;
-    // ... (Code wie oben)
-    return { 
-        // ...
-        appVersion: meta.version 
-    } as any;
+    const langMap: Record<string, string> = { de: 'Deutsch', en: 'Englisch' };
+    const outputLangCode = userInputs.aiOutputLanguage || 'de';
+    const outputLangName = langMap[outputLangCode] || 'Deutsch';
+
+    const resolvePrompt = (p: string | LocalizedContent | undefined): string => {
+        if (!p) return '';
+        if (typeof p === 'string') return p;
+        return p.de || '';
+    };
+
+    return {
+      lang: outputLangName,
+      travelers: userInputs.travelers,
+      dates: userInputs.dates,
+      logistics: userInputs.logistics,
+      interests: userInputs.selectedInterests.map(id => ({
+        id,
+        label: INTEREST_DATA[id]?.label.de || id,
+        prompt: resolvePrompt(INTEREST_DATA[id]?.prompt),
+        custom: userInputs.customPreferences[id] || null
+      })),
+      preferences: { pace: userInputs.pace, budget: userInputs.budget, vibe: userInputs.vibe, strategy: userInputs.strategyId },
+      notes: userInputs.notes,
+      appVersion: meta.version
+    };
   }
 };
-// --- END OF FILE 350 Zeilen ---
+// --- END OF FILE 360 Zeilen ---

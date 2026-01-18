@@ -1,3 +1,4 @@
+// 18.01.2026 20:15 - DOCS: Updated Sections 7C, 8B & 8C to reflect V40.1 Architecture (Dynamic Chunking & Model Matrix).
 // src/data/Texts/briefing.ts
 // 16.01.2026 16:30 - UPDATE: Completed Workflow Inventory.
 // 17.01.2026 20:30 - FIX: Restored Sections 7D/E & Merged Functional + Technical Descriptions in Section 8.
@@ -11,11 +12,12 @@ export const briefing = {
 
 ### 1. Projektübersicht
 Der "Papa-Tours Reiseplan-Generator V40" ist eine moderne **Progressive Web Application (PWA)**, entwickelt mit **React, TypeScript und Vite**.
-Wie der Vorgänger ist es eine clientseitige Anwendung, die keine eigene Server-Infrastruktur benötigt. Sie nutzt die **Google Gemini API** (Pro & Flash Modelle), um hochkomplexe, logistisch validierte Reisepläne zu generieren.
+Wie der Vorgänger ist es eine clientseitige Anwendung, die keine eigene Server-Infrastruktur benötigt. Sie nutzt die **Google Gemini API** (Version 1.5 Pro & Flash), um hochkomplexe, logistisch validierte Reisepläne zu generieren.
 
 **Kern-Philosophie V40:**
 Das System behält die Logik der "Orchestrierte Intelligenz" (The Magic Chain) bei, setzt sie aber auf ein **typsicheres, reaktives Fundament**.
 * **Stateless UI:** Die Oberfläche reagiert nur noch auf Zustandsänderungen im Store.
+* **Configurable AI Matrix:** Modelle und Limits sind zur Laufzeit konfigurierbar (Settings Modal).
 * **Single Source of Truth:** Es gibt keine versteckten Datenflüsse mehr.
 
 ### 1b. Tech-Stack & Libraries
@@ -43,7 +45,7 @@ Der Store (\`useTripStore\`) ist ein Assembler, der folgende Slices zusammenfüg
     * Steuert Views (\`welcome\`, \`wizard\`, \`analysis\`).
     * Steuert die **Anreicherer-UI** (Filter, Listenansicht).
 3.  **SystemSlice** (\`src/store/slices/createSystemSlice.ts\`):
-    * Infrastruktur: API-Key, AI-Settings.
+    * Infrastruktur: API-Key, AI-Settings (Modell-Matrix, Chunk-Limits).
     * Logging: **Flight Recorder** (Auto-Logging aller KI-Calls).
 4.  **AnalysisSlice** (\`src/store/slices/createAnalysisSlice.ts\`):
     * Speichert Ergebnisse der KI-Tasks (z.B. ChefPlaner).
@@ -160,7 +162,8 @@ Der Status eines Schritts im \`WorkflowSelectionModal\`:
 
 **C. Flight Recorder Architektur**
 Jeder KI-Aufruf **MUSS** über \`src/services/gemini.ts\` laufen. Dieser Service loggt Request/Response automatisch in den Store. Direkte \`fetch\`-Calls in Komponenten sind verboten.
-* Custom Errors (\`UserAbortError\`, \`ApiError\`) müssen konstruktorseitig Nachrichten akzeptieren, um spezifische Abbruchgründe (z.B. "Rate Limit") an die UI durchzureichen.
+* Der Service akzeptiert nun einen optionalen \`modelIdOverride\`, den der Orchestrator liefert. Das Logging erfasst das tatsächlich verwendete Modell (z.B. \`gemini-1.5-pro\` vs \`flash\`).
+* Custom Errors (\`UserAbortError\`, \`ApiError\`) müssen konstruktorseitig Nachrichten akzeptieren, um spezifische Abbruchgründe an die UI durchzureichen.
 
 **D. UX-Modi (Planen vs. Konsumieren)**
 * **Guide Mode (Default):** Reine Lese-Ansicht.
@@ -196,8 +199,12 @@ Diese Tabelle definiert die exakte Verdrahtung zwischen ID, V30-Original, UI-Lab
 | \`sondertage\` | Sondertage / 9. Flexibilität | \`prompt-ideen-scout.js\` | Der Spezialist: Schlechtwetter & Sonnenschein-Alternativen. |
 | \`transfers\` | Transfers / 10. Transfers | \`prompt-transfer-planer.js\` | Der Logistiker: Berechnet Wege & Fahrzeiten (benötigt Dayplan). |
 
-**B. Hintergrund-Agenten (Settings Matrix)**
-Diese Spezialisten tauchen nicht im Workflow-Menü auf, sind aber via Settings konfigurierbar (Modell-Wahl).
+**B. Hintergrund-Agenten & Model Matrix (Update)**
+Die Modell-Wahl (Pro vs. Flash) erfolgt zur Laufzeit im \`TripOrchestrator\` (\`resolveModelId\`).
+Priorität: 
+1. **Matrix Override:** User-Einstellung im Settings-Modal.
+2. **Global Strategy:** "Immer Pro" oder "Immer Fast".
+3. **Config Default:** Empfohlener Standard ("Optimal").
 
 | V40 TaskKey | V30 Source File | Funktion |
 | :--- | :--- | :--- |
@@ -206,20 +213,22 @@ Diese Spezialisten tauchen nicht im Workflow-Menü auf, sind aber via Settings k
 | \`foodEnricher\` | \`prompt-food-enricher.js\` | Lädt Speisekarten/Details zu Restaurants. |
 | \`countryScout\` | \`prompt-country-scout.js\` | Lädt Basis-Infos zu Ländern. |
 
-**C. Prompt Logik & Chunking Strategy**
+**C. Prompt Logik & Dynamic Chunking Strategy (Update)**
 
-Wir nutzen eine strikte **Chunking-Strategie**, da die KI bei großen Datenmengen zu Timeouts, Halluzinationen oder invalidem JSON neigt.
-1. **Trial & Error Historie:** Limits (z.B. 5-10 Orte) sind empirisch ermittelt und in \`config.ts\` hinterlegt.
-2. **Die "Slice & Map" Taktik:** Listen werden zerteilt, sequenziell verarbeitet und gemerged.
-3. **Das "Merge" Protokoll:** Die KI muss zwingend die **ID** zurückgeben ("Pass-Through"), um Daten korrekt zuzuordnen.
+Wir nutzen eine strikte **Chunking-Strategie**, um Timeouts zu vermeiden.
+1. **Dynamic Limits:** Chunk-Größen (z.B. 10 Orte) kommen aus der Settings-Matrix (\`aiSettings.chunkLimits\`) oder Config-Defaults, nicht mehr hartcodiert.
+2. **Auto-Loop (Orchestrator):** Der Orchestrator prüft vor dem Start \`totalItems > limit\`. Ist dies der Fall, initialisiert er den \`chunkingState\` (Schleifen-Modus).
+3. **Payload Slicing:** Der \`PayloadBuilder\` schneidet die Daten basierend auf dem aktuellen Chunk aktiv zu (z.B. via \`slicedProject\`), damit Templates nicht angepasst werden müssen.
+4. **Das "Merge" Protokoll:** IDs (\`original_sight_id\`) werden durchgeschleift, um Daten im Store korrekt zusammenzuführen.
 
 **D. The Orchestrator (Runtime Execution)**
 Der \`TripOrchestrator\` (\`src/services/orchestrator.ts\`) ist das "Gehirn", das die Wiring-Matrix zur Laufzeit exekutiert.
 Er kapselt die Komplexität von UI-Hooks ab und folgt strengem Protokoll:
 1.  **Select:** Wählt anhand \`TaskKey\` den passenden \`PromptBuilder\`.
-2.  **Execute:** Ruft \`GeminiService\` auf (Handling von Retries & API Keys).
-3.  **Validate:** Wählt das passende \`ZodSchema\` (z.B. \`foodSchema\`) und erzwingt Typ-Sicherheit.
+2.  **Resolve:** Ermittelt Modell (Pro/Flash) und Chunk-Status.
+3.  **Execute:** Ruft \`GeminiService\` auf (Handling von Retries & API Keys).
+4.  **Validate:** Wählt das passende \`ZodSchema\` (z.B. \`foodSchema\`) und erzwingt Typ-Sicherheit.
 `
   }
 };
-// --- END OF FILE 358 Zeilen ---
+// --- END OF FILE 370 Zeilen ---
