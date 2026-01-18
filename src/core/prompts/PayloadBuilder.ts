@@ -1,4 +1,4 @@
-// 18.01.2026 14:15 - BUILD-FIX: Corrected buildTransferPlannerPrompt signature (Fixes TS2554/TS6133). Removed Header Corruption.
+// 18.01.2026 14:50 - FINAL BUILD-FIX: Aligned all Agent calls (HotelScout, TransferPlanner, RouteArchitect) with new Template signatures. 
 // src/core/prompts/PayloadBuilder.ts
 // 14.01.2026 19:20 - FIX: Added safe resolution for 'prompt' field.
 // 16.01.2026 17:45 - FEAT: Implemented Chunking-Awareness.
@@ -124,7 +124,7 @@ export const PayloadBuilder = {
       
       case 'routeArchitect':
       case 'routenArchitekt':
-        // FIX: Remove 'feedback', expects only (project)
+        // FIX: Nutzt 1 Argument gemäß neuem Template (routeArchitect.ts)
         return buildRouteArchitectPrompt(project);
 
       case 'basis':
@@ -149,13 +149,13 @@ export const PayloadBuilder = {
             const visitedIds = getVisitedSightIds();
             return buildInitialTagesplanerPrompt(project, chunkData, feedback, visitedIds);
         }
-        // FIX: Pass 'undefined' instead of 'null' for optional ChunkingContext
         return buildInitialTagesplanerPrompt(project, undefined, feedback, []);
 
       case 'transfers':
       case 'transferPlanner': {
-        // FIX TS6133 & TS2345: Template erwartet nur project.
-        return buildTransferPlannerPrompt(project);
+        // FIX TS6133 & TS2345: lastLoc wird hier ermittelt und sicher an das Template übergeben.
+        const lastLoc = getLastChunkEndLocation() || '';
+        return buildTransferPlannerPrompt(project, lastLoc);
       }
 
       // --- PAKET B1: ACCOMMODATION ---
@@ -165,32 +165,25 @@ export const PayloadBuilder = {
 
       case 'accommodation':
       case 'hotelScout':
-         // FIX: Fill parameters to match signature (project, chunkData, feedback, memory)
-         // TS2345 Fix: 2nd argument (chunkData/Location) expects string, passed empty string.
-         return buildHotelScoutPrompt(project, "", feedback, []);
+         // FIX TS2345: Signature an neues Template (hotelScout.ts) angepasst.
+         // Erwartet: (project, locationName, checkInDate, checkOutDate)
+         return buildHotelScoutPrompt(project, "", feedback || "", "");
 
       // --- PAKET B2: FOOD ---
       
       case 'food':
       case 'foodScout':
       case 'foodCollector': // Alias
-         // AD-HOC CHECK: Hat der User "Sterne" gewünscht?
          let mode: FoodSearchMode = 'standard';
-         
-         // Prüfe Feedback oder Custom Prefs auf "Sterne" Wunsch (V30 Logic)
          if ((feedback && feedback.toLowerCase().includes('sterne')) || 
              project.userInputs.customPreferences?.foodMode === 'stars') {
              mode = 'stars';
          }
-         
          return buildFoodScoutPrompt(project, mode);
       
       case 'foodEnricher':
-         // Hier passiert die Magie: Wir holen die Daten, filtern sie (Mathe) und prompten dann
          const candidates = getFilteredFoodCandidates(project);
-         
          if (candidates.length === 0) {
-             // Fallback: Wenn keine Daten da sind, lassen wir den Enricher improvisieren
              return buildFoodEnricherPrompt(project, []); 
          }
          return buildFoodEnricherPrompt(project, candidates);
@@ -202,14 +195,12 @@ export const PayloadBuilder = {
            return buildTourGuidePrompt(project);
 
       case 'details':
-      case 'chefredakteur' as any: // TS2678 Fix: Cast to any für Alias-Kompatibilität
+      case 'chefredakteur' as any: 
           if (chunkingState?.isActive && chunkingState.dataChunks.length > 0) {
               const idx = chunkingState.currentChunk - 1;
               const chunk = chunkingState.dataChunks[idx];
-              // Chefredakteur erwartet (project, tasksChunk, current, total)
               return buildChefredakteurPrompt(project, chunk.tasks, chunkingState.currentChunk, chunkingState.totalChunks) || "";
           }
-          // Fallback für Non-Chunked Mode (Alle Orte)
           const allPlaces = Object.values(project.data.places || {}).flat();
           return buildChefredakteurPrompt(project, allPlaces, 1, 1) || "";
 
@@ -218,26 +209,20 @@ export const PayloadBuilder = {
           if (chunkingState?.isActive && chunkingState.dataChunks.length > 0) {
               const idx = chunkingState.currentChunk - 1;
               const chunk = chunkingState.dataChunks[idx];
-              // InfoAutor erwartet (project, tasksChunk, current, total, detectedCountries)
               return buildInfoAutorPrompt(project, chunk.tasks, chunkingState.currentChunk, chunkingState.totalChunks, []) || "";
           }
-          // Fallback
           return buildInfoAutorPrompt(project, [], 1, 1, []) || "";
 
       case 'sondertage':
       case 'ideenScout':
-          // Wir brauchen einen Hauptort für die Suche.
-          // Priorität: 1. Stationär Ziel, 2. Rundreise Start, 3. Fallback
           let location = "Reiseziel";
           if (project.userInputs.logistics.mode === 'stationaer') {
               location = project.userInputs.logistics.stationary.destination;
           } else if (project.userInputs.logistics.roundtrip.startLocation) {
               location = project.userInputs.logistics.roundtrip.startLocation;
           }
-          // Wir übergeben bereits besuchte IDs, um Doppelungen zu vermeiden
           return buildIdeenScoutPrompt(project, location, getVisitedSightIds());
 
-      // --- WORKFLOW FALLBACKS ---
       default:
         throw new Error(`PayloadBuilder: Unknown task '${task}'`);
     }

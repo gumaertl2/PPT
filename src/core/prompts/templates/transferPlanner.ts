@@ -1,3 +1,4 @@
+// 18.01.2026 14:35 - FIX: Added previousLocation argument to support Chunking-Awareness (Fixes TS2345).
 // src/core/prompts/templates/transferPlanner.ts
 // 17.01.2026 15:35 - UPDATE: Added 'Stationary Mode' (Hub & Spoke) Logic.
 // 18.01.2026 00:20 - REFACTOR: Migrated to class-based PromptBuilder.
@@ -5,12 +6,12 @@
 import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
 
-export const buildTransferPlannerPrompt = (project: TripProject): string => {
+export const buildTransferPlannerPrompt = (project: TripProject, previousLocation: string = ''): string => {
   const { userInputs, data } = project;
   const { logistics } = userInputs;
 
   // Kontext für die KI
-  const placesList = Object.values(data.places || {}).map((p: any) => ({
+  const placesList = Object.values(data.places || {}).flat().map((p: any) => ({
     id: p.id,
     name: p.name,
     geo: p.geo_koordinaten || p.geo, // Robustheit
@@ -24,7 +25,9 @@ export const buildTransferPlannerPrompt = (project: TripProject): string => {
     // Falls Rundreise: Die Route
     stops: logistics.mode === 'mobil' ? logistics.roundtrip.stops : null,
     // Die Orte, die wir verbinden müssen
-    places_to_connect: placesList
+    places_to_connect: placesList,
+    // NEU: Wo hat die Planung zuletzt aufgehört? (Für Chunking)
+    previous_chunk_end_location: previousLocation
   };
 
   const role = `Du bist der "Transfer Planner". Deine Aufgabe ist es, logistische Verbindungen (Transfers) zwischen Orten zu berechnen.
@@ -39,6 +42,7 @@ export const buildTransferPlannerPrompt = (project: TripProject): string => {
   } else {
     modeInstruction = `MODE: ROUNDTRIP (Moving Chain).
     Berechne die Distanzen zwischen den logisch aufeinanderfolgenden Orten (Cluster-Logik).
+    Falls ein "previous_chunk_end_location" (${previousLocation}) angegeben ist, starte die Berechnung zwingend von dort!
     Versuche, Orte zu Clustern zusammenzufassen, um Fahrzeit zu minimieren.`;
   }
 
@@ -75,4 +79,4 @@ Erstelle eine Liste von Transfer-Verbindungen.`;
     .withSelfCheck(['planning']) // Hier ist Planung wichtig
     .build();
 };
-// --- END OF FILE 70 Zeilen ---
+// --- END OF FILE 76 Zeilen ---
