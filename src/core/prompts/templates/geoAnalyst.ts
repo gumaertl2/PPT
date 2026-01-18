@@ -1,5 +1,6 @@
-// 19.01.2026 13:35 - FIX: Restored V30 Legacy Schema (German Keys) for GeoAnalyst.
+// 19.01.2026 19:35 - FIX: Corrected PromptBuilder pattern for Strategic Briefing injection.
 // src/core/prompts/templates/geoAnalyst.ts
+// 19.01.2026 13:35 - FIX: Restored V30 Legacy Schema (German Keys) for GeoAnalyst.
 // 17.01.2026 15:00 - UPDATE: Added 'Hub Identification' Logic.
 // 18.01.2026 00:40 - REFACTOR: Migrated to class-based PromptBuilder.
 
@@ -7,8 +8,11 @@ import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
 
 export const buildGeoAnalystPrompt = (project: TripProject): string => {
-  const { userInputs } = project;
+  const { userInputs, analysis } = project; // FIX: Added analysis for briefing access
   const { logistics } = userInputs;
+
+  // 1. STRATEGISCHES BRIEFING (NEU: V30 Parity)
+  const strategischesBriefing = analysis.chefPlaner?.strategisches_briefing?.sammler_briefing || "";
 
   // Kontext vorbereiten
   let geoMode = "";
@@ -47,7 +51,7 @@ ${routing}
 # OUTPUT
 Erstelle eine Liste von empfohlenen Hubs mit Begründung.`;
 
-  // FIX: Schema converted to German V30 keys
+  // Schema converted to German V30 keys
   const outputSchema = {
     "empfohlene_hubs": [
       {
@@ -64,9 +68,10 @@ Erstelle eine Liste von empfohlenen Hubs mit Begründung.`;
     .withOS()
     .withRole(role)
     .withContext(contextData, "GEO-DATEN")
+    .withContext(strategischesBriefing, "STRATEGISCHE VORGABE") // FIX: Injected via Builder method
     .withInstruction(instructions)
     .withOutputSchema(outputSchema)
     .withSelfCheck(['planning'])
     .build();
 };
-// --- END OF FILE 65 Zeilen ---
+// --- END OF FILE 70 Zeilen ---

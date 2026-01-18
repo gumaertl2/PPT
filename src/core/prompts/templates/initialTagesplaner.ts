@@ -1,5 +1,6 @@
-// 19.01.2026 13:00 - FIX: Restored V30 Legacy Schema (tag_nr -> tagNummer) for SSOT compliance.
+// 19.01.2026 19:20 - FIX: Corrected PromptBuilder pattern for Strategic Briefing & Appointments.
 // src/core/prompts/templates/initialTagesplaner.ts
+// 19.01.2026 13:00 - FIX: Restored V30 Legacy Schema (tag_nr -> tagNummer) for SSOT compliance.
 // 18.01.2026 12:40 - BUILD-FIX: Replaced .withConstraint with .withInstruction (Fixes TS2339). Full logic preserved.
 // 16.01.2026 21:00 - FEAT: Initial creation. Chunking-Aware Planning Logic.
 // 17.01.2026 17:05 - FIX: Applied Strict Types (Zero Error Policy).
@@ -51,14 +52,19 @@ export const buildInitialTagesplanerPrompt = (
     visitedSightIds: string[] = []
 ): string => {
   
-  const { userInputs } = project;
+  const { userInputs, analysis } = project; // FIX: Added analysis
   const lang = userInputs.aiOutputLanguage === 'en' ? 'English' : 'Deutsch';
 
-  // 1. Builder initialisieren (Fluent API starts with empty constructor)
+  // 1. CHEF PLANER DATEN (V30 Parity)
+  const chefPlaner = analysis.chefPlaner;
+  const strategischesBriefing = chefPlaner?.strategisches_briefing?.itinerary_rules || chefPlaner?.strategisches_briefing?.sammler_briefing || "";
+  const validierteTermine = chefPlaner?.validierte_termine || [];
+
+  // 2. Builder initialisieren
   const builder = new PromptBuilder()
     .withRole('DU BIST EIN ELITE-REISEPLANER (KI). Erstelle einen detaillierten, logischen Tagesplan.');
 
-  // 2. Rahmenbedingungen
+  // 3. Rahmenbedingungen
   builder.withContext([
     `Reisetempo: ${userInputs.pace}`,
     `Interessen: ${userInputs.selectedInterests.join(', ')}`,
@@ -66,7 +72,15 @@ export const buildInitialTagesplanerPrompt = (
     `Sprache: ${lang}`
   ], 'RAHMENBEDINGUNGEN');
 
-  // 3. Chunking Logic
+  // 4. Injektion der Strategie & Termine via Builder-Pattern
+  if (strategischesBriefing) {
+    builder.withContext(strategischesBriefing, "STRATEGISCHE VORGABE");
+  }
+  if (validierteTermine.length > 0) {
+    builder.withContext(validierteTermine, "FIXTERMINE (UNVERRÜCKBAR)");
+  }
+
+  // 5. Chunking Logic
   let dayOffset = 0;
   if (chunkData) {
       dayOffset = chunkData.dayOffset || 0;
@@ -81,7 +95,6 @@ export const buildInitialTagesplanerPrompt = (
       - Fokus-Orte für diesen Abschnitt: ${currentStations.join(', ')}`);
 
       if (visitedSightIds.length > 0) {
-          // FIX TS2339: Method .withConstraint replaced with .withInstruction
           builder.withInstruction(
             `BEREITS GEPLANT (DOPPELUNGEN VERMEIDEN): In den vorherigen Tagen wurden bereits ${visitedSightIds.length} Orte besucht. Diese wurden aus der Liste entfernt. Plane KEINE Orte doppelt!`
           );
@@ -95,24 +108,23 @@ export const buildInitialTagesplanerPrompt = (
       builder.withContext(stations.join(', '), "Stationen");
   }
 
-  // 4. Sights Context
+  // 6. Sights Context
   const sightsContext = formatSightsForPrompt(project, visitedSightIds);
   builder.withContext(sightsContext, 'VERFÜGBARE ORTE (USER PRIOS BEACHTEN)');
 
-  // 5. User Feedback
+  // 7. User Feedback
   if (feedback) {
       builder.withInstruction(`USER FEEDBACK (ÄNDERUNGSWUNSCH): "${feedback}"\nBitte passe den Plan unter Berücksichtigung dieses Feedbacks an.`);
   }
 
-  // 6. Logik
+  // 8. Logik
   builder.withInstruction(`LOGIK-REGELN:
   1. **Priorität:** Orte mit [USER-PRIO] MÜSSEN eingeplant werden (wenn geografisch machbar).
   2. **Cluster:** Nutze die [Lage] Informationen, um Orte zu gruppieren.
   3. **Timing:** Beachte [Open] Zeiten.
   4. **Logistik:** Kurze Wege zwischen Aktivitäten.`);
 
-  // 7. Output Format
-  // Wir übergeben den String direkt an OutputSchema, PromptBuilder kümmert sich um die Darstellung.
+  // 9. Output Format
   const outputFormat = `
   Antworte AUSSCHLIESSLICH mit dem JSON.
   Struktur muss exakt kompatibel mit dem Frontend-Renderer sein:
@@ -143,4 +155,4 @@ export const buildInitialTagesplanerPrompt = (
 
   return builder.build();
 };
-// --- END OF FILE 125 Zeilen ---
+// --- END OF FILE 137 Zeilen ---

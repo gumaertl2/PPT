@@ -1,3 +1,4 @@
+// 19.01.2026 19:25 - FIX: Corrected PromptBuilder pattern for Strategic Briefing injection.
 // src/core/prompts/templates/infoAutor.ts
 // 17.01.2026 19:15 - FEAT: Ported 'InfoAutor' (Logistics & Safety) from V30.
 // 17.01.2026 23:35 - REFACTOR: Migrated to PromptBuilder pattern (Unified Builder).
@@ -18,9 +19,12 @@ export const buildInfoAutorPrompt = (
         return null;
     }
 
-    const { userInputs } = project;
+    const { userInputs, analysis } = project; // FIX: Added analysis
     const { logistics } = userInputs;
     
+    // 1. STRATEGISCHES BRIEFING (NEU: V30 Parity)
+    const strategischesBriefing = analysis.chefPlaner?.strategisches_briefing?.sammler_briefing || "";
+
     const chunkingInfo = totalChunks > 1 ? ` (Block ${currentChunk}/${totalChunks})` : '';
 
     // Daten-Mapping V40
@@ -46,7 +50,7 @@ export const buildInfoAutorPrompt = (
             
             // Safety Catch: Länder als Städte maskiert
             if (['Tschechien', 'Österreich', 'Deutschland', 'Schweiz'].includes(p.contextLocation)) {
-                 anweisung = `ACHTUNG: Der Ort "${p.contextLocation}" ist ein LAND, keine Stadt. Erstelle stattdessen eine kurze Übersicht über die wichtigsten touristischen Regionen dieses Landes. Ignoriere die Anweisung zu Parkplätzen in der Innenstadt.`;
+                 anweisung = `ACHTUNG: Der ort "${p.contextLocation}" ist ein LAND, keine Stadt. Erstelle stattdessen eine kurze Übersicht über die wichtigsten touristischen Regionen dieses Landes. Ignoriere die Anweisung zu Parkplätzen in der Innenstadt.`;
             } else {
                  anweisung += `\n\n**LOGISTIK-PFLICHT:** Recherchiere und nenne konkrete **Parkmöglichkeiten** für Tagestouristen (z.B. Großparkplatz XY). Ist die Innenstadt autofrei?`;
             }
@@ -118,9 +122,11 @@ ${aufgabenListe}
     return new PromptBuilder()
         .withOS()
         .withRole(role)
+        .withContext({ heimat, anreise: anreiseTyp, zielgebiete: countriesListString }, "LOGISTIK-PARAMETER")
+        .withContext(strategischesBriefing, "STRATEGISCHE VORGABE") // FIX: Injected via Builder method
         .withInstruction(instructions)
         .withOutputSchema(outputSchema)
         .withSelfCheck(['basic', 'research'])
         .build();
 };
-// --- END OF FILE 130 Zeilen ---
+// --- END OF FILE 136 Zeilen ---

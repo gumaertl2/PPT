@@ -1,4 +1,4 @@
-// 19.01.2026 12:00 - FIX: Restored V30 Legacy Output Schema (routenVorschlaege) to match Frontend SSOT directly.
+// 19.01.2026 19:15 - FIX: Corrected PromptBuilder pattern for Strategic Briefing injection.
 // src/core/prompts/templates/routeArchitect.ts
 // 17.01.2026 12:45 - UPDATE: Integrated Duration Estimator logic directly.
 // 18.01.2026 00:10 - REFACTOR: Migrated to class-based PromptBuilder.
@@ -7,8 +7,11 @@ import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
 
 export const buildRouteArchitectPrompt = (project: TripProject): string => {
-  const { userInputs } = project;
+  const { userInputs, analysis } = project; // FIX: Added analysis for briefing access
   const { logistics, dates } = userInputs;
+
+  // 1. STRATEGISCHES BRIEFING (NEU: V30 Parity)
+  const strategischesBriefing = analysis.chefPlaner?.strategisches_briefing?.sammler_briefing || "";
 
   // Kontext für die KI
   const contextData = {
@@ -72,9 +75,10 @@ Jeder Vorschlag benötigt:
     .withOS()
     .withRole(role)
     .withContext(contextData, "LOGISTIK & RAHMENBEDINGUNGEN")
+    .withContext(strategischesBriefing, "STRATEGISCHE VORGABE") // FIX: Injected via Builder method
     .withInstruction(instructions)
     .withOutputSchema(outputSchema)
     .withSelfCheck(['basic', 'planning'])
     .build();
 };
-// --- END OF FILE 79 Zeilen ---
+// --- END OF FILE 81 Zeilen ---
