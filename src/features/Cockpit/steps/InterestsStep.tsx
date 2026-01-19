@@ -1,7 +1,5 @@
-// 18.01.2026 16:15 - FIX: Enhanced renderIcon to support kebab-case conversion (PascalCase) for Lucide-React compatibility.
-// src/features/cockpit/steps/InterestsStep.tsx
-// 14.01.2026 12:15 - FIX: Removed unused 'isAppendix' parameter to fix lint error.
-// 18.01.2026 14:10 - FIX: ReferenceError 'lang' fixed to 'currentLang'. Full strategy integration.
+// 20.01.2026 21:00 - FIX: Added Safety Checks for undefined INTEREST_DATA to prevent crashes.
+// src/features/Cockpit/steps/InterestsStep.tsx
 
 import React, { useState, useMemo } from 'react';
 import { useTripStore } from '../../../store/useTripStore';
@@ -22,7 +20,7 @@ import {
 import { 
   INTEREST_DATA, 
   INTEREST_DISPLAY_ORDER, 
-  APPENDIX_ONLY_INTERESTS,
+  APPENDIX_ONLY_INTERESTS, 
   ICONS 
 } from '../../../data/staticData';
 import type { LanguageCode } from '../../../core/types';
@@ -61,7 +59,7 @@ export const InterestsStep = () => {
     const rawName = ICONS[id];
     if (!rawName) return <Icons.HelpCircle className={className} />;
 
-    // FIX: Convert kebab-case (e.g. 'shopping-bag') to PascalCase (e.g. 'ShoppingBag')
+    // FIX: Convert kebab-case to PascalCase for Lucide
     const iconName = rawName
       .split('-')
       .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
@@ -75,14 +73,18 @@ export const InterestsStep = () => {
   const openEditor = (e: React.MouseEvent, interestId: string) => {
     e.stopPropagation(); 
     
+    // SAFETY CHECK: Data existence
+    const data = INTEREST_DATA[interestId];
+    if (!data) return;
+
     const storedPref = customPreferences[interestId];
-    const defaultPref = INTEREST_DATA[interestId]?.defaultUserPreference?.[currentLang] || '';
+    const defaultPref = (data.defaultUserPreference as any)?.[currentLang] || '';
     
     const storedSearch = customSearchStrategies[interestId];
-    const defaultSearch = INTEREST_DATA[interestId]?.searchStrategy?.[currentLang] || '';
+    const defaultSearch = (data.searchStrategy as any)?.[currentLang] || '';
     
     const storedWriting = customWritingGuidelines[interestId];
-    const defaultWriting = INTEREST_DATA[interestId]?.writingGuideline?.[currentLang] || '';
+    const defaultWriting = (data.writingGuideline as any)?.[currentLang] || '';
     
     setTempPref(storedPref !== undefined ? storedPref : defaultPref);
     setTempSearch(storedSearch !== undefined ? storedSearch : defaultSearch);
@@ -93,10 +95,8 @@ export const InterestsStep = () => {
 
   const saveText = () => {
     if (editingInterestId) {
-      // 1. Vorliebe speichern (Standard)
       setCustomPreference(editingInterestId, tempPref);
       
-      // 2. Such-Strategie & Redaktion in die neuen Store-Felder
       updateProjectInput('customSearchStrategies', { 
         ...customSearchStrategies, 
         [editingInterestId]: tempSearch 
@@ -113,34 +113,40 @@ export const InterestsStep = () => {
     }
   };
 
-  // --- FILTER LOGIC ---
+  // --- FILTER LOGIC (ROBUST) ---
   const activeInterestIds = useMemo(() => {
     return INTEREST_DISPLAY_ORDER.filter(id => 
+      INTEREST_DATA[id] && // CRITICAL FIX: Check if ID exists in data
       !APPENDIX_ONLY_INTERESTS.includes(id) && 
       id !== 'ReisetypStrategie' &&
-      !INTEREST_DATA[id]?.isSystem 
+      !INTEREST_DATA[id].isSystem 
     );
   }, []);
 
   const appendixInterestIds = useMemo(() => {
-    return APPENDIX_ONLY_INTERESTS.filter(id => !INTEREST_DATA[id]?.isSystem);
+    return APPENDIX_ONLY_INTERESTS.filter(id => 
+        INTEREST_DATA[id] && // CRITICAL FIX: Check if ID exists in data
+        !INTEREST_DATA[id].isSystem
+    );
   }, []);
 
   const renderTile = (id: string) => {
+    const data = INTEREST_DATA[id];
+    if (!data) return null; // CRITICAL FIX: Fail safe
+
     const isSelected = selectedInterests.includes(id);
     const hasCustomPref = !!customPreferences[id];
     const hasCustomSearch = !!customSearchStrategies[id];
     const hasCustomWriting = !!customWritingGuidelines[id];
     const isModified = hasCustomPref || hasCustomSearch || hasCustomWriting;
     
-    // Tooltip Content: defaultUserPreference
-    const tooltipText = INTEREST_DATA[id]?.defaultUserPreference?.[currentLang];
+    const tooltipText = (data.defaultUserPreference as any)?.[currentLang];
+    const label = (data.label as any)?.[currentLang] || id;
 
     return (
       <div 
         key={id}
         onClick={() => toggleInterest(id)}
-        // HIER: Native Tooltips (title)
         title={tooltipText}
         className={`
           relative p-3 rounded-xl border transition-all cursor-pointer group
@@ -161,7 +167,7 @@ export const InterestsStep = () => {
             
             <div className="flex flex-col">
               <span className={`text-sm font-medium ${isSelected ? 'text-blue-800' : 'text-slate-700'}`}>
-                {INTEREST_DATA[id].label[currentLang]}
+                {label}
               </span>
               {isModified && (
                 <span className="text-[10px] text-blue-600 flex items-center gap-1">
@@ -232,8 +238,6 @@ export const InterestsStep = () => {
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
-            {/* Anzahl */}
             <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
               <label className="block text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-1">
                 <ListOrdered className="w-3 h-3" /> {t('interests.searchSettings.count')}
@@ -248,7 +252,6 @@ export const InterestsStep = () => {
               />
             </div>
 
-            {/* Rating */}
             <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
               <label className="block text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-1">
                 <Star className="w-3 h-3 text-amber-500" /> {t('interests.searchSettings.rating')}
@@ -267,7 +270,6 @@ export const InterestsStep = () => {
               </div>
             </div>
 
-            {/* Dauer */}
             <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
               <label className="block text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-1">
                 <Clock className="w-3 h-3 text-blue-500" /> {t('interests.searchSettings.duration')}
@@ -284,20 +286,21 @@ export const InterestsStep = () => {
                 <span className="text-sm text-slate-400">Min</span>
               </div>
             </div>
-
           </div>
         </section>
       )}
 
       {/* --- TRIPLE EDITOR MODAL --- */}
-      {editingInterestId && (
+      {editingInterestId && INTEREST_DATA[editingInterestId] && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in-up flex flex-col max-h-[90vh]">
             
             <div className="px-5 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50 flex-shrink-0">
               <h3 className="font-bold text-slate-800 flex items-center gap-2">
                 {renderIcon(editingInterestId, "w-4 h-4 text-blue-600")}
-                {INTEREST_DATA[editingInterestId].label[currentLang]} <span className="text-slate-400 font-normal text-sm">{t('interests.modal_title')}</span>
+                {/* FIX: Safe Access */}
+                {(INTEREST_DATA[editingInterestId].label as any)[currentLang]} 
+                <span className="text-slate-400 font-normal text-sm">{t('interests.modal_title')}</span>
               </h3>
               <button onClick={() => setEditingInterestId(null)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
@@ -305,8 +308,6 @@ export const InterestsStep = () => {
             </div>
 
             <div className="p-6 overflow-y-auto space-y-6">
-              
-              {/* Ebene 1: Vorliebe */}
               <div>
                 <label className="text-xs font-bold text-slate-700 uppercase block mb-2 flex items-center gap-2">
                   <MessageSquare className="w-3 h-3 text-blue-500" />
@@ -320,7 +321,6 @@ export const InterestsStep = () => {
                 />
               </div>
 
-              {/* Ebene 2: Such-Strategie */}
               <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
                 <label className="text-xs font-bold text-slate-600 uppercase block mb-2 flex items-center gap-2">
                   <Search className="w-3 h-3 text-slate-400" />
@@ -333,7 +333,6 @@ export const InterestsStep = () => {
                 />
               </div>
 
-              {/* Ebene 3: Redaktions-Anweisung */}
               <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
                 <label className="text-xs font-bold text-slate-600 uppercase block mb-2 flex items-center gap-2">
                   <PenTool className="w-3 h-3 text-slate-400" />
@@ -345,7 +344,6 @@ export const InterestsStep = () => {
                   onChange={(e) => setTempWriting(e.target.value)}
                 />
               </div>
-
             </div>
 
             <div className="px-5 py-3 bg-slate-50 flex justify-end gap-3 border-t border-slate-100 flex-shrink-0">
@@ -369,4 +367,4 @@ export const InterestsStep = () => {
     </div>
   );
 };
-// --- END OF FILE 365 Zeilen ---
+// --- END OF FILE 370 Zeilen ---

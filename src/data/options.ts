@@ -1,15 +1,11 @@
-/**
- * src/data/options.ts
- * 07.01.2026 13:05
- * Enthält Optionen für Reisetempo, Budget, Stimmung und Logistik.
- * UPDATE: Label für Flexibel zu "Preis/Leistung" geändert.
- */
+// 20.01.2026 22:30 - REFACTOR: "Operation Clean Sweep" - Migrated Options IDs to English. Content preserved.
+// src/data/options.ts
 
 import type { SelectOption } from '../core/types';
 
 export const PACE_OPTIONS: Record<string, SelectOption> = {
-  'Ausgewogen': {
-    id: 'Ausgewogen',
+  'balanced': { // former: Ausgewogen
+    id: 'balanced',
     label: { de: "Ausgewogen", en: "Balanced" },
     description: { de: "Start 09:30, Ende 17:00. 90 Min Pause.", en: "Start 09:30, End 17:00. 90 min break." },
     promptInstruction: {
@@ -17,8 +13,8 @@ export const PACE_OPTIONS: Record<string, SelectOption> = {
       en: 'The golden mean. Start 09:30 from hotel. End program 17:00. Lunch break fixed 90 min. RULE: Max. 4 main activities per day.'
     }
   },
-  'Entspannt': {
-    id: 'Entspannt',
+  'relaxed': { // former: Entspannt
+    id: 'relaxed',
     label: { de: "Entspannt", en: "Relaxed" },
     description: { de: "Start 10:00. Viel Freizeit & Genuss.", en: "Start 10:00. Lots of leisure & enjoyment." },
     promptInstruction: {
@@ -26,8 +22,8 @@ export const PACE_OPTIONS: Record<string, SelectOption> = {
       en: "Focus: Deceleration (Slow Travel). Start 10:00 from hotel. End program 16:00. Lunch break 90 min + coffee break 45 min. RULE: Max 2 main activities per day, rest is 'strolling' or 'leisure'.\nDEFINITION SLOW TRAVEL: Few agenda items, longer breaks, start late/end early, places without crowds."
     }
   },
-  'Straff': {
-    id: 'Straff',
+  'fast': { // former: Straff
+    id: 'fast',
     label: { de: "Straff", en: "Fast-Paced" },
     description: { de: "Start 08:00. Maximale Ausbeute.", en: "Start 08:00. Maximize sightseeing." },
     promptInstruction: {
@@ -38,17 +34,17 @@ export const PACE_OPTIONS: Record<string, SelectOption> = {
 };
 
 export const BUDGET_OPTIONS: Record<string, SelectOption> = {
-  'Flexibel': {
-    id: 'Flexibel',
-    label: { de: "Preis/Leistung", en: "Value for Money" }, // UPDATE: Label geändert
+  'flexible': { // former: Flexibel
+    id: 'flexible',
+    label: { de: "Preis/Leistung", en: "Value for Money" },
     description: { de: "Gutes Preis-Leistungs-Verhältnis.", en: "Good value for money." },
     promptInstruction: {
       de: 'Dies ist die ausgewogenste Option. Die KI versucht nicht, die billigste oder die teuerste Option zu finden, sondern die mit dem besten Wert für Ihr Geld.\n- Hotels: Solide und gut bewertete 3- bis 4-Sterne-Hotels oder hochwertige, charmante B&Bs.\n- Restaurants: Eine Mischung aus authentischen, landestypischen Restaurants und gelegentlich einem etwas gehobeneren Restaurant.\n- Transport: Effizienteste Methode, oft eine Mischung aus ÖPNV und Taxis.\n- Mietwagen: Kompaktklasse (z.B. VW Golf).',
       en: 'Most balanced option. AI seeks best value for money, not cheapest or most expensive.\n- Hotels: Solid 3-4 star hotels or charming B&Bs.\n- Restaurants: Mix of authentic local spots and occasional upscale dining.\n- Transport: Most efficient method, mix of public transport and taxis.\n- Rental: Compact class (e.g. VW Golf).'
     }
   },
-  'Sparsam': {
-    id: 'Sparsam',
+  'budget': { // former: Sparsam
+    id: 'budget',
     label: { de: "Sparsam (€)", en: "Budget (€)" },
     description: { de: "Hostels, Street Food, ÖPNV.", en: "Hostels, Street Food, Public Transport." },
     promptInstruction: {
@@ -56,8 +52,8 @@ export const BUDGET_OPTIONS: Record<string, SelectOption> = {
       en: 'Focus clearly on minimizing costs.\n- Hotels: Clean hostels, simple guesthouses, budget chains.\n- Restaurants: Street food, markets, snacks.\n- Activities: Prioritize free activities.\n- Transport: Almost exclusively public transport.\n- Rental: Mini car (e.g. Fiat 500).'
     }
   },
-  'Mittelklasse': {
-    id: 'Mittelklasse',
+  'mid_range': { // former: Mittelklasse
+    id: 'mid_range',
     label: { de: "Mittelklasse (€€)", en: "Mid-Range (€€)" },
     description: { de: "Komfort, 4-Sterne, Service.", en: "Comfort, 4-stars, Service." },
     promptInstruction: {
@@ -65,8 +61,8 @@ export const BUDGET_OPTIONS: Record<string, SelectOption> = {
       en: 'Comfortable travel style without extravagant luxury.\n- Hotels: Established 4-star hotels or highly rated boutique hotels.\n- Restaurants: Good established restaurants with table service.\n- Transport: Comfortable public transport and regular taxi use.\n- Rental: Mid-range sedan/wagon (e.g. VW Passat).'
     }
   },
-  'Gehoben': {
-    id: 'Gehoben',
+  'upscale': { // former: Gehoben
+    id: 'upscale',
     label: { de: "Gehoben (€€€)", en: "Upscale (€€€)" },
     description: { de: "Exklusiv, Fine Dining, Taxis.", en: "Exclusive, Fine Dining, Taxis." },
     promptInstruction: {
@@ -74,8 +70,8 @@ export const BUDGET_OPTIONS: Record<string, SelectOption> = {
       en: 'For travelers valuing high quality, service, and exclusivity.\n- Hotels: 5-star hotels or exclusive boutique hotels.\n- Restaurants: Guide-listed restaurants or fine dining.\n- Activities: Private tours, skip-the-line tickets.\n- Transport: Taxis or private drivers preferred.\n- Rental: Premium mid-range (e.g. Audi A4, BMW 3 Series).'
     }
   },
-  'Luxus': {
-    id: 'Luxus',
+  'luxury': { // former: Luxus
+    id: 'luxury',
     label: { de: "Luxus (€€€€)", en: "Luxury (€€€€)" },
     description: { de: "5-Sterne, Michelin, Chauffeur.", en: "5-Star, Michelin, Chauffeur." },
     promptInstruction: {
@@ -86,8 +82,8 @@ export const BUDGET_OPTIONS: Record<string, SelectOption> = {
 };
 
 export const VIBE_OPTIONS: Record<string, SelectOption> = {
-  'Entdeckerisch': {
-    id: 'Entdeckerisch',
+  'explorer': { // former: Entdeckerisch
+    id: 'explorer',
     label: { de: "Entdeckerisch", en: "Explorer" },
     description: { de: "Hidden Gems, Details, Authentisch.", en: "Hidden Gems, details, authentic." },
     promptInstruction: {
@@ -95,8 +91,8 @@ export const VIBE_OPTIONS: Record<string, SelectOption> = {
       en: "FOCUS: Behind the scenes. INSTRUCTION: Do not stay on surface even at highlights. Look for exciting details, legends, or the 'second glance'. Choose authentic and less crowded alternatives.\n\nDEFINITION HIDDEN GEM (Criteria): 1. Visitor frequency < 30% of main sights. 2. Quality: historical, cultural, scenic relevance. 3. Location: Side streets/smaller districts."
     }
   },
-  'Abenteuerlich': {
-    id: 'Abenteuerlich',
+  'adventurous': { // former: Abenteuerlich
+    id: 'adventurous',
     label: { de: "Abenteuerlich", en: "Adventurous" },
     description: { de: "Adrenalin, Herausforderung, Mut.", en: "Adrenaline, challenge, courage." },
     promptInstruction: {
@@ -104,8 +100,8 @@ export const VIBE_OPTIONS: Record<string, SelectOption> = {
       en: "FOCUS: Adrenaline & boundaries. RULE: No 'walk', but 'challenge'. Search for activities requiring physical effort or courage (climbing, rafting, off-road). If a hike is 'easy', prioritize a 'hard' alternative."
     }
   },
-  'Entspannt': {
-    id: 'Entspannt',
+  'relaxed': { // former: Entspannt
+    id: 'relaxed',
     label: { de: "Entspannt", en: "Relaxed" },
     description: { de: "Stille, Genuss, keine Hektik.", en: "Silence, enjoyment, no rush." },
     promptInstruction: {
@@ -113,8 +109,8 @@ export const VIBE_OPTIONS: Record<string, SelectOption> = {
       en: "FOCUS: Peace of mind & enjoyment. FORBIDDEN: Rush, noise, crowds. Search for quiet places: Libraries, empty parks, waterfront cafes, wellness. Every suggestion must pass: 'Can I sit here for 2 hours doing nothing without getting bored?'.\n\nDEFINITION SLOW TRAVEL (Criteria): 1. Few agenda items. 2. Longer breaks. 3. Start late/end early. 4. Places without crowds."
     }
   },
-  'Gesellig': {
-    id: 'Gesellig',
+  'social': { // former: Gesellig
+    id: 'social',
     label: { de: "Gesellig", en: "Social" },
     description: { de: "Begegnung, Märkte, Plätze.", en: "Encounters, markets, squares." },
     promptInstruction: {
@@ -122,8 +118,8 @@ export const VIBE_OPTIONS: Record<string, SelectOption> = {
       en: "FOCUS: Encounters & Life. INSTRUCTION: Avoid empty museums or lonely paths. Search marketplaces, lively squares, pubs with live music/events. Prioritize places where 'socializing' is easy.\n\nDEFINITION SOCIAL (Criteria): 1. Squares, food markets, festivals. 2. Pubs/bars with communal tables. 3. Markets or districts with high social activity."
     }
   },
-  'Inspirierend': {
-    id: 'Inspirierend',
+  'inspiring': { // former: Inspirierend
+    id: 'inspiring',
     label: { de: "Inspirierend", en: "Inspiring" },
     description: { de: "Kreativ, Modern, Street Art.", en: "Creative, modern, street art." },
     promptInstruction: {
@@ -131,8 +127,8 @@ export const VIBE_OPTIONS: Record<string, SelectOption> = {
       en: "FOCUS: Creativity & Vision. FILTER: 'Mainstream'. Search for places breaking conventions: modern architecture, street art, design studios, innovative startups.\n\nDEFINITION INSPIRING (Criteria): 1. Modern/avant-garde architecture. 2. Street art, design, creative scene. 3. Unusual topics, experiments."
     }
   },
-  'Kulturell neugierig': {
-    id: 'Kulturell neugierig',
+  'cultural': { // former: Kulturell neugierig
+    id: 'cultural',
     label: { de: "Kulturell neugierig", en: "Culturally Curious" },
     description: { de: "Tiefe, Kontext, Geschichten.", en: "Depth, context, stories." },
     promptInstruction: {
@@ -140,8 +136,8 @@ export const VIBE_OPTIONS: Record<string, SelectOption> = {
       en: "FOCUS: Depth & Context. FORBIDDEN: Superficial 'checking off'. Search for places telling complex stories. Prioritize museums with special tours, historical sites with good didactic concepts, and places of intellectual exchange."
     }
   },
-  'Luxuriös': {
-    id: 'Luxuriös',
+  'luxurious': { // former: Luxuriös
+    id: 'luxurious',
     label: { de: "Luxuriös", en: "Luxurious" },
     description: { de: "Exzellenz, VIP, Ästhetik.", en: "Excellence, VIP, aesthetics." },
     promptInstruction: {
@@ -149,8 +145,8 @@ export const VIBE_OPTIONS: Record<string, SelectOption> = {
       en: "FOCUS: Excellence & Privacy. FILTER: 'Mass processing'. Every suggestion must be 'High-End'. Search for private dining, VIP access, 5-star service, aesthetic perfection. Money is no object, quality is everything."
     }
   },
-  'Nostalgisch': {
-    id: 'Nostalgisch',
+  'nostalgic': { // former: Nostalgisch
+    id: 'nostalgic',
     label: { de: "Nostalgisch", en: "Nostalgic" },
     description: { de: "Historisch, Handwerk, Zeitreise.", en: "Historical, craft, time travel." },
     promptInstruction: {
@@ -158,8 +154,8 @@ export const VIBE_OPTIONS: Record<string, SelectOption> = {
       en: "FOCUS: The good old days. MOOD: Melancholic-beautiful. Search for places preserving time: Historic cafes, antique shops, steam trains, craft workshops. Avoid modern glass buildings and digital rush."
     }
   },
-  'Romantisch': {
-    id: 'Romantisch',
+  'romantic': { // former: Romantisch
+    id: 'romantic',
     label: { de: "Romantisch", en: "Romantic" },
     description: { de: "Intim, Aussicht, Ruhe.", en: "Intimate, view, quiet." },
     promptInstruction: {
@@ -167,8 +163,8 @@ export const VIBE_OPTIONS: Record<string, SelectOption> = {
       en: "FOCUS: Intimacy & Atmosphere. FILTER: 'Vibe-Check'. Exclude loud, hectic, brightly lit places. Search for places with views (sunset), private atmosphere, aesthetic beauty.\n\nDEFINITION ROMANTIC (Criteria): 1. Dimmed light/ambiance. 2. View (sunset, water). 3. Quiet corners, privacy. 4. Candlelight restaurants."
     }
   },
-  'Transformativ': {
-    id: 'Transformativ',
+  'transformative': { // former: Transformativ
+    id: 'transformative',
     label: { de: "Transformativ", en: "Transformative" },
     description: { de: "Sinn, Stille, Reflexion.", en: "Meaning, silence, reflection." },
     promptInstruction: {
@@ -190,3 +186,4 @@ export const LOGISTIC_OPTIONS: Record<string, SelectOption> = {
     description: { de: "Mehrere Standorte / Route.", en: "Multiple locations / Route." }
   }
 };
+// --- END OF FILE 160 Zeilen ---

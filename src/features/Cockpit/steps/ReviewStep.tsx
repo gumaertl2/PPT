@@ -1,5 +1,5 @@
-// src/features/cockpit/steps/ReviewStep.tsx
-// 14.01.2026 15:25 - FIX: Syntax error resolved (removed comment inside props). Added resolveLabel helper.
+// 20.01.2026 21:10 - FIX: Robust resolveLabel and Safety Checks for missing data.
+// src/features/Cockpit/steps/ReviewStep.tsx
 
 import React from 'react';
 import { useTripStore } from '../../../store/useTripStore';
@@ -31,21 +31,17 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
   
-  // Store Access
   const { project } = useTripStore();
   const { userInputs } = project;
   const { logistics, travelers, dates, selectedInterests, notes, customPreferences, pace, budget, vibe, strategyId, aiOutputLanguage } = userInputs;
 
-  // --- HELPER: Label Resolution (Fix TS7053) ---
+  // --- HELPER: Label Resolution ---
   const resolveLabel = (item: any): string => {
     if (!item || !item.label) return '';
-    // Wenn label ein String ist, direkt zurückgeben
     if (typeof item.label === 'string') return item.label;
-    // Wenn es ein LocalizedContent Objekt ist, Sprache wählen
-    return item.label[currentLang] || item.label['de'] || '';
+    return (item.label as any)[currentLang] || (item.label as any)['de'] || '';
   };
 
-  // --- VALIDIERUNG ---
   const hasLogistics = logistics.mode === 'stationaer' ? !!logistics.stationary.region : !!logistics.roundtrip.region;
   const hasTravelers = travelers.adults > 0;
   const hasInterests = selectedInterests.length > 0;
@@ -57,7 +53,6 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
       : <AlertCircle className="w-4 h-4 text-amber-500" />
   );
 
-  // --- KACHEL WRAPPER ---
   const Section = ({ 
     stepIndex, 
     title,
@@ -81,7 +76,6 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
          </h3>
          <div className="flex items-center gap-2">
            {renderStatus(isValid)}
-           {/* Edit Hint Icon */}
            <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-blue-50 text-blue-600 p-1 rounded">
               <ArrowUpRight className="w-3 h-3" />
            </div>
@@ -93,7 +87,6 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
     </div>
   );
 
-  // --- HELPER FÜR LIST ITEMS ---
   const InfoRow = ({ label, value, sub }: { label: string, value: React.ReactNode, sub?: string }) => (
     <div className="text-sm">
       <span className="block text-xs font-bold text-slate-400 uppercase mb-0.5">{label}</span>
@@ -105,7 +98,6 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
   return (
     <div className="space-y-6 animate-fade-in">
       
-      {/* Intro Box */}
       <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-800 flex items-start gap-2">
         <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5" />
         <div>
@@ -118,16 +110,13 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         
-        {/* =========================================================
-            SCHRITT 1: COCKPIT (Logistik & Zeitraum)
-           ========================================================= */}
+        {/* LOGISTICS */}
         <Section 
           stepIndex={0} 
           title={t('wizard.steps.logistics')} 
           icon={MapPin}
           isValid={hasLogistics}
         >
-          {/* Logistik */}
           <InfoRow 
             label={t('review.label_logistics')} 
             value={logistics.mode === 'stationaer' ? t('logistics.stationary') : t('logistics.roadtrip')} 
@@ -136,8 +125,6 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
               : `${logistics.roundtrip.region || '-'} (${logistics.roundtrip.stops.length} ${t('cockpit.stops_label')})`
             }
           />
-          
-          {/* Zeitraum (gehört logisch zu Schritt 1) */}
           <div className="pt-2 border-t border-slate-50">
             <InfoRow 
               label={t('review.label_dates')} 
@@ -148,8 +135,6 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
               } 
             />
           </div>
-
-          {/* Ankunft/Abreise */}
           {(dates.arrival.type || dates.arrival.time) && (
              <div className="flex gap-4 pt-2 border-t border-slate-50">
                 <div className="flex-1">
@@ -162,10 +147,7 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
           )}
         </Section>
 
-
-        {/* =========================================================
-            SCHRITT 2: WER & WIE
-           ========================================================= */}
+        {/* TRAVELERS */}
         <Section 
           stepIndex={1} 
           title={t('wizard.steps.travelers')} 
@@ -184,38 +166,20 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
               sub={travelers.nationality || '-'}
             />
           </div>
-
-          <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-50">
-             <InfoRow 
-                label={t('profile.group_title')} 
-                value={t(`profile.group_${travelers.groupType || 'other'}`)} 
-             />
-             <InfoRow 
-                label={t('profile.pets_title')} 
-                value={travelers.pets ? t('profile.pets_yes') : t('profile.pets_no')} 
-             />
-          </div>
-
           <div className="pt-2 border-t border-slate-50">
              <InfoRow 
                 label={t('review.label_strategy')} 
-                // FIX: Removed invalid comment inside props, using resolveLabel
                 value={<span className="text-blue-600">{resolveLabel(STRATEGY_OPTIONS[strategyId]) || strategyId}</span>} 
              />
           </div>
-
           <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-50">
-            {/* FIX: Use resolveLabel for Pace, Budget, Vibe */}
-            <InfoRow label={t('profile.options_pace')} value={resolveLabel(PACE_OPTIONS[pace])} />
-            <InfoRow label={t('profile.options_budget')} value={resolveLabel(BUDGET_OPTIONS[budget])} />
-            <InfoRow label={t('profile.options_vibe')} value={resolveLabel(VIBE_OPTIONS[vibe])} />
+            <InfoRow label={t('profile.options_pace')} value={resolveLabel(PACE_OPTIONS[pace]) || pace} />
+            <InfoRow label={t('profile.options_budget')} value={resolveLabel(BUDGET_OPTIONS[budget]) || budget} />
+            <InfoRow label={t('profile.options_vibe')} value={resolveLabel(VIBE_OPTIONS[vibe]) || vibe} />
           </div>
         </Section>
 
-
-        {/* =========================================================
-            SCHRITT 3: INTERESSEN
-           ========================================================= */}
+        {/* INTERESTS */}
         <Section 
           stepIndex={2} 
           title={t('wizard.steps.interests')} 
@@ -229,8 +193,8 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {selectedInterests.map(id => (
                     <span key={id} className="px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded-md border border-slate-200">
-                      {/* FIX: Use resolveLabel for Interests */}
-                      {resolveLabel(INTEREST_DATA[id]) || id}
+                      {/* FIX: Safety check for undefined INTEREST_DATA */}
+                      {INTEREST_DATA[id] ? resolveLabel(INTEREST_DATA[id]) : id}
                     </span>
                   ))}
                 </div>
@@ -241,10 +205,7 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
           />
         </Section>
 
-
-        {/* =========================================================
-            SCHRITT 4: TERMINE (Feste Termine)
-           ========================================================= */}
+        {/* DATES */}
         <Section 
           stepIndex={3} 
           title={t('wizard.steps.dates')} 
@@ -278,10 +239,7 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
           />
         </Section>
 
-
-        {/* =========================================================
-            SCHRITT 5: SONSTIGES
-           ========================================================= */}
+        {/* MISC */}
         <div className="md:col-span-2">
           <Section 
             stepIndex={4} 
@@ -289,14 +247,12 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
             icon={FileText}
             isValid={true}
           >
-            {/* NEU: Anzeige der gewählten KI-Sprache */}
             <div className="mb-4 pb-4 border-b border-slate-100">
                <InfoRow 
                  label={t('misc.output_lang_label', 'Sprache für den KI-Reiseplan')} 
                  value={t(`misc.lang_${aiOutputLanguage || 'de'}`)}
                />
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <InfoRow 
                    label={t('review.label_notes')} 
@@ -314,4 +270,4 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
     </div>
   );
 };
-// --- END OF FILE 255 Zeilen ---
+// --- END OF FILE 250 Zeilen ---

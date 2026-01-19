@@ -4,45 +4,80 @@
  * src/data/constants.ts
  * Enthält Icons, Sortier-Reihenfolgen und Mapping-Konstanten.
  * UPDATE: Logistik- und Such-Defaults hinzugefügt.
+ * FIX: Migrated to English Keys (V40 Standard) to match INTEREST_DATA.
  */
 
 // --- ICONS MAPPING ---
 export const ICONS: Record<string, string> = {
-  'ReisetypStrategie': 'compass',
-  'Reisetempo': 'gauge',
-  'Preisniveau': 'wallet',
-  'Emotionale Stimmung': 'smile',
-  'Restaurant': 'utensils',
-  'Nachtleben': 'martini',
-  'Architektur': 'landmark', 
-  'Stadtbezirke': 'map-pin',
-  'Museum': 'library', 
-  'Parks': 'trees',
-  'Natur': 'mountain',
-  'Strand': 'umbrella',
-  'Sport': 'activity',
-  'Familie': 'baby', 
-  'Wellness': 'coffee', 
-  'Shopping': 'shopping-bag',
-  'Allgemein': 'info',
-  'Puffer': 'hourglass',
-  'Anreise': 'plane',
-  'Hotel': 'bed',
-  'StadtInfo': 'building',
-  'Budget': 'calculator',
-  'Reiseinformationen': 'book',
-  'Unberuecksichtigt': 'eye-off'
+  // System
+  'trip_strategy': 'compass',
+  'pace': 'gauge',
+  'budget_level': 'wallet',
+  'vibe': 'smile',
+  'budget': 'calculator',
+  'travel_info': 'book',
+  'ignored_places': 'eye-off',
+  'general': 'info',
+  'buffer': 'hourglass',
+  'arrival': 'plane',
+  'hotel': 'bed',
+
+  // Interests
+  'restaurant': 'utensils',
+  'nightlife': 'martini',
+  'architecture': 'landmark', 
+  'districts': 'map-pin',
+  'museum': 'library', 
+  'parks': 'trees',
+  'nature': 'mountain',
+  'beach': 'umbrella',
+  'sports': 'activity',
+  'family': 'baby', 
+  'wellness': 'coffee', 
+  'shopping': 'shopping-bag',
+  'city_info': 'building'
 };
 
 export const INTEREST_DISPLAY_ORDER = [
-  'ReisetypStrategie', 'Preisniveau', 'Emotionale Stimmung', 'Restaurant', 'Nachtleben', 
-  'Architektur', 'Stadtbezirke', 'Museum', 'Parks', 'Natur', 'Strand', 'Sport', 
-  'Familie', 'Wellness', 'Shopping', 'Allgemein', 'Puffer', 'Anreise', 'Hotel', 
-  'StadtInfo', 'Budget', 'Reiseinformationen', 'Unberuecksichtigt'
+  // 1. System
+  'trip_strategy', 
+  'budget_level', 
+  'vibe', 
+  
+  // 2. Main Interests
+  'restaurant', 
+  'nightlife', 
+  'architecture', 
+  'districts', 
+  'museum', 
+  'parks', 
+  'nature', 
+  'beach', 
+  'sports', 
+  'family', 
+  'wellness', 
+  'shopping', 
+  
+  // 3. System Fillers
+  'general', 
+  'buffer', 
+  
+  // 4. Appendix
+  'arrival', 
+  'hotel', 
+  'city_info', 
+  'budget', 
+  'travel_info', 
+  'ignored_places'
 ];
 
 export const APPENDIX_ONLY_INTERESTS = [
-  'Anreise', 'Hotel', 'StadtInfo', 'Budget', 'Reiseinformationen', 'Unberuecksichtigt'
+  'arrival', 
+  'hotel', 
+  'city_info', 
+  'budget', 
+  'travel_info', 
+  'ignored_places'
 ];
 
 // --- DEFAULTS & CONSTRAINTS (V40) ---
@@ -60,3 +95,4 @@ export const DEFAULT_STATIONARY_MAX_DRIVE_TIME_DAY = 3; // Stunden (Hin & Zurüc
 export const DEFAULT_SIGHTS_COUNT = 50; // Vorgabe Chefplaner
 export const DEFAULT_MIN_RATING = 4.5; // Google Maps Ranking (0-5)
 export const DEFAULT_MIN_DURATION = 60; // Minuten Verweildauer
+// --- END OF FILE 70 Zeilen ---

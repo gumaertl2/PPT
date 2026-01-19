@@ -1,5 +1,5 @@
-// src/features/cockpit/steps/LogisticsStep.tsx
-// 14.01.2026 16:00 - FIX: Added resolveLabel helper to safely handle localized labels (fixes TS build error).
+// 20.01.2026 21:15 - FIX: Added resolveLabel helper to safely handle localized labels.
+// src/features/Cockpit/steps/LogisticsStep.tsx
 
 import { useEffect } from 'react';
 import { useTripStore } from '../../../store/useTripStore';
@@ -43,14 +43,14 @@ export const LogisticsStep = () => {
   const { userInputs } = project;
   const { logistics, dates } = userInputs;
 
-  // --- HELPER: Label Resolution (Fix TS Error) ---
+  // --- HELPER: Label Resolution ---
   const resolveLabel = (item: any): string => {
     if (!item || !item.label) return '';
     if (typeof item.label === 'string') return item.label;
-    return item.label[currentLang] || item.label['de'] || '';
+    return (item.label as any)[currentLang] || (item.label as any)['de'] || '';
   };
 
-  // --- FIX: AUTO-CALC DURATION (Datum -> Dauer) ---
+  // --- AUTO-CALC DURATION ---
   useEffect(() => {
     if (!dates.flexible && dates.start && dates.end) {
       const start = new Date(dates.start);
@@ -64,7 +64,6 @@ export const LogisticsStep = () => {
       }
     }
   }, [dates.start, dates.end, dates.flexible, dates.duration, setDates]);
-
 
   // --- SMART DEFAULTS LOGIC ---
   useEffect(() => {
@@ -98,7 +97,6 @@ export const LogisticsStep = () => {
     }
   }, [dates.duration, logistics.mode]);
 
-
   const ARRIVAL_OPTIONS = [
     { value: 'suggestion', label: t('cockpit.arrival_options.suggestion') },
     { value: 'flight', label: t('cockpit.arrival_options.flight') },
@@ -119,9 +117,6 @@ export const LogisticsStep = () => {
   return (
     <div className="space-y-6 animate-fade-in">
 
-      {/* -----------------------------------------------------------
-          1. ZEITEN & ANREISE
-         ----------------------------------------------------------- */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         
         {/* ZEITRAUM */}
@@ -191,7 +186,7 @@ export const LogisticsStep = () => {
           </div>
         </div>
 
-        {/* ANREISE & ZEITEN */}
+        {/* ANREISE */}
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
           <h3 className="text-xs font-bold text-slate-700 mb-3 flex items-center gap-2 uppercase">
             <Car className="w-3 h-3 text-blue-500" /> {t('cockpit.arrival_section')}
@@ -240,10 +235,7 @@ export const LogisticsStep = () => {
         </div>
       </div>
 
-      
-      {/* -----------------------------------------------------------
-          2. LOGISTIK-MODUS (Tabs)
-         ----------------------------------------------------------- */}
+      {/* LOGISTIK MODUS */}
       <div className="bg-slate-100 p-1 rounded-lg flex shadow-inner">
         {Object.values(LOGISTIC_OPTIONS).map((option) => {
           const isActive = logistics.mode === option.id;
@@ -257,21 +249,16 @@ export const LogisticsStep = () => {
                   : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              {/* FIX: Use resolveLabel helper */}
               {resolveLabel(option)}
             </button>
           );
         })}
       </div>
 
-
-      {/* -----------------------------------------------------------
-          3. ORTE & ROUTE & CONSTRAINTS
-         ----------------------------------------------------------- */}
+      {/* ORTE & ROUTE */}
       <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
         
         {logistics.mode === 'stationaer' ? (
-          /* STATIONÄR */
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-bold text-slate-500 uppercase block mb-1">{t('cockpit.region_label')}</label>
@@ -294,7 +281,6 @@ export const LogisticsStep = () => {
               />
             </div>
             
-            {/* Max Drive Time for Stationary */}
             <div>
                <label className="text-[10px] text-slate-500 block font-bold mb-1 flex items-center gap-1">
                  <Compass className="w-3 h-3"/> Max. Fahrzeit Ausflüge (h)
@@ -326,10 +312,8 @@ export const LogisticsStep = () => {
             </div>
           </div>
         ) : (
-          /* RUNDREISE (MOBIL) */
           <div className="space-y-6">
             
-            {/* Basis-Daten */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase block mb-1">{t('cockpit.roundtrip_region')}</label>
@@ -363,7 +347,6 @@ export const LogisticsStep = () => {
               </div>
             </div>
 
-            {/* Logistik Constraints */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-3 rounded-lg border border-slate-100">
               
               <div>
@@ -414,7 +397,6 @@ export const LogisticsStep = () => {
               </div>
             </div>
 
-            {/* Stationen Liste */}
             <div>
               <div className="flex justify-between items-center mb-2">
                 <label className="text-xs font-bold text-slate-500 uppercase">{t('cockpit.stops_label')}</label>
@@ -483,4 +465,4 @@ export const LogisticsStep = () => {
     </div>
   );
 };
-// --- END OF FILE 459 Zeilen ---
+// --- END OF FILE 465 Zeilen ---

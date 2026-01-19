@@ -1,13 +1,16 @@
-// src/features/cockpit/steps/ProfileStep.tsx
-// 13.01.2026 17:45 - FIX: Corrected imports (STRATEGY_OPTIONS) and state access (removed phantom 'profile'/'config' objects).
+// 20.01.2026 21:05 - FIX: Added resolveLabel helper and fixed STRATEGY_OPTIONS rendering.
+// src/features/Cockpit/steps/ProfileStep.tsx
 
 import { useTranslation } from 'react-i18next';
 import { useTripStore } from '../../../store/useTripStore';
-import { STRATEGY_OPTIONS } from '../../../data/staticData'; // FIX: Renamed from STRATEGY_DEFINITIONS
+import { STRATEGY_OPTIONS } from '../../../data/staticData'; 
 import { Users, Calendar, Home, MapPin, FileText, Globe, Compass, Plane } from 'lucide-react';
+import type { LanguageCode } from '../../../core/types';
 
 export const ProfileStep = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const currentLang = i18n.language.substring(0, 2) as LanguageCode;
+
   const { 
     project, 
     setTravelers, 
@@ -20,18 +23,22 @@ export const ProfileStep = () => {
     setArrival
   } = useTripStore();
   
-  // FIX: Access flat properties from userInputs (no 'profile' or 'config' objects)
-  // FIX: Map destination from logistics.stationary
   const { travelers, dates, logistics, notes, strategyId, selectedInterests } = project.userInputs;
   const destination = logistics.stationary.destination;
   
-  // FIX: Use 'selectedInterests' instead of non-existent 'interests'
   const isRoadtrip = selectedInterests?.includes('logistics_roadtrip') ?? false;
+
+  // --- HELPER: Resolve Labels safely ---
+  const resolveLabel = (item: any): string => {
+    if (!item || !item.label) return '';
+    if (typeof item.label === 'string') return item.label;
+    return item.label[currentLang] || item.label['de'] || '';
+  };
 
   return (
     <div className="space-y-8 animate-fade-in-up pb-10">
       
-      {/* 0. WOHIN & WIE? (Die wichtigste Frage) */}
+      {/* 0. WOHIN & WIE? */}
       <section className="bg-blue-50 p-6 rounded-xl border border-blue-100 shadow-sm">
         <div className="flex items-center gap-2 mb-4 text-blue-900">
           <Compass className="w-5 h-5" />
@@ -64,10 +71,10 @@ export const ProfileStep = () => {
               onChange={(e) => setStrategy(e.target.value)}
               className="w-full border-blue-300 rounded-md shadow-sm focus:border-blue-600 focus:ring-blue-600 text-lg p-2 bg-white"
             >
-              {/* FIX: Use STRATEGY_OPTIONS and cast to any if needed for generic iteration */}
+              {/* FIX: Correct rendering with resolveLabel */}
               {Object.entries(STRATEGY_OPTIONS).map(([key, def]: [string, any]) => (
                 <option key={key} value={key}>
-                  {t(def.labelKey)}
+                  {resolveLabel(def)}
                 </option>
               ))}
             </select>
@@ -143,7 +150,7 @@ export const ProfileStep = () => {
         </div>
       </section>
 
-      {/* 2. WANN & WIE HIN? (Update mit Anreise) */}
+      {/* 2. WANN & WIE HIN? */}
       <section className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
         <div className="flex items-center gap-2 mb-4 text-blue-900">
           <Calendar className="w-5 h-5" />
@@ -310,4 +317,4 @@ export const ProfileStep = () => {
     </div>
   );
 };
-// --- END OF FILE 253 Zeilen ---
+// --- END OF FILE 270 Zeilen ---

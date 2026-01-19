@@ -1,4 +1,4 @@
-// 20.01.2026 19:55 - REFACTOR: "Operation Clean Sweep" - Migrated IDs to English. Content preserved.
+// 20.01.2026 22:30 - REFACTOR: "Operation Clean Sweep" - Migrated IDs to English. Content preserved.
 // src/data/strategies.ts
 /**
  * src/data/strategies.ts
@@ -113,4 +113,4 @@ export const STRATEGY_OPTIONS: Record<string, SelectOption> = {
     }
   }
 };
-// --- END OF FILE ---
+// --- END OF FILE 135 Zeilen ---

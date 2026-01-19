@@ -1,4 +1,4 @@
-// 20.01.2026 19:58 - FIX: Updated Default Strategy to English Key.
+// 20.01.2026 22:15 - FIX: "Operation Clean Sweep" - Surgical Update of Defaults to English Keys.
 // src/store/slices/createProjectSlice.ts
 
 import type { StateCreator } from 'zustand';
@@ -77,7 +77,9 @@ const createInitialProject = (): TripProject => ({
     language: 'de'
   },
   analysis: {
-    chefPlaner: null
+    chefPlaner: null,
+    routeArchitect: null, // V40 Init
+    geoAnalyst: null      // V40 Init
   },
   userInputs: {
     travelers: {
@@ -116,11 +118,12 @@ const createInitialProject = (): TripProject => ({
       minRating: DEFAULT_MIN_RATING,
       minDuration: DEFAULT_MIN_DURATION
     },
-    pace: 'Ausgewogen',
-    budget: 'Flexibel',
-    // FIX: Updated to new English Strategy ID
+    // FIX: Updated Defaults to English Keys (V40)
+    pace: 'balanced',        // former: Ausgewogen
+    budget: 'flexible',      // former: Flexibel
     strategyId: 'classic_discovery', 
-    vibe: 'Entdeckerisch',
+    vibe: 'explorer',        // former: Entdeckerisch
+    
     selectedInterests: [],
     customPreferences: {},
     notes: '',
