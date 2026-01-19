@@ -1,6 +1,6 @@
 // src/store/slices/createUISlice.ts
+// 19.01.2026 16:00 - FEATURE: Added InfoView Modal State.
 // 12.01.2026 21:30 - ADDED: deletePlace action for SightCard trash function
-// --- END OF FILE 179 Zeilen ---
 
 import type { StateCreator } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
@@ -42,6 +42,10 @@ export interface UISlice {
 
   isWorkflowModalOpen: boolean;
   setWorkflowModalOpen: (isOpen: boolean) => void;
+
+  // NEW: Info View Modal State
+  isInfoViewOpen: boolean;
+  setInfoViewOpen: (isOpen: boolean) => void;
 
   // --- MANUAL MODE STATE (Neu) ---
   manualPrompt: string | null;
@@ -88,6 +92,10 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
 
   isWorkflowModalOpen: false,
   setWorkflowModalOpen: (isOpen) => set({ isWorkflowModalOpen: isOpen }),
+
+  // NEW: Info View Modal Implementation
+  isInfoViewOpen: false,
+  setInfoViewOpen: (isOpen) => set({ isInfoViewOpen: isOpen }),
 
   // --- MANUAL MODE IMPL (Neu) ---
   manualPrompt: null,
@@ -182,4 +190,4 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
     notifications: state.notifications.map((n: AppNotification) => n.id === id ? { ...n, ...updates } : n)
   }))
 });
-// --- END OF FILE 179 Zeilen ---
+// --- END OF FILE 185 Zeilen ---

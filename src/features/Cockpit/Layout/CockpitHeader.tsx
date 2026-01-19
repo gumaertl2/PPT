@@ -1,5 +1,5 @@
 // src/features/Cockpit/Layout/CockpitHeader.tsx
-// 13.01.2026 19:30 - FEATURE: Added Quick Search Input to Navigation Bar
+// 19.01.2026 16:10 - FEAT: Wired up InfoView Modal (A-Z Infos).
 // 16.01.2026 00:30 - FIX: Enabled Route View navigation and synced Modal state via Store.
 
 import React, { useState, useRef } from 'react';
@@ -31,6 +31,7 @@ import {
 
 import { useTripStore } from '../../../store/useTripStore';
 import { SettingsModal } from '../SettingsModal';
+import { InfoView } from '../../info/InfoView'; // NEW IMPORT
 
 interface CockpitHeaderProps {
   // FIX: Extended viewMode type to include 'routeArchitect'
@@ -62,7 +63,9 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     toggleSightFilter, 
     isSightFilterOpen,  
     uiState, 
-    setUIState 
+    setUIState,
+    isInfoViewOpen,     // NEW
+    setInfoViewOpen     // NEW
   } = useTripStore();
   
   const hasAnalysisResult = !!project.analysis.chefPlaner;
@@ -252,7 +255,15 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                <span className="text-[10px] font-bold uppercase tracking-wide hidden md:inline">{t('wizard.toolbar.guide')}</span>
              </button>
 
-             <button className="flex flex-col items-center px-2 py-1 text-slate-400 hover:text-slate-600 cursor-not-allowed opacity-60">
+             {/* UPDATED: Info Button with Modal Trigger */}
+             <button 
+               onClick={() => setInfoViewOpen(true)}
+               className={`flex flex-col items-center px-2 py-1 rounded transition-colors ${
+                 isInfoViewOpen 
+                   ? 'text-blue-600 bg-blue-50' 
+                   : 'text-slate-500 hover:bg-slate-100'
+               }`}
+             >
                <Info className="w-4 h-4 lg:w-5 lg:h-5 mb-0.5" />
                <span className="text-[10px] font-bold uppercase tracking-wide hidden md:inline">{t('wizard.toolbar.info_travel')}</span>
              </button>
@@ -414,7 +425,38 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
       />
+
+      {/* NEW: Info View Modal Overlay */}
+      {isInfoViewOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            
+            {/* Modal Header */}
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+               <div className="flex items-center gap-2 text-blue-600">
+                  <Info className="w-5 h-5" />
+                  <h2 className="font-bold text-lg text-gray-700">Reise-Informationen & Logistik</h2>
+               </div>
+               <button 
+                  onClick={() => setInfoViewOpen(false)} 
+                  className="p-2 hover:bg-gray-200 rounded-full transition-colors"
+                  title="Schließen"
+               >
+                 <X className="w-5 h-5 text-gray-500" />
+               </button>
+            </div>
+            
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-0 bg-gray-50/50">
+               {/* Padding is handled inside InfoView content wrapper usually, but we can add some here */}
+               <div className="p-6">
+                 <InfoView />
+               </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
-// --- END OF FILE 397 Zeilen ---
+// --- END OF FILE 444 Zeilen ---

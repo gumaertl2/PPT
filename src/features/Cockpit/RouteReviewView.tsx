@@ -1,10 +1,11 @@
-// 19.01.2026 18:00 - FIX: Deduplicated route stops (Timeline -> Stations). Fixes Map Link & Itinerary Modal.
+// 19.01.2026 16:35 - FIX: Added Fallback to Travelers Origin for Map Start Location (V30 Parity).
 // src/features/Cockpit/RouteReviewView.tsx
 // 15.01.2026 17:50 - FEATURE: V30-Style Route Selection View with Keep & Regenerate Logic.
 // 15.01.2026 18:15 - UPDATE: Integrated ItineraryModal for night distribution (V30 Parity).
 // 16.01.2026 01:15 - FIX: Removed Header, Full-Width Feedback, Added i18n.
 // 16.01.2026 03:25 - FIX: Removed unused import (Map) to resolve build errors.
 // 18.01.2026 18:15 - FIX: Auto-Select active route from Store on mount.
+// 19.01.2026 18:00 - FIX: Deduplicated route stops (Timeline -> Stations). Fixes Map Link & Itinerary Modal.
 
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -170,7 +171,11 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
     );
   }
 
-  const startLoc = project.userInputs.logistics.roundtrip.startLocation || project.userInputs.logistics.roundtrip.region || "";
+  // FIX: Robust Start Location Logic (V30 Parity) - Falls Start leer, nimm Heimatort
+  const startLoc = project.userInputs.logistics.roundtrip.startLocation || 
+                   project.userInputs.travelers.origin || 
+                   project.userInputs.logistics.roundtrip.region || 
+                   "";
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -383,4 +388,4 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
     </div>
   );
 };
-// --- END OF FILE 339 Zeilen ---
+// --- END OF FILE 346 Zeilen ---

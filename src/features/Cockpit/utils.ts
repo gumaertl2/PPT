@@ -1,4 +1,5 @@
 // src/features/Cockpit/utils.ts
+// 19.01.2026 16:30 - FIX: Corrected Google Maps URL format (Universal Cross-Platform).
 // 15.01.2026 17:45 - NEW: Shared utility functions for Cockpit views (V30 Parity).
 
 /**
@@ -30,7 +31,7 @@ export const generateGoogleMapsRouteUrl = (
     waypointsParam = `&waypoints=${waypoints.join('|')}`;
   }
 
-  // 4. URL bauen
+  // 4. URL bauen (Universal Cross-Platform)
   return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${waypointsParam}&travelmode=${travelMode}`;
 };
 // --- END OF FILE 36 Zeilen ---
