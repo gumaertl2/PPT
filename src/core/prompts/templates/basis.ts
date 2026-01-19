@@ -1,10 +1,8 @@
-// 20.01.2026 10:15 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys (candidates).
+// 20.01.2026 20:25 - FIX: Sync with V40 English Types (strategic_briefing, validated_appointments).
 // src/core/prompts/templates/basis.ts
 // 19.01.2026 17:05 - FIX: Updated property access to match German keys in types.ts (ChefPlanerResult).
 // 18.01.2026 12:20 - REFACTOR: Verified and maintained clean Data Model access (searchStrategy vs writingGuideline).
 // 17.01.2026 23:50 - REFACTOR: Migrated to class-based PromptBuilder.
-// 15.01.2026 16:00 - UPDATE: Preserved Season, Transport Mode & Precise Routing Logic.
-// 18.01.2026 12:45 - FIX: Uses clean Data Model (searchStrategy vs writingGuideline).
 
 import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
@@ -25,7 +23,6 @@ const getMonthName = (dateStr: string, lang: 'de' | 'en'): string => {
 
 /**
  * Generiert das "Kreative Briefing" basierend auf der SAUBEREN searchStrategy.
- * Trennung von "Was suchen" (Sammler) und "Wie schreiben" (Redakteur) ist nun im Datenmodell verankert.
  */
 const generateCreativeBriefing = (project: TripProject, lang: 'de' | 'en'): string => {
   const { userInputs } = project;
@@ -41,24 +38,21 @@ const generateCreativeBriefing = (project: TripProject, lang: 'de' | 'en'): stri
       const label = (def.label as any)[lang] || id;
       
       // 1. ZUGRIFF AUF NEUES FELD (Core Logic)
-      // Wir nutzen direkt die Strategie, ohne Redaktions-Text
       let searchStrategy = (def.searchStrategy as any)?.[lang];
 
-      // Fallback, falls das Feld leer ist (z.B. bei System-Interessen)
+      // Fallback
       if (!searchStrategy) {
-           // Fallback auf alten Key, falls Daten noch nicht migriert sind, oder Standardtext
            const legacy = (def.aiInstruction as any)?.[lang] || "";
            searchStrategy = legacy || `Find suitable candidates related to ${label}.`;
       }
       
-      // 2. USER OVERRIDES (Frontend Customization)
-      // Hat der User für diesen Trip eine spezielle Strategie definiert?
+      // 2. USER OVERRIDES
       const customStrat = userInputs.customSearchStrategies?.[id];
       if (customStrat) {
           searchStrategy = `CUSTOM STRATEGY OVERRIDE: ${customStrat}`;
       }
 
-      // 3. User Wishes (Standard)
+      // 3. User Wishes
       const customPref = userInputs.customPreferences[id] 
         ? `(USER SPECIFIC WISH: "${userInputs.customPreferences[id]}")` 
         : "";
@@ -78,8 +72,8 @@ export const buildBasisPrompt = (project: TripProject): string => {
     
     const uiLang = meta.language === 'en' ? 'en' : 'de';
     
-    // 1. CHEF PLANER DATEN (UPDATE: Deutsche Keys aus types.ts)
-    const strategicBriefing = chefPlaner?.strategisches_briefing;
+    // FIX: Accessing V40 English Keys
+    const strategicBriefing = chefPlaner?.strategic_briefing;
     
     // 2. CONTEXT: SEASON & TRANSPORT
     const travelMonth = getMonthName(dates.start, uiLang) || "Unknown Season";
@@ -117,8 +111,9 @@ export const buildBasisPrompt = (project: TripProject): string => {
     }
     
     const sammlerBriefing = (strategicBriefing as any)?.sammler_briefing || ""; 
-    // UPDATE: Deutsche Keys für Termine
-    const validierteTermine = chefPlaner?.validierte_termine || [];
+    
+    // FIX: Accessing V40 English Key
+    const validatedAppointments = chefPlaner?.validated_appointments || [];
     
     // 4. DEDUPLIZIERUNG
     const existingNames = Object.values(project.data.places || {}).map((p: any) => p.name);
@@ -127,7 +122,7 @@ export const buildBasisPrompt = (project: TripProject): string => {
     const targetCount = userInputs.searchSettings?.sightsCount || 30;
     const noGos = userInputs.customPreferences['noGos'] || (uiLang === 'de' ? 'Keine' : 'None');
 
-    // 6. GENERATE BRIEFING STRING (Sauber!)
+    // 6. GENERATE BRIEFING STRING
     const creativeBriefingBlock = generateCreativeBriefing(project, uiLang);
 
     // --- PROMPT CONSTRUCTION via Builder ---
@@ -139,8 +134,8 @@ export const buildBasisPrompt = (project: TripProject): string => {
     const contextData = {
         travel_season: travelMonth,
         transport_mode_context: transportContext,
-        already_known_places_block: existingNames, // DEDUPLICATION
-        mandatory_appointments: validierteTermine,  // MISSION 1
+        already_known_places_block: existingNames, 
+        mandatory_appointments: validatedAppointments,  // FIX: Using new variable
         no_gos: noGos
     };
 
@@ -188,4 +183,4 @@ For each Topic above:
         .withSelfCheck(['basic', 'research'])
         .build();
 };
-// --- END OF FILE 135 Zeilen ---
+// --- END OF FILE 139 Zeilen ---

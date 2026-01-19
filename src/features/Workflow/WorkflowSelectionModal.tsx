@@ -1,16 +1,13 @@
-// 19.01.2026 17:50 - FIX: Updated Hotel check to use German key 'validierte_hotels' (V30 Parity).
+// 20.01.2026 20:25 - FIX: Sync with V40 English Types (validated_hotels).
 // src/features/Workflow/WorkflowSelectionModal.tsx
+// 19.01.2026 17:50 - FIX: Updated Hotel check to use German key 'validierte_hotels' (V30 Parity).
 // 13.01.2026 17:55 - FIX: Fixed case-sensitive import (Cockpit) and removed unused useTranslation.
 // 16.01.2026 01:45 - FIX: Added missing status check for 'routeArchitect'.
-// 16.01.2026 02:00 - FIX: Hide Interaction Badge when step is done.
-// 18.01.2026 18:00 - FIX: Ignore 'dummy-example-id' to prevent premature 'done' state for Basis step.
 
 import React, { useState, useEffect } from 'react';
-// FIX: Removed unused 'useTranslation' import to satisfy linter
 import { useTripStore } from '../../store/useTripStore';
 import { WORKFLOW_STEPS } from '../../core/Workflow/steps';
 import type { WorkflowStepId } from '../../core/types';
-// FIX: Corrected import path casing: '../cockpit/...' -> '../Cockpit/...'
 import { ConfirmModal } from '../Cockpit/ConfirmModal';
 import { 
   CheckCircle2, 
@@ -19,7 +16,7 @@ import {
   Unlock,
   Play,
   Settings2,
-  RotateCcw // Icon for "Re-Run" indication
+  RotateCcw 
 } from 'lucide-react';
 
 interface WorkflowSelectionModalProps {
@@ -45,7 +42,6 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
   // 2. STATUS-LOGIK (Zentralisiert)
   const getStepStatus = (stepId: WorkflowStepId): StepStatus => {
     // Basis-Check: Haben wir überhaupt Orte?
-    // FIX: Wir ignorieren den "dummy-example-id", damit der Workflow nicht denkt, er sei schon fertig.
     const places = project.data.places || {};
     const validPlaces = Object.values(places).filter((p: any) => p.id !== 'dummy-example-id');
     const hasPlaces = validPlaces.length > 0;
@@ -62,12 +58,13 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
         return hasPlaces ? 'done' : 'available';
       
       case 'anreicherer':
-         // FIX: Check if places actually have enriched content (e.g. descriptions or logistics)
          if (!hasPlaces) return 'locked';
          
          const isEnriched = validPlaces.some((p: any) => 
             (p.kurzbeschreibung && p.kurzbeschreibung.length > 20) || 
-            (p.logistics_info && p.logistics_info.length > 10)
+            (p.logistics_info && p.logistics_info.length > 10) ||
+            // V40 Check (english keys)
+            (p.description && p.description.length > 20)
          );
          return isEnriched ? 'done' : 'available';
 
@@ -85,20 +82,19 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
         return project.itinerary.days.length > 0 ? 'done' : 'available';
 
       case 'infos':
-        const hasInfos = Object.values(project.data.content).some((c: any) => c.type === 'info');
+        const hasInfos = Object.values(project.data.content).some((c: any) => c.type === 'info' || c.type === 'Information');
         return hasInfos ? 'done' : 'available';
 
       case 'food':
         if (!hasPlaces) return 'locked';
-        const hasRestaurants = validPlaces.some((p: any) => p.category === 'restaurant' || p.kategorie?.toLowerCase().includes('restaurant'));
+        const hasRestaurants = validPlaces.some((p: any) => p.category === 'restaurant' || p.category === 'Restaurant');
         return hasRestaurants ? 'done' : 'available';
 
       case 'accommodation':
         if (!hasPlaces) return 'locked';
-        // FIX: Check for manual hotel input OR validated hotels from AI
         const manualHotel = project.userInputs.logistics?.stationary?.hotel;
-        // UPDATE: Using correct German key 'validierte_hotels'
-        const hasValidatedHotels = (project.analysis.chefPlaner?.validierte_hotels?.length || 0) > 0;
+        // FIX: Using V40 English Key 'validated_hotels'
+        const hasValidatedHotels = (project.analysis.chefPlaner?.validated_hotels?.length || 0) > 0;
         return (manualHotel || hasValidatedHotels) ? 'done' : 'available';
       
       case 'sondertage':
@@ -352,4 +348,4 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
     </>
   );
 };
-// --- END OF FILE 266 Zeilen ---
+// --- END OF FILE 270 Zeilen ---
