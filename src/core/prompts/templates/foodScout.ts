@@ -1,5 +1,6 @@
-// 19.01.2026 13:05 - FIX: Restored V30 Legacy Schema (vorschlaege, geo_koordinaten) for SSOT compliance.
+// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
 // src/core/prompts/templates/foodScout.ts
+// 19.01.2026 13:05 - FIX: Restored V30 Legacy Schema (vorschlaege, geo_koordinaten) for SSOT compliance.
 // 16.01.2026 19:45 - FIX: Added V30 "Star-Filter" Logic.
 // 18.01.2026 00:30 - REFACTOR: Migrated to class-based PromptBuilder.
 
@@ -14,7 +15,7 @@ export const buildFoodScoutPrompt = (
   const { userInputs } = project;
   const { logistics, budget, vibe } = userInputs;
 
-  // 1. Ort & Guides bestimmen
+  // 1. Determine Location & Guides
   let location = "";
   let countryHint = "";
 
@@ -23,58 +24,58 @@ export const buildFoodScoutPrompt = (
       countryHint = logistics.stationary.region; 
   } else {
       const stops = logistics.roundtrip.stops.map(s => s.location).join(', ');
-      location = `den Stationen: ${stops}`;
+      location = `the stops: ${stops}`;
       countryHint = logistics.roundtrip.region;
   }
 
   const guides = getGuidesForCountry(countryHint || location).join(', ');
 
-  // 2. Modus-Logik (V30 Parität)
+  // 2. Mode Logic (V30 Parity) - Translated to English
   let qualityFilterInstruction = "";
   if (mode === 'standard') {
-      qualityFilterInstruction = `### QUALITÄTS-FILTER (STANDARD)
-Wir suchen exzellente Küche für den normalen Reise-Alltag, KEIN "Fine Dining" Event.
-1. **Quellen:** Nutze die Guides (${guides}).
-2. **Kategorie:** Suche nach "Bib Gourmand", "Tipp", "Empfehlung".
-3. **EXCLUDE:** Ignoriere Restaurants mit Michelin-Sternen (außer Budget erlaubt es).`;
+      qualityFilterInstruction = `### QUALITY FILTER (STANDARD)
+We are looking for excellent cuisine for daily travel, NOT a "Fine Dining" event.
+1. **Sources:** Use the guides (${guides}).
+2. **Category:** Look for "Bib Gourmand", "Tip", "Recommendation".
+3. **EXCLUDE:** Ignore restaurants with Michelin Stars (unless budget allows).`;
   } else {
-      qualityFilterInstruction = `### QUALITÄTS-FILTER (GOURMET / STERNE)
-Der User wünscht explizit gehobene Gastronomie.
-1. **Quellen:** Nutze die Guides (${guides}).
-2. **Kategorie:** Priorisiere Restaurants mit Sternen (1-3) oder Hauben.`;
+      qualityFilterInstruction = `### QUALITY FILTER (GOURMET / STARS)
+The user explicitly requests upscale gastronomy.
+1. **Sources:** Use the guides (${guides}).
+2. **Category:** Prioritize restaurants with Stars (1-3) or Toques.`;
   }
 
   // 3. Prompt Builder
-  const role = `Du bist ein kulinarischer Recherche-Scout. Deine Aufgabe ist es, Restaurants zu finden, die in renommierten Guides gelistet sind.`;
+  const role = `You are a culinary research scout. Your task is to find restaurants listed in renowned guides.`;
 
   const contextData = {
-    zielgebiet: { ort: location, land: countryHint },
-    zulässige_quellen: guides,
+    target_area: { location: location, country: countryHint },
+    allowed_sources: guides,
     budget: budget,
     vibe: vibe
   };
 
-  const instructions = `# AUFGABE
-Suche nach Restaurants in ${location}, die den Filter-Kriterien entsprechen.
-Extrahiere die exakten Koordinaten.
+  const instructions = `# TASK
+Search for restaurants in ${location} that match the filter criteria.
+Extract exact coordinates.
 
 ${qualityFilterInstruction}
 
-# PFLICHT
-Geografische Daten sind PFLICHT für die Entfernungsberechnung.`;
+# MANDATORY
+Geographic data is MANDATORY for distance calculation.`;
 
-  // FIX: Schema completely reverted to German V30 Legacy names
+  // FIX: Schema converted to V40 English keys
   const outputSchema = {
-    "vorschlaege": [
+    "candidates": [
       {
         "name": "String",
-        "ort": "String",
-        "adresse": "String",
-        "beschreibung": "String (Kurze Beschreibung der Küche/Vibe)",
-        "geo_koordinaten": { "breitengrad": "Number", "laengengrad": "Number" },
+        "city": "String",
+        "address": "String",
+        "description": "String (Short description of cuisine/vibe)",
+        "location": { "lat": "Number", "lng": "Number" },
         "guides": ["String"],
-        "kueche": "String (z.B. 'Regional', 'Modern')",
-        "preisKategorie": "String (z.B. '€€', '€€€')"
+        "cuisine": "String (e.g. 'Regional', 'Modern')",
+        "priceLevel": "String (e.g. '€€', '€€€')"
       }
     ]
   };
@@ -82,7 +83,7 @@ Geografische Daten sind PFLICHT für die Entfernungsberechnung.`;
   return new PromptBuilder()
     .withOS()
     .withRole(role)
-    .withContext(contextData, "KONTEXT")
+    .withContext(contextData, "CONTEXT")
     .withInstruction(instructions)
     .withOutputSchema(outputSchema)
     .withSelfCheck(['basic', 'research'])

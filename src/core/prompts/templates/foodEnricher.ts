@@ -1,4 +1,4 @@
-// 18.01.2026 18:25 - FIX: Corrected PromptBuilder pattern and Signature for Build Compatibility.
+// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
 // src/core/prompts/templates/foodEnricher.ts
 // 19.01.2026 13:30 - FIX: Restored V30 Legacy Schema (German Keys) for Consistency with FoodScout.
 // 16.01.2026 20:00 - FEAT: Added 'Menu & Vibe' Analysis.
@@ -11,40 +11,43 @@ export const buildFoodEnricherPrompt = (
     project: TripProject,
     candidates: any[]
 ): string => {
-  // 1. STRATEGISCHES BRIEFING HOLEN
-  const strategischesBriefing = project.analysis.chefPlaner?.strategisches_briefing?.sammler_briefing || "";
+  // 1. STRATEGIC BRIEFING
+  const chefPlaner = project.analysis.chefPlaner;
+  const strategicBriefing = (chefPlaner as any)?.strategic_briefing?.sammler_briefing || 
+                            (chefPlaner as any)?.strategisches_briefing?.sammler_briefing || 
+                            "";
   
-  const role = `Du bist ein kulinarischer Daten-Anreicherer. Deine Aufgabe ist es, zu einer Liste von Restaurant-Namen die Details zu finden.`;
+  const role = `You are a culinary data enricher. Your task is to find details for a list of restaurant names.`;
 
   const contextData = {
     candidates_to_enrich: candidates
   };
 
-  const instructions = `# AUFGABE
-Recherchiere für jeden Kandidaten live im Web.
+  const instructions = `# TASK
+Research each candidate live on the web.
 
-# DATEN-ANFORDERUNGEN
-1.  **Adresse:** Muss exakt und navigierbar sein.
-2.  **Küche:** Was wird serviert? (z.B. "Modern Italian", "Traditional Bavarian").
-3.  **Vibe:** Beschreibe die Atmosphäre in 3-4 Worten (z.B. "Romantisch, Kerzenschein").
-4.  **Spezialität:** Nenne 1-2 Signature Dishes, falls auffindbar.
-5.  **Preis:** €, €€ oder €€€.
+# DATA REQUIREMENTS
+1.  **Address:** Must be exact and navigable.
+2.  **Cuisine:** What is served? (e.g. "Modern Italian", "Traditional Bavarian").
+3.  **Vibe:** Describe the atmosphere in 3-4 words (e.g. "Romantic, Candlelight").
+4.  **Signature Dish:** Name 1-2 specialties if available.
+5.  **Price:** €, €€ or €€€.
 
 # FALLBACK
-Wenn ein Restaurant unauffindbar ist, markiere es als "NICHT GEFUNDEN". Erfinde nichts.`;
+If a restaurant is not found, mark it as "found": false. Do not invent anything.`;
 
-  // FIX: Schema converted to German V30 keys to match FoodScout
+  // FIX: Schema converted to V40 English keys
   const outputSchema = {
-    "angereicherte_kandidaten": [
+    "enriched_candidates": [
       {
         "original_name": "String",
-        "gefunden": "Boolean",
-        "adresse": "String",
-        "kueche": "String",
-        "atmosphaere": ["String"],
-        "spezialitaet": "String",
-        "preisKategorie": "String",
-        "webseite": "String"
+        "found": "Boolean",
+        "address": "String",
+        "cuisine": "String",
+        "vibe": ["String"],
+        "signature_dish": "String",
+        "price_level": "String",
+        "website": "String"
       }
     ]
   };
@@ -52,11 +55,11 @@ Wenn ein Restaurant unauffindbar ist, markiere es als "NICHT GEFUNDEN". Erfinde 
   return new PromptBuilder()
     .withOS()
     .withRole(role)
-    .withContext(contextData, "INPUT LISTE")
-    .withContext(strategischesBriefing, "STRATEGISCHE VORGABE") // FIX: Injected via Builder method
+    .withContext(contextData, "INPUT LIST")
+    .withContext(strategicBriefing, "STRATEGIC GUIDELINE")
     .withInstruction(instructions)
     .withOutputSchema(outputSchema)
     .withSelfCheck(['basic', 'research'])
     .build();
 };
-// --- END OF FILE 61 Zeilen ---
+// --- END OF FILE 65 Zeilen ---

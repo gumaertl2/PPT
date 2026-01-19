@@ -1,8 +1,8 @@
-// 19.01.2026 19:55 - FIX: Corrected Export Signature & PromptBuilder Pattern (Build Fix).
+// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
 // src/core/prompts/templates/hotelScout.ts
+// 19.01.2026 19:55 - FIX: Corrected Export Signature & PromptBuilder Pattern.
 // 19.01.2026 13:10 - FIX: Restored V30 Legacy Schema (hotel_vorschlaege, beschreibung) for SSOT compliance.
 // 17.01.2026 15:30 - UPDATE: Added 'Geo-Hub' Logic for strategic location search.
-// 18.01.2026 00:15 - REFACTOR: Migrated to class-based PromptBuilder.
 
 import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
@@ -13,64 +13,70 @@ export const buildHotelScoutPrompt = (
     checkInDate: string,
     checkOutDate: string
 ): string => {
-  const { userInputs, analysis } = project; // FIX: Added analysis
+  const { userInputs, analysis } = project;
   const { travelers, budget, logistics } = userInputs;
 
-  // 1. CHEF PLANER DATEN (V30 Parity)
+  // 1. CHEF PLANER DATA (V40 English Keys)
   const chefPlaner = analysis.chefPlaner;
-  const strategischesBriefing = chefPlaner?.strategisches_briefing?.sammler_briefing || "";
   
-  // Wir filtern die validierten Hotels nach dem aktuellen Standort
-  const validierteHotels = (chefPlaner?.validierte_hotels || [])
-    .filter(h => h.station.toLowerCase().includes(locationName.toLowerCase()) || locationName.toLowerCase().includes(h.station.toLowerCase()));
+  // Access strategic briefing (supporting both new and legacy keys for runtime safety)
+  const strategicBriefing = (chefPlaner as any)?.strategic_briefing?.sammler_briefing || 
+                            (chefPlaner as any)?.strategisches_briefing?.sammler_briefing || 
+                            "";
+  
+  // Access validated hotels
+  const rawHotels = (chefPlaner as any)?.validated_hotels || (chefPlaner as any)?.validierte_hotels || [];
+  
+  const validierteHotels = rawHotels
+    .filter((h: any) => h.station.toLowerCase().includes(locationName.toLowerCase()) || locationName.toLowerCase().includes(h.station.toLowerCase()));
 
-  // 2. Kontext für die KI
+  // 2. Context for AI
   const contextData = {
     destination: locationName,
     dates: { check_in: checkInDate, check_out: checkOutDate },
     travelers: {
         adults: travelers.adults,
         children: travelers.children,
-        pets: travelers.pets // Wichtig für Filter!
+        pets: travelers.pets // Important for filter!
     },
     budget_level: budget, // 'low', 'medium', 'high', 'luxury'
     transport_needs: (logistics as any).arrivalType === 'car' ? 'Parking required' : 'Public transport proximity'
   };
 
-  const role = `Du bist der "Hotel Scout". Deine Aufgabe ist es, für eine gegebene Destination und Reisedaten die perfekte Unterkunft zu finden.
-  Du suchst live nach **verfügbaren** Optionen, die zum Budget und Profil der Reisenden passen.`;
+  const role = `You are the "Hotel Scout". Your task is to find the perfect accommodation for a given destination and travel dates.
+  You search live for **available** options that match the budget and traveler profile.`;
 
-  const instructions = `# AUFGABE
-Finde 3 konkrete Unterkunfts-Optionen in oder sehr nahe bei **"${locationName}"**.
+  const instructions = `# TASK
+Find 3 concrete accommodation options in or very close to **"${locationName}"**.
 
-# STRATEGIE & FILTER
-1.  **Lage (Hub-Strategie):** Die Unterkunft muss strategisch gut liegen, um die Umgebung zu erkunden.
-2.  **Budget:** Halte dich strikt an das Budget-Level: ${budget}.
-3.  **Logistik:**
-    * Falls Reisende mit Auto: Parkplatz ist PFLICHT.
-    * Falls Haustiere dabei: "Haustiere erlaubt" ist PFLICHT.
-4.  **Qualität:** Nur Unterkünfte mit Google Rating > 4.0.
+# STRATEGY & FILTERS
+1.  **Location (Hub Strategy):** The accommodation must be strategically well-located to explore the surroundings.
+2.  **Budget:** Strictly adhere to the budget level: ${budget}.
+3.  **Logistics:**
+    * If traveling by car: Parking is MANDATORY.
+    * If pets are included: "Pets allowed" is MANDATORY.
+4.  **Quality:** Only accommodations with Google Rating > 4.0.
 
-# OPTIONEN-MIX
-1.  **Option A (Der Preis-Leistungs-Sieger):** Beste Balance.
-2.  **Option B (Die besondere Lage):** Beste Aussicht oder Zentrumsnähe.
-3.  **Option C (Der Geheimtipp):** Kleines Boutique-Hotel oder charmantes Apartment.
+# OPTION MIX
+1.  **Option A (Value Winner):** Best balance.
+2.  **Option B (Location Highlight):** Best view or center proximity.
+3.  **Option C (Hidden Gem):** Small boutique hotel or charming apartment.
 
-# OUTPUT-SCHEMA
-Fülle für jede Option das Schema exakt aus.
-WICHTIG: Recherchiere eine echte, funktionierende Buchungs-URL (Booking.com, Airbnb oder Direkt).`;
+# OUTPUT SCHEMA
+Fill the schema exactly for each option.
+IMPORTANT: Research a real, working booking URL (Booking.com, Airbnb, or Direct).`;
 
-  // Schema reverted to German V30 keys
+  // FIX: Schema converted to V40 English keys
   const outputSchema = {
-    "hotel_vorschlaege": [
+    "candidates": [
       {
-        "name": "String (Offizieller Name)",
-        "adresse": "String (Adresse)",
-        "beschreibung": "String (Warum diese Wahl? 1-2 Sätze)",
-        "preis": "String (Geschätzter Preis pro Nacht)",
-        "buchungs_url": "String (URL zur Buchung oder Homepage)",
-        "vorteile": ["String (Vorteil 1)", "String (Vorteil 2)"],
-        "bewertung": "Number (Google Rating)"
+        "name": "String (Official Name)",
+        "address": "String (Address)",
+        "description": "String (Why this choice? 1-2 sentences)",
+        "price": "String (Estimated price per night)",
+        "bookingUrl": "String (URL for booking or homepage)",
+        "pros": ["String (Advantage 1)", "String (Advantage 2)"],
+        "rating": "Number (Google Rating)"
       }
     ]
   };
@@ -78,12 +84,12 @@ WICHTIG: Recherchiere eine echte, funktionierende Buchungs-URL (Booking.com, Air
   return new PromptBuilder()
     .withOS()
     .withRole(role)
-    .withContext(contextData, "BUCHUNGS-ANFRAGE")
-    .withContext(strategischesBriefing, "STRATEGISCHE VORGABE") // FIX: Injected via Builder method
-    .withContext(validierteHotels, "VALDIERTE HOTELS DES CHEF-PLANERS") // FIX: Injected via Builder method
+    .withContext(contextData, "BOOKING REQUEST")
+    .withContext(strategicBriefing, "STRATEGIC GUIDELINE")
+    .withContext(validierteHotels, "VALIDATED HOTELS (FROM ARCHITECT)")
     .withInstruction(instructions)
     .withOutputSchema(outputSchema)
     .withSelfCheck(['basic', 'research'])
     .build();
 };
-// --- END OF FILE 93 Zeilen ---
+// --- END OF FILE 95 Zeilen ---

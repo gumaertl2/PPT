@@ -1,5 +1,6 @@
-// 19.01.2026 19:35 - FIX: Corrected PromptBuilder pattern for Strategic Briefing injection.
+// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
 // src/core/prompts/templates/geoAnalyst.ts
+// 19.01.2026 19:35 - FIX: Corrected PromptBuilder pattern for Strategic Briefing injection.
 // 19.01.2026 13:35 - FIX: Restored V30 Legacy Schema (German Keys) for GeoAnalyst.
 // 17.01.2026 15:00 - UPDATE: Added 'Hub Identification' Logic.
 // 18.01.2026 00:40 - REFACTOR: Migrated to class-based PromptBuilder.
@@ -8,13 +9,15 @@ import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
 
 export const buildGeoAnalystPrompt = (project: TripProject): string => {
-  const { userInputs, analysis } = project; // FIX: Added analysis for briefing access
+  const { userInputs, analysis } = project;
   const { logistics } = userInputs;
 
-  // 1. STRATEGISCHES BRIEFING (NEU: V30 Parity)
-  const strategischesBriefing = analysis.chefPlaner?.strategisches_briefing?.sammler_briefing || "";
+  // 1. STRATEGIC BRIEFING (V40 English Key)
+  const strategicBriefing = (analysis.chefPlaner as any)?.strategic_briefing?.sammler_briefing || 
+                            (analysis.chefPlaner as any)?.strategisches_briefing?.sammler_briefing || 
+                            "";
 
-  // Kontext vorbereiten
+  // Context Preparation
   let geoMode = "";
   let routing = "";
 
@@ -35,31 +38,31 @@ export const buildGeoAnalystPrompt = (project: TripProject): string => {
     routing_info: routing
   };
 
-  const role = `Du bist der "Geo Analyst". Deine Aufgabe ist die strategische Bewertung von Standorten (Hubs).
-  Du suchst NICHT nach konkreten Hotels, sondern nach den besten *Orten*, um zu übernachten.`;
+  const role = `You are the "Geo Analyst". Your task is the strategic evaluation of locations (Hubs).
+  You are NOT looking for specific hotels, but for the best *locations* to stay overnight.`;
 
-  const instructions = `# AUFGABE
+  const instructions = `# TASK
 ${routing}
 
-# ZIEL
-1.  Identifiziere strategische "Hubs" (Städte/Dörfer), die sich als Basis eignen.
-2.  Bewerte die Lage hinsichtlich:
-    * Erreichbarkeit (Verkehrsanbindung)
-    * Infrastruktur (Restaurants, Supermärkte)
-    * Touristische Attraktivität (Vibe)
+# GOAL
+1.  Identify strategic "Hubs" (Cities/Villages) suitable as a base.
+2.  Evaluate the location regarding:
+    * Accessibility (Transport connections)
+    * Infrastructure (Restaurants, Supermarkets)
+    * Tourist Appeal (Vibe)
 
 # OUTPUT
-Erstelle eine Liste von empfohlenen Hubs mit Begründung.`;
+Create a list of recommended hubs with reasoning.`;
 
-  // Schema converted to German V30 keys
+  // FIX: Schema converted to V40 English keys
   const outputSchema = {
-    "empfohlene_hubs": [
+    "recommended_hubs": [
       {
-        "hub_name": "String (Name der Stadt/Ort)",
-        "eignung_score": "Integer (1-10)",
-        "vorteile": ["String"],
-        "nachteile": ["String"],
-        "geeignet_fuer": "String (z.B. 'Familien', 'Nightlife', 'Ruhe')"
+        "hub_name": "String (Name of City/Town)",
+        "suitability_score": "Integer (1-10)",
+        "pros": ["String"],
+        "cons": ["String"],
+        "suitable_for": "String (e.g. 'Families', 'Nightlife', 'Quiet')"
       }
     ]
   };
@@ -67,8 +70,8 @@ Erstelle eine Liste von empfohlenen Hubs mit Begründung.`;
   return new PromptBuilder()
     .withOS()
     .withRole(role)
-    .withContext(contextData, "GEO-DATEN")
-    .withContext(strategischesBriefing, "STRATEGISCHE VORGABE") // FIX: Injected via Builder method
+    .withContext(contextData, "GEO DATA")
+    .withContext(strategicBriefing, "STRATEGIC GUIDELINE")
     .withInstruction(instructions)
     .withOutputSchema(outputSchema)
     .withSelfCheck(['planning'])

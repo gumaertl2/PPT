@@ -1,5 +1,6 @@
-// 18.01.2026 23:45 - FIX: Added SYSTEM_GUARD to prevent JSON-Key translation in multi-language scenarios.
+// 20.01.2026 18:00 - REFACTOR: "Operation Clean Sweep" - Removed redundant SYSTEM_GUARD (now in PromptBuilder).
 // src/core/prompts/PayloadBuilder.ts
+// 18.01.2026 23:45 - FIX: Added SYSTEM_GUARD to prevent JSON-Key translation in multi-language scenarios.
 // 18.01.2026 20:00 - FIX: Restored 'buildChefPlanerPayload' & Anreicherer signature.
 
 import { useTripStore } from '../../store/useTripStore';
@@ -27,19 +28,6 @@ import { buildIdeenScoutPrompt } from './templates/ideenScout';
 import type { LocalizedContent, TaskKey, ChunkingState, TripProject, FoodSearchMode } from '../types';
 import { filterByRadius } from '../utils/geo';
 import type { GeoPoint } from '../utils/geo';
-
-// NEU: Globaler Schutzschild gegen Key-Übersetzungen
-const SYSTEM_GUARD = `
----
-### SYSTEM-SICHERHEITSPROTOKOLL (WICHTIG)
-1. **JSON-FORMAT:** Deine Antwort muss valides JSON sein.
-2. **SPRACHE:** Der INHALT (Values) soll in der vom User gewünschten Zielsprache sein.
-3. **STRUKTUR-INTEGRITÄT:** Du darfst die **JSON-KEYS (Schlüssel)** NIEMALS übersetzen.
-   - Richtig: { "days": "Tag 1" } oder { "tage": "Tag 1" } (wie im Beispiel vorgegeben)
-   - Falsch: { "jours": ... } oder { "days_translated": ... }
-Hintergrund: Das Frontend erwartet exakt die Keys aus den Beispielen. Eine Änderung führt zum Absturz.
----
-`;
 
 export const PayloadBuilder = {
   /**
@@ -289,8 +277,8 @@ export const PayloadBuilder = {
         throw new Error(`PayloadBuilder: Unknown task '${task}'`);
     }
 
-    // SYSTEM GUARD wird am Ende JEDES Prompts angehängt
-    return generatedPrompt + SYSTEM_GUARD;
+    // SYSTEM GUARD wird nun vom PromptBuilder gehandhabt
+    return generatedPrompt;
   },
 
   // WIEDERHERGESTELLT: Legacy-Methode für manuelle Calls & Typ-Sicherheit
@@ -324,4 +312,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 385 Zeilen ---
+// --- END OF FILE 369 Zeilen ---

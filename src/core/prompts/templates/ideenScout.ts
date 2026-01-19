@@ -1,3 +1,4 @@
+// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
 // src/core/prompts/templates/ideenScout.ts
 // 17.01.2026 18:20 - FEAT: Ported 'IdeenScout' (Special Days) from V30.
 // 17.01.2026 23:30 - REFACTOR: Migrated to PromptBuilder pattern (Unified Builder).
@@ -8,49 +9,50 @@ import { PromptBuilder } from '../PromptBuilder';
 export const buildIdeenScoutPrompt = (
     project: TripProject, 
     location: string, 
-    blockedActivities: string[] = [] // IDs oder Namen, die schon verplant sind
+    blockedActivities: string[] = [] // IDs or names already planned
 ): string => {
   const { userInputs } = project;
   const { selectedInterests } = userInputs;
 
-  // Interessen-String für den Prompt
-  const interessenString = selectedInterests.join(', ');
+  // Interest String
+  const interestsString = selectedInterests.join(', ');
 
-  const role = `Du bist ein kreativer und ortskundiger "Ideen-Scout". Deine Aufgabe ist es, für einen bestimmten Ort einzigartige und passende Aktivitäten für besondere Tage zu finden. Du erstellst **KEINEN** Zeitplan, sondern einen flexiblen, detailreichen Ideen-Pool.`;
+  const role = `You are a creative and local "Idea Scout". Your task is to find unique and suitable activities for special days in a specific location. You create **NO** schedule, but a flexible, detailed pool of ideas.`;
 
-  const mission = `# DEINE MISSION
-Finde für den Übernachtungsort **"${location}"** jeweils 2-3 brandneue, kreative Ideen für die folgenden zwei Szenarien. Recherchiere für jede Idee **live im Internet**.
+  const mission = `# YOUR MISSION
+Find 2-3 brand new, creative ideas for the overnight stay location **"${location}"** for each of the following two scenarios. Research **live on the internet** for every idea.
 
-### Szenario 1: Ein perfekter Sonnentag zum Entspannen
-Schlage Outdoor-Aktivitäten vor, die entspannend und genussvoll sind (z.B. Parks, Seen, Aussichtspunkte).
+### Scenario 1: A perfect Sunny Day to relax
+Suggest outdoor activities that are relaxing and enjoyable (e.g. parks, lakes, viewpoints).
 
-### Szenario 2: Ein verregneter oder ungemütlicher Tag
-Schlage spannende und gemütliche Indoor-Aktivitäten vor (z.B. Museen, Cafés, historische Gebäude).
+### Scenario 2: A rainy or uncomfortable day
+Suggest exciting and cozy indoor activities (e.g. museums, cafes, historical buildings).
 
-# FALLBACK-STRATEGIE FÜR KLEINE ORTE (WICHTIG!)
-- Wenn der Ort **"${location}"** sehr klein ist und keine eigenen Indoor-Attraktionen hat:
-- **ERWEITERE DEINEN SUCHRADIUS SOFORT AUF DIE REGION!**
-- Suche im Umkreis von 20-30 Minuten Fahrzeit nach der nächstgrößeren Stadt.
-- Es ist viel besser, eine regionale Idee zu liefern, als eine leere Liste.
-- Gib im \`planungs_hinweis\` an, dass eine kurze Fahrt nötig ist.
+# FALLBACK STRATEGY FOR SMALL PLACES (IMPORTANT!)
+- If the place **"${location}"** is very small and has no indoor attractions:
+- **IMMEDIATELY EXPAND YOUR SEARCH RADIUS TO THE REGION!**
+- Search within a 20-30 minute drive for the next larger town.
+- It is much better to provide a regional idea than an empty list.
+- State in the \`planning_note\` that a short drive is necessary.
 
-# ZWINGENDE REGELN
-- **Regel 1 (Keine Duplikate):** Deine Vorschläge dürfen **NICHT** in der Liste der bereits verplanten Orte enthalten sein: ${JSON.stringify(blockedActivities)}.
-- **Regel 2 (Inspiration):** Lasse dich von den Kerninteressen leiten: ${interessenString}.
-- **Regel 3 (Fakten-Tiefe):** Eine Adresse ist obligatorisch. Unbekanntes ist \`null\`.`;
+# MANDATORY RULES
+- **Rule 1 (No Duplicates):** Your suggestions must **NOT** be included in the list of already planned places: ${JSON.stringify(blockedActivities)}.
+- **Rule 2 (Inspiration):** Be guided by the core interests: ${interestsString}.
+- **Rule 3 (Fact Depth):** An address is mandatory. Unknown is \`null\`.`;
 
+  // FIX: Schema converted to V40 English keys
   const ideaSchema = {
       "name": "String",
-      "beschreibung": "String (Warum ist das eine tolle Idee?)",
-      "geschaetzte_dauer_minuten": "Integer",
-      "adresse": "String (Google Maps fähig)",
+      "description": "String (Why is this a great idea?)",
+      "estimated_duration_minutes": "Integer",
+      "address": "String (Google Maps ready)",
       "website_url": "String | null",
-      "planungs_hinweis": "String (Tipps, z.B. 'Vormittags besuchen')"
+      "planning_note": "String (Tips, e.g. 'Visit in the morning')"
   };
 
   const outputSchema = {
-    "sonnentag_ideen": [ideaSchema],
-    "schlechtwetter_ideen": [ideaSchema]
+    "sunny_day_ideas": [ideaSchema],
+    "rainy_day_ideas": [ideaSchema]
   };
 
   return new PromptBuilder()

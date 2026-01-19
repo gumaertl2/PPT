@@ -1,5 +1,6 @@
-// 19.01.2026 17:05 - FIX: Updated property access to match German keys in types.ts (ChefPlanerResult).
+// 20.01.2026 10:15 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys (candidates).
 // src/core/prompts/templates/basis.ts
+// 19.01.2026 17:05 - FIX: Updated property access to match German keys in types.ts (ChefPlanerResult).
 // 18.01.2026 12:20 - REFACTOR: Verified and maintained clean Data Model access (searchStrategy vs writingGuideline).
 // 17.01.2026 23:50 - REFACTOR: Migrated to class-based PromptBuilder.
 // 15.01.2026 16:00 - UPDATE: Preserved Season, Transport Mode & Precise Routing Logic.
@@ -171,7 +172,7 @@ For each Topic above:
 4. **Content:** No generic restaurants/bars (unless specifically requested in topics). Focus on Sights, Nature, Activities.`;
 
     const outputSchema = {
-        "kandidaten_liste": [
+        "candidates": [
             "String (Name of Candidate 1)",
             "String (Name of Candidate 2)",
             "..."

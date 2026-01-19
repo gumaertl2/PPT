@@ -1,6 +1,7 @@
-// 19.01.2026 13:40 - FIX: Restored V30 Legacy Schema (German Keys) for TransferPlanner.
+// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
 // src/core/prompts/templates/transferPlanner.ts
-// 18.01.2026 14:35 - FIX: Added previousLocation argument to support Chunking-Awareness (Fixes TS2345).
+// 19.01.2026 13:40 - FIX: Restored V30 Legacy Schema (German Keys) for TransferPlanner.
+// 18.01.2026 14:35 - FIX: Added previousLocation argument to support Chunking-Awareness.
 // 17.01.2026 15:35 - UPDATE: Added 'Stationary Mode' (Hub & Spoke) Logic.
 // 18.01.2026 00:20 - REFACTOR: Migrated to class-based PromptBuilder.
 
@@ -11,63 +12,63 @@ export const buildTransferPlannerPrompt = (project: TripProject, previousLocatio
   const { userInputs, data } = project;
   const { logistics } = userInputs;
 
-  // Kontext für die KI
+  // Context for AI
   const placesList = Object.values(data.places || {}).flat().map((p: any) => ({
     id: p.id,
     name: p.name,
-    geo: p.geo_koordinaten || p.geo, // Robustheit
-    base_location: logistics.mode === 'stationaer' ? logistics.stationary.destination : 'Variiert'
+    geo: p.geo_koordinaten || p.geo || p.location, // Robustness
+    base_location: logistics.mode === 'stationaer' ? logistics.stationary.destination : 'Varied'
   }));
 
   const contextData = {
     mode: logistics.mode,
-    // Falls Stationär: Die Basis
+    // If Stationary: The Base
     base: logistics.mode === 'stationaer' ? logistics.stationary.destination : null,
-    // Falls Rundreise: Die Route
+    // If Roundtrip: The Route
     stops: logistics.mode === 'mobil' ? logistics.roundtrip.stops : null,
-    // Die Orte, die wir verbinden müssen
+    // Places to connect
     places_to_connect: placesList,
-    // NEU: Wo hat die Planung zuletzt aufgehört? (Für Chunking)
+    // NEW: Where did planning stop last? (For Chunking)
     previous_chunk_end_location: previousLocation
   };
 
-  const role = `Du bist der "Transfer Planner". Deine Aufgabe ist es, logistische Verbindungen (Transfers) zwischen Orten zu berechnen.
-  Du erstellst KEINEN Tagesplan, sondern eine reine "Distanz-Matrix" und Wege-Empfehlungen.`;
+  const role = `You are the "Transfer Planner". Your task is to calculate logistic connections (transfers) between locations.
+  You create **NO** daily schedule, but a pure "Distance Matrix" and route recommendations.`;
 
-  // Anweisung abhängig vom Modus
+  // Instruction depends on mode
   let modeInstruction = "";
   if (logistics.mode === 'stationaer') {
     modeInstruction = `MODE: STATIONARY (Hub & Spoke).
-    Berechne für JEDEN Ort die Fahrzeit und Distanz von der Basis ("${logistics.stationary.destination}").
-    Das ist eine Stern-Topologie (Hin & Zurück).`;
+    Calculate the drive time and distance from the base ("${logistics.stationary.destination}") for EVERY place.
+    This is a Star-Topology (There & Back).`;
   } else {
     modeInstruction = `MODE: ROUNDTRIP (Moving Chain).
-    Berechne die Distanzen zwischen den logisch aufeinanderfolgenden Orten (Cluster-Logik).
-    Falls ein "previous_chunk_end_location" (${previousLocation}) angegeben ist, starte die Berechnung zwingend von dort!
-    Versuche, Orte zu Clustern zusammenzufassen, um Fahrzeit zu minimieren.`;
+    Calculate distances between logically consecutive places (Cluster Logic).
+    If a "previous_chunk_end_location" (${previousLocation}) is provided, you MUST start calculation from there!
+    Try to group places into clusters to minimize drive time.`;
   }
 
-  const instructions = `# AUFGABE
+  const instructions = `# TASK
 ${modeInstruction}
 
-# BERECHNUNGS-REGELN
-1.  **Realismus:** Nutze realistische Durchschnittsgeschwindigkeiten (Stadt 30km/h, Land 70km/h, Autobahn 110km/h).
-2.  **Puffer:** Schlage immer 15-20% Puffer auf die reine Google-Maps-Zeit auf (Parkplatzsuche, Verkehr).
-3.  **Transportmittel:** Gehe vom User-Input aus: ${(userInputs.dates.arrival as any).type || 'car'}.
+# CALCULATION RULES
+1.  **Realism:** Use realistic average speeds (City 30km/h, Rural 70km/h, Highway 110km/h).
+2.  **Buffer:** Always add 15-20% buffer to pure Google Maps time (parking search, traffic).
+3.  **Transport:** Base it on user input: ${(userInputs.dates.arrival as any).type || 'car'}.
 
-# OUTPUT-SCHEMA
-Erstelle eine Liste von Transfer-Verbindungen.`;
+# OUTPUT SCHEMA
+Create a list of transfer connections.`;
 
-  // FIX: Schema converted to German V30 keys
+  // FIX: Schema converted to V40 English keys
   const outputSchema = {
     "transfers": [
       {
-        "from_id": "String (ID oder 'BASE')",
+        "from_id": "String (ID or 'BASE')",
         "to_id": "String (ID)",
-        "dauer_minuten": "Integer",
-        "distanz_km": "Number",
-        "transport_art": "String (car, public, walk)",
-        "hinweise": "String (z.B. 'Mautpflichtig' oder 'Schöne Panoramastraße')"
+        "duration_minutes": "Integer",
+        "distance_km": "Number",
+        "transport_mode": "String (car, public, walk)",
+        "notes": "String (e.g. 'Toll road' or 'Scenic route')"
       }
     ]
   };
@@ -75,10 +76,10 @@ Erstelle eine Liste von Transfer-Verbindungen.`;
   return new PromptBuilder()
     .withOS()
     .withRole(role)
-    .withContext(contextData, "LOGISTIK-DATEN")
+    .withContext(contextData, "LOGISTICS DATA")
     .withInstruction(instructions)
     .withOutputSchema(outputSchema)
-    .withSelfCheck(['planning']) // Hier ist Planung wichtig
+    .withSelfCheck(['planning']) 
     .build();
 };
 // --- END OF FILE 76 Zeilen ---

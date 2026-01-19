@@ -1,5 +1,5 @@
+// 20.01.2026 18:05 - REFACTOR: "Operation Clean Sweep" - Removed Legacy German Keys. Strict V40 Enforce.
 // 19.01.2026 17:10 - FIX: Updated Schemas to explicitly validate German V30 Keys (Grand Unification).
-// 18.01.2026 16:15 - FIX: Resolved TS6133 by renaming unused parameter 'logWarning' to '_logWarning'.
 // src/services/validation.ts
 
 import { z } from 'zod';
@@ -31,12 +31,10 @@ export const validateJson = <T>(
   }
 };
 
-// --- SCHEMAS (DUAL MODE: LOGS & LEGACY) ---
+// --- SCHEMAS (STRICT V40 ENGLISH ONLY) ---
 
 // 1. CHEF PLANER
-export const chefPlanerSchema = z.union([
-  // Variante A: Englisch (aus Logs)
-  z.object({
+export const chefPlanerSchema = z.object({
     _thought_process: z.array(z.string()).optional(),
     plausibility_check: z.string().nullable().optional(),
     strategic_briefing: z.any().optional(),
@@ -44,25 +42,10 @@ export const chefPlanerSchema = z.union([
     corrections: z.any().optional(),
     validated_appointments: z.array(z.any()).optional(),
     validated_hotels: z.array(z.any()).optional()
-  }).passthrough(),
-  
-  // Variante B: Deutsch (Legacy/V30 - SSOT)
-  z.object({
-    gedankenschritte: z.array(z.string()).optional(),
-    plausibilitaets_check: z.string().nullable().optional(),
-    strategisches_briefing: z.any().optional(),
-    // NEU: Explizite Validierung der V30 Keys
-    korrekturen: z.any().optional(),
-    validierte_termine: z.array(z.any()).optional(),
-    validierte_hotels: z.array(z.any()).optional(),
-    smart_limit_empfehlung: z.any().optional()
-  }).passthrough()
-]);
+}).passthrough();
 
 // 2. ROUTE ARCHITECT
-export const routeArchitectSchema = z.union([
-  // Variante A: Englisch (aus Logs) - "routes"
-  z.object({
+export const routeArchitectSchema = z.object({
     routes: z.array(z.object({
       id: z.string().optional(),
       title: z.string(),
@@ -73,65 +56,29 @@ export const routeArchitectSchema = z.union([
         reasoning: z.string().optional()
       })).optional()
     })).optional()
-  }).passthrough(),
-
-  // Variante B: Deutsch (Legacy File) - "routenVorschlaege"
-  z.object({
-    routenVorschlaege: z.array(z.object({
-      routenName: z.string(),
-      charakter: z.string().optional(),
-      gesamtKilometer: z.any().optional(),
-      uebernachtungsorte: z.array(z.string()).optional()
-    })).optional()
-  }).passthrough()
-]);
+}).passthrough();
 
 // 3. FOOD SCOUT / ENRICHER
-export const foodSchema = z.union([
-  // Variante A: Array (Legacy V30 Style)
-  z.array(z.object({
-    id: z.string().optional(),
-    vorschlaege: z.array(z.any()).optional()
-  })),
-  // Variante B: Objekt Wrapper (V40 Style)
-  z.object({
-    candidates: z.array(z.any()).optional(),
-    vorschlaege: z.array(z.any()).optional() // NEU: Unterstützt { vorschlaege: [...] }
-  }).passthrough()
-]);
+export const foodSchema = z.object({
+    candidates: z.array(z.any()).optional()
+}).passthrough();
 
 // 4. HOTEL SCOUT
 export const hotelSchema = z.object({
-    // Akzeptiert beides optional
-    ergebnisse: z.array(z.any()).optional(), // Rundreise
-    hotel_vorschlaege: z.array(z.any()).optional(), // Stationär
-    candidates: z.array(z.any()).optional() // Fallback Englisch
+    candidates: z.array(z.any()).optional()
 }).passthrough();
 
 // 5. DAY PLAN (Tagesplaner)
-export const dayPlanSchema = z.union([
-  // Variante A: Deutsch (Legacy)
-  z.object({
-    tage: z.array(z.object({
-      tagNummer: z.union([z.number(), z.string()]),
-      aktivitaeten: z.array(z.any()).optional()
-    })).optional()
-  }).passthrough(),
-  // Variante B: Englisch (Modern)
-  z.object({
+export const dayPlanSchema = z.object({
     days: z.array(z.object({
       day: z.union([z.number(), z.string()]),
       activities: z.array(z.any()).optional()
     })).optional()
-  }).passthrough()
-]);
+}).passthrough();
 
 // 6. GEO ANALYST
 export const geoAnalystSchema = z.object({
-  // Hier akzeptieren wir einfach jedes flache Objekt, da GeoAnalyst neu ist
   strategy: z.string().optional(),
-  optimale_stadtviertel: z.array(z.any()).optional(),
-  suggested_hubs: z.array(z.any()).optional(),
-  empfohlene_hubs: z.array(z.any()).optional() // NEU: V30 Parity
+  recommended_hubs: z.array(z.any()).optional()
 }).passthrough();
-// --- END OF FILE 147 Zeilen ---
+// --- END OF FILE 82 Zeilen ---

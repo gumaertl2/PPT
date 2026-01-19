@@ -1,15 +1,16 @@
-// 19.01.2026 19:05 - FIX: Integrated Strategic Briefing context and updated to German ChefPlaner keys (Grand Unification).
+// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
 // src/core/prompts/templates/chefredakteur.ts
+// 19.01.2026 19:05 - FIX: Integrated Strategic Briefing context and updated to German ChefPlaner keys.
 // 17.01.2026 19:10 - FEAT: Ported 'Chefredakteur' (Content Editor) from V30.
 // 17.01.2026 23:20 - REFACTOR: Migrated to PromptBuilder pattern (Unified Builder).
-// 17.01.2026 17:50 - FIX: Added .flat() to handle Place[] arrays correctly (TS2339).
+// 17.01.2026 17:50 - FIX: Added .flat() to handle Place[] arrays correctly.
 
 import type { TripProject, Place } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
 
 export const buildChefredakteurPrompt = (
     project: TripProject,
-    tasksChunk: any[], // Die Teil-Liste der zu bearbeitenden Sights
+    tasksChunk: any[], // List of sights to process
     currentChunk: number = 1,
     totalChunks: number = 1
 ): string | null => {
@@ -22,13 +23,13 @@ export const buildChefredakteurPrompt = (
     const { data, analysis } = project;
     const chunkingInfo = totalChunks > 1 ? ` (Block ${currentChunk}/${totalChunks})` : '';
 
-    // 1. STRATEGISCHES BRIEFING (NEU: V30 Parity)
-    // FIX: Nutzt jetzt den deutschen Key aus types.ts für den Zugriff
-    const strategischesBriefing = analysis.chefPlaner?.strategisches_briefing?.sammler_briefing || "";
+    // 1. STRATEGIC BRIEFING (V40 English Key)
+    const strategicBriefing = (analysis.chefPlaner as any)?.strategic_briefing?.sammler_briefing || 
+                              (analysis.chefPlaner as any)?.strategisches_briefing?.sammler_briefing || 
+                              "";
 
-    // Helper: Finde Sight-Daten in Masterliste
+    // Helper: Find sight data in master list
     const findSightData = (anhangId: string) => {
-        // FIX: .flat() nutzen, da places ein Record<Category, Place[]> ist.
         const masterliste = Object.values(data.places || {}).flat() as Place[];
         
         if (masterliste.length === 0) return null;
@@ -37,79 +38,79 @@ export const buildChefredakteurPrompt = (
         return masterliste.find(s => s.id === cleanId || s.id === anhangId);
     };
 
-    // Aufgabenliste generieren
+    // Generate Task List (keeping input property access robust)
     const aufgabenListe = tasksChunk.map(p => {
-        let anweisung = p.anweisung || `Keine spezifische Anweisung für Typ '${p.typ}' gefunden. Erstelle eine allgemeine, nützliche Beschreibung für '${p.titel}'.`;
+        let anweisung = p.anweisung || `No specific instruction found for type '${p.typ}'. Create a general, useful description for '${p.titel}'.`;
 
-        // Kontext-Injektion
+        // Context Injection
         const sightData = findSightData(p.id);
         let contextString = "";
         
         if (sightData) {
-            // Sicherer Zugriff auf Properties (Fallback falls optional)
-            const stadt = (sightData as any).stadt || (sightData.vicinity) || "Unbekannt";
-            const land = (sightData as any).land || "Unbekannt";
-            const adresse = sightData.address || (sightData as any).adresse || "Keine Adresse";
-            contextString = `\n  **KONTEXT (WICHTIG):** Ort: ${stadt}, Land: ${land}, Adresse: ${adresse}. Nutze diese Info, um Verwechslungen mit gleichnamigen Orten zu vermeiden.`;
+            const city = (sightData as any).stadt || (sightData.vicinity) || "Unknown";
+            const country = (sightData as any).land || "Unknown";
+            const address = sightData.address || (sightData as any).adresse || "No address";
+            contextString = `\n  **CONTEXT (IMPORTANT):** City: ${city}, Country: ${country}, Address: ${address}. Use this info to avoid mix-ups with places of the same name.`;
         }
 
-        // Spezial-Logik für Stadtbezirke
-        if (p.typ === 'Stadtbezirke') {
-            anweisung += `\n\n**ZUSATZAUFGABE FÜR KARTEN-LINK:** Erstelle ZUSÄTZLICH zum \`inhalt\`-Text ein Array namens \`wegpunkte\`. Dieses Array muss für jede der im Text genannten Stationen des Spaziergangs ein Objekt enthalten. Jedes Objekt muss die Schlüssel \`name\` und \`adresse\` haben.\n**WICHTIGE REGEL:** Der Wert für \`name\` im \`wegpunkte\`-Objekt muss **EXAKT** mit der im Text verwendeten, fett markierten Überschrift oder dem Namen der Station übereinstimmen. Gib für \`adresse\` eine für Google Maps auffindbare, genaue Adresse an.`;
+        // Special Logic for 'Stadtbezirke' (City Districts) -> Waypoints
+        if (p.typ === 'Stadtbezirke' || p.typ === 'CityDistricts') {
+            anweisung += `\n\n**EXTRA TASK FOR MAP LINK:** In ADDITION to the \`content\` text, create an array called \`waypoints\`. This array must contain an object for each station mentioned in the walk. Each object must have keys \`name\` and \`address\`. \n**IMPORTANT:** The value for \`name\` must match EXACTLY the bold headline or name used in the text. Provide a Google Maps findable address.`;
         }
 
-        return `- **ID "${p.id}" (Titel: ${p.titel}, Typ: ${p.typ}):**${contextString}\n  ${anweisung}`;
+        return `- **ID "${p.id}" (Title: ${p.titel}, Type: ${p.typ}):**${contextString}\n  ${anweisung}`;
     }).join('\n\n');
 
+    // FIX: Schema converted to V40 English keys
     const outputSchema = [
         { 
             id: "String", 
-            typ: "String (MUSS exakt mit dem Typ aus der Aufgabenliste übereinstimmen)",
-            inhalt: "String (Markdown-formatiert, alle Zeilenumbrüche als \\n maskiert)",
-            wegpunkte: [
-                { name: "String", adresse: "String" }
+            type: "String (MUST match the Type from the task list exactly)",
+            content: "String (Markdown formatted, escape all line breaks as \\n)",
+            waypoints: [
+                { name: "String", address: "String" }
             ]
         }
     ];
 
-    const role = `Du bist ein erfahrener Chefredakteur für Premium-Reiseführer. Deine Aufgabe ist es, für eine gegebene Liste von Sehenswürdigkeiten (Museen, Architektur, Stadtbezirke etc.) ansprechende, informative und gut strukturierte Detailtexte im Markdown-Format zu schreiben.`;
+    const role = `You are an experienced Editor-in-Chief for premium travel guides. Your task is to write engaging, informative, and well-structured detail texts in Markdown format for a given list of sights (Museums, Architecture, Districts, etc.).`;
 
     const contextData = {
-        strategische_vorgabe: strategischesBriefing,
-        aufgaben_liste: aufgabenListe
+        strategic_guideline: strategicBriefing,
+        task_list: aufgabenListe
     };
 
-    const instructions = `# REDAKTIONELLER STIL (VERBINDLICH)
-- **Stilvorgabe:** Dein Schreibstil muss sachlich, detailliert und informativ sein.
-- **Strategie:** Berücksichtige bei der Tonalität und inhaltlichen Gewichtung die "strategische_vorgabe".
-- **Inhaltliche Tiefe:** Reichere deine Texte aktiv mit interessanten Hintergrundgeschichten, historischen Fakten und unterhaltsamen Anekdoten an.
-- **Verbotene Elemente:** Ignoriere bei der Texterstellung explizit die allgemeine "Emotionale Stimmung" der Reise. Der Tonfall soll enzyklopädisch sein.
+    const instructions = `# EDITORIAL STYLE (BINDING)
+- **Style:** Your writing style must be factual, detailed, and informative.
+- **Strategy:** Consider the "strategic_guideline" for tonality and content weighting.
+- **Depth:** Actively enrich your texts with interesting background stories, historical facts, and entertaining anecdotes.
+- **Forbidden:** Explicitly ignore the general "Emotional Vibe" of the trip. The tone should be encyclopedic.
 
-# QUALITÄTS-ANFORDERUNGEN (ANTI-LOOP & TIEFE)
-1.  **Narrative Tiefe statt Listen:** Reine Aufzählungen sind verboten. Schreibe fließende, zusammenhängende Absätze.
-2.  **Detail-Liebe:** Beschreibe nicht nur, DASS es etwas zu sehen gibt, sondern WIE es aussieht, riecht oder klingt.
-3.  **Umfang & Abbruch:** Schreibe ausführlich (Richtwert: 250-400 Wörter pro Sight), aber höre sofort auf, wenn die relevanten Informationen erschöpft sind.
+# QUALITY REQUIREMENTS (ANTI-LOOP & DEPTH)
+1.  **Narrative Depth over Lists:** Pure lists are forbidden. Write flowing, coherent paragraphs.
+2.  **Love for Detail:** Do not just describe THAT there is something to see, but HOW it looks, smells, or sounds.
+3.  **Length & Cutoff:** Write extensively (Target: 250-400 words per sight), but stop immediately when relevant info is exhausted.
 
-# ZU BEARBEITENDE AUFGABEN${chunkingInfo}
-Hier ist die Liste der IDs und die dazugehörigen Arbeitsanweisungen (TIA), die du exakt umsetzen musst. Führe für jede ID eine Live-Internet-Recherche durch.
+# TASKS TO PROCESS${chunkingInfo}
+Here is the list of IDs and corresponding instructions (TIA) you must implement exactly. Perform live internet research for every ID.
 
 ---
 ${aufgabenListe}
 ---
 
-# ZUSATZREGELN
-- **Für Typ "Stadtbezirke":** Das Objekt MUSS ZUSÄTZLICH das Feld \`wegpunkte\` enthalten. Bei allen anderen Typen lässt du dieses Feld weg.
-- Der Wert des \`id\`-Feldes MUSS exakt mit der Original-ID aus der Aufgabenliste übereinstimmen.
-- Formatiere ALLE URLs im Text zwingend als klickbare Links mit einem beschreibenden Text.
-- **WICHTIGSTE REGEL ZUM FORMAT:** Der gesamte Wert des "inhalt"-Feldes muss eine **einzigartige Zeichenkette** sein. Alle Zeilenumbrüche innerhalb deines Textes **MÜSSEN** als \`\\n\` maskiert werden.`;
+# ADDITIONAL RULES
+- **For Type "Stadtbezirke" / "CityDistricts":** The object MUST ADDITIONALLY contain the field \`waypoints\`. Omit this field for all other types.
+- The value of the \`id\` field MUST match the original ID from the task list exactly.
+- Format ALL URLs in the text as clickable links with descriptive text.
+- **MOST IMPORTANT FORMAT RULE:** The entire value of the "content" field must be a **single string**. All line breaks within your text **MUST** be escaped as \`\\n\`.`;
 
     return new PromptBuilder()
         .withOS()
         .withRole(role)
-        .withContext(contextData, "REDAKTIONS-BRIEFING")
+        .withContext(contextData, "EDITORIAL BRIEFING")
         .withInstruction(instructions)
         .withOutputSchema(outputSchema)
         .withSelfCheck(['basic', 'research'])
         .build();
 };
-// --- END OF FILE 115 Zeilen ---
+// --- END OF FILE 117 Zeilen ---

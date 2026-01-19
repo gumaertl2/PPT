@@ -1,9 +1,8 @@
-// 19.01.2026 13:15 - FIX: Restored V30 Legacy Schema (German Keys) for SSOT compliance.
+// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
 // src/core/prompts/templates/chefPlaner.ts
+// 19.01.2026 13:15 - FIX: Restored V30 Legacy Schema (German Keys) for SSOT compliance.
 // 14.01.2026 17:10 - FIX: Added safety checks for undefined optional properties.
 // 15.01.2026 15:30 - UPDATE: Filter empty appointments & Enforce Region Constraint.
-// 15.01.2026 15:45 - FIX: Added Start/End Location & Transport Mode.
-// 17.01.2026 23:45 - REFACTOR: Migrated to new class-based PromptBuilder pattern.
 
 import type { TripProject, LocalizedContent } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
@@ -160,40 +159,40 @@ export const buildChefPlanerPrompt = (project: TripProject, feedback?: string): 
     target_output_language: targetLanguageName
   };
 
-  // FIX: Schema completely reverted to German V30 keys
+  // FIX: V40 English Keys (SSOT)
   const outputSchema = {
-    "gedankenschritte": [
-      "String (Schritt 1: Verifiziere Inputs & Logistik...)", 
-      "String (Schritt 2: Prüfe Machbarkeit der Distanzen...)",
-      "String (Schritt 3: Definiere Suchstrategie...)"
+    "_thought_process": [
+      "String (Step 1: Verify Inputs & Logistics...)", 
+      "String (Step 2: Check Feasibility...)",
+      "String (Step 3: Define Strategy...)"
     ],
-    "plausibilitaets_check": "String (Einschätzung: Ist die Route/Basis machbar?) | null",
+    "plausibility_check": "String (Assessment: Is the route/base feasible?) | null",
     
-    "korrekturen": {
+    "corrections": {
       "destination_typo_found": "Boolean",
       "corrected_destination": "String | null",
       "notes": [ "String" ]
     },
 
-    "validierte_termine": [
+    "validated_appointments": [
       {
         "original_input": "String", "official_name": "String", "address": "String",
         "estimated_duration_min": "Integer"
       }
     ],
-    "validierte_hotels": [
+    "validated_hotels": [
       { "station": "String", "official_name": "String", "address": "String" }
     ],
     
-    "strategisches_briefing": {
-      "search_radius_instruction": "String (Anweisung für den Sammler basierend auf Logistik)", 
-      "sammler_briefing": "String (Briefing für Sammler: Fokus auf Strategie & Pet Needs)", 
+    "strategic_briefing": {
+      "search_radius_instruction": "String (Instruction for Collector based on logistics)", 
+      "sammler_briefing": "String (Briefing for Collector: Focus on Strategy & Pet Needs)", // Key kept for Basis-Compatibility
       "itinerary_rules": "String"
     },
     
-    "smart_limit_empfehlung": { 
-        "reasoning": "String (Warum diese Anzahl?)", 
-        "value": "Integer (Zielanzahl POIs, nah an target_sights_count)" 
+    "smart_limit_recommendation": { 
+        "reasoning": "String (Why this count?)", 
+        "value": "Integer (Target POI count)" 
     }
   };
 
@@ -217,7 +216,7 @@ You must strictly adhere to the 'logistics_briefing':
 1. **ERROR SCAN**: Check for typos.
 2. **VALIDATION**: Research official names for hotels/appointments.
 3. **PLAUSIBILITY**: Check if the plan works with the given drive-time limits AND transport mode.
-4. **BRIEFING**: Write instructions (field 'strategisches_briefing') for the "Collector" agent.
+4. **BRIEFING**: Write instructions (field 'strategic_briefing') for the "Collector" agent.
 
 # LANGUAGE
 Generate ALL user-facing text in **${targetLanguageName}**.`;

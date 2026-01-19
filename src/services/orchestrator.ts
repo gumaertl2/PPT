@@ -1,12 +1,8 @@
-// 19.01.2026 18:30 - FIX: Added 'basis' Adapter to map 'kandidaten_liste' to 'candidates' (Grand Unification Phase 2).
+// 20.01.2026 18:10 - REFACTOR: "Operation Clean Sweep" - Removed all Adapter Logic. Strict Pass-Through.
 // src/services/orchestrator.ts
 // 17.01.2026 18:30 - FEAT: Initial creation. The "Brain" of the operation.
 // 17.01.2026 19:20 - FEAT: Registered full suite of Zod Schemas (Zero Error Policy).
 // 18.01.2026 18:30 - FEAT: Implemented Chunking-Initialization and Model-Switching Logic.
-// 18.01.2026 19:30 - FIX: Corrected CONFIG path references.
-// 18.01.2026 21:00 - FIX: Added detailed debug logging.
-// 18.01.2026 22:30 - FEAT: Registered 'routeArchitectSchema'.
-// 19.01.2026 00:30 - FEAT: Added 'normalizeResult' adapter to auto-convert English AI outputs (Gemini 2.5) to German Legacy formats (V30 UI).
 
 import { z } from 'zod';
 import { GeminiService } from './gemini';
@@ -24,7 +20,7 @@ import {
 import type { TaskKey } from '../core/types';
 
 /**
- * MAPPING: TaskKey -> Validation Schema
+ * MAPPING: TaskKey -> Validation Schema (Strict V40)
  */
 const SCHEMA_MAP: Partial<Record<TaskKey, z.ZodType<any>>> = {
   // 1. Tagesplanung
@@ -37,7 +33,7 @@ const SCHEMA_MAP: Partial<Record<TaskKey, z.ZodType<any>>> = {
   routeArchitect: routeArchitectSchema,
   routenArchitekt: routeArchitectSchema,
 
-  // 3. Spezialisten (Paket B)
+  // 3. Spezialisten
   food: foodSchema,
   foodScout: foodSchema,
   foodEnricher: foodSchema,
@@ -75,52 +71,10 @@ const resolveModelId = (task: TaskKey): string => {
     return CONFIG.api.models[recommendedType as 'pro'|'flash'] || CONFIG.api.models.flash;
 };
 
-// HELPER: ADAPTER (Englisch -> Deutsch Normalisierung)
-// Wandelt moderne KI-Antworten in das Format um, das das V30-Frontend erwartet.
-const normalizeResult = (task: TaskKey, data: any): any => {
-    // A. Route Architect: "routes" (EN) -> "routenVorschlaege" (DE)
-    if (task === 'routeArchitect' || task === 'routenArchitekt') {
-        if (data.routes && Array.isArray(data.routes) && !data.routenVorschlaege) {
-            console.log('[Orchestrator] ADAPTER: Converting RouteArchitect English -> German');
-            return {
-                routenVorschlaege: data.routes.map((r: any) => ({
-                    routenName: r.title,
-                    charakter: r.description || '',
-                    // Mapping der Stages zu einfachen Listen für das Legacy UI
-                    uebernachtungsorte: r.stages?.map((s: any) => s.location_name) || [],
-                    ankerpunkte: r.stages?.map((s: any) => ({
-                        standortFuerKarte: s.location_name,
-                        adresse: '' // Fallback, da meist nicht im EN-Prompt
-                    })) || [],
-                    gesamtKilometer: 0, // Fallback
-                    gesamtFahrzeitStunden: 0, // Fallback
-                    anzahlHotelwechsel: Math.max(0, (r.stages?.length || 1) - 1)
-                }))
-            };
-        }
-    }
-    
-    // B. ChefPlaner: Keys normalisieren falls nötig
-    if (task === 'chefPlaner') {
-        // Hier könnte man 'plausibility_check' -> 'plausibilitaets_check' mappen
-    }
-
-    // C. Basis / Sammler: "kandidaten_liste" (DE) -> "candidates" (Intern/Store)
-    if (task === 'basis' || task === 'sightCollector') {
-        if (data.kandidaten_liste && Array.isArray(data.kandidaten_liste) && !data.candidates) {
-             console.log('[Orchestrator] ADAPTER: Converting Basis German (kandidaten_liste) -> Internal (candidates)');
-             return {
-                 candidates: data.kandidaten_liste.map((name: string) => ({ name }))
-             };
-        }
-    }
-
-    return data;
-};
-
 /**
  * ORCHESTRATOR
- * Kapselt die Komplexität von Prompt-Bau, API-Call, Validierung UND Normalisierung.
+ * Kapselt die Komplexität von Prompt-Bau, API-Call und Validierung.
+ * KEINE Daten-Manipulation mehr (Clean Sweep)!
  */
 export const TripOrchestrator = {
   
@@ -161,6 +115,7 @@ export const TripOrchestrator = {
                 results: [] 
             });
             
+            // Short delay to allow React state update
             await new Promise(r => setTimeout(r, 20));
         } else {
             if (chunkingState.isActive) {
@@ -178,26 +133,27 @@ export const TripOrchestrator = {
     }
 
     // --- 3. EXECUTION ---
-    const schema = SCHEMA_MAP[task];
     const rawResult = await GeminiService.call(prompt, task, modelId);
 
-    // --- 4. VALIDIERUNG ---
+    // --- 4. VALIDIERUNG (Strict Schema Check) ---
+    const schema = SCHEMA_MAP[task];
     let validatedData = rawResult;
+
     if (schema) {
       const validation = schema.safeParse(rawResult);
       if (!validation.success) {
         console.warn(`[Orchestrator] Validation Failed for ${task}. Model returned:`, JSON.stringify(rawResult, null, 2));
         console.error(`[Orchestrator] Schema Errors:`, validation.error);
-        throw new Error(`Antwort entspricht nicht dem Schema für ${task}. (Siehe Konsole für Details)`);
+        
+        // "Zero Error Policy": Wir werfen den Fehler, damit er im UI ankommt
+        throw new Error(`KI-Antwort entspricht nicht dem V40-Schema für ${task}. (Siehe Konsole)`);
       }
       validatedData = validation.data;
     }
 
-    // --- 5. NORMALISIERUNG (NEU) ---
-    // Wir wandeln Englische/Deutsche KI-Antworten in das Format um, das der Store erwartet
-    const finalData = normalizeResult(task, validatedData);
-
-    return finalData;
+    // --- 5. RESULT ---
+    // Keine Normalisierung mehr nötig ("Clean Sweep" sei Dank!)
+    return validatedData;
   }
 };
-// --- END OF FILE 200 Zeilen ---
+// --- END OF FILE 140 Zeilen ---

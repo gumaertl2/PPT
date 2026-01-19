@@ -1,51 +1,52 @@
+// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
 // src/core/prompts/templates/tourGuide.ts
 // 17.01.2026 23:10 - REFACTOR: Migrated to PromptBuilder pattern (Unified Builder).
 // 17.01.2026 22:15 - FIX: Updated data access (places instead of sights).
-// 17.01.2026 17:55 - FIX: Added .flat() to handle Place[] arrays correctly (TS2339).
+// 17.01.2026 17:55 - FIX: Added .flat() to handle Place[] arrays correctly.
 
 import type { TripProject, Place } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
 
 export const buildTourGuidePrompt = (project: TripProject): string => {
-  // Wir greifen auf die gesammelten Sights zu (V40: project.data.places)
-  // FIX: .flat() nutzen, da places ein Record<Category, Place[]> ist.
+  // We access collected sights (V40: project.data.places)
   const allSights = Object.values(project.data.places || {}).flat() as Place[];
 
-  // Mapping für die KI
+  // Mapping for AI
   const sightsForPrompt = allSights.map((sight: Place) => ({
       id: sight.id,
       name: sight.name,
-      adresse: sight.address || sight.vicinity || "Unbekannt", // Fallback für V40 Strictness
+      address: sight.address || sight.vicinity || "Unknown",
       category: sight.category,
-      // Fallback für optionale Properties
+      // Fallback for optional properties
       min_duration_minutes: (sight as any).min_duration_minutes || 60 
   }));
 
-  const role = `Du bist ein erfahrener Reisebuchautor und geografischer Analyst. Deine Stärke ist es, eine lose Sammlung von Orten in eine fesselnde und logische Erzählung zu verwandeln, die ein Reisender für eine Erkundung auf eigene Faust nutzen kann.
+  const role = `You are an experienced Travel Guide Author and Geographic Analyst. Your strength is transforming a loose collection of places into a compelling and logical narrative that a traveler can use for self-guided exploration.
 
-Deine Aufgabe ist es, die **gesamte Liste** von Sehenswürdigkeiten zu nehmen und sie in geografisch zusammenhängende "Erkundungstouren" zu gliedern. Du erstellst **KEINEN** Zeitplan, sondern eine rein räumliche Gliederung.`;
+Your task is to take the **entire list** of sights and organize them into geographically coherent "Exploration Tours". You create **NO** time schedule, but a purely spatial structure.`;
 
-  const instructions = `# ARBEITSSCHRITTE
-1.  **Analyse:** Analysiere die geografische Lage aller Orte in der bereitgestellten Liste.
-2.  **Cluster-Bildung:** Fasse die Orte in sinnvolle, dichte Cluster zusammen (z.B. nach Stadtvierteln). Strebe 2-5 Cluster an.
-3.  **Benennung:** Gib jedem Cluster einen kreativen Titel (z.B. "Tour 1: Das historische Herz").
-4.  **Sequenzierung:** Bringe die Sehenswürdigkeiten **innerhalb jedes Clusters** in eine logische Reihenfolge für einen Spaziergang.
-5.  **JSON-Erstellung:** Erstelle das finale JSON-Objekt.
+  const instructions = `# WORK STEPS
+1.  **Analysis:** Analyze the geographic location of all places in the provided list.
+2.  **Clustering:** Group the places into meaningful, dense clusters (e.g., by neighborhood). Aim for 2-5 clusters.
+3.  **Naming:** Give each cluster a creative title (e.g., "Tour 1: The Historic Heart").
+4.  **Sequencing:** Arrange the sights **within each cluster** in a logical order for a walk.
+5.  **JSON Creation:** Create the final JSON object.
 
-# ZWINGENDE REGELN
-- **Regel 1 (Vollständigkeit):** JEDE Sehenswürdigkeit aus der Eingabeliste MUSS in genau EINER Tour vorkommen.
-- **Regel 2 (Keine Zeitplanung):** Füge KEINE Uhrzeiten oder Zeitfenster hinzu.
-- **Regel 3 (ID-Integrität):** Nutze die exakten \`id\`-Werte aus der Eingabeliste.`;
+# MANDATORY RULES
+- **Rule 1 (Completeness):** EVERY sight from the input list MUST appear in exactly ONE tour.
+- **Rule 2 (No Timing):** Do NOT add times or time slots.
+- **Rule 3 (ID Integrity):** Use the exact \`id\` values from the input list.`;
 
+  // FIX: Schema converted to V40 English keys
   const outputSchema = {
-    "reisefuehrer": {
-      "titel": "String (z.B. 'Ihr persönlicher Reiseführer für Paris')",
-      "einleitung": "String (Kurze, einladende Einleitung)",
-      "erkundungstouren": [
+    "guide": {
+      "title": "String (e.g. 'Your personal guide to Paris')",
+      "intro": "String (Short, inviting introduction)",
+      "tours": [
         {
-          "tour_titel": "String",
-          "tour_beschreibung": "String (2-3 Sätze zum Gebiet)",
-          "vorgeschlagene_reihenfolge_ids": ["String (ID der Sehenswürdigkeit)"]
+          "tour_title": "String",
+          "tour_description": "String (2-3 sentences about the area)",
+          "suggested_order_ids": ["String (ID of the sight)"]
         }
       ]
     }
@@ -54,7 +55,7 @@ Deine Aufgabe ist es, die **gesamte Liste** von Sehenswürdigkeiten zu nehmen un
   return new PromptBuilder()
     .withOS()
     .withRole(role)
-    .withContext(sightsForPrompt, "DATENGRUNDLAGEN (Vollständige Liste aller Ideen)")
+    .withContext(sightsForPrompt, "DATA BASIS (Complete list of all ideas)")
     .withInstruction(instructions)
     .withOutputSchema(outputSchema)
     .withSelfCheck(['basic', 'planning'])

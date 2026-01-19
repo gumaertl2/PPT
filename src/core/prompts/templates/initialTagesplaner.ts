@@ -1,17 +1,14 @@
-// 19.01.2026 19:20 - FIX: Corrected PromptBuilder pattern for Strategic Briefing & Appointments.
+// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
 // src/core/prompts/templates/initialTagesplaner.ts
+// 19.01.2026 19:20 - FIX: Corrected PromptBuilder pattern for Strategic Briefing & Appointments.
 // 19.01.2026 13:00 - FIX: Restored V30 Legacy Schema (tag_nr -> tagNummer) for SSOT compliance.
-// 18.01.2026 12:40 - BUILD-FIX: Replaced .withConstraint with .withInstruction (Fixes TS2339). Full logic preserved.
-// 16.01.2026 21:00 - FEAT: Initial creation. Chunking-Aware Planning Logic.
-// 17.01.2026 17:05 - FIX: Applied Strict Types (Zero Error Policy).
-// 17.01.2026 17:45 - FIX: Corrected PromptBuilder import path.
-// 17.01.2026 23:30 - REFACTOR: Migrated to Fluent PromptBuilder API (Fixes TS2339/TS2554).
+// 18.01.2026 12:40 - BUILD-FIX: Replaced .withConstraint with .withInstruction.
 
 import { PromptBuilder } from '../PromptBuilder';
 import type { TripProject, Place, ChunkingContext } from '../../types';
 
 /**
- * Hilfsfunktion: Bereitet Sights auf UND filtert bereits besuchte raus.
+ * Helper: Prepares sights AND filters out visited ones.
  */
 const formatSightsForPrompt = (project: TripProject, excludedIds: string[]): string => {
   const { data } = project;
@@ -20,14 +17,14 @@ const formatSightsForPrompt = (project: TripProject, excludedIds: string[]): str
   const availableSights = allSights.filter((s: Place) => !excludedIds.includes(s.id));
 
   if (availableSights.length === 0) {
-    return "Keine weiteren spezifischen Orte verfügbar. Nutze dein allgemeines Wissen für passende Aktivitäten.";
+    return "No specific places available. Use general knowledge for suitable activities.";
   }
 
   return availableSights.map((s: Place) => {
     const prio = s.userPriority ? `[USER-PRIO: ${s.userPriority}] ` : '';
     const rating = s.rating ? ` (${s.rating}⭐)` : '';
     const address = s.address || s.vicinity || '';
-    const locationInfo = address ? ` [Lage: ${address}]` : '';
+    const locationInfo = address ? ` [Loc: ${address}]` : '';
     
     let openInfo = '';
     if (s.openingHours) {
@@ -42,8 +39,7 @@ const formatSightsForPrompt = (project: TripProject, excludedIds: string[]): str
 };
 
 /**
- * Baut den Prompt für den Tagesplaner.
- * Nutzt PromptBuilder Fluent API.
+ * Builds the prompt for the Daily Planner.
  */
 export const buildInitialTagesplanerPrompt = (
     project: TripProject, 
@@ -52,32 +48,38 @@ export const buildInitialTagesplanerPrompt = (
     visitedSightIds: string[] = []
 ): string => {
   
-  const { userInputs, analysis } = project; // FIX: Added analysis
-  const lang = userInputs.aiOutputLanguage === 'en' ? 'English' : 'Deutsch';
+  const { userInputs, analysis } = project;
+  const lang = userInputs.aiOutputLanguage === 'en' ? 'English' : 'German';
 
-  // 1. CHEF PLANER DATEN (V30 Parity)
+  // 1. CHEF PLANER DATA (V40 English Keys)
   const chefPlaner = analysis.chefPlaner;
-  const strategischesBriefing = chefPlaner?.strategisches_briefing?.itinerary_rules || chefPlaner?.strategisches_briefing?.sammler_briefing || "";
-  const validierteTermine = chefPlaner?.validierte_termine || [];
+  const strategicBriefing = (chefPlaner as any)?.strategic_briefing?.itinerary_rules || 
+                            (chefPlaner as any)?.strategic_briefing?.sammler_briefing || 
+                            (chefPlaner as any)?.strategisches_briefing?.sammler_briefing || 
+                            "";
+  
+  const validierteTermine = (chefPlaner as any)?.validated_appointments || 
+                            (chefPlaner as any)?.validierte_termine || 
+                            [];
 
-  // 2. Builder initialisieren
+  // 2. Initialize Builder
   const builder = new PromptBuilder()
-    .withRole('DU BIST EIN ELITE-REISEPLANER (KI). Erstelle einen detaillierten, logischen Tagesplan.');
+    .withRole('You are an ELITE TRAVEL PLANNER (AI). Create a detailed, logical daily itinerary.');
 
-  // 3. Rahmenbedingungen
+  // 3. Framework Conditions
   builder.withContext([
-    `Reisetempo: ${userInputs.pace}`,
-    `Interessen: ${userInputs.selectedInterests.join(', ')}`,
-    `Gruppe: ${userInputs.travelers.adults} Erw., ${userInputs.travelers.children} Kinder`,
-    `Sprache: ${lang}`
-  ], 'RAHMENBEDINGUNGEN');
+    `Pace: ${userInputs.pace}`,
+    `Interests: ${userInputs.selectedInterests.join(', ')}`,
+    `Group: ${userInputs.travelers.adults} Adults, ${userInputs.travelers.children} Children`,
+    `Language: ${lang}`
+  ], 'CONDITIONS');
 
-  // 4. Injektion der Strategie & Termine via Builder-Pattern
-  if (strategischesBriefing) {
-    builder.withContext(strategischesBriefing, "STRATEGISCHE VORGABE");
+  // 4. Injection of Strategy & Appointments
+  if (strategicBriefing) {
+    builder.withContext(strategicBriefing, "STRATEGIC GUIDELINE");
   }
   if (validierteTermine.length > 0) {
-    builder.withContext(validierteTermine, "FIXTERMINE (UNVERRÜCKBAR)");
+    builder.withContext(validierteTermine, "FIXED APPOINTMENTS (IMMUTABLE)");
   }
 
   // 5. Chunking Logic
@@ -88,15 +90,15 @@ export const buildInitialTagesplanerPrompt = (
       const endDay = dayOffset + chunkData.days;
       const currentStations = chunkData.stations || [];
 
-      builder.withInstruction(`ACHTUNG - TEILPLANUNG (CHUNKING):
-      Du planst einen Teil-Abschnitt der Reise.
-      - Von Tag: ${startDay}
-      - Bis Tag: ${endDay}
-      - Fokus-Orte für diesen Abschnitt: ${currentStations.join(', ')}`);
+      builder.withInstruction(`ATTENTION - PARTIAL PLANNING (CHUNKING):
+      You are planning a section of the trip.
+      - From Day: ${startDay}
+      - To Day: ${endDay}
+      - Focus Locations: ${currentStations.join(', ')}`);
 
       if (visitedSightIds.length > 0) {
           builder.withInstruction(
-            `BEREITS GEPLANT (DOPPELUNGEN VERMEIDEN): In den vorherigen Tagen wurden bereits ${visitedSightIds.length} Orte besucht. Diese wurden aus der Liste entfernt. Plane KEINE Orte doppelt!`
+            `ALREADY PLANNED (AVOID DUPLICATES): ${visitedSightIds.length} places have been visited in previous days. Do NOT plan them again!`
           );
       }
   } else {
@@ -104,47 +106,47 @@ export const buildInitialTagesplanerPrompt = (
         ? [userInputs.logistics.stationary.destination] 
         : userInputs.logistics.roundtrip.stops.map(s => s.location);
         
-      builder.withInstruction("Erstelle den kompletten Reiseplan für die gesamte Reise.");
-      builder.withContext(stations.join(', '), "Stationen");
+      builder.withInstruction("Create the complete itinerary for the entire trip.");
+      builder.withContext(stations.join(', '), "Stations");
   }
 
   // 6. Sights Context
   const sightsContext = formatSightsForPrompt(project, visitedSightIds);
-  builder.withContext(sightsContext, 'VERFÜGBARE ORTE (USER PRIOS BEACHTEN)');
+  builder.withContext(sightsContext, 'AVAILABLE PLACES (RESPECT USER PRIO)');
 
   // 7. User Feedback
   if (feedback) {
-      builder.withInstruction(`USER FEEDBACK (ÄNDERUNGSWUNSCH): "${feedback}"\nBitte passe den Plan unter Berücksichtigung dieses Feedbacks an.`);
+      builder.withInstruction(`USER FEEDBACK (CHANGE REQUEST): "${feedback}"\nPlease adjust the plan considering this feedback.`);
   }
 
-  // 8. Logik
-  builder.withInstruction(`LOGIK-REGELN:
-  1. **Priorität:** Orte mit [USER-PRIO] MÜSSEN eingeplant werden (wenn geografisch machbar).
-  2. **Cluster:** Nutze die [Lage] Informationen, um Orte zu gruppieren.
-  3. **Timing:** Beachte [Open] Zeiten.
-  4. **Logistik:** Kurze Wege zwischen Aktivitäten.`);
+  // 8. Logic
+  builder.withInstruction(`LOGIC RULES:
+  1. **Priority:** Places with [USER-PRIO] MUST be scheduled (if geographically feasible).
+  2. **Cluster:** Use [Loc] info to group places.
+  3. **Timing:** Respect [Open] times.
+  4. **Logistics:** Short distances between activities.`);
 
-  // 9. Output Format
+  // 9. Output Format (V40 English Keys)
   const outputFormat = `
-  Antworte AUSSCHLIESSLICH mit dem JSON.
-  Struktur muss exakt kompatibel mit dem Frontend-Renderer sein:
+  Answer EXCLUSIVELY with JSON.
+  Structure must be exactly compatible with the V40 Frontend Renderer:
 
   {
-    "tage": [
+    "days": [
       {
-        "tagNummer": ${dayOffset + 1}, // Legacy-Key: tagNummer (nicht tag_nr)
-        "datum": "YYYY-MM-DD" (wenn bekannt, sonst null),
-        "titel": "Motto des Tages",
-        "ort": "Hauptaufenthaltsort",
-        "aktivitaeten": [
+        "day": ${dayOffset + 1},
+        "date": "YYYY-MM-DD" (if known, else null),
+        "title": "Day Motto",
+        "location": "Main Location",
+        "activities": [
           {
-            "uhrzeit": "09:00",
-            "titel": "Name der Aktivität",
-            "beschreibung": "Inspirierende Beschreibung (2-3 Sätze).",
-            "dauer": "2h",
-            "kosten": "ca. 15€",
-            "original_sight_id": "ID_AUS_LISTE_OBEN" (WICHTIG für Mapping!),
-            "art": "sight" | "food" | "transfer" | "pause"
+            "time": "09:00",
+            "title": "Activity Name",
+            "description": "Inspiring description (2-3 sentences).",
+            "duration": "2h",
+            "cost": "approx. 15€",
+            "original_sight_id": "ID_FROM_LIST" (IMPORTANT for mapping!),
+            "type": "sight" | "food" | "transfer" | "pause"
           }
         ]
       }
@@ -155,4 +157,4 @@ export const buildInitialTagesplanerPrompt = (
 
   return builder.build();
 };
-// --- END OF FILE 137 Zeilen ---
+// --- END OF FILE 136 Zeilen ---

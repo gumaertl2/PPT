@@ -1,9 +1,8 @@
-// 19.01.2026 13:45 - FIX: Restored V30 Legacy Schema (German Keys) for DurationEstimator.
+// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
 // src/core/prompts/templates/durationEstimator.ts
+// 19.01.2026 13:45 - FIX: Restored V30 Legacy Schema (German Keys) for DurationEstimator.
 // 17.01.2026 15:00 - FEAT: Initial Logic for Roundtrip Duration Estimation.
-// 18.01.2026 00:50 - FIX: Restored correct content (was overwritten by GeoAnalyst).
 // 18.01.2026 00:55 - REFACTOR: Migrated to PromptBuilder pattern.
-// 18.01.2026 00:05 - FIX: Removed invalid 'logic' self-check type (TS2322).
 
 import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
@@ -12,11 +11,11 @@ export const buildDurationEstimatorPrompt = (project: TripProject): string => {
   const { userInputs } = project;
   const { logistics, dates, pace, selectedInterests } = userInputs;
 
-  // Nur relevant für Rundreisen
+  // Only relevant for Roundtrips
   const stops = logistics.roundtrip?.stops || [];
   const totalDays = dates.duration;
 
-  // Kontext-Daten für die KI
+  // Context Data
   const contextData = {
     total_trip_duration_days: totalDays,
     pace_preference: pace, // fast, balanced, relaxed
@@ -25,42 +24,42 @@ export const buildDurationEstimatorPrompt = (project: TripProject): string => {
     planned_stops: stops.map(s => s.location)
   };
 
-  const role = `Du bist der "Duration Estimator" (Zeit-Stratege). Deine Aufgabe ist es, für eine gegebene Rundreise die ideale Aufenthaltsdauer (in Nächten) pro Stopp zu berechnen.`;
+  const role = `You are the "Duration Estimator" (Time Strategist). Your task is to calculate the ideal duration of stay (in nights) per stop for a given roundtrip.`;
 
-  const instructions = `# AUFGABE
-Verteile die verfügbaren ${totalDays} Reisetage sinnvoll auf die ${stops.length} Stationen.
+  const instructions = `# TASK
+Distribute the available ${totalDays} travel days sensibly across the ${stops.length} stations.
 
-# REGELN
-1.  **Tempo:** Beachte das Reisetempo '${pace}'. 
-    - 'relaxed': Weniger Ortswechsel, längere Aufenthalte.
-    - 'fast': Effiziente Route, kürzere Stopps.
-2.  **Interessen:** Orte, die gut zu den Interessen (${selectedInterests.join(', ')}) passen, bekommen mehr Zeit.
-3.  **Realismus:** Berücksichtige Reisezeiten zwischen den Orten (grob geschätzt).
-4.  **Summe:** Die Summe der Nächte MUSS exakt (oder -1 Tag für Reisezeit) der Gesamtdauer entsprechen.
+# RULES
+1.  **Pace:** Respect the travel pace '${pace}'. 
+    - 'relaxed': Fewer location changes, longer stays.
+    - 'fast': Efficient route, shorter stops.
+2.  **Interests:** Places that match the interests (${selectedInterests.join(', ')}) well get more time.
+3.  **Realism:** Consider travel times between locations (roughly estimated).
+4.  **Sum:** The sum of nights MUST match exactly (or -1 day for travel time) the total duration.
 
 # INPUT
 Route: ${stops.map(s => s.location).join(' -> ')}
-Gesamtdauer: ${totalDays} Tage`;
+Total Duration: ${totalDays} Days`;
 
-  // FIX: Schema converted to German V30 keys
+  // FIX: Schema converted to V40 English keys
   const outputSchema = {
-    "schaetzung": {
-      "geplante_tage_gesamt": "Integer",
-      "stationen": [
+    "estimation": {
+      "total_days_planned": "Integer",
+      "stops": [
         {
-          "ort": "String (Name aus Input)",
-          "empfohlene_naechte": "Integer",
-          "begruendung": "String (Kurze Begründung, warum so lange/kurz)"
+          "location": "String (Name from Input)",
+          "recommended_nights": "Integer",
+          "reasoning": "String (Short reasoning why this long/short)"
         }
       ],
-      "machbarkeits_check": "String (Ist die Route in der Zeit machbar? 'Ja', 'Knapp' oder 'Nein')"
+      "feasibility_check": "String (Is the route feasible in this time? 'Yes', 'Tight' or 'No')"
     }
   };
 
   return new PromptBuilder()
     .withOS()
     .withRole(role)
-    .withContext(contextData, "ROUTEN-DATEN")
+    .withContext(contextData, "ROUTE DATA")
     .withInstruction(instructions)
     .withOutputSchema(outputSchema)
     .withSelfCheck(['planning']) 
