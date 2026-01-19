@@ -1,8 +1,5 @@
-// 18.01.2026 13:20 - FIX: Added updateProjectInput to support generic UserProfile updates (Fixes TS2339).
+// 20.01.2026 19:58 - FIX: Updated Default Strategy to English Key.
 // src/store/slices/createProjectSlice.ts
-// 14.01.2026 11:45 - FIX: Corrected setRoundtripOptions to target logistics.roundtripOptions (not roundtrip). Updated Interface types.
-// 15.01.2026 22:00 - FIX: Added updateLogistics to support generic updates from RouteReviewView.
-// 16.01.2026 03:50 - FIX: Updated default strategyId to 'klassischEntdecker' and vibe to 'Entdeckerisch'.
 
 import type { StateCreator } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
@@ -36,20 +33,16 @@ export interface ProjectSlice {
   setDates: (data: Partial<TripUserProfile['dates']>) => void;
   setLogisticMode: (mode: 'stationaer' | 'mobil') => void;
   
-  // FIX: Added generic setLogistics
   setLogistics: (data: Partial<TripUserProfile['logistics']>) => void;
   
-  // FIX: Added generic updateLogistics (needed by RouteReviewView)
   updateLogistics: (section: 'stationary' | 'roundtrip', data: any) => void;
 
   updateStationary: (data: Partial<TripUserProfile['logistics']['stationary']>) => void;
   updateRoundtrip: (data: Partial<TripUserProfile['logistics']['roundtrip']>) => void;
   updateSearchSettings: (settings: Partial<TripUserProfile['searchSettings']>) => void;
 
-  // FIX: Missing Actions requested by ProfileStep
   setDestination: (destination: string) => void;
   setStrategy: (strategyId: string) => void;
-  // FIX: Updated type to match new roundtripOptions structure
   setRoundtripOptions: (data: Partial<{ waypoints: string; strictRoute: boolean }>) => void;
 
   // Complex Objects
@@ -66,7 +59,6 @@ export interface ProjectSlice {
   setDeparture: (data: Partial<DepartureDetails>) => void;
 
   setConfig: (key: 'pace' | 'budget' | 'vibe' | 'strategyId', value: string) => void;
-  // FIX: Added updateProjectInput for generic updates (e.g. customSearchStrategies)
   updateProjectInput: (key: keyof TripUserProfile, value: any) => void;
   setNotes: (text: string) => void;
   toggleInterest: (id: string) => void;
@@ -117,7 +109,6 @@ const createInitialProject = (): TripProject => ({
         stops: [], 
         constraints: {} 
       },
-      // FIX: Init roundtripOptions
       roundtripOptions: { waypoints: '', strictRoute: false }
     },
     searchSettings: {
@@ -127,7 +118,8 @@ const createInitialProject = (): TripProject => ({
     },
     pace: 'Ausgewogen',
     budget: 'Flexibel',
-    strategyId: 'klassischEntdecker',
+    // FIX: Updated to new English Strategy ID
+    strategyId: 'classic_discovery', 
     vibe: 'Entdeckerisch',
     selectedInterests: [],
     customPreferences: {},
@@ -148,7 +140,6 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     try {
       let data: any;
 
-      // Case A: Input ist bereits JSON
       if (
         fileOrProject && 
         typeof fileOrProject === 'object' && 
@@ -157,7 +148,6 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
       ) {
           data = fileOrProject;
       } 
-      // Case B: Input ist File Objekt
       else if (fileOrProject instanceof File) {
           const text = await new Promise<string>((resolve, reject) => {
              const reader = new FileReader();
@@ -170,7 +160,6 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
           throw new Error("Invalid input format for loadProject");
       }
       
-      // Update State
       set((state: any) => ({
         ...state,
         project: {
@@ -180,7 +169,6 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
         view: 'wizard' 
       }));
 
-      // Benachrichtigung (Optional Chaining für Sicherheit)
       if (get().addNotification) {
         get().addNotification({ type: 'success', message: 'Projekt geladen.' });
       }
@@ -267,7 +255,6 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     }
   })),
 
-  // FIX: Implemented setLogistics
   setLogistics: (data) => set((state: any) => ({
     project: {
       ...state.project,
@@ -278,7 +265,6 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     }
   })),
 
-  // FIX: Implemented updateLogistics
   updateLogistics: (section, data) => set((state: any) => ({
     project: {
       ...state.project,
@@ -328,7 +314,6 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     }
   })),
 
-  // FIX: Implemented setDestination
   setDestination: (destination) => set((state: any) => ({
     project: {
       ...state.project,
@@ -345,7 +330,6 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     }
   })),
 
-  // FIX: Implemented setStrategy
   setStrategy: (strategyId) => set((state: any) => ({
     project: {
       ...state.project,
@@ -356,7 +340,6 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     }
   })),
 
-  // FIX: Implemented setRoundtripOptions correctly pointing to logistics.roundtripOptions
   setRoundtripOptions: (data) => set((state: any) => ({
     project: {
       ...state.project,
@@ -513,7 +496,6 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     project: { ...state.project, userInputs: { ...state.project.userInputs, [key]: value } }
   })),
 
-  // FIX: Implemented updateProjectInput
   updateProjectInput: (key, value) => set((state: any) => ({
     project: {
       ...state.project,
@@ -559,4 +541,4 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     }
   }))
 });
-// --- END OF FILE 435 Zeilen ---
+// --- END OF FILE 436 Zeilen ---

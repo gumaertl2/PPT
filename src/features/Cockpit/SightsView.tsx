@@ -1,6 +1,5 @@
+// 20.01.2026 19:00 - FIX: Migrated SightsView to English V40 Keys (SSOT).
 // src/features/Cockpit/SightsView.tsx
-// 19.01.2026 20:30 - FIX: Non-Destructive Merge of V30 Features (Tours, Special Days) into Planning View.
-// 14.01.2026 12:05 - FIX: Removed unused imports, fixed 'pace' access, corrected hasTours/hasDays checks.
 
 import React, { useMemo, useState } from 'react';
 import { useTripStore } from '../../store/useTripStore';
@@ -13,14 +12,12 @@ import {
   List,
   Grid,
   FileText,
-  Briefcase, // Icon for Planning Mode
-  // NEW IMPORTS
+  Briefcase, 
   Sun,
   CloudRain,
   Layout
 } from 'lucide-react';
 
-// --- CONFIG (Ported from V30) ---
 const TRAVEL_PACE_CONFIG: Record<string, { startHour: number; endHour: number; breakMinutes: number; bufferMinutes: number }> = {
   'fast': { startHour: 8, endHour: 19, breakMinutes: 60, bufferMinutes: 0 }, 
   'balanced': { startHour: 9.5, endHour: 17, breakMinutes: 90, bufferMinutes: 45 }, 
@@ -37,26 +34,21 @@ export const SightsView: React.FC = () => {
     toggleSightFilter 
   } = useTripStore();
   
-  // FIX: Added analysis access for V30 features
   const { userInputs, data, analysis } = project; 
   const places = Object.values(data.places || {});
 
-  // Local State: Planning Mode (Default OFF -> Clean Guide View)
   const [showPlanningMode, setShowPlanningMode] = useState(false);
   
   // --- 1. BUDGET LOGIC ---
   const budgetStats = useMemo(() => {
     let totalMinutes = 0;
-    // FIX: 'pace' is a direct property of userInputs, not under logistics
     const pace = userInputs.pace || 'balanced';
     const config = TRAVEL_PACE_CONFIG[pace] || TRAVEL_PACE_CONFIG['balanced'];
     
-    // Berechne verfügbare Zeit
     const start = new Date(`2000-01-01T${userInputs.dates?.dailyStartTime || '09:00'}`); 
     const end = new Date(`2000-01-01T${userInputs.dates?.dailyEndTime || '18:00'}`);
     let dailyMinutes = (end.getTime() - start.getTime()) / 60000;
     
-    // Fallback falls User-Daten fehlen
     if (isNaN(dailyMinutes) || dailyMinutes <= 0) {
        dailyMinutes = (config.endHour - config.startHour) * 60 - config.breakMinutes;
     }
@@ -64,11 +56,11 @@ export const SightsView: React.FC = () => {
     const days = (new Date(userInputs.dates.end).getTime() - new Date(userInputs.dates.start).getTime()) / (1000 * 3600 * 24) + 1;
     const totalBudget = Math.floor(dailyMinutes * days);
 
-    // Berechne Verbrauch (Nur Prio 1, 2, 3)
     places.forEach((p: any) => {
-      const prio = p.userSelection?.priority || 0;
+      const prio = p.userPriority || 0;
       if (prio > 0) {
-         const dur = p.userSelection?.customDuration || p.min_duration_minutes || 60;
+         // V40: duration (or check old key fallback)
+         const dur = p.duration || p.min_duration_minutes || 60;
          totalMinutes += dur;
       }
     });
@@ -76,19 +68,19 @@ export const SightsView: React.FC = () => {
     return { total: totalBudget, used: totalMinutes, remaining: totalBudget - totalMinutes };
   }, [userInputs, places]);
 
-  // --- 2. HELPERS FOR MODAL ---
+  // --- 2. HELPER: CATEGORIES ---
   const availableCategories = useMemo(() => {
     const cats = new Set<string>();
     places.forEach((p: any) => {
-      if (p.kategorie) cats.add(p.kategorie);
+      // V40: category
+      if (p.category) cats.add(p.category);
       else cats.add('Sonstiges');
     });
     return Array.from(cats).sort();
   }, [places]);
 
-  // FIX: Check data.routes and itinerary.days instead of non-existent analysis properties
-  // UPDATE: We check analysis.tourGuide for tours now (V30 structure)
-  const hasTours = !!(analysis as any)?.tourGuide?.erkundungstouren?.length;
+  // V40 Tour Guide Check
+  const hasTours = !!((analysis as any)?.tourGuide?.guide?.tours?.length);
   const hasDays = (project.itinerary?.days?.length || 0) > 0;
 
   const handleCategoryToggle = (cat: string) => {
@@ -107,28 +99,29 @@ export const SightsView: React.FC = () => {
     const term = uiState.searchTerm.toLowerCase();
     const activeCats = uiState.categoryFilter;
 
-    // Get constraints from user settings (default to 0 if missing)
     const minRating = userInputs.searchSettings?.minRating || 0;
     const minDuration = userInputs.searchSettings?.minDuration || 0;
 
     places.forEach((p: any) => {
+      // V40: Name & Category
+      const cat = p.category || 'Sonstiges';
+      const name = p.name || '';
+
       // Search Filter
-      if (term && !p.name.toLowerCase().includes(term) && !p.kategorie?.toLowerCase().includes(term)) {
+      if (term && !name.toLowerCase().includes(term) && !cat.toLowerCase().includes(term)) {
         return; 
       }
       
       // Category Filter
-      const cat = p.kategorie || 'Sonstiges';
       if (activeCats.length > 0 && !activeCats.includes(cat)) {
           return;
       }
 
-      // V30 Split Logic (Min Duration & Rating)
-      const rating = p.google_rating || 0;
-      const duration = p.min_duration_minutes || p.dauer_min || 0;
+      // V40: rating / duration
+      const rating = p.rating || 0;
+      const duration = p.duration || p.min_duration_minutes || 0;
       
-      // Logic: Reserve if explicit ignored OR duration too short OR rating too low (if rating exists)
-      const isReserve = (p.userSelection?.priority === -1) || 
+      const isReserve = (p.userPriority === -1) || 
                         (duration < minDuration) || 
                         (rating > 0 && rating < minRating);
       
@@ -139,106 +132,105 @@ export const SightsView: React.FC = () => {
       }
     });
 
-    // Dynamic Sort
     const sortMode = uiState.sortMode || 'category';
     
     const sortFn = (a: any, b: any) => {
       if (sortMode === 'alphabetical') return a.name.localeCompare(b.name);
-      return (a.kategorie || '').localeCompare(b.kategorie || '');
+      return (a.category || '').localeCompare(b.category || '');
     };
 
     return { main: mainList.sort(sortFn), reserve: reserveList.sort(sortFn) };
   }, [places, uiState.searchTerm, uiState.categoryFilter, uiState.sortMode, userInputs.searchSettings]);
 
 
-  // --- 4. NEW: SONDERTAGE RENDERER ---
+  // --- 4. RENDERER: SONDERTAGE (V40 Adapted) ---
   const renderSondertage = () => {
     const ideenScout = (analysis as any)?.ideenScout;
-    const sondertage = ideenScout?.sondertage || [];
-
-    if (sondertage.length === 0) return null;
+    // V40 structure is direct object, no array "sondertage" anymore usually.
+    // If orchestrator accumulates it, it might differ. But assuming singular for now.
+    
+    if (!ideenScout || (!ideenScout.sunny_day_ideas && !ideenScout.rainy_day_ideas)) return null;
 
     return (
       <div className="mb-8 space-y-6 animate-in fade-in">
-         {sondertage.map((st: any, idx: number) => (
-            <div key={idx} className="bg-gradient-to-r from-slate-50 to-white rounded-xl border border-slate-200 p-4 shadow-sm">
-               <h3 className="font-bold text-lg text-slate-700 mb-4 flex items-center gap-2">
-                 <Layout className="w-5 h-5 text-slate-400" />
-                 Flexible Ideen für {st.uebernachtungsort}
-               </h3>
-               
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* SONNE */}
-                  <div className="bg-amber-50/50 rounded-lg p-3 border border-amber-100">
-                     <div className="flex items-center gap-2 mb-3 text-amber-700 font-semibold border-b border-amber-200/50 pb-2">
-                        <Sun className="w-4 h-4" /> Bei Sonnenschein
-                     </div>
-                     <div className="space-y-3">
-                        {(st.sonnentag_ideen || []).map((idee: any, i: number) => (
-                           <div key={i} className="bg-white p-2.5 rounded border border-amber-100 shadow-sm text-sm">
-                              <div className="font-bold text-slate-800">{idee.name}</div>
-                              <p className="text-xs text-slate-600 mt-1">{idee.beschreibung}</p>
-                              {idee.planungs_hinweis && (
-                                 <div className="mt-2 text-[10px] bg-amber-50 text-amber-800 p-1.5 rounded">
-                                    💡 {idee.planungs_hinweis}
-                                 </div>
-                              )}
-                           </div>
-                        ))}
-                     </div>
+         {/* We assume one set of ideas for the main location */}
+         <div className="bg-gradient-to-r from-slate-50 to-white rounded-xl border border-slate-200 p-4 shadow-sm">
+            <h3 className="font-bold text-lg text-slate-700 mb-4 flex items-center gap-2">
+              <Layout className="w-5 h-5 text-slate-400" />
+              Flexible Ideen (Special Days)
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               {/* SUNNY */}
+               <div className="bg-amber-50/50 rounded-lg p-3 border border-amber-100">
+                  <div className="flex items-center gap-2 mb-3 text-amber-700 font-semibold border-b border-amber-200/50 pb-2">
+                     <Sun className="w-4 h-4" /> Bei Sonnenschein
                   </div>
+                  <div className="space-y-3">
+                     {(ideenScout.sunny_day_ideas || []).map((idee: any, i: number) => (
+                        <div key={i} className="bg-white p-2.5 rounded border border-amber-100 shadow-sm text-sm">
+                           <div className="font-bold text-slate-800">{idee.name}</div>
+                           <p className="text-xs text-slate-600 mt-1">{idee.description}</p>
+                           {idee.planning_note && (
+                              <div className="mt-2 text-[10px] bg-amber-50 text-amber-800 p-1.5 rounded">
+                                 💡 {idee.planning_note}
+                              </div>
+                           )}
+                        </div>
+                     ))}
+                  </div>
+               </div>
 
-                  {/* REGEN */}
-                  <div className="bg-slate-100/50 rounded-lg p-3 border border-slate-200">
-                     <div className="flex items-center gap-2 mb-3 text-slate-600 font-semibold border-b border-slate-200 pb-2">
-                        <CloudRain className="w-4 h-4" /> Bei Regen
-                     </div>
-                     <div className="space-y-3">
-                        {(st.schlechtwetter_ideen || []).map((idee: any, i: number) => (
-                           <div key={i} className="bg-white p-2.5 rounded border border-slate-200 shadow-sm text-sm">
-                              <div className="font-bold text-slate-800">{idee.name}</div>
-                              <p className="text-xs text-slate-600 mt-1">{idee.beschreibung}</p>
-                              {idee.planungs_hinweis && (
-                                 <div className="mt-2 text-[10px] bg-slate-50 text-slate-600 p-1.5 rounded">
-                                    ☂️ {idee.planungs_hinweis}
-                                 </div>
-                              )}
-                           </div>
-                        ))}
-                     </div>
+               {/* RAINY */}
+               <div className="bg-slate-100/50 rounded-lg p-3 border border-slate-200">
+                  <div className="flex items-center gap-2 mb-3 text-slate-600 font-semibold border-b border-slate-200 pb-2">
+                     <CloudRain className="w-4 h-4" /> Bei Regen
+                  </div>
+                  <div className="space-y-3">
+                     {(ideenScout.rainy_day_ideas || []).map((idee: any, i: number) => (
+                        <div key={i} className="bg-white p-2.5 rounded border border-slate-200 shadow-sm text-sm">
+                           <div className="font-bold text-slate-800">{idee.name}</div>
+                           <p className="text-xs text-slate-600 mt-1">{idee.description}</p>
+                           {idee.planning_note && (
+                              <div className="mt-2 text-[10px] bg-slate-50 text-slate-600 p-1.5 rounded">
+                                 ☂️ {idee.planning_note}
+                              </div>
+                           )}
+                        </div>
+                     ))}
                   </div>
                </div>
             </div>
-         ))}
+         </div>
       </div>
     );
   };
 
 
-  // --- 5. UPDATED: RENDER GROUPED LIST (Supports Tours) ---
+  // --- 5. RENDER GROUPED LIST (V40 Tours) ---
   const renderGroupedList = (list: any[]) => {
     if (list.length === 0) return <p className="text-gray-400 italic p-4">{t('sights.no_places', { defaultValue: 'Keine Orte gefunden.' })}</p>;
 
     const sortMode = uiState.sortMode || 'category';
     const groups: Record<string, any[]> = {};
     
-    // CASE: TOURS (V30 Logic)
+    // CASE: TOURS (V40)
     if (sortMode === 'tour') {
         const tourGuide = (analysis as any)?.tourGuide;
-        const tours = tourGuide?.erkundungstouren || [];
+        const tours = tourGuide?.guide?.tours || []; // V40 Path
         const assignedIds = new Set<string>();
 
         // 1. Assign to defined tours
         tours.forEach((tour: any) => {
-            const title = tour.tour_titel || "Tour";
+            const title = tour.tour_title || "Tour";
             // Filter places in this list that match the tour IDs
-            const tourPlaces = list.filter(p => tour.vorgeschlagene_reihenfolge_ids?.includes(p.id));
+            const tourPlaces = list.filter(p => tour.suggested_order_ids?.includes(p.id));
             
             if (tourPlaces.length > 0) {
                 // Sort by occurrence in tour definition
                 groups[title] = tourPlaces.sort((a, b) => {
-                    const idxA = tour.vorgeschlagene_reihenfolge_ids.indexOf(a.id);
-                    const idxB = tour.vorgeschlagene_reihenfolge_ids.indexOf(b.id);
+                    const idxA = tour.suggested_order_ids.indexOf(a.id);
+                    const idxB = tour.suggested_order_ids.indexOf(b.id);
                     return idxA - idxB;
                 });
                 tourPlaces.forEach(p => assignedIds.add(p.id));
@@ -252,10 +244,10 @@ export const SightsView: React.FC = () => {
         }
 
     } else {
-        // CASE: STANDARD (Category / Alphabetical) - PRESERVED LOGIC
+        // CASE: STANDARD (Category / Alphabetical)
         list.forEach(p => {
             let key = 'Allgemein';
-            if (sortMode === 'category') key = p.kategorie || 'Sonstiges';
+            if (sortMode === 'category') key = p.category || 'Sonstiges'; // V40
             else if (sortMode === 'alphabetical') key = p.name ? p.name[0].toUpperCase() : '?';
             
             if (!groups[key]) groups[key] = [];
@@ -276,7 +268,7 @@ export const SightsView: React.FC = () => {
                id={place.id} 
                data={place} 
                mode="selection" 
-               showPriorityControls={showPlanningMode} // Controlled by Planning Mode
+               showPriorityControls={showPlanningMode} 
             />
           ))}
         </div>
@@ -288,7 +280,7 @@ export const SightsView: React.FC = () => {
   return (
     <div className="pb-24">
       
-      {/* 1. TOP BAR (Only visible in Planning Mode) */}
+      {/* 1. TOP BAR */}
       {showPlanningMode && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6 flex flex-col md:flex-row items-center justify-between gap-4 sticky top-20 z-10 animate-in fade-in slide-in-from-top-2">
            <div className="flex items-center gap-6 w-full justify-center md:justify-start">
@@ -316,7 +308,7 @@ export const SightsView: React.FC = () => {
         </div>
       )}
 
-      {/* 2. SONDERTAGE (NEW V30 Feature) */}
+      {/* 2. SONDERTAGE */}
       {renderSondertage()}
 
       {/* 3. LISTS */}
@@ -339,7 +331,7 @@ export const SightsView: React.FC = () => {
         </div>
       )}
 
-      {/* 4. MODAL OVERLAY: ADJUST VIEW */}
+      {/* 4. MODAL OVERLAY */}
       {isSightFilterOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">

@@ -1,9 +1,5 @@
-// 19.01.2026 17:00 - FIX: Reverted ChefPlanerResult & GeoAnalystResult to German V30 Keys (SSOT Consistency).
+// 20.01.2026 18:45 - REFACTOR: "Operation Clean Sweep" - Enforced English V40 Keys globally.
 // src/core/types.ts
-// 16.01.2026 17:00 - FEAT: Added all V30 Master Matrix Agent Keys to WorkflowStepId.
-// 16.01.2026 20:00 - REFACTOR: Centralized ChunkingState and AiSettings for SSOT.
-// 16.01.2026 23:30 - FEAT: Added GeoAnalystResult to support Accommodation Strategy (V30 Parity).
-// 17.01.2026 16:55 - FIX: Added Strict Types for Place, PlaceCategory & ChunkingContext (Zero Error Policy).
 
 // --- GENERAL TYPES ---
 export type LanguageCode = 'de' | 'en' | 'es' | 'fr' | 'it' | 'nl' | 'pl' | 'pt' | 'ru' | 'tr' | 'ja' | 'zh';
@@ -40,14 +36,13 @@ export interface InterestCategory {
   label: LocalizedContent;
   isSystem?: boolean;
   defaultUserPreference?: LocalizedContent;
-  searchStrategy?: LocalizedContent;  // NEU: Für den Sammler
-  writingGuideline?: LocalizedContent; // NEU: Für den Redakteur
+  searchStrategy?: LocalizedContent;  
+  writingGuideline?: LocalizedContent; 
   aiInstruction?: LocalizedContent;
   prompt?: string | LocalizedContent;
 }
 
 // --- WORKFLOW / MAGIC CHAIN ---
-// Unified Step IDs including internal Agent Keys
 export type WorkflowStepId = 
   // --- V40 UI Keys (Short) ---
   | 'basis'          // Sammler (Namen & Ideen)
@@ -77,7 +72,7 @@ export type WorkflowStepId =
   | 'foodScout'            // Kulinarik Guide
   | 'reisefuehrer'         // Content Story
   | 'sightsChefredakteur'  // Content Details
-  | 'chefredakteur'        // Alias für Content Details (FIX TS2678)
+  | 'chefredakteur'        // Alias für Content Details
   | 'infoAutor'            // Infos Fakten
   | 'countryScout'         // Länderinfos
   | 'ideenScout'           // Extras
@@ -95,23 +90,14 @@ export interface WorkflowStepDef {
   isMandatory: boolean;       
   requiresUserInteraction?: boolean; 
   requires?: WorkflowStepId[]; 
-  label: {
-    de: string;
-    en: string;
-  };
-  description: {
-    de: string;
-    en: string; // FIX: Added 'en' to match data in steps.ts
-  };
+  label: { de: string; en: string; };
+  description: { de: string; en: string; };
 }
 
 // --- SYSTEM SETTINGS & CHUNKING (SSOT) ---
 
 export type AiStrategy = 'optimal' | 'pro' | 'fast';
 
-// Definition für Model-Types (um Zirkelbezüge zu vermeiden, definieren wir es hier oder importieren es)
-// Wir nutzen hier string literals für lose Kopplung, oder importieren aus config wenn nötig.
-// Für types.ts ist string | 'pro' | 'flash' sicher.
 export type ModelType = 'pro' | 'flash' | string;
 
 export interface ChunkLimits {
@@ -122,11 +108,8 @@ export interface ChunkLimits {
 export interface AiSettings {
   strategy: AiStrategy;
   debug: boolean;
-  // Granulare Kontrolle pro Task
   modelOverrides: Partial<Record<TaskKey, ModelType>>;
-  // Globale Chunk-Größen (Fallback)
   chunkLimits: ChunkLimits;
-  // Granulare Chunk-Größen pro Task (Overrides)
   chunkOverrides: Partial<Record<TaskKey, Partial<ChunkLimits>>>;
 }
 
@@ -264,74 +247,81 @@ export interface TripUserProfile {
   aiOutputLanguage: string; 
 }
 
-// --- ANALYSIS RESULTS ---
+// --- ANALYSIS RESULTS (STRICT V40 ENGLISH) ---
 
 export interface ChefPlanerResult {
   metadata: {
     analyzedAt: string;
     model: string;
   };
-  // UPDATE: Zurück auf deutsche V30 Keys (passend zum Template)
-  gedankenschritte?: string[];
-  plausibilitaets_check?: string | null;
   
-  korrekturen: {
+  // V40 English Keys
+  _thought_process?: string[]; // former: gedankenschritte
+  plausibility_check?: string | null;
+  
+  corrections: {
     destination_typo_found?: boolean;
     corrected_destination?: string | null;
     notes?: string[];
   };
 
-  validierte_termine: Array<{
+  validated_appointments: Array<{
     original_input: string;
     official_name: string;
     address: string;
     estimated_duration_min: number;
   }>;
 
-  validierte_hotels?: Array<{
+  validated_hotels?: Array<{
     station: string;
     official_name: string;
     address?: string;
   }>;
 
-  strategisches_briefing: {
+  strategic_briefing: {
     search_radius_instruction: string;
     sammler_briefing: string;
     itinerary_rules?: string;
   };
 
-  smart_limit_empfehlung?: {
+  smart_limit_recommendation?: {
     value: number;
     reasoning: string;
   };
 }
 
 export interface RouteProposal {
-  routenName: string;
-  charakter: string;
-  gesamtKilometer: number;
-  gesamtFahrzeitStunden: number;
-  anzahlHotelwechsel: number | string;
-  uebernachtungsorte: string[];
-  ankerpunkte: Array<{
-    standortFuerKarte: string;
-    adresse?: string; // Optional
+  id?: string;
+  title: string;          // former: routenName
+  description?: string;   // former: charakter
+  
+  // Computed values
+  total_km?: number;      
+  total_drive_time?: number; 
+  
+  stages?: Array<{        // former: uebernachtungsorte
+      location_name: string;
+      nights: number | string;
+      reasoning?: string;
   }>;
-  begruendung?: string; // Optional, da im Template nicht explizit gefordert
+  
+  waypoints?: Array<{     // former: ankerpunkte
+    location: string;
+    address?: string;
+  }>;
 }
 
 export interface RouteArchitectResult {
-  routenVorschlaege: RouteProposal[];
+  routes: RouteProposal[]; // former: routenVorschlaege
 }
 
-// UPDATE: Ergebnis des GeoAnalysten (V30 Keys)
 export interface GeoAnalystResult {
-  empfohlene_hubs: Array<{
+  recommended_hubs: Array<{ // former: empfohlene_hubs
     hub_name: string;
-    eignung_score: number;
-    vorteile: string[];
-    nachteile: string[];
-    geeignet_fuer: string;
+    suitability_score: number;
+    pros: string[];
+    cons: string[];
+    suitable_for: string;
   }>;
 }
 
@@ -346,7 +336,7 @@ export interface Place {
   name: string;
   category: PlaceCategory;
   
-  // Geo & Location (V30 Requirements)
+  // Geo & Location
   address?: string;
   vicinity?: string;
   location?: { lat: number; lng: number };
@@ -355,10 +345,10 @@ export interface Place {
   userPriority?: number; // -1, 0, 1, 2
   rating?: number;
   
-  // Content
+  // Content (English V40)
   shortDesc?: string;
-  description?: string;
-  openingHours?: string[] | string;
+  description?: string; 
+  openingHours?: string[] | string; 
   
   // Status
   visited?: boolean;
@@ -388,7 +378,7 @@ export interface TripProject {
     geoAnalyst?: GeoAnalystResult | null; 
   };
   data: {
-    places: Record<string, Place[]>; // Strict Type: Categories (e.g. 'sights') contain Arrays of Places
+    places: Record<string, Place[]>; 
     content: Record<string, any>; 
     routes: Record<string, any>;
   };
@@ -396,4 +386,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 454 Zeilen ---
+// --- END OF FILE 402 Zeilen ---

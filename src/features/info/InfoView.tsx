@@ -1,6 +1,5 @@
+// 20.01.2026 19:10 - FIX: Migrated InfoView to English V40 Keys (SSOT).
 // src/features/info/InfoView.tsx
-// 17.01.2026 19:40 - FEAT: Initial creation. Renders 'InfoAutor' results.
-// Moved to features folder to match project structure (like SightCard).
 
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
@@ -9,10 +8,18 @@ import { useTripStore } from '../../store/useTripStore';
 export const InfoView: React.FC = () => {
   const project = useTripStore(state => state.project);
   
-  // Wir holen die Daten aus dem Content-Bereich, wo der InfoAutor sie ablegt
-  const infoKapitel = (project.data.content as any)?.info_kapitel || [];
+  // V40 Structure: 'chapters' array inside 'infoAutor' (usually merged into content)
+  // Check 'infoAutor.ts' template: output schema { chapters: [...] }
+  // Orchestrator or Store probably merges this.
+  // Assuming 'project.data.content' holds the merged result or we check 'analysis.infoAutor' directly?
+  // Usually 'content' is for enriched text.
+  // Let's check 'infoAutor' result location. PayloadBuilder puts it in 'analysis' or 'data'?
+  // Actually the Orchestrator returns data, but where is it stored?
+  // If it's stored in project.data.content, we look for 'chapters'.
+  
+  const chapters = (project.data.content as any)?.chapters || (project.analysis as any)?.infoAutor?.chapters || [];
 
-  if (!infoKapitel || infoKapitel.length === 0) {
+  if (!chapters || chapters.length === 0) {
     return (
       <div className="p-8 text-center text-gray-500 bg-white rounded-xl shadow-sm border border-gray-100">
         <div className="text-4xl mb-4">ℹ️</div>
@@ -37,16 +44,16 @@ export const InfoView: React.FC = () => {
 
       {/* Info Cards Grid */}
       <div className="grid gap-6">
-        {infoKapitel.map((kapitel: any, index: number) => (
-          <div key={kapitel.id || index} className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden hover:shadow-lg transition-shadow duration-300">
+        {chapters.map((chapter: any, index: number) => (
+          <div key={chapter.id || index} className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden hover:shadow-lg transition-shadow duration-300">
             {/* Card Header */}
             <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
               <h3 className="font-bold text-gray-800 text-lg">
-                {kapitel.typ || 'Information'}
+                {chapter.type || 'Information'}
               </h3>
-              {kapitel.id && (
+              {chapter.id && (
                 <span className="text-xs font-mono text-gray-400 bg-white px-2 py-1 rounded border">
-                  {kapitel.id}
+                  {chapter.id}
                 </span>
               )}
             </div>
@@ -54,7 +61,7 @@ export const InfoView: React.FC = () => {
             {/* Card Content (Markdown) */}
             <div className="p-6 prose prose-blue max-w-none text-gray-700 leading-relaxed">
               <ReactMarkdown>
-                {kapitel.inhalt || 'Kein Inhalt verfügbar.'}
+                {chapter.content || 'Kein Inhalt verfügbar.'}
               </ReactMarkdown>
             </div>
           </div>

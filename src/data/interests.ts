@@ -1,18 +1,18 @@
-// 18.01.2026 13:45 - OPTIMIZATION: Precision metrics for Hiking (700-1100hm, 10-15km) and Cycling (50km). Restricted water sports.
+// 20.01.2026 19:50 - REFACTOR: "Operation Clean Sweep" - Mapped IDs to English. Content preserved 100%.
 // src/data/interests.ts
-// 18.01.2026 12:15 - REFACTOR: Migrated to Gold Standard 3-level strategy. Split aiInstruction into searchStrategy and writingGuideline.
+// 18.01.2026 13:45 - OPTIMIZATION: Precision metrics for Hiking and Cycling.
 /**
  * src/data/interests.ts
  * Enthält die Definitionen aller Interessen und System-Kategorien.
- * UPDATE: aiInstruction ist nun zweisprachig (DE/EN) für den Expertenmodus.
- * UPDATE 18.01.: Felder searchStrategy und writingGuideline für Sammler/Redakteur Trennung hinzugefügt.
+ * V40 UPDATE: IDs sind jetzt englisch (für System-Konsistenz). Inhalte bleiben zweisprachig.
  */
 
 import type { InterestCategory } from '../core/types';
 
 export const INTEREST_DATA: Record<string, InterestCategory> = {
-  'ReisetypStrategie': {
-    id: 'ReisetypStrategie',
+  // --- SYSTEM PREFERENCES ---
+  'trip_strategy': { // former: ReisetypStrategie
+    id: 'trip_strategy',
     label: { de: "Charakter der Reise", en: "Trip Character" },
     isSystem: true,
     defaultUserPreference: { de: "", en: "" },
@@ -20,8 +20,8 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
     writingGuideline: { de: "", en: "" },
     aiInstruction: { de: "", en: "" }
   },
-  'Reisetempo': {
-    id: 'Reisetempo',
+  'pace': { // former: Reisetempo
+    id: 'pace',
     label: { de: "Reisetempo", en: "Travel Pace" },
     isSystem: true,
     defaultUserPreference: { de: "", en: "" },
@@ -29,8 +29,8 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
     writingGuideline: { de: "", en: "" },
     aiInstruction: { de: "", en: "" }
   },
-  'Preisniveau': {
-    id: 'Preisniveau',
+  'budget_level': { // former: Preisniveau
+    id: 'budget_level',
     label: { de: "Preisniveau", en: "Budget Level" },
     isSystem: true,
     defaultUserPreference: { de: "", en: "" },
@@ -44,8 +44,8 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
       en: 'Always interpret the selected price level relative to the local purchasing power of the destination country (e.g., €50 is cheap in Zurich, luxury in Hanoi).'
     }
   },
-  'Emotionale Stimmung': {
-    id: 'Emotionale Stimmung',
+  'vibe': { // former: Emotionale Stimmung
+    id: 'vibe',
     label: { de: "Emotionale Stimmung", en: "Emotional Vibe" },
     isSystem: true,
     defaultUserPreference: { de: "", en: "" },
@@ -53,8 +53,10 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
     writingGuideline: { de: "", en: "" },
     aiInstruction: { de: "", en: "" }
   },
-  'Restaurant': {
-    id: 'Restaurant',
+
+  // --- CONTENT INTERESTS ---
+  'restaurant': { // former: Restaurant
+    id: 'restaurant',
     label: { de: "Restaurant", en: "Restaurant" },
     defaultUserPreference: { 
       de: "Wir nutzen einen 3-stufigen Profi-Prozess: Erst scannen wir die gesamte Region nach Einträgen in renommierten Guides (Michelin, Gault&Millau, etc.), dann filtert das System mathematisch präzise nach Entfernung, und am Ende werden die Treffer detailliert beschrieben.",
@@ -73,8 +75,8 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
       en: "SEARCH STRATEGY: Identify dining establishments focusing on quality. Search for entries in renowned guides (Michelin, Gault&Millau) and highly-rated local tips.\n\nEDITORIAL INSTRUCTION: Write a culinary review (approx. 150-200 words). Describe the ambiance, kitchen philosophy, and highlight 2-3 signature dishes. Provide practical info on reservations and dress code."
     }
   },
-  'Nachtleben': {
-    id: 'Nachtleben',
+  'nightlife': { // former: Nachtleben
+    id: 'nightlife',
     label: { de: "Events & Abendprogramm", en: "Events & Nightlife" },
     defaultUserPreference: {
       de: "Ich möchte eine Übersicht über besondere, datumsabhängige Veranstaltungen, die während meiner Reise stattfinden (z.B. Konzerte, Festivals, besondere Ausstellungen). Recherchiere online nach passenden Events und schlage mir die interessantesten vor. Dies ist unabhängig von der allgemeinen Abendgestaltung in Bars.",
@@ -93,8 +95,8 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
       en: 'Research specific events (concerts, festivals, markets, exhibitions) in the target region for the specified travel period. For each found event, state the name, date, location, a short description, and ideally a link to the official website or ticket purchase. If no specific events are found, research recurring events (e.g., weekly markets, live music in certain bars) and describe them.'
     }
   },
-  'StadtInfo': {
-    id: 'StadtInfo',
+  'city_info': { // former: StadtInfo
+    id: 'city_info',
     label: { de: "StadtInfo", en: "City Info" },
     isSystem: false,
     defaultUserPreference: {
@@ -114,8 +116,8 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
       en: "**Scope: The entire text should cover approx. 500-600 words.**\n\nCreate a detailed, multi-part summary in the appendix for each city.\n\n**Part 1: Character & Flair**\nWrite a vivid, narrative introduction capturing the unique character of the city. Describe the atmosphere, urban life, and top 5 sights to provide a first impression.\n\n**Part 2: Historical Timeline & Personalities**\nCreate a clear table or chronological list of the most important milestones in the city's history, from founding to present. Name the decisive events and one or two defining personalities for each era.\n\n**Part 3: Practical Info on Public Transport**\nProvide a brief overview of the public transport system (e.g., metro, bus, tram). Explain which ticket options make the most sense for tourists (e.g., day pass, weekly pass) and where to buy them."
     }
   },
-  'Museum': {
-    id: 'Museum',
+  'museum': { // former: Museum
+    id: 'museum',
     label: { de: "Museum", en: "Museum" },
     defaultUserPreference: {
       de: "Wir besuchen gerne Museen unterschiedlichster Art. Unser besonderes Interesse gilt Kunstmuseen (Schwerpunkt Impressionismus, Kubismus, Picasso, Monet). Sollte dies vor Ort nicht verfügbar sein, ist das Spektrum breit: Von Antike/Ägyptischer Kunst über Geschichtsmuseen bis hin zu regionalen Freilicht- oder Bauernhofmuseen. Schlage uns einfach die interessantesten Museen vor, die die Region zu bieten hat – ob Weltkunst oder lokales Highlight.",
@@ -134,8 +136,8 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
       en: "SEARCH STRATEGY: Identify museums focusing on user interests (e.g., art, history). Additionally check for temporary exhibitions during the travel period.\n\nEDITORIAL INSTRUCTION: Write a museum portrait (approx. 300 words). Structure: 1. Collection highlights & architecture (relate to interests), 2. Top 10 exhibits (artist, title, context), 3. Practical Information: Provide an overview of opening hours, ticket prices, and the best way to buy tickets."
     }
   },
-  'Architektur': {
-    id: 'Architektur',
+  'architecture': { // former: Architektur
+    id: 'architecture',
     label: { de: "Architektur", en: "Architecture" },
     defaultUserPreference: {
       de: "Starkes Interesse an der Geschichte von Orten, an historischen Bauwerken, Schlössern, Burgen, Kathedralen und deren Hintergründen. Auch moderne Architektur ist von Interesse, wenn sie prägend für das Stadtbild ist.",
@@ -154,8 +156,8 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
       en: "SEARCH STRATEGY: Identify architectural landmarks. Prioritize: 1. UNESCO sites & historical monuments. 2. Modern icons. 3. Ensembles defining the current cityscape.\n\nEDITORIAL INSTRUCTION: Write like an architecture critic: technically sound yet inspiring. Structure: Part 1 (Genesis & Style: approx. 150-200 words), Part 2 (5 Key Facts: focus on technical details or symbols)."
     }
   },
-  'Stadtbezirke': {
-    id: 'Stadtbezirke',
+  'districts': { // former: Stadtbezirke
+    id: 'districts',
     label: { de: "Stadtbezirke", en: "Districts & Neighborhoods" },
     defaultUserPreference: {
       de: "Plane einen Spaziergang / eine Besichtigung durch besondere Stadtbezirke und sage uns was an dem Stadtbezirk so besonders ist. Der Fokus liegt auf Atmosphäre, Charme und dem Gefühl für das lokale Leben, weniger auf dem Abarbeiten von Einzel-Sehenswürdigkeiten.",
@@ -174,8 +176,8 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
       en: "SEARCH STRATEGY: Search for characterful neighborhoods. Combine must-see old towns with authentic 'hidden gems' (creative districts, local living areas).\n\nEDITORIAL INSTRUCTION: Design an atmospheric district tour (approx. 300-400 words). Lead the reader narratively through the streets. Highlight the lifestyle and recommend 1-2 local institutions (cafes/shops)."
     }
   },
-  'Natur': {
-    id: 'Natur',
+  'nature': { // former: Natur
+    id: 'nature',
     label: { de: "Natur", en: "Nature" },
     defaultUserPreference: {
       de: "Plane passende Natur-Aktivitäten ein, die meinen Vorlieben entsprechen: Bei Städtereisen einfache bis mittelschwere Wanderungen (2-4 Stunden), die gut erreichbar sind. Bei Rundreisen gerne auch anspruchsvollere Touren oder die Erkundung von Nationalparks. Wichtig ist das Naturerlebnis, **ob berühmtes Highlight oder versteckte Perle**.",
@@ -194,8 +196,8 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
       en: "SEARCH STRATEGY: Locate natural beauties and trails matching the activity level. Prefer sites with a 'wow factor' (panoramas, waterfalls).\n\nEDITORIAL INSTRUCTION: Create a nature profile (approx. 200-250 words). Structure into: 1. Landscape character, 2. Trail details (length, duration, elevation, difficulty), 3. Highlights & photo spots."
     }
   },
-  'Parks': {
-    id: 'Parks',
+  'parks': { // former: Parks
+    id: 'parks',
     label: { de: "Parks", en: "Parks & Gardens" },
     defaultUserPreference: {
       de: "Plane Zeit für die Erkundung von bemerkenswerten Gärten und Parks ein, um Momente der Ruhe zu finden. Das können sowohl berühmte Schlossgärten als auch weniger bekannte, charmante städtische Grünanlagen sein.",
@@ -214,8 +216,8 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
       en: "SEARCH STRATEGY: Search for oases of peace. These can be famous palace gardens as well as lesser-known, charming urban green spaces.\n\nEDITORIAL INSTRUCTION: Describe every planned park or garden in the appendix. Explain the history, style (e.g., Baroque garden, English landscape garden), and the special atmosphere of the place. Highlight special features such as sculptures, water features, or rare plants. Give a tip on which area of the park is particularly worth seeing."
     }
   },
-  'Shopping': {
-    id: 'Shopping',
+  'shopping': { // former: Shopping
+    id: 'shopping',
     label: { de: "Shopping", en: "Shopping" },
     defaultUserPreference: {
       de: "Plane etwas Zeit für Shopping ein. Lege den Fokus dabei bitte auf lokale Märkte (Lebensmittel, Handwerk, Flohmärkte) und kleine, besondere Boutiquen oder Manufakturen. Große, internationale Ladenketten sind weniger interessant.",
@@ -234,8 +236,8 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
       en: "SEARCH STRATEGY: Focus on local markets (food, crafts, flea markets) and small, special boutiques or manufactories. Large international chains are less interesting.\n\nEDITORIAL INSTRUCTION: Describe the markets or shopping streets mentioned in the plan in the appendix. Provide information on the type of shops/stalls, typical products, and opening hours. Give a recommendation on which products are particularly authentic or of high quality."
     }
   },
-  'Wellness': {
-    id: 'Wellness',
+  'wellness': { // former: Wellness
+    id: 'wellness',
     label: { de: "Wellness", en: "Wellness" },
     defaultUserPreference: {
       de: "Plane als entspannenden Programmpunkt die Möglichkeit für einen Spa-Besuch oder einen Nachmittag in einem Thermalbad ein, um die Reise-Anstrengungen auszugleichen. Der Fokus liegt auf hochwertigen und ruhigen Einrichtungen.",
@@ -254,8 +256,8 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
       en: "SEARCH STRATEGY: Search for high-quality spas or thermal baths focusing on tranquility and ambiance (no pure sports pools).\n\nEDITORIAL INSTRUCTION: List two to three suitable places (spas, thermal baths) in the appendix for the planned wellness activity. Describe the offer, atmosphere, and price level. Give a recommendation on which place best suits the traveler's desired relaxation level."
     }
   },
-  'Budget': {
-    id: 'Budget',
+  'budget': { // former: Budget
+    id: 'budget',
     label: { de: "Budget", en: "Cost Overview" },
     defaultUserPreference: {
       de: "Beachte bei der Auswahl aller kostenpflichtigen Aktivitäten, Hotels und Restaurants das von mir festgelegte Preisniveau und gib im Reiseplan eine grobe Schätzung der Gesamtkosten an. Ich möchte eine realistische Vorstellung davon bekommen, was die Reise kosten wird.",
@@ -274,8 +276,8 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
       en: 'Create a detailed cost overview table in the appendix. The table should contain a row for each travel day and columns for cost types (accommodation, food, activities, transport) as well as a daily total. Summarize the total costs for the trip at the end and assess how well the budget fits the selected price level. Also indicate which costs are fixed (e.g., pre-booked hotel) and which are estimates.'
     }
   },
-  'Reiseinformationen': {
-    id: 'Reiseinformationen',
+  'travel_info': { // former: Reiseinformationen
+    id: 'travel_info',
     label: { de: "Reiseinformationen", en: "Travel Info" },
     isSystem: false,
     defaultUserPreference: {
@@ -295,8 +297,8 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
       en: "Create a comprehensive guide 'Essential Travel Info' in the appendix. This is mandatory: You MUST research and create informative content for EACH of the following 10 points. If specific data is unavailable, give a general estimate. Structure the section strictly as follows:\n\n1. **Country Overview:** Give a short, engaging overview of the destination country (if not the user's home). What makes it unique? Name 3-4 interesting facts a tourist should know.\n\n2. **Local Events & Holidays:** Research if special local holidays, festivals, or recurring events (e.g., weekly markets) take place during the specified travel period. List these with date and short description.\n\n3. **Mini Phrasebook:** List the 5-7 most important words/phrases in the local language, including simple pronunciation. (Hello, Thank you, Please, Goodbye, Excuse me, Yes, No).\n\n4. **Practical Daily Tips:**\n    * **Public Transport:** Brief overview of the system. Explain best ticket options for tourists.\n    * **Tipping & Customs:** Explain local rules/expectations for tipping in restaurants/services.\n    * **Opening Hours:** Describe typical opening hours (e.g., 'Shops close for lunch 13-16h').\n    * **Drinking Water:** Is tap water safe or is bottled recommended?\n    * **WiFi:** Typical availability of public WiFi.\n\n5. **Safety & Emergencies:**\n    * **Safety Advice:** Current safety notes. Mention typical scams if any.\n    * **Emergency Numbers:** Police, Ambulance, Fire.\n    * **Pharmacies:** How to find a duty pharmacy.\n\n6. **Cuisine:** List Top 5 regional dishes (non-veg) AND 5 regional vegetarian dishes to try.\n\n7. **Passes:** Research if a City/Museum Pass is worth it. Give a clear recommendation (Yes/No) and reason.\n\n8. **Organizational:**\n    * **Currency:** Local currency, exchange/card tips.\n    * **Power:** Socket type, voltage, adapter needed?\n\n9. **Entry, Customs, Health:**\n    * **Entry:** Visa requirements/passport validity (Standard: DACH citizens).\n    * **Customs:** Import bans (meds, food, culture).\n    * **Health:** Recommended vaccinations, specific risks (Dengue, Altitude, etc.).\n\n10. **Climate & Packing:**\n    * **Weather Analysis:** Specific climate in travel month. Cold water? Residual snow? Wind?\n    * **Clothing:** Concrete recommendation based on this (e.g., 'Windbreaker essential')."
     }
   },
-  'Unberuecksichtigt': {
-    id: 'Unberuecksichtigt',
+  'ignored_places': { // former: Unberuecksichtigt
+    id: 'ignored_places',
     label: { de: "Nicht berücksichtigte Orte", en: "Ignored Places" },
     defaultUserPreference: {
       de: "Wenn diese Option aktiviert ist, erstellt der Tagesplaner am Ende des Berichts automatisch eine Liste aller Prio-1- und Prio-2-Sehenswürdigkeiten, die aus Zeit- oder Logistikgründen nicht in den Plan aufgenommen werden konnten. Diese werden im gleichen Detailgrad wie in der Vorauswahl angezeigt.",
@@ -312,8 +314,8 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
       en: '// This function is automatically executed by the Day Planner (Phase 2A). No action required for Editor-in-Chief.'
     }
   },
-  'Puffer': {
-    id: 'Puffer',
+  'buffer': { // former: Puffer
+    id: 'buffer',
     label: { de: "Freie Zeit / Puffer", en: "Free Time / Buffer" },
     isSystem: true,
     defaultUserPreference: {
@@ -330,8 +332,8 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
       en: 'This is a creative activity inserted by the daily planner. Your task is to take the title (e.g., "Walk in District XY") as inspiration and write a short, engaging description. Explain why this moment or place is a valuable addition to the itinerary and what awaits the traveler there.'
     }
   },
-  'Allgemein': {
-    id: 'Allgemein',
+  'general': { // former: Allgemein
+    id: 'general',
     label: { de: "Allgemein", en: "General" },
     isSystem: true,
     defaultUserPreference: {
@@ -342,8 +344,8 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
     writingGuideline: { de: "", en: "" },
     aiInstruction: { de: '', en: '' }
   },
-  'Sport': {
-    id: 'Sport',
+  'sports': { // former: Sport
+    id: 'sports',
     label: { de: "Sport & Aktiv", en: "Sport & Active" },
     defaultUserPreference: {
       de: "Ich möchte mich im Urlaub sportlich betätigen. Suche nach Möglichkeiten zum Wandern, Radfahren, Schnorcheln oder anderen Aktivitäten, die zur Region passen.",
@@ -362,8 +364,8 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
       en: "SEARCH STRATEGY: Focus on hiking (700-1100m elevation gain, 10-15km), cycling (50km), swimming/snorkeling. Exclude water sports like surfing/kite.\n\nEDITORIAL INSTRUCTION: Create a sports profile (approx. 200-250 words). Structure into: 1. Activity character, 2. Technical details (length, duration, elevation gain, difficulty), 3. Required equipment & rental options, 4. Highlights & tips."
     }
   },
-  'Strand': {
-    id: 'Strand',
+  'beach': { // former: Strand
+    id: 'beach',
     label: { de: "Strand & Meer", en: "Beach & Sea" },
     defaultUserPreference: {
       de: "Wir möchten Zeit am Meer verbringen. Plane Tage für Erholung am Strand, zum Sonnenbaden und Schwimmen ein. Wenn das Ziel es hergibt, sind wir auch sehr an Schnorcheln oder Tauchen interessiert (schöne Riffe, klares Wasser).",
@@ -382,8 +384,8 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
       en: 'SEARCH STRATEGY: Search for specific beaches or bays characterized by high water quality and scenic beauty.\n* **Priority 1:** Places suitable for swimming (little current, clean).\n* **Priority 2:** If possible in destination, explicitly search for snorkeling or diving spots (reefs, marine parks).\n\nEDITORIAL INSTRUCTION: Describe every beach in detail in the appendix. Mention texture (sand/pebbles), water conditions (calm/waves), and infrastructure (loungers, shade, bars). For snorkel spots, state what can be seen (fish, corals).'
     }
   },
-  'Familie': {
-    id: 'Familie',
+  'family': { // former: Familie
+    id: 'family',
     label: { de: "Familie & Kinder", en: "Family & Kids" },
     defaultUserPreference: {
       de: "Wir reisen mit Kindern. Plane Ausflugsziele, die kinderfreundlich sind, Spaß machen und sicher sind. Vermeide zu lange Wege oder Orte, an denen Kinder sich langweilen.",
@@ -402,8 +404,8 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
       en: "Plan excursions specifically suitable for children (zoos, theme parks, easy adventure trails, interactive museums). Prioritize places with good family infrastructure (toilets, food). Ensure child-friendly distances."
     }
   },
-  'Anreise': {
-    id: 'Anreise',
+  'arrival': { // former: Anreise
+    id: 'arrival',
     label: { de: "Anreise", en: "Arrival" },
     defaultUserPreference: {
       de: 'Plane für mich die beste Anreisemöglichkeit von meinem Heimatort zum Reiseziel. Berücksichtige bei der Auswahl die Faktoren Zeit, Kosten und Umweltfreundlichkeit. Ich bin offen für alle Verkehrsmittel (Flugzeug, Bahn, Auto) und freue mich über einen fundierten Vergleich, der mir die Entscheidung erleichtert. Gib auch eine Schätzung für die CO2-Emissionen der jeweiligen Option an, um die Umweltverträglichkeit bewerten zu können.',
@@ -422,8 +424,8 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
       en: 'Use researched facts to create a detailed comparison of travel options (plane, train, car) in the appendix, including estimated duration, costs, and CO2 footprint per person. Analyze the transfer from arrival point (airport/station) to the hotel, including possible transport means and duration. Based on this analysis, make a clear recommendation on which option is best for the traveler considering efficiency, costs, and sustainability.'
     }
   },
-  'Hotel': {
-    id: 'Hotel',
+  'hotel': { // former: Hotel
+    id: 'hotel',
     label: { de: "Hotel", en: "Hotel" },
     defaultUserPreference: {
       de: 'Plane für die Übernachtungen passende Hotels. Die Auswahl soll sich streng an der Definition für Hotels orientieren, die in der übergeordneten Einstellung \'Preisniveau\' getroffen wurde. Falls ein Hotelname bereits durch mich vorgegeben wurde, nutze diesen als festen Punkt im Plan und schlage keine Alternativen vor. Achte bei den Vorschlägen auf eine gute Lage, die zu den geplanten Aktivitäten passt.',

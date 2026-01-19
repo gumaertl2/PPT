@@ -1,11 +1,5 @@
-// 19.01.2026 16:35 - FIX: Added Fallback to Travelers Origin for Map Start Location (V30 Parity).
+// 20.01.2026 18:55 - FIX: Migrated RouteReview to English V40 Keys & Structure (SSOT).
 // src/features/Cockpit/RouteReviewView.tsx
-// 15.01.2026 17:50 - FEATURE: V30-Style Route Selection View with Keep & Regenerate Logic.
-// 15.01.2026 18:15 - UPDATE: Integrated ItineraryModal for night distribution (V30 Parity).
-// 16.01.2026 01:15 - FIX: Removed Header, Full-Width Feedback, Added i18n.
-// 16.01.2026 03:25 - FIX: Removed unused import (Map) to resolve build errors.
-// 18.01.2026 18:15 - FIX: Auto-Select active route from Store on mount.
-// 19.01.2026 18:00 - FIX: Deduplicated route stops (Timeline -> Stations). Fixes Map Link & Itinerary Modal.
 
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -28,29 +22,14 @@ interface RouteReviewViewProps {
   onNext?: () => void;
 }
 
-// --- HELPER: Deduplizieren von aufeinanderfolgenden Orten ---
-// Wandelt ["A", "A", "B", "A"] in [{name: "A", count: 2}, {name: "B", count: 1}, {name: "A", count: 1}]
-const condenseLocations = (locs: string[]): { name: string; count: number }[] => {
-  const result: { name: string; count: number }[] = [];
-  locs.forEach(loc => {
-    if (result.length === 0 || result[result.length - 1].name !== loc) {
-      result.push({ name: loc, count: 1 });
-    } else {
-      result[result.length - 1].count++;
-    }
-  });
-  return result;
-};
-
 export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
   const { t } = useTranslation();
   const { project, updateLogistics, addNotification } = useTripStore();
   const { startSingleTask, status } = useTripGeneration();
 
-  // ROUTE DATA
-  // CHECK: Correctly accesses 'routenVorschlaege' defined in types.ts (RouteArchitectResult)
+  // ROUTE DATA (V40 English Key: routes)
   const routeResult = project.analysis.routeArchitect;
-  const proposals = routeResult?.routenVorschlaege || [];
+  const proposals = routeResult?.routes || [];
 
   // STATE
   const [selectedRouteIndex, setSelectedRouteIndex] = useState<number | null>(null);
@@ -59,21 +38,18 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
     
   const [showItineraryModal, setShowItineraryModal] = useState(false);
 
-  // --- 0. AUTO-SELECT (FIX) ---
-  // Prüft beim Laden, ob eine der Vorschläge bereits im Store aktiv ist.
+  // --- 0. AUTO-SELECT ---
   useEffect(() => {
     const currentStops = project.userInputs.logistics.roundtrip?.stops;
     if (!currentStops || currentStops.length === 0 || proposals.length === 0) return;
 
-    // Wir vergleichen die Ortsnamen (Locations). Das ist robust genug.
+    // Vergleich basierend auf Locations
     const currentLocations = currentStops.map(s => s.location).sort().join('|');
 
     const matchingIndex = proposals.findIndex(p => {
-        // Hier müssen wir auch die Vorschläge erst "kondensieren", falls der Store kondensiert ist,
-        // oder wir vergleichen einfach die rohen Listen, wenn der Store noch "roh" war.
-        // Besser: Wir bauen aus dem Vorschlag die Stationen und vergleichen dann.
-        const condensedProposal = condenseLocations(p.uebernachtungsorte);
-        const proposalStr = condensedProposal.map(c => c.name).sort().join('|');
+        // V40: stages ist ein Array von Objekten { location_name, nights }
+        if (!p.stages) return false;
+        const proposalStr = p.stages.map(s => s.location_name).sort().join('|');
         return proposalStr === currentLocations;
     });
 
@@ -103,16 +79,13 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
     if (selectedRouteIndex === null) return;
 
     const selectedRoute = proposals[selectedRouteIndex];
-    if (!selectedRoute) return;
+    if (!selectedRoute || !selectedRoute.stages) return;
 
-    // FIX: Condense Timeline to Stations (Repairs Itinerary Modal)
-    const condensed = condenseLocations(selectedRoute.uebernachtungsorte);
-
-    // 1. Convert to RouteStop Format with Calculated Duration
-    const stops = condensed.map((item, i) => ({
+    // 1. Convert V40 Stages to RouteStop Format
+    const stops = selectedRoute.stages.map((item, i) => ({
       id: `stop-${Date.now()}-${i}`,
-      location: item.name,
-      duration: item.count, // Nächte aus Timeline übernehmen
+      location: item.location_name,
+      duration: typeof item.nights === 'string' ? parseInt(item.nights) : item.nights,
       hotel: undefined 
     }));
 
@@ -138,22 +111,17 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
 
     // 1. Prepare "Kept" Routes
     const keptRoutes = proposals.filter((_, i) => keptRouteIndices.has(i));
-    
-    // 2. FIX: Dynamic target count: Keep current count + 2 new ones
     const targetCount = keptRoutes.length + 2;
 
-    // 3. Build Feedback Prompt
     const keptBlock = keptRoutes.length > 0 
         ? `\n\nKEEP THESE ROUTES EXACTLY AS IS:\n${JSON.stringify(keptRoutes, null, 2)}` 
         : "";
 
-    // CHECK: Validated legacy output format instructions
-    const fullFeedback = `User Feedback: "${feedback}"${keptBlock}\n\nTask: Generate a total of ${targetCount} route proposals in the known JSON format. Include the "kept" routes provided above unchanged at the beginning of the list, and generate exactly 2 NEW additional variations based on the user feedback. The output must contain a 'routenVorschlaege' array with exactly ${targetCount} objects.`;
+    // V40 Prompt expects 'routes' key in JSON
+    const fullFeedback = `User Feedback: "${feedback}"${keptBlock}\n\nTask: Generate a total of ${targetCount} route proposals. Include the "kept" routes unchanged. Generate exactly 2 NEW variations. The output must contain a 'routes' array.`;
 
-    // 4. Trigger AI
     await startSingleTask('routeArchitect', fullFeedback);
     
-    // 5. Reset UI
     setFeedback('');
     setSelectedRouteIndex(null);
     setKeptRouteIndices(new Set());
@@ -171,7 +139,6 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
     );
   }
 
-  // FIX: Robust Start Location Logic (V30 Parity) - Falls Start leer, nimm Heimatort
   const startLoc = project.userInputs.logistics.roundtrip.startLocation || 
                    project.userInputs.travelers.origin || 
                    project.userInputs.logistics.roundtrip.region || 
@@ -203,9 +170,9 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
                       </div>
                     </div>
                     <div>
-                      {/* CHECK: routenName matches type */}
+                      {/* V40 Key: title */}
                       <span className={`block text-lg font-bold ${selectedRouteIndex === i ? 'text-blue-700' : 'text-slate-800'}`}>
-                        {route.routenName}
+                        {route.title}
                       </span>
                       {selectedRouteIndex === i && (
                         <span className="text-xs text-blue-600 font-medium animate-pulse">
@@ -220,31 +187,30 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
           </thead>
           <tbody className="divide-y divide-slate-100">
             
-            {/* ROW: Charakter */}
+            {/* ROW: Charakter (description) */}
             <tr>
               <td className="p-4 font-medium text-slate-600 bg-slate-50/50">{t('route.character', { defaultValue: 'Charakter' })}</td>
               {proposals.map((r, i) => (
                 <td key={i} className={`p-4 border-l border-slate-100 align-top ${selectedRouteIndex === i ? 'bg-blue-50/30' : ''}`}>
-                  {r.charakter}
+                  {r.description}
                 </td>
               ))}
             </tr>
 
-            {/* ROW: Verlauf (FIXED DISPLAY) */}
+            {/* ROW: Verlauf (stages) */}
             <tr>
               <td className="p-4 font-medium text-slate-600 bg-slate-50/50">{t('route.itinerary', { defaultValue: 'Verlauf' })}</td>
               {proposals.map((r, i) => {
-                // FIX: Use Condensed View for Display
-                const condensed = condenseLocations(r.uebernachtungsorte);
+                const stages = r.stages || [];
                 return (
                   <td key={i} className={`p-4 border-l border-slate-100 align-top ${selectedRouteIndex === i ? 'bg-blue-50/30' : ''}`}>
                     <div className="flex flex-col gap-1">
-                      {condensed.map((item, idx) => (
+                      {stages.map((stage, idx) => (
                         <div key={idx} className="flex items-center gap-2 text-slate-700">
                           <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
                           <span>
-                             {item.name} 
-                             {item.count > 1 && <span className="text-xs text-slate-400 ml-1">({item.count} Nächte)</span>}
+                             {stage.location_name} 
+                             <span className="text-xs text-slate-400 ml-1">({stage.nights} Nächte)</span>
                           </span>
                         </div>
                       ))}
@@ -262,26 +228,27 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-slate-600">
                       <Navigation className="w-4 h-4" />
-                      <span>{r.gesamtKilometer} km</span>
+                      {/* V40: total_km */}
+                      <span>{r.total_km || '?'} km</span>
                     </div>
                     <div className="flex items-center gap-2 text-slate-600">
                       <Clock className="w-4 h-4" />
-                      <span>~{r.gesamtFahrzeitStunden} {t('unit.hours', { defaultValue: 'Std.' })}</span>
+                      {/* V40: total_drive_time */}
+                      <span>~{r.total_drive_time || '?'} {t('unit.hours', { defaultValue: 'Std.' })}</span>
                     </div>
                   </div>
                 </td>
               ))}
             </tr>
 
-            {/* ROW: Map Link (FIXED URL GENERATION) */}
+            {/* ROW: Map Link */}
             <tr>
               <td className="p-4 font-medium text-slate-600 bg-slate-50/50">{t('route.map', { defaultValue: 'Karte' })}</td>
               {proposals.map((r, i) => {
-                // FIX: Use Condensed View for Map to prevent Waypoint Overflow
-                const condensed = condenseLocations(r.uebernachtungsorte);
+                const stages = r.stages || [];
                 const mapLocs = startLoc 
-                    ? [startLoc, ...condensed.map(c => c.name), startLoc] 
-                    : condensed.map(c => c.name);
+                    ? [startLoc, ...stages.map(c => c.location_name), startLoc] 
+                    : stages.map(c => c.location_name);
                 
                 const url = generateGoogleMapsRouteUrl(mapLocs);
 
@@ -388,4 +355,4 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
     </div>
   );
 };
-// --- END OF FILE 346 Zeilen ---
+// --- END OF FILE 330 Zeilen ---

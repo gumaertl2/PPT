@@ -1,19 +1,13 @@
-// 18.01.2026 16:30 - FIX: Added 'Smart Error Handler' with I18N to translate technical API errors into user-friendly messages.
+// 20.01.2026 19:20 - FIX: "Operation Clean Sweep" - Updated Result Processor to English V40 Keys.
 // src/hooks/useTripGeneration.ts
-// 12.01.2026 19:00 - UPDATE: Implemented result processing for 'basis' and 'anreicherer'.
-// 16.01.2026 03:40 - FIX: Corrected TaskKey import source to resolve build errors (TS2345).
-// 16.01.2026 04:30 - FINAL FIX: Consolidated TaskKey import from core/types for Vercel parity.
-// 17.01.2026 18:45 - REFACTOR: Integrated TripOrchestrator for centralized logic handling.
-// 18.01.2026 23:15 - FIX: Added 'Food' processor & robust Object/Array handling for all list-based agents.
-// 18.01.2026 15:25 - FIX: Added functional 'Cancel' action to all loading notifications for blocking modal.
-// 18.01.2026 15:35 - FIX: Implemented Chunking-Awareness in Workflow Manager.
+// 18.01.2026 16:30 - FIX: Added 'Smart Error Handler' with I18N.
+// 17.01.2026 18:45 - REFACTOR: Integrated TripOrchestrator.
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
 import { useTripStore } from '../store/useTripStore';
 import { PayloadBuilder } from '../core/prompts/PayloadBuilder';
-// NEU: Orchestrator statt direktem Service-Aufruf
 import { TripOrchestrator } from '../services/orchestrator';
 import { WORKFLOW_STEPS } from '../core/Workflow/steps';
 import type { WorkflowStepId, TaskKey } from '../core/types'; 
@@ -33,7 +27,6 @@ interface UseTripGenerationReturn {
   error: string | null;
   progress: number;
   
-  // Manual Mode Exports
   manualPrompt: string | null;
   submitManualResult: (jsonResult: any) => Promise<void>;
 
@@ -48,45 +41,37 @@ const getFriendlyErrorMessage = (error: any, lang: 'de' | 'en'): string => {
   const msg = (error?.message || '').toLowerCase();
   const isDe = lang === 'de';
 
-  // 1. Netzwerk / Timeout / Abbruch
   if (msg.includes('failed to fetch') || msg.includes('network') || msg.includes('unterbrochen') || msg.includes('connection')) {
     return isDe
-      ? 'Zeitüberschreitung oder Netzwerkfehler: Die KI hat nicht rechtzeitig geantwortet. Bitte prüfen Sie Ihre Verbindung und versuchen Sie es erneut ("Wiederholen").'
-      : 'Timeout or Network Error: The AI did not respond in time. Please check your connection and try again ("Retry").';
+      ? 'Zeitüberschreitung oder Netzwerkfehler. Bitte Verbindung prüfen.'
+      : 'Timeout or Network Error. Please check connection.';
   }
   
-  // 2. Rate Limit / Quota (429)
   if (msg.includes('429') || msg.includes('quota') || msg.includes('rate limit')) {
     return isDe
-      ? 'Zu viele Anfragen (429): Das Nutzungslimit ist erreicht. Bitte warten Sie einen Moment, bevor Sie es erneut versuchen.'
-      : 'Too Many Requests (429): Quota exceeded. Please wait a moment before trying again.';
+      ? 'Zu viele Anfragen (429). Bitte kurz warten.'
+      : 'Too Many Requests (429). Please wait a moment.';
   }
 
-  // 3. Server Fehler (500/503)
   if (msg.includes('500') || msg.includes('503') || msg.includes('overloaded')) {
     return isDe
-      ? 'Server-Überlastung: Die Google AI Server sind momentan ausgelastet. Bitte versuchen Sie es in Kürze erneut.'
-      : 'Server Overload: Google AI servers are currently busy. Please try again shortly.';
+      ? 'Server-Überlastung. Bitte später versuchen.'
+      : 'Server Overload. Please try again later.';
   }
 
-  // 4. Safety / Content Policy
   if (msg.includes('safety') || msg.includes('blocked') || msg.includes('policy')) {
     return isDe
-      ? 'Sicherheits-Filter: Die Anfrage wurde von der KI als unsicher eingestuft und blockiert. Bitte formulieren Sie die Anfrage ggf. um.'
-      : 'Safety Filter: The request was flagged as unsafe by the AI and blocked. Please rephrase your request if necessary.';
+      ? 'Sicherheits-Filter: Anfrage wurde blockiert.'
+      : 'Safety Filter: Request blocked.';
   }
 
-  // 5. JSON / Format Fehler
   if (msg.includes('json') || msg.includes('syntax')) {
      return isDe
-      ? 'Verarbeitungsfehler: Die KI hat ungültige Daten gesendet. Ein erneuter Versuch löst das Problem meistens.'
-      : 'Processing Error: The AI returned invalid data. Retrying usually fixes this.';
+      ? 'Format-Fehler: Ungültige Daten von KI.'
+      : 'Format Error: Invalid AI data.';
   }
 
-  // Fallback: Original Fehler
-  return isDe
-    ? `Ein Fehler ist aufgetreten: ${msg}`
-    : `An error occurred: ${msg}`;
+  return isDe ? `Fehler: ${msg}` : `Error: ${msg}`;
 };
 
 export const useTripGeneration = (): UseTripGenerationReturn => {
@@ -103,7 +88,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     manualPrompt,
     manualStepId,
     setManualMode,
-    // NEU: Chunking-Steuerung für den Workflow-Manager
     chunkingState,
     setChunkingState,
     resetChunking
@@ -130,6 +114,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     if (aiSettings.debug) logEvent({ task: 'workflow_manager', type: 'system', content: 'Workflow CANCELLED' });
   }, [aiSettings.debug, logEvent, setManualMode, resetChunking]);
 
+  // --- RESULT PROCESSING (V40 ENGLISH MAPPING) ---
   const processResult = useCallback((step: WorkflowStepId | TaskKey, data: any) => {
     if (aiSettings.debug) {
       logEvent({
@@ -142,49 +127,66 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
     switch (step) {
       case 'basis': {
-        const candidates = Array.isArray(data) 
-            ? data 
-            : (data?.kandidaten_liste || []);
+        // V40: 'candidates' array or direct array
+        const candidates = Array.isArray(data) ? data : (data?.candidates || []);
 
         if (Array.isArray(candidates) && candidates.length > 0) {
             candidates.forEach((name: string) => {
                 const id = uuidv4();
-                updatePlace(id, { id, name, source: 'ai_basis', createdAt: new Date().toISOString() });
+                updatePlace(id, { 
+                  id, 
+                  name, 
+                  category: 'Sight', 
+                  // Default properties for new drafts
+                  userPriority: 0,
+                  visited: false
+                });
             });
-            console.log(`[Basis] ${candidates.length} Orte gespeichert.`);
+            console.log(`[Basis] ${candidates.length} candidates stored.`);
         } else {
-            console.warn(`[Basis] Format-Warnung: Weder Array noch 'kandidaten_liste' gefunden.`, data);
+            console.warn(`[Basis] Warning: No 'candidates' found.`, data);
         }
         break;
       }
 
       case 'anreicherer': {
+        // V40: Direct array or { candidates: [...] }
         let enrichedItems: any[] = [];
         if (Array.isArray(data)) {
             enrichedItems = data;
-        } else if (data?.ergebnisse && Array.isArray(data.ergebnisse)) {
-            enrichedItems = data.ergebnisse;
-        } else if (data?.ergebnis && Array.isArray(data.ergebnis)) {
-            enrichedItems = data.ergebnis;
+        } else if (data?.candidates && Array.isArray(data.candidates)) {
+            enrichedItems = data.candidates;
         }
 
         if (enrichedItems.length > 0) {
             enrichedItems.forEach((item: any) => { 
-                if (item.id) updatePlace(item.id, item); 
+                if (item.id) {
+                   // Map V40 Item to Store Place
+                   updatePlace(item.id, {
+                     ...item, // Assumes item keys match V40 Place interface (name, category, address, etc.)
+                     // Explicit mapping just in case
+                     category: item.category || 'Sight',
+                     address: item.address,
+                     location: item.location,
+                     description: item.description,
+                     openingHours: item.openingHours
+                   }); 
+                }
             });
-            console.log(`[Anreicherer] ${enrichedItems.length} Orte angereichert.`);
+            console.log(`[Enricher] ${enrichedItems.length} places enriched.`);
         } else {
-             console.warn(`[Anreicherer] Format-Warnung: Keine 'ergebnisse' gefunden.`, data);
+             console.warn(`[Enricher] Warning: No data found.`, data);
         }
         break;
       }
 
       case 'food': {
+        // V40: { candidates: [...] }
         let foodItems: any[] = [];
         if (Array.isArray(data)) {
             foodItems = data;
-        } else if (data?.kandidaten && Array.isArray(data.kandidaten)) {
-            foodItems = data.kandidaten;
+        } else if (data?.candidates && Array.isArray(data.candidates)) {
+            foodItems = data.candidates;
         }
 
         if (foodItems.length > 0) {
@@ -193,28 +195,31 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
                 updatePlace(id, {
                     id,
                     name: item.name,
-                    category: 'Restaurant', 
-                    kategorie: 'Restaurant',
-                    source: 'ai_food',
-                    adresse: item.adresse,
-                    geo_koordinaten: item.geo || item.geo_koordinaten, 
-                    google_rating: item.rating || 0,
-                    preis_tendenz: item.priceLevel,
-                    kurzbeschreibung: `${item.cuisine || ''} (${item.guides?.join(', ') || ''})`,
-                    createdAt: new Date().toISOString()
+                    category: 'Restaurant', // Override category
+                    // V40 Mapping
+                    address: item.address,
+                    location: item.location, 
+                    rating: item.rating || 0,
+                    // Store extra fields in description or custom props if needed
+                    description: `${item.cuisine || ''} - ${item.priceLevel || ''} (${item.guides?.join(', ') || ''})`,
+                    // Keep original data for reference if needed
+                    ...item 
                 });
             });
-            console.log(`[Food] ${foodItems.length} Restaurants gespeichert.`);
+            console.log(`[Food] ${foodItems.length} restaurants stored.`);
         } else {
-            console.warn(`[Food] Format-Warnung: Keine 'kandidaten' gefunden.`, data);
+            console.warn(`[Food] Warning: No 'candidates' found.`, data);
         }
         break;
       }
 
       case 'chefPlaner':
+         // Data is already strictly typed ChefPlanerResult (English)
          if (data) setAnalysisResult('chefPlaner', data);
          break;
+
       case 'routeArchitect':
+         // Data is already strictly typed RouteArchitectResult (English)
          if (data) setAnalysisResult('routeArchitect', data);
          break;
       
@@ -223,6 +228,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     }
   }, [aiSettings.debug, logEvent, setAnalysisResult, updatePlace]);
 
+  // --- WORKFLOW ENGINE ---
   useEffect(() => {
     let isMounted = true;
     const executeNextStep = async () => {
@@ -274,7 +280,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
         if (isMounted) {
             processResult(nextStepId, result);
             
-            // CHUNKING WEICHE
             if (chunkingState.isActive && chunkingState.currentChunk < chunkingState.totalChunks) {
               setChunkingState({ currentChunk: chunkingState.currentChunk + 1 });
             } else {
@@ -286,15 +291,14 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
         dismissNotification(loadingId);
         if (!isMounted) return; 
         
-        // FIX: Smart Error Message Generation
         const friendlyMsg = getFriendlyErrorMessage(err, lang);
         
-        setError(friendlyMsg); // Show friendly message in UI state
+        setError(friendlyMsg); 
         setStatus('error');
 
         addNotification({
           type: 'error',
-          message: `${stepLabel}: ${friendlyMsg}`, // Friendly Message in Notification
+          message: `${stepLabel}: ${friendlyMsg}`,
           autoClose: false,
           actions: [
             { 
@@ -314,23 +318,8 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     executeNextStep();
     return () => { isMounted = false; };
   }, [
-    queue, 
-    status, 
-    currentStep, 
-    aiSettings.debug, 
-    logEvent, 
-    processResult, 
-    addNotification, 
-    dismissNotification, 
-    cancelWorkflow, 
-    t, 
-    lang, 
-    setManualMode,
-    chunkingState.currentChunk,
-    chunkingState.isActive,
-    chunkingState.totalChunks,
-    setChunkingState,
-    resetChunking
+    queue, status, currentStep, aiSettings.debug, logEvent, processResult, addNotification, 
+    dismissNotification, cancelWorkflow, t, lang, setManualMode, chunkingState, setChunkingState, resetChunking
   ]);
 
   const startWorkflow = useCallback((steps: WorkflowStepId[]) => {
@@ -398,7 +387,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
           dismissNotification(loadingId);
           setStatus('error'); 
           
-          // FIX: Smart Error Message Generation for Single Task
           const friendlyMsg = getFriendlyErrorMessage(err, lang);
 
           addNotification({
@@ -411,4 +399,4 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
   return { status, currentStep, queue, error, progress, manualPrompt, submitManualResult, startWorkflow, resumeWorkflow, cancelWorkflow, startSingleTask };
 };
-// --- END OF FILE 505 Zeilen ---
+// --- END OF FILE 365 Zeilen ---

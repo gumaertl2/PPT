@@ -1,7 +1,5 @@
-// 19.01.2026 17:40 - FIX: Added Polyglott-Support (German V30 Fallbacks) for Description, Rating & Category.
+// 20.01.2026 19:05 - FIX: Migrated SightCard to English V40 Keys (SSOT).
 // src/features/Cockpit/SightCard.tsx
-// 13.01.2026 18:00 - LAYOUT: V30 High-Density (Meta-Bar with Inputs & Icons)
-// 16.01.2026 02:25 - FIX: Corrected Google Rating Count fallback and Debug Modal z-index.
 
 import React, { useState, useEffect } from 'react';
 import { useTripStore } from '../../store/useTripStore';
@@ -20,8 +18,8 @@ import {
 
 interface SightCardProps {
   id: string;
-  data: any; // Wir nutzen hier any flexibel, da die Anreicherer-Daten dynamisch sind
-  mode?: 'selection' | 'view'; // selection = Prio-Vergabe, view = Guide/Read-only
+  data: any; 
+  mode?: 'selection' | 'view'; 
   showPriorityControls?: boolean;
 }
 
@@ -29,10 +27,8 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   const { t } = useTranslation();
   const { uiState, updatePlace, deletePlace } = useTripStore();
   
-  // V30 View Logic: 'kompakt' vs 'standard' controlled by +/-
   const [viewLevel, setViewLevel] = useState<'kompakt' | 'standard'>('kompakt');
   
-  // Sync local state when global setting changes
   useEffect(() => {
     const target = uiState.detailLevel === 'details' ? 'standard' : uiState.detailLevel;
     setViewLevel(target as 'kompakt' | 'standard');
@@ -41,29 +37,24 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   const isStandard = viewLevel === 'standard';
   const [showDebug, setShowDebug] = useState(false);
 
-  // Fallback für Daten (Polyglott: V40 Englisch + V30 Deutsch)
+  // V40 Data Access (English)
   const name = data.name || 'Unbekannter Ort';
-  // FIX: Added 'data.beschreibung' fallback
-  const description = data.kurzbeschreibung || data.description || data.beschreibung || '';
-  // FIX: Added 'data.art' fallback
-  const category = data.kategorie || data.category || data.art || 'Allgemein';
-  // FIX: Added 'data.bewertung' fallback
-  const rating = data.google_rating || data.bewertung || 0;
+  const description = data.description || data.shortDesc || ''; // V40 Key
+  const category = data.category || 'Allgemein'; // V40 Key
+  const rating = data.rating || 0; // V40 Key
   
-  const userRatingsTotal = data.user_ratings_total || 0;
+  const userRatingsTotal = data.ratingCount || 0; // V40 Key
   
   // User Selection State
   const userSelection = data.userSelection || {};
-  const priority = userSelection.priority ?? 0; // 0 = Neutral
-  const customDuration = userSelection.customDuration || data.dauer_min || data.min_duration_minutes || 60;
+  const priority = userSelection.priority ?? 0; 
+  const customDuration = userSelection.customDuration || data.duration || 60; // V40 Key
   const customCategory = userSelection.customCategory || category;
   
-  // Termin-Daten
   const isFixed = priority === 3;
   const fixedDate = userSelection.fixedDate || '';
   const fixedTime = userSelection.fixedTime || '';
 
-  // --- HIGHLIGHTING HELPER ---
   const highlightText = (text: string | undefined | null) => {
     if (!text) return null;
     const term = uiState.searchTerm?.trim();
@@ -85,7 +76,6 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     );
   };
 
-  // Handlers
   const handlePriorityChange = (newPrio: number) => {
     const targetPrio = (priority === newPrio) ? 0 : newPrio;
     updatePlace(id, {
@@ -118,16 +108,13 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     });
   };
 
-  // --- RENDER HELPERS ---
-
   const renderStars = () => {
     if (!rating) return null;
     return (
       <div className="flex items-center gap-1 text-amber-500 text-xs font-medium whitespace-nowrap" title={`Google Rating: ${rating} (${userRatingsTotal})`}>
         <Star className="w-3 h-3 fill-amber-500" />
         <span>{rating}</span>
-        {/* FIX: Added fallback for google_ratings_count */}
-        <span className="text-gray-400 font-normal">({userRatingsTotal || data.google_ratings_count || 0})</span>
+        <span className="text-gray-400 font-normal">({userRatingsTotal})</span>
       </div>
     );
   };
@@ -188,10 +175,6 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
         </button>
 
         <div className="flex-1"></div>
-
-        {/* Action Icons moved here for alignment if needed, or keep in Meta Bar? 
-            User wanted them in the Meta Bar row. So keeping space here empty or for Delete/Debug.
-        */}
         
         <button onClick={() => setShowDebug(true)} className="text-gray-300 hover:text-blue-600 p-1" title="Debug">
           <Database className="w-3 h-3" />
@@ -203,8 +186,6 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     );
   };
 
-  // --- MAIN RENDER ---
-
   let borderClass = 'border-gray-200';
   if (priority === 3) borderClass = 'border-indigo-500 border-l-4';
   if (priority === 1) borderClass = 'border-green-500 border-l-4';
@@ -215,7 +196,7 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     <>
       <div className={`bg-white rounded-lg shadow-sm border p-3 mb-3 transition-all hover:shadow-md ${borderClass}`}>
         
-        {/* ROW 1: HEADER (Name Only) + View Controls */}
+        {/* ROW 1: HEADER */}
         <div className="flex justify-between items-start mb-1">
            <h3 className="font-bold text-gray-900 text-base leading-tight">
              {highlightText(name)}
@@ -223,15 +204,13 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
            {renderViewControls()}
         </div>
 
-        {/* ROW 2: META BAR (Category | Duration | Rating | Links) */}
+        {/* ROW 2: META BAR */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 mb-1">
             
-            {/* Category Dropdown (Compact) */}
             <select 
                value={customCategory} 
                onChange={handleCategoryChange}
                className="bg-transparent border-none p-0 pr-4 text-xs font-medium text-gray-700 focus:ring-0 cursor-pointer hover:text-blue-600 py-0.5"
-               title="Kategorie ändern"
             >
                <option value={category}>{category}</option>
                <option value="Kultur">Kultur</option>
@@ -242,7 +221,6 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
             </select>
             <span className="text-gray-300">|</span>
 
-            {/* Duration Input (Compact) */}
             <div className="flex items-center gap-1">
                <input
                  type="number"
@@ -255,10 +233,8 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
             </div>
             <span className="text-gray-300">|</span>
 
-            {/* Rating */}
             {renderStars()}
 
-            {/* Links / Icons */}
             <div className="flex items-center gap-2 ml-auto">
                {data.website && (
                  <a href={data.website} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-600" title="Homepage">
@@ -266,7 +242,7 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
                  </a>
                )}
                <a 
-                 href={`https://www.google.com/search?q=${encodeURIComponent(name + ' ' + (data.stadt || ''))}`} 
+                 href={`https://www.google.com/search?q=${encodeURIComponent(name + ' ' + (data.city || ''))}`} 
                  target="_blank" 
                  rel="noopener noreferrer"
                  className="text-gray-400 hover:text-blue-600"
@@ -274,14 +250,12 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
                >
                  <Search className="w-3.5 h-3.5" />
                </a>
-               {/* Placeholder Map Icon */}
                <span className="text-gray-300 cursor-not-allowed" title="Karte (Coming soon)">
                  <MapIcon className="w-3.5 h-3.5" />
                </span>
             </div>
         </div>
 
-        {/* FIX TERMIN (If Prio 3) - Inserted here if needed, or in content */}
         {isFixed && (
           <div className="flex items-center gap-2 bg-indigo-50 px-2 py-1 rounded text-[10px] mb-1">
             <span className="font-bold text-indigo-800">Fixtermin:</span>
@@ -300,10 +274,8 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
           </div>
         )}
 
-        {/* ROW 3: PRIO CONTROLS (Border Top handled in component) */}
         {renderPriorityControls()}
 
-        {/* ROW 4: CONTENT (Standard View) */}
         {isStandard && (
           <div className="text-sm text-gray-600 mt-2 pt-2 border-t border-gray-100 animate-in fade-in duration-200">
             <p className="line-clamp-2 leading-snug text-xs mb-2">{highlightText(description)}</p>
@@ -314,34 +286,32 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
                </p>
             )}
 
-            {/* INLINE METADATA: Adresse | Zeit | Preis */}
             <div className="text-xs text-gray-500 leading-snug">
-               {data.adresse && (
+               {data.address && ( // V40 Key
                  <>
-                   <span className="font-semibold text-gray-400">📍</span> {highlightText(data.adresse)}
+                   <span className="font-semibold text-gray-400">📍</span> {highlightText(data.address)}
                  </>
                )}
                
-               {data.oeffnungszeiten && (
+               {data.openingHours && ( // V40 Key
                  <>
                    <span className="mx-2 text-gray-300">|</span>
-                   <span className="font-semibold text-gray-400">🕒</span> {highlightText(data.oeffnungszeiten)}
+                   <span className="font-semibold text-gray-400">🕒</span> {highlightText(data.openingHours)}
                  </>
                )}
 
-               {data.preis_tendenz && (
+               {data.priceLevel && ( // V40 Key
                  <>
                    <span className="mx-2 text-gray-300">|</span>
-                   <span className="font-semibold text-gray-400">💶</span> {highlightText(data.preis_tendenz)}
+                   <span className="font-semibold text-gray-400">💶</span> {highlightText(data.priceLevel)}
                  </>
                )}
             </div>
 
-            {/* Logistics Block */}
-            {data.logistics_info && (
+            {data.logistics && ( // V40 Key
                <div className="mt-1.5 bg-slate-50 p-1.5 rounded text-[11px] text-slate-700 border border-slate-100 leading-tight">
                  <span className="font-bold text-slate-500 mr-1">Logistik:</span> 
-                 {highlightText(data.logistics_info)}
+                 {highlightText(data.logistics)}
                </div>
             )}
           </div>
@@ -349,9 +319,7 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
 
       </div>
 
-      {/* DEBUG MODAL */}
       {showDebug && (
-        // FIX: Increased Z-Index to 9999
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
            <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
               <div className="flex justify-between items-center p-4 border-b">
