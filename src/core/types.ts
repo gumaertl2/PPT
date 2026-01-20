@@ -1,5 +1,6 @@
-// 20.01.2026 17:15 - FIX: Added missing Task Keys (tourGuide, transferPlanner) to WorkflowStepId.
+// 21.01.2026 03:30 - FIX: Added missing Type Definitions for TourGuide & IdeenScout (Zero-Build-Error).
 // src/core/types.ts
+// 20.01.2026 17:15 - FIX: Added missing Task Keys (tourGuide, transferPlanner) to WorkflowStepId.
 
 // --- GENERAL TYPES ---
 export type LanguageCode = 'de' | 'en' | 'es' | 'fr' | 'it' | 'nl' | 'pl' | 'pt' | 'ru' | 'tr' | 'ja' | 'zh';
@@ -130,21 +131,21 @@ export type LogType = 'request' | 'response' | 'error' | 'info' | 'system';
 export interface FlightRecorderEntry {
   id: string;
   timestamp: string;
-  task: string;      
+  task: string;       
   type: LogType;
-  model?: string;    
+  model?: string;     
   content: string;   
   meta?: any;        
 }
 
 // --- FEHLER-HANDLING ---
 export type AppErrorType = 
-  | 'RATE_LIMIT'      
-  | 'QUOTA_EXCEEDED'  
+  | 'RATE_LIMIT'       
+  | 'QUOTA_EXCEEDED'   
   | 'SERVER_OVERLOAD' 
-  | 'AUTH_ERROR'      
-  | 'VALIDATION'      
-  | 'GENERAL';        
+  | 'AUTH_ERROR'       
+  | 'VALIDATION'       
+  | 'GENERAL';         
 
 export interface AppError {
   type: AppErrorType;
@@ -328,6 +329,32 @@ export interface GeoAnalystResult {
   }>;
 }
 
+// FIX: New Interfaces for TourGuide & IdeenScout
+
+export interface TourGuideResult {
+    guide: {
+        intro_text?: string;
+        tours: Array<{
+            tour_title: string;
+            description: string;
+            suggested_order_ids: string[];
+        }>;
+    };
+}
+
+export interface IdeenScoutResult {
+    sunny_day_ideas: Array<{
+        name: string;
+        description: string;
+        planning_note?: string;
+    }>;
+    rainy_day_ideas: Array<{
+        name: string;
+        description: string;
+        planning_note?: string;
+    }>;
+}
+
 export type FoodSearchMode = 'standard' | 'stars';
 
 // --- DATA OBJECTS (PLACES & CONTENT) ---
@@ -352,6 +379,9 @@ export interface Place {
   shortDesc?: string;
   description?: string; 
   openingHours?: string[] | string; 
+  reasoning?: string; // FIX: Added reasoning
+  logistics?: string; // FIX: Added logistics
+  priceLevel?: string; // FIX: Added priceLevel
   
   // Status
   visited?: boolean;
@@ -379,6 +409,9 @@ export interface TripProject {
     chefPlaner: ChefPlanerResult | null;
     routeArchitect?: RouteArchitectResult | null;
     geoAnalyst?: GeoAnalystResult | null; 
+    // FIX: Added new analysis results
+    tourGuide?: TourGuideResult | null;
+    ideenScout?: IdeenScoutResult | null;
   };
   data: {
     places: Record<string, Place[]>; 
@@ -389,4 +422,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 405 Zeilen ---
+// --- END OF FILE 450 Zeilen ---

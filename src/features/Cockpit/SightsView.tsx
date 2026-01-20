@@ -1,5 +1,6 @@
-// 21.01.2026 03:00 - FIX: Connected 'Planning Mode' Props to SightFilterModal (Switch was unresponsive).
+// 21.01.2026 03:15 - FIX: TypeScript Build Errors (Fixed 'sortMode' type mismatch & 'tour' implicit any).
 // src/features/Cockpit/SightsView.tsx
+// 21.01.2026 03:00 - FIX: Connected 'Planning Mode' Props to SightFilterModal (Switch was unresponsive).
 // 21.01.2026 01:50 - REFACTOR: Integrated 'SightFilterModal' & Removed Legacy Code.
 // 21.01.2026 01:10 - FEAT: Redesigned Filter Modal with View Switcher (Category/Tour/Day/Alpha) & Dynamic Filter Chips.
 // 20.01.2026 23:50 - FIX: Filter out 'Appendix' categories & Localize Labels in SightsView.
@@ -165,7 +166,9 @@ export const SightsView: React.FC = () => {
     const reserveList: any[] = [];
     const term = uiState.searchTerm.toLowerCase();
     const activeFilters = uiState.categoryFilter || []; // Generic filters
-    const sortMode = uiState.sortMode || 'category';
+    
+    // TS FIX: Cast sortMode to string to allow 'tour' and 'day' values
+    const sortMode = (uiState.sortMode as string) || 'category';
 
     // FIX: Ignore List for Guide View
     const ignoreList = APPENDIX_ONLY_INTERESTS || [];
@@ -305,7 +308,8 @@ export const SightsView: React.FC = () => {
   const renderGroupedList = (list: any[]) => {
     if (list.length === 0) return <p className="text-gray-400 italic p-4">{t('sights.no_places', { defaultValue: 'Keine Orte gefunden.' })}</p>;
 
-    const sortMode = uiState.sortMode || 'category';
+    // TS FIX: Cast sortMode to string here as well
+    const sortMode = (uiState.sortMode as string) || 'category';
     const groups: Record<string, any[]> = {};
     
     // CASE: TOURS (V40)
@@ -315,6 +319,7 @@ export const SightsView: React.FC = () => {
         const assignedIds = new Set<string>();
 
         // 1. Assign to defined tours
+        // TS FIX: Explicit 'any' type for tour
         tours.forEach((tour: any) => {
             const title = tour.tour_title || "Tour";
             // Filter places in this list that match the tour IDs
@@ -395,7 +400,8 @@ export const SightsView: React.FC = () => {
   };
 
   // --- MAIN RENDER ---
-  const activeSortMode = uiState.sortMode || 'category';
+  // TS FIX: Cast sortMode to string
+  const activeSortMode = (uiState.sortMode as string) || 'category';
 
   return (
     <div className="pb-24">
