@@ -1,4 +1,4 @@
-// 20.01.2026 20:25 - FIX: Sync with V40 English Types (strategic_briefing, validated_appointments).
+// 20.01.2026 22:00 - FIX: Restored V40 Architecture. Applied strict V30 logic to Rule 4 (No Food/Hotels).
 // src/core/prompts/templates/basis.ts
 // 19.01.2026 17:05 - FIX: Updated property access to match German keys in types.ts (ChefPlanerResult).
 // 18.01.2026 12:20 - REFACTOR: Verified and maintained clean Data Model access (searchStrategy vs writingGuideline).
@@ -164,7 +164,9 @@ For each Topic above:
 1. **Deduplication:** NO names from "already_known_places_block".
 2. **Quantity:** Exactly **${targetCount} suggestions**.
 3. **No-Gos:** Strictly avoid "${noGos}".
-4. **Content:** No generic restaurants/bars (unless specifically requested in topics). Focus on Sights, Nature, Activities.`;
+4. **Content (STRICT):** ABSOLUTELY FORBIDDEN: Restaurants, Hotels, Accommodations, Cafés, Bars. Even if requested in topics. These are handled by specialized agents. Focus ONLY on Sights, Nature, Activities.
+5. **Names:** Output precise, official names (e.g., "Eiffelturm" instead of "Tower in Paris").
+6. **Route:** Strictly adhere to the defined route corridor (if Roundtrip).`;
 
     const outputSchema = {
         "candidates": [
@@ -183,4 +185,4 @@ For each Topic above:
         .withSelfCheck(['basic', 'research'])
         .build();
 };
-// --- END OF FILE 139 Zeilen ---
+// --- END OF FILE 140 Zeilen ---

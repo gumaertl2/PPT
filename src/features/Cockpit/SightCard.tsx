@@ -1,5 +1,6 @@
-// 20.01.2026 23:45 - FIX: Added localized Category Lookup (English ID -> German Label) to USER CODE.
+// 21.01.2026 02:15 - FIX: Implemented step-by-step Detail Toggle (+/-) for Compact/Standard/Details.
 // src/features/Cockpit/SightCard.tsx
+// 21.01.2026 01:25 - FIX: Added full text display support for 'details' view level.
 
 import React, { useState, useEffect } from 'react';
 import { useTripStore } from '../../store/useTripStore';
@@ -26,18 +27,27 @@ interface SightCardProps {
   showPriorityControls?: boolean;
 }
 
+// DEFINITION DER STUFEN
+const VIEW_LEVELS = ['kompakt', 'standard', 'details'] as const;
+type ViewLevel = typeof VIEW_LEVELS[number];
+
 export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selection', showPriorityControls = true }) => {
   const { t, i18n } = useTranslation(); // FIX: i18n added
   const { uiState, updatePlace, deletePlace } = useTripStore();
   
-  const [viewLevel, setViewLevel] = useState<'kompakt' | 'standard'>('kompakt');
+  // FIX: Local state initialized with 'kompakt'
+  const [viewLevel, setViewLevel] = useState<ViewLevel>('kompakt');
   
+  // SYNC: Update local state when global state changes (but allow local override afterwards)
   useEffect(() => {
-    const target = uiState.detailLevel === 'details' ? 'standard' : uiState.detailLevel;
-    setViewLevel(target as 'kompakt' | 'standard');
+    setViewLevel(uiState.detailLevel as ViewLevel);
   }, [uiState.detailLevel]);
 
-  const isStandard = viewLevel === 'standard';
+  // DERIVED STATES
+  const isStandardOrHigher = viewLevel === 'standard' || viewLevel === 'details';
+  const isDetailed = viewLevel === 'details';
+  const currentLevelIndex = VIEW_LEVELS.indexOf(viewLevel);
+
   const [showDebug, setShowDebug] = useState(false);
 
   // V40 Data Access (English)
@@ -127,6 +137,21 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     });
   };
 
+  // LOGIC: Step Up / Step Down
+  const handleStepUp = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+    if (currentLevelIndex < VIEW_LEVELS.length - 1) {
+        setViewLevel(VIEW_LEVELS[currentLevelIndex + 1]);
+    }
+  };
+
+  const handleStepDown = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+    if (currentLevelIndex > 0) {
+        setViewLevel(VIEW_LEVELS[currentLevelIndex - 1]);
+    }
+  };
+
   const renderStars = () => {
     if (!rating) return null;
     return (
@@ -139,19 +164,40 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   };
 
   const renderViewControls = () => {
+    const canStepDown = currentLevelIndex > 0;
+    const canStepUp = currentLevelIndex < VIEW_LEVELS.length - 1;
+
     return (
       <div className="flex items-center gap-0.5 bg-slate-50 rounded p-0.5 border border-slate-100 ml-2">
         <button 
-          onClick={() => setViewLevel('kompakt')}
-          className={`p-0.5 rounded transition-all ${!isStandard ? 'text-blue-600 font-bold' : 'text-slate-400 hover:text-slate-600'}`}
-          title={t('sights.compact_view', { defaultValue: 'Kompaktansicht' })}
+          onClick={handleStepDown}
+          disabled={!canStepDown}
+          className={`p-0.5 rounded transition-all ${
+             canStepDown 
+             ? 'text-slate-500 hover:text-blue-600 hover:bg-white shadow-sm' 
+             : 'text-slate-300 cursor-not-allowed'
+          }`}
+          title={t('sights.less_details', { defaultValue: 'Weniger Details' })}
         >
           <Minus className="w-3 h-3" />
         </button>
+        
+        {/* Visual Indicator of Level (Optional, tiny dots) */}
+        <div className="flex gap-0.5 px-0.5">
+            {VIEW_LEVELS.map((level, idx) => (
+                <div key={level} className={`w-0.5 h-0.5 rounded-full ${idx <= currentLevelIndex ? 'bg-blue-500' : 'bg-slate-200'}`} />
+            ))}
+        </div>
+
         <button 
-          onClick={() => setViewLevel('standard')}
-          className={`p-0.5 rounded transition-all ${isStandard ? 'text-blue-600 font-bold' : 'text-slate-400 hover:text-slate-600'}`}
-          title={t('sights.standard_view', { defaultValue: 'Standardansicht' })}
+          onClick={handleStepUp}
+          disabled={!canStepUp}
+          className={`p-0.5 rounded transition-all ${
+             canStepUp 
+             ? 'text-slate-500 hover:text-blue-600 hover:bg-white shadow-sm' 
+             : 'text-slate-300 cursor-not-allowed'
+          }`}
+          title={t('sights.more_details', { defaultValue: 'Mehr Details' })}
         >
           <Plus className="w-3 h-3" />
         </button>
@@ -295,9 +341,12 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
 
         {renderPriorityControls()}
 
-        {isStandard && (
+        {isStandardOrHigher && (
           <div className="text-sm text-gray-600 mt-2 pt-2 border-t border-gray-100 animate-in fade-in duration-200">
-            <p className="line-clamp-2 leading-snug text-xs mb-2">{highlightText(description)}</p>
+            {/* FIX: line-clamp-2 removed if isDetailed is true */}
+            <p className={`${isDetailed ? '' : 'line-clamp-2'} leading-snug text-xs mb-2`}>
+              {highlightText(description)}
+            </p>
             
             {data.reasoning && (
                <p className="text-[10px] text-indigo-600 italic mb-2 border-l-2 border-indigo-200 pl-2 leading-tight">
@@ -356,4 +405,4 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     </>
   );
 };
-// --- END OF FILE 350 Zeilen ---
+// --- END OF FILE 378 Zeilen ---

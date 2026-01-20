@@ -1,5 +1,6 @@
-// 20.01.2026 17:50 - REFACTOR: "Operation Clean Sweep" - Updated SYSTEM_GUARD to enforce English Keys.
+// 21.01.2026 00:30 - FIX: Enforced Strict JSON Protocol to prevent "Chatty AI" preambles (Flash/Pro compatible).
 // src/core/prompts/PromptBuilder.ts
+// 20.01.2026 17:50 - REFACTOR: "Operation Clean Sweep" - Updated SYSTEM_GUARD to enforce English Keys.
 // 19.01.2026 10:00 - SEC: Added SYSTEM_GUARD to prevent JSON Key Translation (Strict Protocol).
 // 17.01.2026 23:00 - ARCH: Enhanced Builder with centralized OS and Self-Check patterns for SOTA prompting.
 
@@ -10,8 +11,9 @@ export class PromptBuilder {
   private static readonly SYSTEM_OS = `
 # DEIN BETRIEBSSYSTEM
 - **Rolle:** Du bist ein hochpräziser Reiseplanungs-Assistent.
-- **Prinzip 1 (CoT):** Nutze das Feld "_thought_process" für komplexe Logik, BEVOR du finale Daten erzeugst.
-- **Prinzip 2 (Fakten):** Erfinde niemals Daten. Unbekanntes ist "null".
+- **Prinzip 1 (CoT):** Denken ist PFLICHT, aber es muss **INNERHALB** des JSON-Objekts im Feld "_thought_process" stattfinden.
+- **Prinzip 2 (Strict Output):** KEIN TEXT vor dem JSON. KEIN Markdown-Block (\`\`\`json). Beginne direkt mit '{'.
+- **Prinzip 3 (Fakten):** Erfinde niemals Daten. Unbekanntes ist "null".
 - **Format:** Valides JSON.
 `.trim();
 
@@ -20,8 +22,9 @@ export class PromptBuilder {
 ---
 ### SYSTEM SECURITY PROTOCOL (CRITICAL)
 1. **JSON INTEGRITY:** Your output must be valid JSON.
-2. **LANGUAGE:** The *content* (values) should be in the requested target language (usually German).
-3. **STRUCTURE PROTECTION:** You must NEVER translate **JSON KEYS**.
+2. **SILENCE PROTOCOL:** Do NOT output any text before the JSON. NO "Here is your JSON". Start with '{'.
+3. **LANGUAGE:** The *content* (values) should be in the requested target language (usually German).
+4. **STRUCTURE PROTECTION:** You must NEVER translate **JSON KEYS**.
    - If the schema defines '{ "routes": ... }', you MUST NOT answer with '{ "routen": ... }'.
    - Strictly adhere to the keys from the output schema.
 Context: The frontend crashes if a key is translated.
@@ -83,9 +86,10 @@ Context: The frontend crashes if a key is translated.
     // NEU: System Guard wird ZWINGEND angehängt
     this.parts.push(PromptBuilder.SYSTEM_GUARD);
 
-    // Abschluss: Trigger für JSON Mode
-    this.parts.push("Beginne deine Antwort direkt mit ```json");
+    // Abschluss: Trigger für JSON Mode (angepasst für Strict Protocol)
+    // Wir entfernen den Markdown-Trigger, um Preamble zu vermeiden
+    this.parts.push("IMPORTANT: Start your response directly with '{'. Do not use Markdown code blocks.");
     return this.parts.join('\n\n');
   }
 }
-// --- END OF FILE 89 Zeilen --- 
+// --- END OF FILE 90 Zeilen ---

@@ -1,5 +1,6 @@
-// 20.01.2026 23:30 - FIX: Implemented Dynamic Time/Topic Slicing for DayPlan & InfoAutor.
+// 21.01.2026 00:50 - FIX: Filtered out Service-Interests (Hotel/Food) for Collector to prevent "Double Bind" confusion.
 // src/core/prompts/PayloadBuilder.ts
+// 20.01.2026 23:45 - FIX: Mapped Interest IDs to full Objects for InfoAutor (prevents 'undefined' errors).
 
 import { useTripStore } from '../../store/useTripStore';
 import { INTEREST_DATA } from '../../data/interests';
@@ -128,9 +129,24 @@ export const PayloadBuilder = {
         break;
 
       case 'basis':
-      case 'sightCollector':
-        generatedPrompt = buildBasisPrompt(project);
+      case 'sightCollector': {
+        // FILTER: Remove service-related interests (handled by specialized agents)
+        // to prevent the "Double Bind" confusion.
+        const forbiddenForCollector = ['restaurant', 'hotel', 'accommodation', 'food'];
+        const filteredInterests = project.userInputs.selectedInterests.filter(id => 
+            !forbiddenForCollector.includes(id)
+        );
+
+        const filteredProject = {
+            ...project,
+            userInputs: {
+                ...project.userInputs,
+                selectedInterests: filteredInterests
+            }
+        };
+        generatedPrompt = buildBasisPrompt(filteredProject);
         break;
+      }
       
       case 'anreicherer':
       case 'intelligentEnricher': {
@@ -192,30 +208,30 @@ export const PayloadBuilder = {
 
       case 'accommodation':
       case 'hotelScout':
-         generatedPrompt = buildHotelScoutPrompt(project, "", feedback || "", "");
-         break;
+          generatedPrompt = buildHotelScoutPrompt(project, "", feedback || "", "");
+          break;
 
       case 'food':
       case 'foodScout':
       case 'foodCollector': 
-         let mode: FoodSearchMode = 'standard';
-         if ((feedback && feedback.toLowerCase().includes('sterne')) || 
-             project.userInputs.customPreferences?.foodMode === 'stars') {
-             mode = 'stars';
-         }
-         generatedPrompt = buildFoodScoutPrompt(project, mode);
-         break;
+          let mode: FoodSearchMode = 'standard';
+          if ((feedback && feedback.toLowerCase().includes('sterne')) || 
+              project.userInputs.customPreferences?.foodMode === 'stars') {
+              mode = 'stars';
+          }
+          generatedPrompt = buildFoodScoutPrompt(project, mode);
+          break;
       
       case 'foodEnricher': {
-         const candidates = getFilteredFoodCandidates(project);
-         const slicedCandidates = sliceData(candidates, 'foodEnricher');
-         
-         if (slicedCandidates.length === 0 && candidates.length === 0) {
-             generatedPrompt = buildFoodEnricherPrompt(project, []); 
-         } else {
-             generatedPrompt = buildFoodEnricherPrompt(project, slicedCandidates);
-         }
-         break;
+          const candidates = getFilteredFoodCandidates(project);
+          const slicedCandidates = sliceData(candidates, 'foodEnricher');
+          
+          if (slicedCandidates.length === 0 && candidates.length === 0) {
+              generatedPrompt = buildFoodEnricherPrompt(project, []); 
+          } else {
+              generatedPrompt = buildFoodEnricherPrompt(project, slicedCandidates);
+          }
+          break;
       }
 
       case 'guide':
@@ -236,7 +252,7 @@ export const PayloadBuilder = {
           break;
       }
 
-      // FIX: Topic-Based Chunking Logic
+      // FIX: Topic-Based Chunking Logic with Object Mapping
       case 'infos':
       case 'infoAutor': {
           let slicedTopics: string[] = [];
@@ -250,9 +266,21 @@ export const PayloadBuilder = {
               slicedTopics = appendixInterests;
           }
 
+          // FIX: Map string IDs to Objects required by Template
+          const lang = (project.meta.language === 'en' ? 'en' : 'de') as 'de' | 'en';
+          const mappedTopics = slicedTopics.map(id => {
+              const def = INTEREST_DATA[id];
+              return {
+                  id: id,
+                  titel: def?.label?.[lang] || id,
+                  typ: def?.label?.[lang] || "Info",
+                  anweisung: def?.aiInstruction?.[lang] || ""
+              };
+          });
+
           generatedPrompt = buildInfoAutorPrompt(
               project, 
-              slicedTopics, 
+              mappedTopics, // Pass mapped objects instead of strings
               chunkingState?.currentChunk || 1, 
               chunkingState?.totalChunks || 1, 
               []
@@ -308,4 +336,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 402 Zeilen ---
+// --- END OF FILE 433 Zeilen ---

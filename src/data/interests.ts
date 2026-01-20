@@ -1,4 +1,4 @@
-// 20.01.2026 19:50 - REFACTOR: "Operation Clean Sweep" - Mapped IDs to English. Content preserved 100%.
+// 20.01.2026 22:30 - UPDATE: Extended 'hotel' interest to explicitly include Camping logic (Label & AI Instructions).
 // src/data/interests.ts
 // 18.01.2026 13:45 - OPTIMIZATION: Precision metrics for Hiking and Cycling.
 /**
@@ -426,22 +426,22 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
   },
   'hotel': { // former: Hotel
     id: 'hotel',
-    label: { de: "Hotel", en: "Hotel" },
+    label: { de: "Hotel / Camping", en: "Hotel / Camping" },
     defaultUserPreference: {
-      de: 'Plane für die Übernachtungen passende Hotels. Die Auswahl soll sich streng an der Definition für Hotels orientieren, die in der übergeordneten Einstellung \'Preisniveau\' getroffen wurde. Falls ein Hotelname bereits durch mich vorgegeben wurde, nutze diesen als festen Punkt im Plan und schlage keine Alternativen vor. Achte bei den Vorschlägen auf eine gute Lage, die zu den geplanten Aktivitäten passt.',
-      en: 'Plan suitable hotels for overnight stays. The selection should strictly follow the hotel definition in the global \'Budget Level\' setting. If I have already specified a hotel name, use this as a fixed point in the plan and do not suggest alternatives. Ensure suggestions have a good location matching planned activities.'
+      de: 'Plane für die Übernachtungen passende Unterkünfte. Bei Reisen mit dem Camper/Wohnmobil suche bitte nach Campingplätzen. Ansonsten orientiere dich an Hotels passend zum \'Preisniveau\'. Falls ein Name vorgegeben wurde, nutze diesen.',
+      en: 'Plan suitable accommodations for overnight stays. When traveling by camper/RV, please search for campsites. Otherwise, look for hotels matching the \'Budget Level\'. If a name was specified, use it.'
     },
     searchStrategy: {
-      de: "Wenn Hotelname angegeben: Recherchiere Details (Lage, Besonderheiten). Sonst: Liste für jeden Ort zwei passende Vorschläge basierend auf Fakten und Preisniveau.",
-      en: "If hotel name provided: Research details. Otherwise: List two suitable suggestions per location based on facts and price level."
+      de: "Wenn Hotelname angegeben: Recherchiere Details. Sonst: Wähle Unterkunftstyp basierend auf Transportmittel (Camper = Campingplatz, Sonst = Hotel). Liste 2 Vorschläge pro Ort.",
+      en: "If hotel name provided: Research details. Otherwise: Choose accommodation type based on transport (Camper = Campsite, Else = Hotel). List 2 suggestions per location."
     },
     writingGuideline: {
-      de: "Füge Details zum Hotel dem Anhang hinzu. Gib bei Vorschlägen eine persönliche Empfehlung mit Begründung ab.",
-      en: "Add hotel details to the appendix. Provide personal recommendation with reasoning for suggestions."
+      de: "Füge Details zur Unterkunft dem Anhang hinzu. Gib bei Vorschlägen eine persönliche Empfehlung mit Begründung ab.",
+      en: "Add accommodation details to the appendix. Provide personal recommendation with reasoning for suggestions."
     },
     aiInstruction: {
-      de: 'Wenn bereits ein Hotelname vom Nutzer angegeben wurde, recherchiere Details zu diesem Hotel (Lage, Besonderheiten, Link zur Webseite) und füge sie dem Anhang hinzu. Schlage in diesem Fall keine Alternativen vor. Ansonsten, liste für jeden Übernachtungsort zwei passende Hotelvorschläge im Anhang auf, basierend auf den recherchierten Fakten. Gib eine kurze, persönliche Empfehlung, warum eines der Hotels besonders gut zur Reise und zum gewählten Preisniveau passt. Begründe deine Wahl.',
-      en: 'If a hotel name was provided by the user, research details (location, features, website link) and add them to the appendix. Do not suggest alternatives in this case. Otherwise, list two suitable hotel suggestions for each overnight stay location in the appendix based on researched facts. Give a short, personal recommendation why one of the hotels fits the trip and selected budget level particularly well. Justify your choice.'
+      de: 'Falls ein Name vorgegeben ist: Recherchiere Details. SONST: Prüfe das Transportmittel. Bei "Camper"/"Wohnmobil": Suche nach Campingplätzen. Bei PKW/Bahn/Flug: Suche nach Hotels. Liste für jeden Ort zwei passende Vorschläge (passend zum Preisniveau) und gib eine Empfehlung.',
+      en: 'If a name is provided: Research details. OTHERWISE: Check transport mode. If "Camper"/"RV": Search for campsites. If Car/Train/Plane: Search for hotels. List two suitable suggestions per location (matching budget) and provide a recommendation.'
     }
   }
 };
