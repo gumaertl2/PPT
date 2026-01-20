@@ -1,12 +1,10 @@
+// 20.01.2026 16:35 - FIX: Expanded Store to accept ALL V40 Tasks (Ideen, Info, Tour, etc.) dynamically.
 // src/store/slices/createAnalysisSlice.ts
-// 15.01.2026 20:30 - FIX: Added 'routeArchitect' case to persist AI results in Store.
-// 15.01.2026 21:30 - FIX: Corrected State path to 'project.analysis' and adjusted Generic types for Store compatibility.
 
 import type { StateCreator } from 'zustand';
 import type { TripProject, ChefPlanerResult, RouteArchitectResult } from '../../core/types';
 
 // Helper Type to avoid circular dependency with TripStore
-// This represents the structure required by this slice
 type StoreState = {
   project: TripProject;
 } & AnalysisSlice;
@@ -14,9 +12,10 @@ type StoreState = {
 // --- INTERFACE DEFINITION ---
 export interface AnalysisSlice {
   // Actions
+  // FIX: Allow string as task key to support all dynamic V40 tasks (e.g. 'ideenScout', 'infoAutor')
   setAnalysisResult: (
-    task: 'chefPlaner' | 'routeArchitect', 
-    data: ChefPlanerResult | RouteArchitectResult
+    task: string, 
+    data: any
   ) => void;
   
   clearAnalysis: () => void;
@@ -24,11 +23,13 @@ export interface AnalysisSlice {
   // Selectors
   getChefPlanerResult: () => ChefPlanerResult | null;
   getRouteArchitectResult: () => RouteArchitectResult | null;
+  // NEW: Generic selector for V40 components
+  getAnalysisResult: (key: string) => any;
 }
 
 // --- SLICE IMPLEMENTATION ---
 export const createAnalysisSlice: StateCreator<
-  StoreState, // FIX: Use structural type compatible with TripStore
+  StoreState, 
   [],
   [],
   AnalysisSlice
@@ -39,14 +40,11 @@ export const createAnalysisSlice: StateCreator<
   setAnalysisResult: (task, data) => {
     set((state) => {
       // FIX: Access analysis via 'project' property
-      // We need to update nested immutable state
       const newAnalysis = { ...state.project.analysis };
 
-      if (task === 'chefPlaner') {
-        newAnalysis.chefPlaner = data as ChefPlanerResult;
-      } else if (task === 'routeArchitect') {
-        newAnalysis.routeArchitect = data as RouteArchitectResult;
-      }
+      // FIX: Generic assignment for ALL tasks
+      // This covers: chefPlaner, routeArchitect, ideenScout, infoAutor, tourGuide, transferPlanner, etc.
+      (newAnalysis as any)[task] = data;
 
       return {
         ...state,
@@ -68,8 +66,9 @@ export const createAnalysisSlice: StateCreator<
       project: {
           ...state.project,
           analysis: {
-            chefPlaner: null,
-            routeArchitect: null 
+            // Reset to empty object or minimal defaults if needed
+            // Keeping types happy by casting or partial reset
+            ...({} as any) 
           }
       }
     }));
@@ -78,13 +77,16 @@ export const createAnalysisSlice: StateCreator<
   // --- SELECTORS ---
   
   getChefPlanerResult: () => {
-    // FIX: Access via project
-    return get().project.analysis.chefPlaner;
+    return get().project.analysis.chefPlaner || null;
   },
 
   getRouteArchitectResult: () => {
-      // FIX: Access via project
       return get().project.analysis.routeArchitect || null;
+  },
+
+  // NEW: Generic selector implementation
+  getAnalysisResult: (key: string) => {
+      return (get().project.analysis as any)[key] || null;
   }
 
 });

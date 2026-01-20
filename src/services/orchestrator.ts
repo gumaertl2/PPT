@@ -1,4 +1,4 @@
-// 20.01.2026 23:30 - FIX: Added Logic for Time-Chunking (DayPlan) & Topic-Chunking (InfoAutor).
+// 20.01.2026 16:25 - FIX: Registered missing TourGuide & TransferPlanner Schemas in Orchestrator.
 // src/services/orchestrator.ts
 
 import { z } from 'zod';
@@ -13,7 +13,14 @@ import {
   foodSchema,
   hotelSchema,
   chefPlanerSchema,
-  routeArchitectSchema
+  routeArchitectSchema,
+  // NEW IMPORTS:
+  ideenScoutSchema,
+  chefredakteurSchema,
+  infoAutorSchema,
+  // FIX: Added missing imports
+  tourGuideSchema,
+  transferPlannerSchema
 } from './validation';
 import type { TaskKey } from '../core/types';
 
@@ -29,7 +36,16 @@ const SCHEMA_MAP: Partial<Record<TaskKey, z.ZodType<any>>> = {
   foodScout: foodSchema,
   foodEnricher: foodSchema,
   accommodation: hotelSchema,
-  hotelScout: hotelSchema
+  hotelScout: hotelSchema,
+  // NEW MAPPINGS:
+  ideenScout: ideenScoutSchema, 
+  chefredakteur: chefredakteurSchema, 
+  infoAutor: infoAutorSchema, 
+  infos: infoAutorSchema, 
+  details: chefredakteurSchema,
+  // FIX: Added missing mappings
+  tourGuide: tourGuideSchema,
+  transferPlanner: transferPlannerSchema
 };
 
 const getTaskLimit = (task: TaskKey, isManual: boolean): number => {
@@ -146,4 +162,4 @@ export const TripOrchestrator = {
     return validatedData;
   }
 };
-// --- END OF FILE 145 Zeilen ---
+// --- END OF FILE 160 Zeilen ---

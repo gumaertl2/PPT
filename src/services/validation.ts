@@ -1,5 +1,4 @@
-// 20.01.2026 18:05 - REFACTOR: "Operation Clean Sweep" - Removed Legacy German Keys. Strict V40 Enforce.
-// 19.01.2026 17:10 - FIX: Updated Schemas to explicitly validate German V30 Keys (Grand Unification).
+// 20.01.2026 23:58 - FIX: Added missing Schemas for TourGuide and TransferPlanner.
 // src/services/validation.ts
 
 import { z } from 'zod';
@@ -44,18 +43,22 @@ export const chefPlanerSchema = z.object({
     validated_hotels: z.array(z.any()).optional()
 }).passthrough();
 
-// 2. ROUTE ARCHITECT
+// 2. ROUTE ARCHITECT (Updated for Stats)
 export const routeArchitectSchema = z.object({
     routes: z.array(z.object({
       id: z.string().optional(),
       title: z.string(),
       description: z.string().optional(),
+      total_km: z.number().optional(), // V40 Added
+      total_drive_time: z.number().optional(), // V40 Added
+      hotel_changes: z.number().optional(), // V40 Added
+      map_waypoints: z.array(z.string()).optional(), // V40 Added
       stages: z.array(z.object({
         location_name: z.string(),
         nights: z.union([z.number(), z.string()]),
         reasoning: z.string().optional()
-      })).optional()
-    })).optional()
+      }).passthrough()).optional()
+    }).passthrough()).optional()
 }).passthrough();
 
 // 3. FOOD SCOUT / ENRICHER
@@ -68,12 +71,18 @@ export const hotelSchema = z.object({
     candidates: z.array(z.any()).optional()
 }).passthrough();
 
-// 5. DAY PLAN (Tagesplaner)
+// 5. DAY PLAN (Tagesplaner - V40 Structure)
 export const dayPlanSchema = z.object({
     days: z.array(z.object({
       day: z.union([z.number(), z.string()]),
-      activities: z.array(z.any()).optional()
-    })).optional()
+      date: z.string().optional(),
+      morning: z.array(z.any()).optional(),   // V40 Time Slot
+      afternoon: z.array(z.any()).optional(), // V40 Time Slot
+      evening: z.array(z.any()).optional(),   // V40 Time Slot
+      logistics_note: z.string().optional(),
+      daily_summary: z.string().optional(),
+      activities: z.array(z.any()).optional() // Legacy Fallback
+    }).passthrough()).optional()
 }).passthrough();
 
 // 6. GEO ANALYST
@@ -81,4 +90,34 @@ export const geoAnalystSchema = z.object({
   strategy: z.string().optional(),
   recommended_hubs: z.array(z.any()).optional()
 }).passthrough();
-// --- END OF FILE 82 Zeilen ---
+
+// --- NEW SCHEMAS (MISSING IN PREVIOUS VERSION) ---
+
+// 7. IDEEN SCOUT (Sondertage)
+export const ideenScoutSchema = z.object({
+    sunny_day_ideas: z.array(z.any()).optional(),
+    rainy_day_ideas: z.array(z.any()).optional()
+}).passthrough();
+
+// 8. CHEFREDAKTEUR (Details)
+export const chefredakteurSchema = z.object({
+    sights: z.array(z.any()).optional()
+}).passthrough();
+
+// 9. INFO AUTOR (Reiseinfos)
+export const infoAutorSchema = z.object({
+    chapters: z.array(z.any()).optional()
+}).passthrough();
+
+// 10. TOUR GUIDE (Touren) - NEW
+export const tourGuideSchema = z.object({
+    guide: z.object({
+        tours: z.array(z.any()).optional()
+    }).optional().passthrough()
+}).passthrough();
+
+// 11. TRANSFER PLANNER (Logistik) - NEW
+export const transferPlannerSchema = z.object({
+    transfers: z.array(z.any()).optional()
+}).passthrough();
+// --- END OF FILE 130 Zeilen ---

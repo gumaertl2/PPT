@@ -1,7 +1,5 @@
-// 20.01.2026 19:20 - FIX: "Operation Clean Sweep" - Updated Result Processor to English V40 Keys.
+// 20.01.2026 16:15 - FIX: "Operation Complete" - Added ALL remaining V40 Handlers (Hotels, Tours).
 // src/hooks/useTripGeneration.ts
-// 18.01.2026 16:30 - FIX: Added 'Smart Error Handler' with I18N.
-// 17.01.2026 18:45 - REFACTOR: Integrated TripOrchestrator.
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -10,7 +8,7 @@ import { useTripStore } from '../store/useTripStore';
 import { PayloadBuilder } from '../core/prompts/PayloadBuilder';
 import { TripOrchestrator } from '../services/orchestrator';
 import { WORKFLOW_STEPS } from '../core/Workflow/steps';
-import type { WorkflowStepId, TaskKey } from '../core/types'; 
+import type { WorkflowStepId, TaskKey } from '../core/types';
 
 export type GenerationStatus = 
   | 'idle' 
@@ -127,7 +125,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
     switch (step) {
       case 'basis': {
-        // V40: 'candidates' array or direct array
         const candidates = Array.isArray(data) ? data : (data?.candidates || []);
 
         if (Array.isArray(candidates) && candidates.length > 0) {
@@ -137,7 +134,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
                   id, 
                   name, 
                   category: 'Sight', 
-                  // Default properties for new drafts
                   userPriority: 0,
                   visited: false
                 });
@@ -150,7 +146,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       }
 
       case 'anreicherer': {
-        // V40: Direct array or { candidates: [...] }
         let enrichedItems: any[] = [];
         if (Array.isArray(data)) {
             enrichedItems = data;
@@ -161,10 +156,8 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
         if (enrichedItems.length > 0) {
             enrichedItems.forEach((item: any) => { 
                 if (item.id) {
-                   // Map V40 Item to Store Place
                    updatePlace(item.id, {
-                     ...item, // Assumes item keys match V40 Place interface (name, category, address, etc.)
-                     // Explicit mapping just in case
+                     ...item, 
                      category: item.category || 'Sight',
                      address: item.address,
                      location: item.location,
@@ -180,8 +173,38 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
         break;
       }
 
-      case 'food': {
-        // V40: { candidates: [...] }
+      case 'chefredakteur':
+      case 'details': {
+         const details = data?.sights || [];
+         if (details.length > 0) {
+             details.forEach((item: any) => {
+                 if (item.id) {
+                     updatePlace(item.id, {
+                         description: item.detailed_description || item.description,
+                         reasoning: item.reasoning
+                     });
+                 }
+             });
+             console.log(`[Details] Updated ${details.length} places.`);
+         }
+         break;
+      }
+
+      case 'ideenScout': {
+          if (data) setAnalysisResult('ideenScout', data);
+          break;
+      }
+
+      case 'infoAutor':
+      case 'infos': {
+          if (data) setAnalysisResult('infoAutor', data);
+          break;
+      }
+
+      // --- FOOD & RESTAURANTS ---
+      case 'food':
+      case 'foodScout': 
+      case 'foodEnricher': {
         let foodItems: any[] = [];
         if (Array.isArray(data)) {
             foodItems = data;
@@ -195,14 +218,11 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
                 updatePlace(id, {
                     id,
                     name: item.name,
-                    category: 'Restaurant', // Override category
-                    // V40 Mapping
+                    category: 'Restaurant', 
                     address: item.address,
                     location: item.location, 
                     rating: item.rating || 0,
-                    // Store extra fields in description or custom props if needed
                     description: `${item.cuisine || ''} - ${item.priceLevel || ''} (${item.guides?.join(', ') || ''})`,
-                    // Keep original data for reference if needed
                     ...item 
                 });
             });
@@ -213,14 +233,63 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
         break;
       }
 
+      // --- HOTELS (MISSING HANDLER ADDED) ---
+      case 'accommodation':
+      case 'hotelScout': {
+        let hotelItems: any[] = [];
+        if (Array.isArray(data)) {
+            hotelItems = data;
+        } else if (data?.candidates && Array.isArray(data.candidates)) {
+            hotelItems = data.candidates;
+        }
+
+        if (hotelItems.length > 0) {
+            hotelItems.forEach((item: any) => {
+                const id = item.id || uuidv4(); 
+                updatePlace(id, {
+                    id,
+                    name: item.name,
+                    category: 'Hotel', // Force Category
+                    address: item.address,
+                    location: item.location, 
+                    rating: item.rating || 0,
+                    description: item.description || item.reasoning,
+                    ...item 
+                });
+            });
+            console.log(`[Hotel] ${hotelItems.length} hotels stored.`);
+        }
+        break;
+      }
+
+      // --- TOUR GUIDE (MISSING HANDLER ADDED) ---
+      case 'tourGuide': {
+         if (data) setAnalysisResult('tourGuide', data);
+         break;
+      }
+
+      // --- TRANSFER PLANNER (OPTIONAL ADDITION) ---
+      case 'transferPlanner': {
+         if (data) setAnalysisResult('transferPlanner', data);
+         break;
+      }
+
       case 'chefPlaner':
-         // Data is already strictly typed ChefPlanerResult (English)
          if (data) setAnalysisResult('chefPlaner', data);
          break;
 
       case 'routeArchitect':
-         // Data is already strictly typed RouteArchitectResult (English)
+      case 'routenArchitekt':
          if (data) setAnalysisResult('routeArchitect', data);
+         break;
+      
+      case 'geoAnalyst':
+         if (data) setAnalysisResult('geoAnalyst', data);
+         break;
+
+      case 'initialTagesplaner':
+      case 'dayplan':
+         if (data) setAnalysisResult('initialTagesplaner', data);
          break;
       
       default:
@@ -399,4 +468,4 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
   return { status, currentStep, queue, error, progress, manualPrompt, submitManualResult, startWorkflow, resumeWorkflow, cancelWorkflow, startSingleTask };
 };
-// --- END OF FILE 365 Zeilen ---
+// --- END OF FILE 480 Zeilen ---
