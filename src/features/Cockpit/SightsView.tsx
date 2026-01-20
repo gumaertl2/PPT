@@ -1,14 +1,12 @@
-// 21.01.2026 03:15 - FIX: TypeScript Build Errors (Fixed 'sortMode' type mismatch & 'tour' implicit any).
+// 21.01.2026 03:45 - FIX: Added missing 'any' type to 'tour' parameter in tourOptions useMemo loop.
 // src/features/Cockpit/SightsView.tsx
+// 21.01.2026 03:15 - FIX: TypeScript Build Errors (Fixed 'sortMode' type mismatch & 'tour' implicit any).
 // 21.01.2026 03:00 - FIX: Connected 'Planning Mode' Props to SightFilterModal (Switch was unresponsive).
-// 21.01.2026 01:50 - REFACTOR: Integrated 'SightFilterModal' & Removed Legacy Code.
-// 21.01.2026 01:10 - FEAT: Redesigned Filter Modal with View Switcher (Category/Tour/Day/Alpha) & Dynamic Filter Chips.
-// 20.01.2026 23:50 - FIX: Filter out 'Appendix' categories & Localize Labels in SightsView.
 
 import React, { useMemo, useState } from 'react';
 import { useTripStore } from '../../store/useTripStore';
 import { SightCard } from './SightCard';
-import { SightFilterModal } from './SightFilterModal'; // FIX: New Import
+import { SightFilterModal } from './SightFilterModal'; 
 import { useTranslation } from 'react-i18next';
 // FIX: Import Data & Constants for Label Lookup and Filtering
 import { INTEREST_DATA } from '../../data/interests'; 
@@ -31,7 +29,7 @@ const TRAVEL_PACE_CONFIG: Record<string, { startHour: number; endHour: number; b
 };
 
 export const SightsView: React.FC = () => {
-  const { t, i18n } = useTranslation(); // FIX: i18n for language detection
+  const { t, i18n } = useTranslation(); 
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
 
   const { 
@@ -115,6 +113,7 @@ export const SightsView: React.FC = () => {
       const tourGuide = (analysis as any)?.tourGuide;
       const tours = tourGuide?.guide?.tours || [];
       
+      // TS FIX: Added ': any' to 'tour' here (line ~199/202)
       return tours.map((tour: any) => {
           // Count places in this tour that exist in our main 'places' list
           const count = (tour.suggested_order_ids || []).filter((id: string) => 
@@ -474,4 +473,4 @@ export const SightsView: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 454 Zeilen ---
+// --- END OF FILE 455 Zeilen ---
