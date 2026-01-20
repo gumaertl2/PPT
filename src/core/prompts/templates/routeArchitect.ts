@@ -1,7 +1,6 @@
-// 20.01.2026 23:00 - FIX: Added missing stats (km/time) AND User Waypoints to context.
+// 20.01.2026 23:45 - FIX: Restored ALL missing legacy fields (map_waypoints, hotel_changes) in V40 Schema.
 // src/core/prompts/templates/routeArchitect.ts
-// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys (routes).
-// 19.01.2026 19:15 - FIX: Corrected PromptBuilder pattern for Strategic Briefing injection.
+// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
 
 import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
@@ -10,10 +9,10 @@ export const buildRouteArchitectPrompt = (project: TripProject): string => {
   const { userInputs, analysis } = project;
   const { logistics, dates } = userInputs;
 
-  // 1. STRATEGISCHES BRIEFING (Accessing V40 English Keys)
+  // 1. STRATEGISCHES BRIEFING
   const strategicBriefing = (analysis.chefPlaner as any)?.strategic_briefing?.sammler_briefing || "";
 
-  // 2. USER ROUTEN-PRÄFERENZEN (Das wurde bisher vergessen!)
+  // 2. USER ROUTEN-PRÄFERENZEN
   const roundtripOptions = logistics.roundtripOptions || {};
 
   // Kontext für die KI
@@ -25,7 +24,7 @@ export const buildRouteArchitectPrompt = (project: TripProject): string => {
     logistics_mode: logistics.mode,
     // Basis-Constraints
     roundtrip_constraints: logistics.mode === 'mobil' ? logistics.roundtrip : null,
-    // FIX: User-defined Waypoints & Strict Mode
+    // User Constraints
     user_waypoints: roundtripOptions.waypoints || "None",
     is_strict_route: roundtripOptions.strictRoute || false
   };
@@ -53,6 +52,8 @@ Jeder Vorschlag benötigt:
 - \`description\`: Kurzbeschreibung des Vibes.
 - \`total_km\`: Geschätzte Gesamtkilometer der Runde (Number).
 - \`total_drive_time\`: Geschätzte reine Fahrzeit in Stunden (Number).
+- \`hotel_changes\`: Anzahl der Hotelwechsel (Number).
+- \`map_waypoints\`: Liste der Orte für die Karten-Pins (Array of Strings).
 - \`stages\`: Ein Array von Objekten.
   - \`location_name\`: Name des Ortes.
   - \`nights\`: Anzahl der Nächte (Integer).
@@ -65,6 +66,8 @@ Jeder Vorschlag benötigt:
         "description": "String (Short vibe description)",
         "total_km": 450,
         "total_drive_time": 6.5,
+        "hotel_changes": 2,
+        "map_waypoints": ["München", "Garmisch", "Berchtesgaden"],
         "stages": [
           {
             "location_name": "München",
@@ -96,4 +99,4 @@ Jeder Vorschlag benötigt:
     .withSelfCheck(['basic', 'planning'])
     .build();
 };
-// --- END OF FILE 107 Zeilen ---
+// --- END OF FILE 115 Zeilen ---

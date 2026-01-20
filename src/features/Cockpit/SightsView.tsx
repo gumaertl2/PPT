@@ -1,10 +1,15 @@
-// 20.01.2026 19:00 - FIX: Migrated SightsView to English V40 Keys (SSOT).
+// 20.01.2026 23:50 - FIX: Filter out 'Appendix' categories & Localize Labels in SightsView.
 // src/features/Cockpit/SightsView.tsx
 
 import React, { useMemo, useState } from 'react';
 import { useTripStore } from '../../store/useTripStore';
 import { SightCard } from './SightCard';
 import { useTranslation } from 'react-i18next';
+// FIX: Import Data & Constants for Label Lookup and Filtering
+import { INTEREST_DATA } from '../../data/interests'; 
+import { APPENDIX_ONLY_INTERESTS } from '../../data/constants';
+import type { LanguageCode } from '../../core/types';
+
 import { 
   Search, 
   Filter, 
@@ -25,7 +30,9 @@ const TRAVEL_PACE_CONFIG: Record<string, { startHour: number; endHour: number; b
 };
 
 export const SightsView: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation(); // FIX: i18n for language detection
+  const currentLang = i18n.language.substring(0, 2) as LanguageCode;
+
   const { 
     project, 
     uiState, 
@@ -39,6 +46,20 @@ export const SightsView: React.FC = () => {
 
   const [showPlanningMode, setShowPlanningMode] = useState(false);
   
+  // FIX: Helper to resolve Label (city_info -> Stadt-Infos)
+  const resolveCategoryLabel = (catId: string): string => {
+    if (!catId) return "";
+    
+    // Versuch 1: Lookup in INTEREST_DATA
+    const def = INTEREST_DATA[catId];
+    if (def && def.label) {
+        return (def.label as any)[currentLang] || (def.label as any)['de'] || catId;
+    }
+
+    // Fallback: Wenn es keine ID ist, sondern schon Text (Legacy)
+    return catId.charAt(0).toUpperCase() + catId.slice(1).replace(/_/g, ' ');
+  };
+
   // --- 1. BUDGET LOGIC ---
   const budgetStats = useMemo(() => {
     let totalMinutes = 0;
@@ -71,10 +92,17 @@ export const SightsView: React.FC = () => {
   // --- 2. HELPER: CATEGORIES ---
   const availableCategories = useMemo(() => {
     const cats = new Set<string>();
+    // FIX: Filter out Appendix categories (travel_info, city_info, etc.)
+    const ignoreList = APPENDIX_ONLY_INTERESTS || [];
+
     places.forEach((p: any) => {
       // V40: category
-      if (p.category) cats.add(p.category);
-      else cats.add('Sonstiges');
+      const cat = p.category; 
+      if (cat && !ignoreList.includes(cat)) {
+          cats.add(cat);
+      } else if (!cat) {
+          cats.add('Sonstiges');
+      }
     });
     return Array.from(cats).sort();
   }, [places]);
@@ -99,6 +127,9 @@ export const SightsView: React.FC = () => {
     const term = uiState.searchTerm.toLowerCase();
     const activeCats = uiState.categoryFilter;
 
+    // FIX: Ignore List for Guide View
+    const ignoreList = APPENDIX_ONLY_INTERESTS || [];
+
     const minRating = userInputs.searchSettings?.minRating || 0;
     const minDuration = userInputs.searchSettings?.minDuration || 0;
 
@@ -106,6 +137,11 @@ export const SightsView: React.FC = () => {
       // V40: Name & Category
       const cat = p.category || 'Sonstiges';
       const name = p.name || '';
+
+      // FIX: Hard Filter for Appendix Categories
+      if (ignoreList.includes(cat)) {
+          return; // Skip this item in Guide View
+      }
 
       // Search Filter
       if (term && !name.toLowerCase().includes(term) && !cat.toLowerCase().includes(term)) {
@@ -247,7 +283,8 @@ export const SightsView: React.FC = () => {
         // CASE: STANDARD (Category / Alphabetical)
         list.forEach(p => {
             let key = 'Allgemein';
-            if (sortMode === 'category') key = p.category || 'Sonstiges'; // V40
+            // FIX: Use resolved label for grouping title (city_info -> Stadt-Infos)
+            if (sortMode === 'category') key = resolveCategoryLabel(p.category) || 'Sonstiges';
             else if (sortMode === 'alphabetical') key = p.name ? p.name[0].toUpperCase() : '?';
             
             if (!groups[key]) groups[key] = [];
@@ -265,10 +302,10 @@ export const SightsView: React.FC = () => {
           {items.map(place => (
             <SightCard 
                key={place.id} 
-               id={place.id} 
+               id={place.id} // SightCard expects 'id' separate prop in legacy
                data={place} 
                mode="selection" 
-               showPriorityControls={showPlanningMode} 
+               showPriorityControls={showPlanningMode}
             />
           ))}
         </div>
@@ -405,7 +442,8 @@ export const SightsView: React.FC = () => {
                                   : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                               }`}
                             >
-                              {cat}
+                              {/* FIX: Use resolved label for Filter Buttons */}
+                              {resolveCategoryLabel(cat)}
                             </button>
                           );
                        })}
@@ -478,4 +516,4 @@ export const SightsView: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 565 Zeilen ---
+// --- END OF FILE 580 Zeilen ---

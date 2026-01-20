@@ -1,9 +1,12 @@
-// 20.01.2026 19:05 - FIX: Migrated SightCard to English V40 Keys (SSOT).
+// 20.01.2026 23:45 - FIX: Added localized Category Lookup (English ID -> German Label) to USER CODE.
 // src/features/Cockpit/SightCard.tsx
 
 import React, { useState, useEffect } from 'react';
 import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
+// FIX: Import für Übersetzung
+import { INTEREST_DATA } from '../../data/interests'; 
+import type { LanguageCode } from '../../core/types';
 import { 
   Trash2, 
   Database, 
@@ -24,7 +27,7 @@ interface SightCardProps {
 }
 
 export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selection', showPriorityControls = true }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation(); // FIX: i18n added
   const { uiState, updatePlace, deletePlace } = useTripStore();
   
   const [viewLevel, setViewLevel] = useState<'kompakt' | 'standard'>('kompakt');
@@ -54,6 +57,22 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   const isFixed = priority === 3;
   const fixedDate = userSelection.fixedDate || '';
   const fixedTime = userSelection.fixedTime || '';
+
+  // FIX: Helper to resolve Label (city_info -> Stadt-Infos)
+  const resolveCategoryLabel = (catId: string): string => {
+    if (!catId) return "Allgemein";
+    const currentLang = i18n.language.substring(0, 2) as LanguageCode;
+    
+    // Versuch 1: Lookup in INTEREST_DATA
+    const def = INTEREST_DATA[catId];
+    if (def && def.label) {
+        return (def.label as any)[currentLang] || (def.label as any)['de'] || catId;
+    }
+    // Fallback: Wenn es keine ID ist, sondern schon Text
+    return catId.charAt(0).toUpperCase() + catId.slice(1).replace(/_/g, ' ');
+  };
+  
+  const displayCategory = resolveCategoryLabel(customCategory); // Use localized label
 
   const highlightText = (text: string | undefined | null) => {
     if (!text) return null;
@@ -212,7 +231,7 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
                onChange={handleCategoryChange}
                className="bg-transparent border-none p-0 pr-4 text-xs font-medium text-gray-700 focus:ring-0 cursor-pointer hover:text-blue-600 py-0.5"
             >
-               <option value={category}>{category}</option>
+               <option value={category}>{displayCategory}</option> {/* Show Localized Label */}
                <option value="Kultur">Kultur</option>
                <option value="Natur">Natur</option>
                <option value="Entspannung">Entspannung</option>
@@ -337,4 +356,4 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     </>
   );
 };
-// --- END OF FILE 336 Zeilen ---
+// --- END OF FILE 350 Zeilen ---
