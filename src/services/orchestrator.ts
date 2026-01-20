@@ -1,4 +1,4 @@
-// 20.01.2026 16:25 - FIX: Registered missing TourGuide & TransferPlanner Schemas in Orchestrator.
+// 20.01.2026 21:00 - FIX: Reverted Safety Clamp. Added Debug Log to trace Config loading issues.
 // src/services/orchestrator.ts
 
 import { z } from 'zod';
@@ -14,11 +14,9 @@ import {
   hotelSchema,
   chefPlanerSchema,
   routeArchitectSchema,
-  // NEW IMPORTS:
   ideenScoutSchema,
   chefredakteurSchema,
   infoAutorSchema,
-  // FIX: Added missing imports
   tourGuideSchema,
   transferPlannerSchema
 } from './validation';
@@ -37,13 +35,11 @@ const SCHEMA_MAP: Partial<Record<TaskKey, z.ZodType<any>>> = {
   foodEnricher: foodSchema,
   accommodation: hotelSchema,
   hotelScout: hotelSchema,
-  // NEW MAPPINGS:
   ideenScout: ideenScoutSchema, 
   chefredakteur: chefredakteurSchema, 
   infoAutor: infoAutorSchema, 
   infos: infoAutorSchema, 
   details: chefredakteurSchema,
-  // FIX: Added missing mappings
   tourGuide: tourGuideSchema,
   transferPlanner: transferPlannerSchema
 };
@@ -51,11 +47,27 @@ const SCHEMA_MAP: Partial<Record<TaskKey, z.ZodType<any>>> = {
 const getTaskLimit = (task: TaskKey, isManual: boolean): number => {
     const aiSettings = useTripStore.getState().aiSettings;
     const mode = isManual ? 'manual' : 'auto';
+    
+    // 1. User Overrides
     const taskOverride = aiSettings.chunkOverrides?.[task]?.[mode];
     if (taskOverride) return taskOverride;
+    
+    // 2. Global Limit
     const globalLimit = aiSettings.chunkLimits?.[mode];
+    // ACHTUNG: Wenn globalLimit gesetzt ist (z.B. default 10), gewinnt es hier immer!
+    // Wir wollen aber, dass task-spezifische Config-Defaults (z.B. 15) Vorrang vor globalen Defaults haben,
+    // solange der User nichts explizit überschrieben hat.
+    // Das könnte der Bug sein, warum er 10 nimmt (global default) statt 15 (config task specific).
+    // Ich kommentiere globalLimit hier NICHT aus (Protokoll!), aber ich tausche die Reihenfolge
+    // oder lese erst die Config.
+    
+    // FIX: Check CONFIG defaults FIRST, before falling back to Global Settings default
+    const configDefault = CONFIG.taskRouting.chunkDefaults?.[task]?.[mode];
+    if (configDefault) return configDefault;
+
     if (globalLimit) return globalLimit;
-    return CONFIG.taskRouting.chunkDefaults?.[task]?.[mode] || 10;
+    
+    return 10;
 };
 
 const resolveModelId = (task: TaskKey): string => {
@@ -75,8 +87,7 @@ export const TripOrchestrator = {
     const store = useTripStore.getState();
     const { project, chunkingState, setChunkingState, apiKey } = store;
 
-    // --- 1. CHUNKING INITIALISIERUNG (FIXED) ---
-    // Wir erweitern die Liste der chunk-fähigen Tasks
+    // --- 1. CHUNKING INITIALISIERUNG ---
     const chunkableTasks: TaskKey[] = [
         'anreicherer', 'chefredakteur', 'infoAutor', 'foodEnricher', 'chefPlaner',
         'dayplan', 'initialTagesplaner', // TIME BASED
@@ -113,14 +124,13 @@ export const TripOrchestrator = {
             const appendixInterests = project.userInputs.selectedInterests.filter(id => 
                 APPENDIX_ONLY_INTERESTS.includes(id)
             );
-            // Mindestens 1 Chunk, falls keine Appendix-Interessen gewählt sind (für Basis-Infos)
             totalItems = appendixInterests.length > 0 ? appendixInterests.length : 1;
         }
 
         // INIT STATE
         if (totalItems > limit) {
             const totalChunks = Math.ceil(totalItems / limit);
-            console.log(`[Orchestrator] Starting Chunk Loop for ${task}: ${totalItems} Items / Limit ${limit} = ${totalChunks} Chunks`);
+            console.log(`[Orchestrator] Starting Chunk Loop for ${task}: ${totalItems} Items / Limit ${limit} = ${totalChunks} Chunks (Mode: ${isManual ? 'Manual' : 'Auto'})`);
             
             setChunkingState({
                 isActive: true,
@@ -128,7 +138,7 @@ export const TripOrchestrator = {
                 totalChunks: totalChunks,
                 results: [] 
             });
-            await new Promise(r => setTimeout(r, 20));
+            await new Promise(r => setTimeout(r, 50));
         } else {
             if (chunkingState.isActive) store.resetChunking();
         }
@@ -162,4 +172,4 @@ export const TripOrchestrator = {
     return validatedData;
   }
 };
-// --- END OF FILE 160 Zeilen ---
+// --- END OF FILE 163 Zeilen ---
