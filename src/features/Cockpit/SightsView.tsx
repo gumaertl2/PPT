@@ -1,14 +1,13 @@
-// 21.01.2026 03:45 - FIX: Added missing 'any' type to 'tour' parameter in tourOptions useMemo loop.
+// 21.01.2026 04:00 - FIX: Hardened TypeScript Types for Tours (Explicit 'any[]' casting) to solve build error.
 // src/features/Cockpit/SightsView.tsx
-// 21.01.2026 03:15 - FIX: TypeScript Build Errors (Fixed 'sortMode' type mismatch & 'tour' implicit any).
-// 21.01.2026 03:00 - FIX: Connected 'Planning Mode' Props to SightFilterModal (Switch was unresponsive).
+// 21.01.2026 03:45 - FIX: Added missing 'any' type to 'tour' parameter in tourOptions useMemo loop.
+// 21.01.2026 03:00 - FIX: Connected 'Planning Mode' Props to SightFilterModal.
 
 import React, { useMemo, useState } from 'react';
 import { useTripStore } from '../../store/useTripStore';
 import { SightCard } from './SightCard';
 import { SightFilterModal } from './SightFilterModal'; 
 import { useTranslation } from 'react-i18next';
-// FIX: Import Data & Constants for Label Lookup and Filtering
 import { INTEREST_DATA } from '../../data/interests'; 
 import { APPENDIX_ONLY_INTERESTS } from '../../data/constants';
 import type { LanguageCode } from '../../core/types';
@@ -111,9 +110,9 @@ export const SightsView: React.FC = () => {
   // B. Tours
   const tourOptions = useMemo(() => {
       const tourGuide = (analysis as any)?.tourGuide;
-      const tours = tourGuide?.guide?.tours || [];
+      // TS FIX: Explicitly cast to any[] to avoid implicit any errors in map
+      const tours = (tourGuide?.guide?.tours || []) as any[];
       
-      // TS FIX: Added ': any' to 'tour' here (line ~199/202)
       return tours.map((tour: any) => {
           // Count places in this tour that exist in our main 'places' list
           const count = (tour.suggested_order_ids || []).filter((id: string) => 
@@ -169,18 +168,14 @@ export const SightsView: React.FC = () => {
     // TS FIX: Cast sortMode to string to allow 'tour' and 'day' values
     const sortMode = (uiState.sortMode as string) || 'category';
 
-    // FIX: Ignore List for Guide View
     const ignoreList = APPENDIX_ONLY_INTERESTS || [];
-
     const minRating = userInputs.searchSettings?.minRating || 0;
     const minDuration = userInputs.searchSettings?.minDuration || 0;
 
     places.forEach((p: any) => {
-      // V40: Name & Category
       const cat = p.category || 'Sonstiges';
       const name = p.name || '';
 
-      // FIX: Hard Filter for Appendix Categories
       if (ignoreList.includes(cat)) {
           return; // Skip this item in Guide View
       }
@@ -197,16 +192,14 @@ export const SightsView: React.FC = () => {
           }
           else if (sortMode === 'tour') {
               // Check if place is in any selected tour
-              // We need to match the tour title (which is the filter ID)
-              const inSelectedTour = tourOptions.some(tour => 
+              // TS FIX: Explicitly type 'tour' callback parameter as any
+              const inSelectedTour = tourOptions.some((tour: any) => 
                   activeFilters.includes(tour.id) && tour.placeIds.includes(p.id)
               );
               if (!inSelectedTour) return;
           }
           else if (sortMode === 'day') {
-              // Check if place is in any selected day
               const itineraryDays = project.itinerary?.days || [];
-              // activeFilters contains "Tag 1", "Tag 2"
               const inSelectedDay = activeFilters.some(dayLabel => {
                   const dayIndexStr = dayLabel.replace(/[^0-9]/g, '');
                   const dayIndex = parseInt(dayIndexStr) - 1;
@@ -249,7 +242,6 @@ export const SightsView: React.FC = () => {
 
     return (
       <div className="mb-8 space-y-6 animate-in fade-in">
-         {/* We assume one set of ideas for the main location */}
          <div className="bg-gradient-to-r from-slate-50 to-white rounded-xl border border-slate-200 p-4 shadow-sm">
             <h3 className="font-bold text-lg text-slate-700 mb-4 flex items-center gap-2">
               <Layout className="w-5 h-5 text-slate-400" />
@@ -314,18 +306,16 @@ export const SightsView: React.FC = () => {
     // CASE: TOURS (V40)
     if (sortMode === 'tour') {
         const tourGuide = (analysis as any)?.tourGuide;
-        const tours = tourGuide?.guide?.tours || []; // V40 Path
+        // TS FIX: Explicitly cast to any[]
+        const tours = (tourGuide?.guide?.tours || []) as any[];
         const assignedIds = new Set<string>();
 
         // 1. Assign to defined tours
-        // TS FIX: Explicit 'any' type for tour
         tours.forEach((tour: any) => {
             const title = tour.tour_title || "Tour";
-            // Filter places in this list that match the tour IDs
             const tourPlaces = list.filter(p => tour.suggested_order_ids?.includes(p.id));
             
             if (tourPlaces.length > 0) {
-                // Sort by occurrence in tour definition
                 groups[title] = tourPlaces.sort((a, b) => {
                     const idxA = tour.suggested_order_ids.indexOf(a.id);
                     const idxB = tour.suggested_order_ids.indexOf(b.id);
@@ -368,7 +358,6 @@ export const SightsView: React.FC = () => {
     else {
         list.forEach(p => {
             let key = 'Allgemein';
-            // FIX: Use resolved label for grouping title (city_info -> Stadt-Infos)
             if (sortMode === 'category') key = resolveCategoryLabel(p.category) || 'Sonstiges';
             else if (sortMode === 'alphabetical') key = p.name ? p.name[0].toUpperCase() : '?';
             
@@ -465,7 +454,6 @@ export const SightsView: React.FC = () => {
          dayOptions={dayOptions}
          activeSortMode={activeSortMode}
          onSortModeChange={handleViewModeChange}
-         // FIX: Pass Props!
          showPlanningMode={showPlanningMode}
          onTogglePlanningMode={() => setShowPlanningMode(!showPlanningMode)}
       />
@@ -473,4 +461,4 @@ export const SightsView: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 455 Zeilen ---
+// --- END OF FILE 462 Zeilen ---
