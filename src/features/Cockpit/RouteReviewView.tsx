@@ -1,4 +1,4 @@
-// 20.01.2026 18:55 - FIX: Migrated RouteReview to English V40 Keys & Structure (SSOT).
+// 20.01.2026 19:40 - FIX: Verified RouteReviewView migration to V40 English Keys.
 // src/features/Cockpit/RouteReviewView.tsx
 
 import React, { useState, useEffect } from 'react';

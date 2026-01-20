@@ -1,4 +1,4 @@
-// 20.01.2026 17:00 - FIX: Corrected Zod chain order for tourGuideSchema (passthrough before optional).
+// 20.01.2026 17:45 - FIX: Relaxed validation for 'chefredakteur' & 'infoAutor' to accept Arrays or Objects.
 // src/services/validation.ts
 
 import { z } from 'zod';
@@ -99,15 +99,17 @@ export const ideenScoutSchema = z.object({
     rainy_day_ideas: z.array(z.any()).optional()
 }).passthrough();
 
-// 8. CHEFREDAKTEUR (Details)
-export const chefredakteurSchema = z.object({
-    sights: z.array(z.any()).optional()
-}).passthrough();
+// 8. CHEFREDAKTEUR (Details) - FIX: Allow Array OR Object
+export const chefredakteurSchema = z.union([
+    z.array(z.any()), // Direct Array form
+    z.object({ sights: z.array(z.any()).optional() }).passthrough() // Object form
+]);
 
-// 9. INFO AUTOR (Reiseinfos)
-export const infoAutorSchema = z.object({
-    chapters: z.array(z.any()).optional()
-}).passthrough();
+// 9. INFO AUTOR (Reiseinfos) - FIX: Allow Array OR Object
+export const infoAutorSchema = z.union([
+    z.array(z.any()), // Direct Array form
+    z.object({ chapters: z.array(z.any()).optional() }).passthrough() // Object form
+]);
 
 // 10. TOUR GUIDE (Touren) - NEW
 export const tourGuideSchema = z.object({
@@ -123,4 +125,4 @@ export const tourGuideSchema = z.object({
 export const transferPlannerSchema = z.object({
     transfers: z.array(z.any()).optional()
 }).passthrough();
-// --- END OF FILE 131 Zeilen ---
+// --- END OF FILE 136 Zeilen ---

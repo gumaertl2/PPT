@@ -1,4 +1,4 @@
-// 20.01.2026 18:50 - FIX: Migrated UI to English V40 Keys (SSOT Consistency).
+// 20.01.2026 19:30 - FIX: Updated Analysis View to consume V40 English Keys (ChefPlaner).
 // src/features/Cockpit/AnalysisReviewView.tsx
 
 import React, { useState, useEffect } from 'react';

@@ -1,4 +1,4 @@
-// 20.01.2026 16:15 - FIX: "Operation Complete" - Added ALL remaining V40 Handlers (Hotels, Tours).
+// 20.01.2026 17:50 - FIX: Added missing handlers (sondertage, guide) & robust Array handling for Details.
 // src/hooks/useTripGeneration.ts
 
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -175,29 +175,56 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
       case 'chefredakteur':
       case 'details': {
-         const details = data?.sights || [];
+         // FIX: Handle direct Array response from AI (common issue)
+         let details: any[] = [];
+         if (Array.isArray(data)) {
+             details = data;
+         } else if (data?.sights && Array.isArray(data.sights)) {
+             details = data.sights;
+         }
+
          if (details.length > 0) {
              details.forEach((item: any) => {
                  if (item.id) {
                      updatePlace(item.id, {
-                         description: item.detailed_description || item.description,
+                         // V40 Key priority
+                         description: item.detailed_description || item.description || item.content, 
                          reasoning: item.reasoning
                      });
                  }
              });
              console.log(`[Details] Updated ${details.length} places.`);
+         } else {
+             console.warn('[Details] No content found. Received:', data);
          }
          break;
       }
 
+      // FIX: Added 'sondertage' alias
+      case 'sondertage':
       case 'ideenScout': {
           if (data) setAnalysisResult('ideenScout', data);
           break;
       }
 
+      // FIX: Added 'guide' alias handling (usually goes to infoAutor or guide structure)
+      case 'guide': {
+          // If guide returns structure, save it
+          if (data) setAnalysisResult('tourGuide', data); 
+          break;
+      }
+
       case 'infoAutor':
       case 'infos': {
-          if (data) setAnalysisResult('infoAutor', data);
+          // FIX: Handle direct Array response
+          let finalData = data;
+          if (Array.isArray(data)) {
+              finalData = { chapters: data };
+          }
+          
+          if (finalData) {
+              setAnalysisResult('infoAutor', finalData);
+          }
           break;
       }
 
@@ -233,7 +260,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
         break;
       }
 
-      // --- HOTELS (MISSING HANDLER ADDED) ---
+      // --- HOTELS ---
       case 'accommodation':
       case 'hotelScout': {
         let hotelItems: any[] = [];
@@ -262,13 +289,11 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
         break;
       }
 
-      // --- TOUR GUIDE (MISSING HANDLER ADDED) ---
       case 'tourGuide': {
          if (data) setAnalysisResult('tourGuide', data);
          break;
       }
 
-      // --- TRANSFER PLANNER (OPTIONAL ADDITION) ---
       case 'transferPlanner': {
          if (data) setAnalysisResult('transferPlanner', data);
          break;
@@ -468,4 +493,4 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
   return { status, currentStep, queue, error, progress, manualPrompt, submitManualResult, startWorkflow, resumeWorkflow, cancelWorkflow, startSingleTask };
 };
-// --- END OF FILE 480 Zeilen ---
+// --- END OF FILE 500 Zeilen ---
