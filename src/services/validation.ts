@@ -1,4 +1,4 @@
-// 20.01.2026 23:58 - FIX: Added missing Schemas for TourGuide and TransferPlanner.
+// 20.01.2026 17:00 - FIX: Corrected Zod chain order for tourGuideSchema (passthrough before optional).
 // src/services/validation.ts
 
 import { z } from 'zod';
@@ -113,11 +113,14 @@ export const infoAutorSchema = z.object({
 export const tourGuideSchema = z.object({
     guide: z.object({
         tours: z.array(z.any()).optional()
-    }).optional().passthrough()
+    })
+    // FIX: .passthrough() must come BEFORE .optional()
+    .passthrough()
+    .optional()
 }).passthrough();
 
 // 11. TRANSFER PLANNER (Logistik) - NEW
 export const transferPlannerSchema = z.object({
     transfers: z.array(z.any()).optional()
 }).passthrough();
-// --- END OF FILE 130 Zeilen ---
+// --- END OF FILE 131 Zeilen ---

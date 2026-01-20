@@ -1,4 +1,4 @@
-// 20.01.2026 18:45 - REFACTOR: "Operation Clean Sweep" - Enforced English V40 Keys globally.
+// 20.01.2026 17:15 - FIX: Added missing Task Keys (tourGuide, transferPlanner) to WorkflowStepId.
 // src/core/types.ts
 
 // --- GENERAL TYPES ---
@@ -76,6 +76,9 @@ export type WorkflowStepId =
   | 'infoAutor'            // Infos Fakten
   | 'countryScout'         // Länderinfos
   | 'ideenScout'           // Extras
+  
+  // FIX: Added missing Task Keys for V40 Orchestration
+  | 'tourGuide'            // Tourenplanung
 
   // --- Compatibility / Legacy Keys ---
   | 'routenArchitekt'         // Alias
@@ -386,4 +389,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 402 Zeilen ---
+// --- END OF FILE 405 Zeilen ---

@@ -1,4 +1,4 @@
-// 20.01.2026 15:45 - FIX: InfoView consuming V40 'infoAutor' Data AND Fallback Places (travel_info).
+// 20.01.2026 16:55 - FIX: Removed unused 'MapIcon' import to satisfy Vercel Build (TS6133).
 // src/features/info/InfoView.tsx
 
 import React, { useMemo } from 'react';
@@ -8,12 +8,11 @@ import {
   AlertTriangle, 
   Info, 
   Car, 
-  Map as MapIcon,
   Phone,
   Shield
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { INTEREST_DATA } from '../../data/interests'; // Fix: Import Data for Labels
+import { INTEREST_DATA } from '../../data/interests';
 
 // Konstanten für Info-Kategorien (muss exakt mit APPENDIX_ONLY_INTERESTS übereinstimmen)
 const INFO_CATEGORIES = ['travel_info', 'city_info', 'arrival', 'general', 'sights', 'budget', 'ignored_places'];
@@ -153,4 +152,4 @@ export const InfoView: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 135 Zeilen ---
+// --- END OF FILE 134 Zeilen ---
