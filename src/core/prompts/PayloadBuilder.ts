@@ -1,10 +1,9 @@
-// 20.01.2026 18:00 - REFACTOR: "Operation Clean Sweep" - Removed redundant SYSTEM_GUARD (now in PromptBuilder).
+// 20.01.2026 23:30 - FIX: Implemented Dynamic Time/Topic Slicing for DayPlan & InfoAutor.
 // src/core/prompts/PayloadBuilder.ts
-// 18.01.2026 23:45 - FIX: Added SYSTEM_GUARD to prevent JSON-Key translation in multi-language scenarios.
-// 18.01.2026 20:00 - FIX: Restored 'buildChefPlanerPayload' & Anreicherer signature.
 
 import { useTripStore } from '../../store/useTripStore';
 import { INTEREST_DATA } from '../../data/interests';
+import { APPENDIX_ONLY_INTERESTS } from '../../data/constants'; 
 import { CONFIG } from '../../data/config';
 
 // --- TEMPLATES ---
@@ -24,27 +23,18 @@ import { buildChefredakteurPrompt } from './templates/chefredakteur';
 import { buildInfoAutorPrompt } from './templates/infoAutor';
 import { buildIdeenScoutPrompt } from './templates/ideenScout';
 
-// --- UTILS & TYPES ---
 import type { LocalizedContent, TaskKey, ChunkingState, TripProject, FoodSearchMode } from '../types';
 import { filterByRadius } from '../utils/geo';
 import type { GeoPoint } from '../utils/geo';
 
 export const PayloadBuilder = {
-  /**
-   * ZENTRALE SCHNITTSTELLE FÜR USETRIPGENERATION (V40)
-   * Wählt anhand des Task-Keys das richtige Prompt-Template.
-   * "The Intelligent Dispatcher": Checks for chunking state, executes math, and routes to agents.
-   */
   buildPrompt: (task: TaskKey, feedback?: string): string => {
     const state = useTripStore.getState();
     const { project, aiSettings, apiKey } = state; 
-    
-    // Zugriff auf den Chunking State (via SystemSlice im Store)
     const chunkingState = (state as any).chunkingState as ChunkingState;
 
     // --- HELPER FUNCTIONS ---
 
-    // 0. Chunk Limit Ermittlung (Priority: Override > Global > Default)
     const getTaskChunkLimit = (taskKey: TaskKey): number => {
         const mode = apiKey ? 'auto' : 'manual';
         const taskOverride = aiSettings.chunkOverrides?.[taskKey]?.[mode];
@@ -54,10 +44,8 @@ export const PayloadBuilder = {
         return CONFIG.taskRouting.chunkDefaults?.[taskKey]?.[mode] || 10;
     };
 
-    // 1. Slicing Helper (Generic)
     const sliceData = (items: any[], taskKey: TaskKey) => {
         const limit = getTaskChunkLimit(taskKey);
-        // Wenn Chunking aktiv, nutzen wir currentChunk. Sonst Chunk 1.
         const currentChunk = (chunkingState?.isActive && chunkingState.currentChunk > 0) 
                              ? chunkingState.currentChunk 
                              : 1;
@@ -66,7 +54,6 @@ export const PayloadBuilder = {
         return items.slice(startIndex, endIndex);
     };
 
-    // 2. Gedächtnis: Sammle bereits besuchte IDs aus vorherigen Chunks
     const getVisitedSightIds = (): string[] => {
         if (!chunkingState?.results || chunkingState.results.length === 0) return [];
         const ids = new Set<string>();
@@ -84,7 +71,6 @@ export const PayloadBuilder = {
         return Array.from(ids);
     };
 
-    // 3. Transfer-Logik: Ermittle den End-Ort des vorherigen Chunks
     const getLastChunkEndLocation = (): string | undefined => {
         if (!chunkingState?.isActive || chunkingState.currentChunk <= 1 || !chunkingState.results) return undefined;
         const prevIndex = chunkingState.currentChunk - 2;
@@ -96,7 +82,6 @@ export const PayloadBuilder = {
         return undefined;
     };
 
-    // 4. Food-Logik: Geo-Filterung (V30 Parität)
     const getFilteredFoodCandidates = (project: TripProject) => {
         const rawCandidates = (project.data.content as any)?.rawFoodCandidates || 
                               Object.values(project.data.places || {}).flat(); 
@@ -120,12 +105,9 @@ export const PayloadBuilder = {
     let generatedPrompt = "";
 
     switch (task) {
-      // --- EXISTING V40 AGENTS ---
       case 'chefPlaner': {
         const allAppointments = project.userInputs.dates.fixedEvents || [];
         const slicedAppointments = sliceData(allAppointments, 'chefPlaner');
-        
-        // Wir müssen das Project-Objekt klonen/mocken, damit das Template nur die geschnittenen Events sieht
         const slicedProject = {
             ...project,
             userInputs: {
@@ -154,8 +136,6 @@ export const PayloadBuilder = {
       case 'intelligentEnricher': {
         const allPlaces = Object.values(project.data.places || {}).flat();
         const slicedCandidates = sliceData(allPlaces, 'anreicherer');
-
-        // FIX TS2554: Slicing via Klon statt Argument
         const slicedProject = {
             ...project,
             data: {
@@ -169,22 +149,35 @@ export const PayloadBuilder = {
         break;
       }
 
-      // --- PAKET A: PLANUNG & LOGISTIK ---
-      
       case 'durationEstimator':
         generatedPrompt = buildDurationEstimatorPrompt(project);
         break;
 
+      // FIX: Time-Based Chunking Logic
       case 'dayplan':
-      case 'initialTagesplaner':
-        if (chunkingState?.isActive && chunkingState.dataChunks.length > 0) {
-            const idx = chunkingState.currentChunk - 1;
-            const chunkData = chunkingState.dataChunks[idx];
-            generatedPrompt = buildInitialTagesplanerPrompt(project, chunkData, feedback, getVisitedSightIds());
-        } else {
-            generatedPrompt = buildInitialTagesplanerPrompt(project, undefined, feedback, []);
+      case 'initialTagesplaner': {
+        let contextData: any = undefined;
+        
+        if (chunkingState?.isActive) {
+            const limit = getTaskChunkLimit('dayplan');
+            const currentChunk = chunkingState.currentChunk;
+            const dayOffset = (currentChunk - 1) * limit;
+            
+            // Berechne verbleibende Tage für diesen Chunk
+            const totalDuration = project.userInputs.dates.duration;
+            const daysInChunk = Math.min(limit, totalDuration - dayOffset);
+
+            contextData = {
+                dayOffset: dayOffset,
+                days: daysInChunk,
+                isChunked: true,
+                chunkIndex: currentChunk,
+                totalChunks: chunkingState.totalChunks
+            };
         }
+        generatedPrompt = buildInitialTagesplanerPrompt(project, contextData, feedback, getVisitedSightIds());
         break;
+      }
 
       case 'transfers':
       case 'transferPlanner': {
@@ -193,8 +186,6 @@ export const PayloadBuilder = {
         break;
       }
 
-      // --- PAKET B1: ACCOMMODATION ---
-      
       case 'geoAnalyst':
         generatedPrompt = buildGeoAnalystPrompt(project);
         break;
@@ -204,8 +195,6 @@ export const PayloadBuilder = {
          generatedPrompt = buildHotelScoutPrompt(project, "", feedback || "", "");
          break;
 
-      // --- PAKET B2: FOOD ---
-      
       case 'food':
       case 'foodScout':
       case 'foodCollector': 
@@ -229,8 +218,6 @@ export const PayloadBuilder = {
          break;
       }
 
-      // --- PAKET C: CONTENT & SPECIALS (NEU) ---
-
       case 'guide':
       case 'reisefuehrer':
            generatedPrompt = buildTourGuidePrompt(project);
@@ -240,7 +227,6 @@ export const PayloadBuilder = {
       case 'chefredakteur' as any: {
           const allPlaces = Object.values(project.data.places || {}).flat();
           const slicedPlaces = sliceData(allPlaces, 'chefredakteur' as TaskKey);
-          
           generatedPrompt = buildChefredakteurPrompt(
               project, 
               slicedPlaces, 
@@ -250,15 +236,27 @@ export const PayloadBuilder = {
           break;
       }
 
+      // FIX: Topic-Based Chunking Logic
       case 'infos':
       case 'infoAutor': {
-          if (chunkingState?.isActive && chunkingState.dataChunks.length > 0) {
-              const idx = chunkingState.currentChunk - 1;
-              const chunk = chunkingState.dataChunks[idx];
-              generatedPrompt = buildInfoAutorPrompt(project, chunk.tasks, chunkingState.currentChunk, chunkingState.totalChunks, []) || "";
+          let slicedTopics: string[] = [];
+          const appendixInterests = project.userInputs.selectedInterests.filter(id => 
+              APPENDIX_ONLY_INTERESTS.includes(id)
+          );
+
+          if (chunkingState?.isActive) {
+              slicedTopics = sliceData(appendixInterests, 'infoAutor');
           } else {
-              generatedPrompt = buildInfoAutorPrompt(project, [], 1, 1, []) || "";
+              slicedTopics = appendixInterests;
           }
+
+          generatedPrompt = buildInfoAutorPrompt(
+              project, 
+              slicedTopics, 
+              chunkingState?.currentChunk || 1, 
+              chunkingState?.totalChunks || 1, 
+              []
+          ) || "";
           break;
       }
 
@@ -277,11 +275,9 @@ export const PayloadBuilder = {
         throw new Error(`PayloadBuilder: Unknown task '${task}'`);
     }
 
-    // SYSTEM GUARD wird nun vom PromptBuilder gehandhabt
     return generatedPrompt;
   },
 
-  // WIEDERHERGESTELLT: Legacy-Methode für manuelle Calls & Typ-Sicherheit
   buildChefPlanerPayload: () => {
     const state = useTripStore.getState();
     const { userInputs, meta } = state.project;
@@ -312,4 +308,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 369 Zeilen ---
+// --- END OF FILE 402 Zeilen ---

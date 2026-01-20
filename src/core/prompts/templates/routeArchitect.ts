@@ -1,8 +1,7 @@
-// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys (routes).
+// 20.01.2026 23:00 - FIX: Added missing stats (km/time) AND User Waypoints to context.
 // src/core/prompts/templates/routeArchitect.ts
+// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys (routes).
 // 19.01.2026 19:15 - FIX: Corrected PromptBuilder pattern for Strategic Briefing injection.
-// 17.01.2026 12:45 - UPDATE: Integrated Duration Estimator logic directly.
-// 18.01.2026 00:10 - REFACTOR: Migrated to class-based PromptBuilder.
 
 import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
@@ -12,8 +11,10 @@ export const buildRouteArchitectPrompt = (project: TripProject): string => {
   const { logistics, dates } = userInputs;
 
   // 1. STRATEGISCHES BRIEFING (Accessing V40 English Keys)
-  // chefPlaner now returns 'strategic_briefing'
   const strategicBriefing = (analysis.chefPlaner as any)?.strategic_briefing?.sammler_briefing || "";
+
+  // 2. USER ROUTEN-PRÄFERENZEN (Das wurde bisher vergessen!)
+  const roundtripOptions = logistics.roundtripOptions || {};
 
   // Kontext für die KI
   const contextData = {
@@ -22,8 +23,11 @@ export const buildRouteArchitectPrompt = (project: TripProject): string => {
     total_duration_days: dates.duration,
     arrival_type: (dates.arrival as any).type || 'car',
     logistics_mode: logistics.mode,
-    // Falls Roundtrip: Die Constraints
-    roundtrip_constraints: logistics.mode === 'mobil' ? logistics.roundtrip : null
+    // Basis-Constraints
+    roundtrip_constraints: logistics.mode === 'mobil' ? logistics.roundtrip : null,
+    // FIX: User-defined Waypoints & Strict Mode
+    user_waypoints: roundtripOptions.waypoints || "None",
+    is_strict_route: roundtripOptions.strictRoute || false
   };
 
   const role = `Du bist der "Route Architect". Deine Aufgabe ist es, für eine gegebene Reisedauer und Region logische Routen-Optionen (Rundreisen) zu entwerfen.
@@ -35,16 +39,20 @@ Die Optionen sollen sich im "Vibe" unterscheiden (z.B. "Der Klassiker", "Natur p
 
 # LOGISTIK-REGELN
 1.  **Start & Ende:** Beachte die fixen Start/Endpunkte aus den Constraints (falls gesetzt).
-2.  **Pace:** Plane realistische Fahrdistanzen. Max 4 Stunden reine Fahrzeit pro Stationwechsel.
-3.  **Dauer:** Die Summe der Nächte muss exakt der Reisedauer entsprechen.
-4.  **Stationen:** Wähle strategisch kluge Übernachtungsorte (Hubs), von denen aus man die Umgebung erkunden kann.
-5.  **Struktur:** Gib die Übernachtungsorte als strukturierte Liste (Stages) an.
+2.  **User Waypoints:** Wenn "user_waypoints" definiert sind, VERSUCHE diese logisch in die Route einzubauen.
+    - Falls "is_strict_route" = true: Du MUSST diese Punkte einbauen (Pflicht!).
+3.  **Pace:** Plane realistische Fahrdistanzen. Max 4 Stunden reine Fahrzeit pro Stationwechsel.
+4.  **Dauer:** Die Summe der Nächte muss exakt der Reisedauer entsprechen.
+5.  **Stationen:** Wähle strategisch kluge Übernachtungsorte (Hubs), von denen aus man die Umgebung erkunden kann.
+6.  **Kalkulation (PFLICHT):** Schätze die Gesamtkilometer (total_km) und die reine Gesamtfahrzeit (total_drive_time) für die gesamte Route realistisch ein.
 
 # OUTPUT-SCHEMA (V40 Standard)
 Erstelle ein JSON mit dem Schlüssel "routes".
 Jeder Vorschlag benötigt:
 - \`title\`: Kreativer Titel.
 - \`description\`: Kurzbeschreibung des Vibes.
+- \`total_km\`: Geschätzte Gesamtkilometer der Runde (Number).
+- \`total_drive_time\`: Geschätzte reine Fahrzeit in Stunden (Number).
 - \`stages\`: Ein Array von Objekten.
   - \`location_name\`: Name des Ortes.
   - \`nights\`: Anzahl der Nächte (Integer).
@@ -55,6 +63,8 @@ Jeder Vorschlag benötigt:
       {
         "title": "String (e.g. 'Alpine Classic')",
         "description": "String (Short vibe description)",
+        "total_km": 450,
+        "total_drive_time": 6.5,
         "stages": [
           {
             "location_name": "München",
@@ -86,4 +96,4 @@ Jeder Vorschlag benötigt:
     .withSelfCheck(['basic', 'planning'])
     .build();
 };
-// --- END OF FILE 86 Zeilen ---
+// --- END OF FILE 107 Zeilen ---

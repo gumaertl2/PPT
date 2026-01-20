@@ -1,14 +1,12 @@
-// 20.01.2026 18:10 - REFACTOR: "Operation Clean Sweep" - Removed all Adapter Logic. Strict Pass-Through.
+// 20.01.2026 23:30 - FIX: Added Logic for Time-Chunking (DayPlan) & Topic-Chunking (InfoAutor).
 // src/services/orchestrator.ts
-// 17.01.2026 18:30 - FEAT: Initial creation. The "Brain" of the operation.
-// 17.01.2026 19:20 - FEAT: Registered full suite of Zod Schemas (Zero Error Policy).
-// 18.01.2026 18:30 - FEAT: Implemented Chunking-Initialization and Model-Switching Logic.
 
 import { z } from 'zod';
 import { GeminiService } from './gemini';
 import { PayloadBuilder } from '../core/prompts/PayloadBuilder';
 import { useTripStore } from '../store/useTripStore';
 import { CONFIG } from '../data/config';
+import { APPENDIX_ONLY_INTERESTS } from '../data/constants'; 
 import { 
   dayPlanSchema, 
   geoAnalystSchema,
@@ -19,78 +17,63 @@ import {
 } from './validation';
 import type { TaskKey } from '../core/types';
 
-/**
- * MAPPING: TaskKey -> Validation Schema (Strict V40)
- */
+// MAPPING: TaskKey -> Validation Schema
 const SCHEMA_MAP: Partial<Record<TaskKey, z.ZodType<any>>> = {
-  // 1. Tagesplanung
   dayplan: dayPlanSchema,
   initialTagesplaner: dayPlanSchema,
-  
-  // 2. Strategie & Geo
   geoAnalyst: geoAnalystSchema,
   chefPlaner: chefPlanerSchema,
   routeArchitect: routeArchitectSchema,
   routenArchitekt: routeArchitectSchema,
-
-  // 3. Spezialisten
   food: foodSchema,
   foodScout: foodSchema,
   foodEnricher: foodSchema,
-  
   accommodation: hotelSchema,
   hotelScout: hotelSchema
 };
 
-// HELPER: Ermittelt das Limit dynamisch
 const getTaskLimit = (task: TaskKey, isManual: boolean): number => {
     const aiSettings = useTripStore.getState().aiSettings;
     const mode = isManual ? 'manual' : 'auto';
-    
     const taskOverride = aiSettings.chunkOverrides?.[task]?.[mode];
     if (taskOverride) return taskOverride;
-    
     const globalLimit = aiSettings.chunkLimits?.[mode];
     if (globalLimit) return globalLimit;
-
     return CONFIG.taskRouting.chunkDefaults?.[task]?.[mode] || 10;
 };
 
-// HELPER: Ermittelt das KI-Modell
 const resolveModelId = (task: TaskKey): string => {
     const aiSettings = useTripStore.getState().aiSettings;
-    
     const taskOverride = aiSettings.modelOverrides?.[task];
     if (taskOverride === 'pro') return CONFIG.api.models.pro;
     if (taskOverride === 'flash') return CONFIG.api.models.flash;
-
     if (aiSettings.strategy === 'pro') return CONFIG.api.models.pro; 
     if (aiSettings.strategy === 'fast') return CONFIG.api.models.flash; 
-
     const recommendedType = CONFIG.taskRouting.defaults[task] || 'flash';
     return CONFIG.api.models[recommendedType as 'pro'|'flash'] || CONFIG.api.models.flash;
 };
 
-/**
- * ORCHESTRATOR
- * Kapselt die Komplexität von Prompt-Bau, API-Call und Validierung.
- * KEINE Daten-Manipulation mehr (Clean Sweep)!
- */
 export const TripOrchestrator = {
   
   async executeTask(task: TaskKey, feedback?: string): Promise<any> {
     const store = useTripStore.getState();
     const { project, chunkingState, setChunkingState, apiKey } = store;
 
-    // --- 1. CHUNKING INITIALISIERUNG ---
-    const listTasks: TaskKey[] = ['anreicherer', 'chefredakteur', 'infoAutor', 'foodEnricher', 'chefPlaner'];
+    // --- 1. CHUNKING INITIALISIERUNG (FIXED) ---
+    // Wir erweitern die Liste der chunk-fähigen Tasks
+    const chunkableTasks: TaskKey[] = [
+        'anreicherer', 'chefredakteur', 'infoAutor', 'foodEnricher', 'chefPlaner',
+        'dayplan', 'initialTagesplaner', // TIME BASED
+        'infos', 'details', 'basis'
+    ];
     
-    if (listTasks.includes(task) && (!chunkingState.isActive || chunkingState.currentChunk === 0)) {
+    if (chunkableTasks.includes(task) && (!chunkingState.isActive || chunkingState.currentChunk === 0)) {
         let totalItems = 0;
         const isManual = !apiKey;
         const limit = getTaskLimit(task, isManual);
 
-        if (task === 'anreicherer') {
+        // A. LIST BASED
+        if (['anreicherer', 'chefredakteur', 'details'].includes(task)) {
             totalItems = Object.values(project.data.places || {}).flat().length;
         } 
         else if (task === 'foodEnricher') {
@@ -100,10 +83,25 @@ export const TripOrchestrator = {
         else if (task === 'chefPlaner') {
             totalItems = project.userInputs.dates.fixedEvents?.length || 0;
         }
-        else if (task === 'chefredakteur') {
-            totalItems = Object.values(project.data.places || {}).flat().length;
+        else if (['basis', 'sightCollector'].includes(task)) {
+             totalItems = project.userInputs.selectedInterests.length;
         }
 
+        // B. TIME BASED (Fix: Dauer in Tagen)
+        else if (['dayplan', 'initialTagesplaner'].includes(task)) {
+            totalItems = project.userInputs.dates.duration || 1;
+        }
+
+        // C. TOPIC BASED (Fix: Anzahl der Info-Themen)
+        else if (['infos', 'infoAutor'].includes(task)) {
+            const appendixInterests = project.userInputs.selectedInterests.filter(id => 
+                APPENDIX_ONLY_INTERESTS.includes(id)
+            );
+            // Mindestens 1 Chunk, falls keine Appendix-Interessen gewählt sind (für Basis-Infos)
+            totalItems = appendixInterests.length > 0 ? appendixInterests.length : 1;
+        }
+
+        // INIT STATE
         if (totalItems > limit) {
             const totalChunks = Math.ceil(totalItems / limit);
             console.log(`[Orchestrator] Starting Chunk Loop for ${task}: ${totalItems} Items / Limit ${limit} = ${totalChunks} Chunks`);
@@ -114,13 +112,9 @@ export const TripOrchestrator = {
                 totalChunks: totalChunks,
                 results: [] 
             });
-            
-            // Short delay to allow React state update
             await new Promise(r => setTimeout(r, 20));
         } else {
-            if (chunkingState.isActive) {
-                store.resetChunking();
-            }
+            if (chunkingState.isActive) store.resetChunking();
         }
     }
 
@@ -135,25 +129,21 @@ export const TripOrchestrator = {
     // --- 3. EXECUTION ---
     const rawResult = await GeminiService.call(prompt, task, modelId);
 
-    // --- 4. VALIDIERUNG (Strict Schema Check) ---
+    // --- 4. VALIDIERUNG ---
     const schema = SCHEMA_MAP[task];
     let validatedData = rawResult;
 
     if (schema) {
       const validation = schema.safeParse(rawResult);
       if (!validation.success) {
-        console.warn(`[Orchestrator] Validation Failed for ${task}. Model returned:`, JSON.stringify(rawResult, null, 2));
+        console.warn(`[Orchestrator] Validation Failed for ${task}.`, JSON.stringify(rawResult, null, 2));
         console.error(`[Orchestrator] Schema Errors:`, validation.error);
-        
-        // "Zero Error Policy": Wir werfen den Fehler, damit er im UI ankommt
-        throw new Error(`KI-Antwort entspricht nicht dem V40-Schema für ${task}. (Siehe Konsole)`);
+        throw new Error(`KI-Antwort entspricht nicht dem V40-Schema für ${task}.`);
       }
       validatedData = validation.data;
     }
 
-    // --- 5. RESULT ---
-    // Keine Normalisierung mehr nötig ("Clean Sweep" sei Dank!)
     return validatedData;
   }
 };
-// --- END OF FILE 140 Zeilen ---
+// --- END OF FILE 145 Zeilen ---
