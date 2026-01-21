@@ -1,6 +1,6 @@
-// 21.01.2026 17:30 - FIX: Aligned determineModel with "Flash+ = Thinking" logic.
+// 21.01.2026 18:00 - FIX: Removed double 'models/' prefix causing 404 errors.
 // src/services/gemini.ts
-// 21.01.2026 16:45 - FIX: Enforced Thinking Mode for 'optimal' strategy. Removed temperature for Thinking.
+// 21.01.2026 17:30 - FIX: Aligned determineModel with "Flash+ = Thinking" logic.
 
 import { CONFIG } from '../data/config';
 import type { ModelType } from '../data/config'; 
@@ -119,7 +119,6 @@ export const GeminiService = {
         }
 
         // B. FIX: Default for Optimal is now FLASH (Thinking), not Config Default
-        // This ensures the Orchestrator knows we are effectively using a Flash-Class model
         return 'flash';
     }
 
@@ -162,11 +161,13 @@ export const GeminiService = {
 
     // 2. Entscheiden basierend auf Strategie
     if (currentStrategy === 'fast') {
-        modelEndpoint = 'models/gemini-2.5-flash:generateContent';
+        // FIX: Removed 'models/' prefix as BaseURL already includes it
+        modelEndpoint = 'gemini-2.5-flash:generateContent';
         selectedModelKey = 'flash';
     }
     else if (currentStrategy === 'pro') {
-        modelEndpoint = 'models/gemini-2.5-pro:generateContent';
+        // FIX: Removed 'models/' prefix
+        modelEndpoint = 'gemini-2.5-pro:generateContent';
         selectedModelKey = 'pro';
     }
     else if (currentStrategy === 'optimal') {
@@ -176,15 +177,18 @@ export const GeminiService = {
              // A. User will explizit PRO oder FLASH (ohne Thinking) via Matrix
              const forcedModel = modelOverrides[taskKey]!;
              if (forcedModel === 'pro') {
-                 modelEndpoint = 'models/gemini-2.5-pro:generateContent';
+                 // FIX: Removed 'models/' prefix
+                 modelEndpoint = 'gemini-2.5-pro:generateContent';
                  selectedModelKey = 'pro';
              } else {
-                 modelEndpoint = 'models/gemini-2.5-flash:generateContent';
+                 // FIX: Removed 'models/' prefix
+                 modelEndpoint = 'gemini-2.5-flash:generateContent';
                  selectedModelKey = 'flash';
              }
         } else {
              // B. Standard für "Optimal" = Flash + Thinking (Smart Flash)
-             modelEndpoint = 'models/gemini-2.5-flash:generateContent';
+             // FIX: Removed 'models/' prefix
+             modelEndpoint = 'gemini-2.5-flash:generateContent';
              selectedModelKey = 'flash'; 
              
              // Activate Adaptive Thinking (Budget -1)
@@ -199,7 +203,7 @@ export const GeminiService = {
     }
     else {
         // Fallback
-        modelEndpoint = modelIdOverride || 'models/gemini-2.5-pro:generateContent';
+        modelEndpoint = modelIdOverride || 'gemini-2.5-pro:generateContent';
     }
 
     // Safety Catch
