@@ -1,6 +1,6 @@
-// 21.01.2026 16:30 - FIX: Removed unused 'Activity' import to resolve build error TS6133.
+// 21.01.2026 17:45 - UI: Implemented 3-Way Matrix (Pro, Fast, Thinking) with Smart Defaults.
 // src/features/Cockpit/SettingsModal.tsx
-// 21.01.2026 15:40 - FEAT: Upgraded Strategies to Gemini 2.5 (Flash, Pro, Thinking).
+// 21.01.2026 17:15 - UI: Added explicit 3-Button Matrix.
 
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -9,7 +9,6 @@ import {
   Key, 
   HelpCircle, 
   BarChart3, 
-  // FIX: Removed unused 'Activity' (TS6133)
   Zap, 
   Cpu, 
   Settings, 
@@ -20,7 +19,8 @@ import {
   Server,
   Sliders, 
   Layers,
-  Brain // NEW: Icon for Thinking Mode
+  Brain,
+  Sparkles 
 } from 'lucide-react';
 import { useTripStore } from '../../store/useTripStore';
 import type { AiStrategy } from '../../store/useTripStore';
@@ -28,6 +28,7 @@ import { InfoModal } from '../Welcome/InfoModal';
 import { getInfoText } from '../../data/Texts';
 import type { LanguageCode, TaskKey } from '../../core/types';
 import { CONFIG } from '../../data/config';
+import type { ModelType } from '../../data/config';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -79,7 +80,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   if (!isOpen) return null;
 
-  // UPDATED: Strategies now map to Gemini 2.5 Models
   const strategies: Array<{ id: AiStrategy; label: string; icon: any; desc: string; color: string }> = [
     { 
       id: 'optimal', 
@@ -106,9 +106,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   const modelStats = Object.entries(usageStats.byModel || {});
 
-  // FIX: Definierte Liste der Keys für die Anzeige (Workflow Steps + Specialized Agents)
   const v40WorkflowTasks: TaskKey[] = [
-    // --- Main Workflow ---
     'chefPlaner',
     'routeArchitect',
     'basis',
@@ -121,14 +119,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     'details',
     'infos',
     'sondertage',
-    
-    // --- Specialized Agents / Helpers ---
     'geoAnalyst',
     'durationEstimator',
     'countryScout',
     'foodCollector',
     'foodEnricher'
   ];
+
+  const isOptimalMode = aiSettings.strategy === 'optimal';
 
   return (
     <>
@@ -276,7 +274,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               </div>
 
               {/* MATRIX ACCORDION */}
-              {aiSettings.strategy === 'optimal' && (
+              {isOptimalMode && (
                 <div className="mt-4">
                     <button 
                         onClick={() => setShowMatrix(!showMatrix)}
@@ -291,16 +289,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             
                             <div className="bg-slate-100 px-4 py-2 text-[10px] uppercase font-bold text-slate-500 grid grid-cols-12 gap-2">
                                 <span className="col-span-4">Task / Workflow</span>
-                                <span className="col-span-4 text-center">Modell</span>
-                                <span className="col-span-4 text-center flex items-center justify-center gap-1">
-                                   <Layers className="w-3 h-3" /> Batch (Auto/Man)
+                                <span className="col-span-5 text-center">Modell-Strategie</span>
+                                <span className="col-span-3 text-center flex items-center justify-center gap-1">
+                                   <Layers className="w-3 h-3" /> Batch
                                 </span>
                             </div>
                             <div className="divide-y divide-slate-100">
                                 {v40WorkflowTasks.map(taskKey => {
                                     const defaultModel = CONFIG.taskRouting.defaults[taskKey];
                                     const currentOverride = aiSettings.modelOverrides?.[taskKey];
-                                    const activeModel = currentOverride || defaultModel;
+                                    
+                                    // LOGIC: What is effectively active?
+                                    // If no override -> Check Config Default.
+                                    // If Default is 'pro' -> Pro is active.
+                                    // If Default is 'flash' -> Thinking (Flash+) is active (Optimal Mode Upgrade).
+                                    
+                                    let effectiveMode = currentOverride;
+                                    if (!effectiveMode) {
+                                        if (defaultModel === 'pro') effectiveMode = 'pro';
+                                        else effectiveMode = 'thinking'; // Upgrade Flash to Thinking
+                                    }
+
+                                    const isPro = effectiveMode === 'pro';
+                                    const isFlash = effectiveMode === 'flash';
+                                    const isThinking = effectiveMode === 'thinking';
+
+                                    // Is this the default (no override)?
+                                    const isDefault = !currentOverride;
                                     
                                     const chunkDefaults = CONFIG.taskRouting.chunkDefaults?.[taskKey] || { auto: 10, manual: 20 };
                                     const chunkOverrides = aiSettings.chunkOverrides?.[taskKey] || {};
@@ -313,43 +328,63 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                     return (
                                         <div key={taskKey} className="px-4 py-3 bg-white grid grid-cols-12 gap-2 items-center">
                                             {/* TASK LABEL */}
-                                            <div className="col-span-4">
+                                            <div className="col-span-4 flex flex-col">
                                                 <div className="text-xs font-medium text-slate-700 truncate" title={taskKey}>
                                                     {label}
                                                 </div>
-                                                <div className="text-[9px] text-slate-400">
-                                                    Def: <span className="uppercase">{defaultModel}</span>
-                                                </div>
+                                                {isDefault && (
+                                                    <div className="text-[9px] text-slate-400 italic">
+                                                        (Default)
+                                                    </div>
+                                                )}
                                             </div>
 
-                                            {/* MODEL SWITCH */}
-                                            <div className="col-span-4 flex justify-center">
-                                                <div className="flex bg-slate-100 rounded-lg p-0.5">
+                                            {/* 3-BUTTON MODEL SWITCH */}
+                                            <div className="col-span-5 flex justify-center">
+                                                <div className="flex bg-slate-100 rounded-lg p-0.5 w-full justify-between gap-1">
+                                                    
+                                                    {/* PRO BUTTON */}
                                                     <button
-                                                        onClick={() => setTaskModel(taskKey, 'pro')}
-                                                        className={`px-2 py-1 rounded-md text-[9px] font-bold transition-all ${
-                                                            activeModel === 'pro' 
-                                                            ? 'bg-purple-100 text-purple-700 shadow-sm' 
-                                                            : 'text-slate-400 hover:text-slate-600'
+                                                        onClick={() => setTaskModel(taskKey, isDefault && defaultModel === 'pro' ? undefined as any : 'pro')}
+                                                        className={`flex-1 flex items-center justify-center py-1 rounded-md text-[9px] font-bold transition-all ${
+                                                            isPro 
+                                                            ? 'bg-purple-100 text-purple-700 shadow-sm ring-1 ring-purple-200' 
+                                                            : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200'
                                                         }`}
                                                     >
                                                         PRO
                                                     </button>
+
+                                                    {/* FLASH BUTTON (FAST) */}
                                                     <button
                                                         onClick={() => setTaskModel(taskKey, 'flash')}
-                                                        className={`px-2 py-1 rounded-md text-[9px] font-bold transition-all ${
-                                                            activeModel === 'flash' 
-                                                            ? 'bg-amber-100 text-amber-700 shadow-sm' 
-                                                            : 'text-slate-400 hover:text-slate-600'
+                                                        className={`flex-1 flex items-center justify-center py-1 rounded-md text-[9px] font-bold transition-all ${
+                                                            isFlash 
+                                                            ? 'bg-amber-100 text-amber-700 shadow-sm ring-1 ring-amber-200' 
+                                                            : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200'
                                                         }`}
                                                     >
                                                         FLASH
                                                     </button>
+
+                                                    {/* FLASH+ BUTTON (THINKING) */}
+                                                    <button
+                                                        onClick={() => setTaskModel(taskKey, isDefault && defaultModel !== 'pro' ? undefined as any : 'thinking')}
+                                                        className={`flex-1 flex items-center justify-center gap-0.5 py-1 rounded-md text-[9px] font-bold transition-all ${
+                                                            isThinking 
+                                                            ? 'bg-blue-100 text-blue-700 shadow-sm ring-1 ring-blue-200' 
+                                                            : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200'
+                                                        }`}
+                                                    >
+                                                        <Sparkles className="w-2.5 h-2.5" />
+                                                        PLUS
+                                                    </button>
+
                                                 </div>
                                             </div>
 
                                             {/* CHUNK LIMITS */}
-                                            <div className="col-span-4 flex gap-1 justify-end">
+                                            <div className="col-span-3 flex gap-1 justify-end">
                                                 <input 
                                                     type="number" 
                                                     placeholder={chunkDefaults.auto.toString()}
@@ -358,23 +393,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                         const val = parseInt(e.target.value);
                                                         setTaskChunkLimit(taskKey, 'auto', isNaN(val) ? 0 : val);
                                                     }}
-                                                    className={`w-12 text-[10px] p-1 border rounded text-center outline-none focus:ring-1 focus:ring-blue-500 ${
+                                                    className={`w-full text-[10px] p-1 border rounded text-center outline-none focus:ring-1 focus:ring-blue-500 ${
                                                         activeAuto ? 'bg-blue-50 border-blue-200 font-bold text-blue-700' : 'bg-slate-50 border-slate-200 text-slate-500'
                                                     }`}
                                                     title={`API Auto Limit (Default: ${chunkDefaults.auto})`}
-                                                />
-                                                <input 
-                                                    type="number" 
-                                                    placeholder={chunkDefaults.manual.toString()}
-                                                    value={activeManual || ''}
-                                                    onChange={(e) => {
-                                                        const val = parseInt(e.target.value);
-                                                        setTaskChunkLimit(taskKey, 'manual', isNaN(val) ? 0 : val);
-                                                    }}
-                                                    className={`w-12 text-[10px] p-1 border rounded text-center outline-none focus:ring-1 focus:ring-blue-500 ${
-                                                        activeManual ? 'bg-amber-50 border-amber-200 font-bold text-amber-700' : 'bg-slate-50 border-slate-200 text-slate-500'
-                                                    }`}
-                                                    title={`Manual Limit (Default: ${chunkDefaults.manual})`}
                                                 />
                                             </div>
                                         </div>
@@ -429,4 +451,4 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     </>
   );
 };
-// --- END OF FILE 418 Zeilen ---
+// --- END OF FILE 482 Zeilen ---

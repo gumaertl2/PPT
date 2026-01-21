@@ -1,6 +1,6 @@
-// 21.01.2026 15:55 - FIX: Integrated Gemini 2.5 Models & Thinking Mode (Budget -1).
+// 21.01.2026 17:30 - FIX: Aligned determineModel with "Flash+ = Thinking" logic.
 // src/services/gemini.ts
-// 18.01.2026 19:00 - FIX: Added 'modelIdOverride' to support Orchestrator routing. Validated against Zero-Build-Error policy.
+// 21.01.2026 16:45 - FIX: Enforced Thinking Mode for 'optimal' strategy. Removed temperature for Thinking.
 
 import { CONFIG } from '../data/config';
 import type { ModelType } from '../data/config'; 
@@ -118,10 +118,9 @@ export const GeminiService = {
             return modelOverrides[taskKey]! as ModelType; 
         }
 
-        // B. Fallback auf Default-Matrix aus Config
-        if (CONFIG.taskRouting.defaults[taskKey]) {
-            return CONFIG.taskRouting.defaults[taskKey]! as ModelType; 
-        }
+        // B. FIX: Default for Optimal is now FLASH (Thinking), not Config Default
+        // This ensures the Orchestrator knows we are effectively using a Flash-Class model
+        return 'flash';
     }
 
     // 4. Fallback of last resort
@@ -131,7 +130,6 @@ export const GeminiService = {
   async call<T = any>(
     prompt: string, 
     taskKey: TaskKey | null = null,
-    // NEU: Modell-ID Override vom Orchestrator (z.B. "gemini-2.5-pro:generateContent")
     modelIdOverride?: string,
     onRetryDelay?: (delay: number, msg: string) => void,
     signal?: AbortSignal
@@ -142,50 +140,70 @@ export const GeminiService = {
     const isDebug = store.aiSettings.debug;
     const taskName = taskKey || 'unknown';
     const currentStrategy = store.aiSettings.strategy;
+    const { modelOverrides } = store.aiSettings;
 
     const apiKey = SecurityService.loadApiKey();
     if (!apiKey) {
       throw new NoRetryError("Kein API-Key gefunden. Bitte Key in den Einstellungen speichern.", 401);
     }
 
-    // MODEL SELECTION: 2.5 UPGRADE LOGIC
+    // --- MODEL SELECTION LOGIC (V2.5 + Thinking Fix) ---
+    
     let selectedModelKey: ModelType = 'pro'; 
     let modelEndpoint = '';
     
-    // Dynamic Generation Config (for Thinking Mode)
-    const generationConfig: any = { 
+    // Base Config
+    let generationConfig: any = { 
       temperature: 0.4 
     };
 
-    if (modelIdOverride) {
-        // Fall A: Orchestrator Override
-        modelEndpoint = modelIdOverride;
-        selectedModelKey = modelIdOverride.toLowerCase().includes('flash') ? 'flash' : 'pro';
-    } else {
-        // Fall B: Strategy Routing (V2.5 Upgrade)
-        if (currentStrategy === 'fast') {
-            // Flash 2.5 (High Speed)
-            modelEndpoint = 'models/gemini-2.5-flash:generateContent';
-            selectedModelKey = 'flash';
-        } 
-        else if (currentStrategy === 'pro') {
-            // Pro 2.5 (Deep Analysis)
-            modelEndpoint = 'models/gemini-2.5-pro:generateContent';
-            selectedModelKey = 'pro';
-        } 
-        else {
-            // Optimal / Default -> Flash 2.5 + Thinking Mode
-            // This is the hybrid "Smart Flash" configuration
-            modelEndpoint = 'models/gemini-2.5-flash:generateContent';
-            selectedModelKey = 'flash'; // Counts against Flash Quota
-            
-            // Activate Adaptive Thinking
-            generationConfig.thinkingConfig = {
-                includeThoughts: true,
-                thinkingBudget: -1 // Dynamic/Adaptive Budget
-            };
+    // LOGIK-KERN: Welches Modell gewinnt?
+    const userHasSpecificOverride = taskKey && modelOverrides && modelOverrides[taskKey];
+
+    // 2. Entscheiden basierend auf Strategie
+    if (currentStrategy === 'fast') {
+        modelEndpoint = 'models/gemini-2.5-flash:generateContent';
+        selectedModelKey = 'flash';
+    }
+    else if (currentStrategy === 'pro') {
+        modelEndpoint = 'models/gemini-2.5-pro:generateContent';
+        selectedModelKey = 'pro';
+    }
+    else if (currentStrategy === 'optimal') {
+        // FIX: "Thinking Mode" Logik
+        
+        if (userHasSpecificOverride) {
+             // A. User will explizit PRO oder FLASH (ohne Thinking) via Matrix
+             const forcedModel = modelOverrides[taskKey]!;
+             if (forcedModel === 'pro') {
+                 modelEndpoint = 'models/gemini-2.5-pro:generateContent';
+                 selectedModelKey = 'pro';
+             } else {
+                 modelEndpoint = 'models/gemini-2.5-flash:generateContent';
+                 selectedModelKey = 'flash';
+             }
+        } else {
+             // B. Standard für "Optimal" = Flash + Thinking (Smart Flash)
+             modelEndpoint = 'models/gemini-2.5-flash:generateContent';
+             selectedModelKey = 'flash'; 
+             
+             // Activate Adaptive Thinking (Budget -1)
+             generationConfig = {
+                 thinkingConfig: {
+                    includeThoughts: true,
+                    thinkingBudget: -1 
+                 }
+                 // NO Temperature for Thinking Models!
+             };
         }
     }
+    else {
+        // Fallback
+        modelEndpoint = modelIdOverride || 'models/gemini-2.5-pro:generateContent';
+    }
+
+    // Safety Catch
+    if (!modelEndpoint && modelIdOverride) modelEndpoint = modelIdOverride;
 
     RateLimiter.checkRateLimit(selectedModelKey);
 
@@ -194,7 +212,7 @@ export const GeminiService = {
       store.logEvent({
         task: taskName,
         type: 'request',
-        model: `${selectedModelKey} (${currentStrategy})`, // Log detailed model info
+        model: `${selectedModelKey} (${currentStrategy}) [Thinking: ${!!generationConfig.thinkingConfig}]`, 
         content: prompt
       });
     }
@@ -221,7 +239,7 @@ export const GeminiService = {
           body: JSON.stringify({ 
             contents: [{ parts: [{ text: currentPrompt }] }],
             safetySettings: CONFIG.api.safetySettings,
-            generationConfig: generationConfig // Injected Dynamic Config
+            generationConfig: generationConfig 
           }),
           signal: signal
         });
@@ -256,7 +274,6 @@ export const GeminiService = {
           throw new NoRetryError(`API-Fehler: ${response.status} - ${errorBody}`, response.status, errorBody, currentPrompt);
         }
 
-        // Response Parsing
         const data = await response.json();
 
         if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content) {
@@ -269,18 +286,15 @@ export const GeminiService = {
 
         const text = data.candidates[0].content.parts[0].text;
 
-        // Validation & Auto-Repair
         const validation = validateJson<T>(text, [], (msg) => console.warn(msg));
 
         if (validation.valid && validation.data) {
           RateLimiter.recordCall(selectedModelKey);
           
-          // --- STATS TRACKING START ---
           const tokens = data.usageMetadata?.totalTokenCount || 0;
           (store as any).addUsageStats(tokens, selectedModelKey);
-          // --- STATS TRACKING END ---
 
-          // 2. LOG RESPONSE (SUCCESS)
+          // 2. LOG RESPONSE
           if (isDebug) {
             store.logEvent({
               task: taskName,
@@ -290,7 +304,7 @@ export const GeminiService = {
               meta: {
                 finishReason: data.candidates[0].finishReason,
                 tokens: data.usageMetadata, 
-                thinkingConfig: generationConfig.thinkingConfig, // Log if thinking was active
+                thinkingConfig: generationConfig.thinkingConfig,
                 attempt: attempt + 1
               }
             });
@@ -344,7 +358,6 @@ export const GeminiService = {
         if (error instanceof ServerOverloadError) throw error;
         if (error instanceof NoRetryError) throw error;
 
-        // Retry Logik
         if (attempt < INTERNAL_RETRIES) {
           const delay = 1000 * (attempt + 1);
           if (onRetryDelay) onRetryDelay(delay, "Verbindungsfehler, neuer Versuch...");
