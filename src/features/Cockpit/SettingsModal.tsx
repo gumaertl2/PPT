@@ -1,6 +1,6 @@
-// 21.01.2026 17:45 - UI: Implemented 3-Way Matrix (Pro, Fast, Thinking) with Smart Defaults.
+// 21.01.2026 18:15 - FIX: Removed unused 'ModelType' and 'activeManual' to resolve TS6133.
 // src/features/Cockpit/SettingsModal.tsx
-// 21.01.2026 17:15 - UI: Added explicit 3-Button Matrix.
+// 21.01.2026 17:45 - UI: Implemented 3-Way Matrix (Pro, Fast, Thinking) with Smart Defaults.
 
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -28,7 +28,7 @@ import { InfoModal } from '../Welcome/InfoModal';
 import { getInfoText } from '../../data/Texts';
 import type { LanguageCode, TaskKey } from '../../core/types';
 import { CONFIG } from '../../data/config';
-import type { ModelType } from '../../data/config';
+// FIX: Removed unused 'ModelType' import
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -321,7 +321,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                     const chunkOverrides = aiSettings.chunkOverrides?.[taskKey] || {};
                                     
                                     const activeAuto = chunkOverrides.auto;
-                                    const activeManual = chunkOverrides.manual;
+                                    // FIX: Removed unused 'activeManual'
 
                                     const label = taskKey.charAt(0).toUpperCase() + taskKey.slice(1);
 
