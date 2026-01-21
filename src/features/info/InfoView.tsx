@@ -1,5 +1,6 @@
-// 20.01.2026 16:55 - FIX: Removed unused 'MapIcon' import to satisfy Vercel Build (TS6133).
+// 21.01.2026 10:48 - FIX: Final flat embedded report style. No Modal, No Overlay classes, No Kulinarik.
 // src/features/info/InfoView.tsx
+// 21.01.2026 10:45 - FIX: Resolved naming conflict between Lucide Map and JS Map constructor.
 
 import React, { useMemo } from 'react';
 import { useTripStore } from '../../store/useTripStore';
@@ -9,7 +10,8 @@ import {
   Info, 
   Car, 
   Phone,
-  Shield
+  Shield,
+  Map as MapIcon 
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { INTEREST_DATA } from '../../data/interests';
@@ -22,16 +24,20 @@ export const InfoView: React.FC = () => {
   const { t } = useTranslation();
   const { analysis, data } = project;
 
-  // 1. QUELLE A: Echte Info-Kapitel (V40 Standard: infoAutor)
+  // 1. QUELLE A: Echte Info-Kapitel (V40 Standard: infoAutor) + Filter Kulinarik
   const infoChapters = useMemo(() => {
-    // Versuche alle Pfade, wo der InfoAutor geschrieben haben könnte
     const v40Chapters = (analysis as any)?.infoAutor?.chapters || [];
-    const legacyInfos = data.content?.infos || []; // Legacy aus V3
+    const legacyInfos = data.content?.infos || []; 
     
-    // Merge und Deduplizieren basierend auf Titel
     const all = [...v40Chapters, ...legacyInfos];
-    const unique = new Map();
-    all.forEach(c => unique.set(c.title, c));
+    const unique = new Map(); // FIX: Now correctly refers to JS Map constructor
+    
+    all.forEach(c => {
+      // FIX: Strikter Ausschluss des Kulinarik-Blocks (Redaktionsvorgabe PDF)
+      if (c.title && !c.title.toLowerCase().includes('kulinarik')) {
+        unique.set(c.title, c);
+      }
+    });
     return Array.from(unique.values());
   }, [analysis, data]);
 
@@ -41,115 +47,130 @@ export const InfoView: React.FC = () => {
     return allPlaces.filter((p: any) => INFO_CATEGORIES.includes(p.category));
   }, [data.places]);
 
+  // PDF-Style Parser für fließenden Text (V30.3 Struktur)
+  const renderReportLine = (line: string, idx: number) => {
+    const trimmed = line.trim();
+    if (!trimmed) return <div key={idx} className="h-4" />;
+
+    // Kapitel-Überschriften (z.B. "7. Organisatorisches")
+    if (/^\d+\./.test(trimmed)) {
+      return (
+        <h2 key={idx} className="text-2xl font-black text-slate-900 mt-10 mb-6 border-b-2 border-slate-900 pb-2 uppercase tracking-tighter">
+          {trimmed}
+        </h2>
+      );
+    }
+
+    // Sektions-Header (z.B. "Teil 1:")
+    if (trimmed.toLowerCase().includes('teil') && trimmed.includes(':')) {
+      return (
+        <h3 key={idx} className="text-lg font-bold text-blue-900 mt-8 mb-4">
+          {trimmed}
+        </h3>
+      );
+    }
+
+    // Bullet Points mit fettem Label (z.B. "• Zoll: ...")
+    if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
+      const parts = trimmed.split(':');
+      if (parts.length > 1) {
+        const label = parts[0].replace(/^[•-]\s*/, '');
+        return (
+          <div key={idx} className="flex gap-2 ml-4 mb-3 text-slate-700 leading-relaxed text-sm">
+            <span className="font-bold text-slate-900">•</span>
+            <p>
+              <span className="font-bold text-slate-900">{label}:</span>
+              <span>{parts.slice(1).join(':')}</span>
+            </p>
+          </div>
+        );
+      }
+    }
+
+    // Standard-Bericht-Text
+    return (
+      <p key={idx} className="text-sm text-slate-700 leading-relaxed mb-4 text-justify">
+        {trimmed}
+      </p>
+    );
+  };
+
   const hasData = infoChapters.length > 0 || infoPlaces.length > 0;
 
   if (!hasData) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-8 text-center animate-fade-in">
-        <div className="bg-slate-100 p-6 rounded-full mb-6">
-            <Book className="w-12 h-12 text-slate-300" />
-        </div>
-        <h2 className="text-xl font-bold text-slate-700 mb-2">
-            {t('info.no_data_title', { defaultValue: 'Noch keine Reiseinfos' })}
-        </h2>
-        <p className="text-slate-500 max-w-md">
-            {t('info.no_data_desc', { defaultValue: 'Der Info-Autor hat noch keine Kapitel erstellt. Starten Sie den Task "Reiseinfos", um Verkehrsregeln, Sicherheitshinweise und kulturelle Tipps zu erhalten.' })}
-        </p>
+      <div className="p-12 text-center animate-fade-in text-slate-400">
+        <Book className="w-12 h-12 mx-auto mb-4 opacity-20" />
+        <p>{t('info.no_data', { defaultValue: 'Keine Reiseinformationen vorhanden.' })}</p>
       </div>
     );
   }
 
-  // Helper für Icon-Wahl
-  const getIconForTitle = (title: string) => {
-      const lower = title.toLowerCase();
-      if (lower.includes('auto') || lower.includes('verkehr') || lower.includes('driving')) return <Car className="w-5 h-5 text-blue-500" />;
-      if (lower.includes('sicherheit') || lower.includes('notfall') || lower.includes('safety')) return <Shield className="w-5 h-5 text-red-500" />;
-      if (lower.includes('kultur') || lower.includes('culture')) return <Book className="w-5 h-5 text-amber-500" />;
-      if (lower.includes('kontakt') || lower.includes('telefon')) return <Phone className="w-5 h-5 text-green-500" />;
-      return <Info className="w-5 h-5 text-slate-400" />;
-  };
-
   return (
-    <div className="max-w-4xl mx-auto pb-20 p-4 md:p-8 animate-fade-in space-y-8">
-      
-      {/* HEADER */}
-      <div className="flex items-center gap-4 mb-8">
-        <div className="bg-blue-600 p-3 rounded-xl shadow-lg shadow-blue-200">
-            <Info className="w-8 h-8 text-white" />
+    <div className="animate-fade-in w-full">
+      {/* FLAT REPORT LAYOUT - No shell, no shadow, just content */}
+      <div className="max-w-3xl mx-auto pt-4 pb-20 px-4 md:px-0">
+        
+        {/* DOCUMENT HEADER */}
+        <div className="border-b-4 border-slate-900 pb-6 mb-12">
+          <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase mb-2 leading-none">
+              {t('info.title', { defaultValue: 'Reise-Informationen' })}
+          </h1>
+          <p className="text-lg text-slate-500 font-medium italic">
+              {t('info.subtitle', { defaultValue: 'Gesammelte Fakten, Regeln & Tipps für Ihre Reise.' })}
+          </p>
         </div>
-        <div>
-            <h1 className="text-2xl font-black text-slate-800">
-                {t('info.title', { defaultValue: 'Reise-Informationen' })}
-            </h1>
-            <p className="text-slate-500">
-                {t('info.subtitle', { defaultValue: 'Alles Wichtige für unterwegs: Regeln, Sicherheit & Tipps.' })}
-            </p>
-        </div>
-      </div>
 
-      {/* 1. RENDER INFO CHAPTERS (Markdown / Text) */}
-      <div className="grid gap-6">
-        {infoChapters.map((chapter: any, index: number) => (
-            <div key={index} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="bg-slate-50 p-4 border-b border-slate-100 flex items-center gap-3">
-                    {getIconForTitle(chapter.title || '')}
-                    <h3 className="font-bold text-lg text-slate-700">
-                        {chapter.title}
-                    </h3>
+        {/* CONTINUOUS REPORT BODY */}
+        <div className="space-y-4">
+          {infoChapters.map((chapter: any) => (
+              <div key={chapter.title} className="mb-16">
+                  {/* Subtle Separator instead of Card */}
+                  <div className="flex items-center gap-2 mb-6 opacity-20">
+                     <span className="text-[9px] font-black uppercase tracking-[0.3em] whitespace-nowrap">{chapter.title}</span>
+                     <div className="h-px w-full bg-slate-900" />
+                  </div>
+                  
+                  <div className="report-content">
+                      {(chapter.content || chapter.text || '').split('\n').map((line: string, i: number) => 
+                        renderReportLine(line, i)
+                      )}
+                  </div>
+              </div>
+          ))}
+        </div>
+
+        {/* APPENDIX (Fallback Places) */}
+        {infoPlaces.length > 0 && (
+            <div className="mt-24 pt-12 border-t border-slate-200">
+                <div className="flex items-center gap-2 mb-8">
+                    <AlertTriangle className="w-4 h-4 text-amber-500" />
+                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                        {t('info.additional_items', { defaultValue: 'Anhang: Ortshinweise' })}
+                    </span>
                 </div>
-                <div className="p-6 prose prose-slate max-w-none text-slate-600">
-                    {/* Simple Text Rendering (expandable to Markdown if library available) */}
-                    {chapter.content ? (
-                        <div className="whitespace-pre-line leading-relaxed">
-                            {chapter.content}
-                        </div>
-                    ) : (
-                        <p>{chapter.text}</p>
-                    )}
+                
+                <div className="space-y-10">
+                    {infoPlaces.map((place: any) => {
+                        const catLabel = INTEREST_DATA[place.category]?.label?.de || place.category;
+                        return (
+                            <div key={place.id} className="border-l-2 border-slate-200 pl-6">
+                                <h4 className="font-bold text-slate-900 text-base mb-1">{place.name}</h4>
+                                <p className="text-sm text-slate-600 mb-2 leading-relaxed italic">
+                                    {place.description || place.reasoning || place.shortDesc}
+                                </p>
+                                <div className="text-[10px] font-black text-slate-300 uppercase tracking-tighter">
+                                    Kategorie: {catLabel}
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
-        ))}
+        )}
       </div>
-
-      {/* 2. RENDER FALLBACK PLACES (Items from Guide) */}
-      {infoPlaces.length > 0 && (
-          <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-2 mt-8">
-                  <AlertTriangle className="w-4 h-4 text-amber-500" />
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                      {t('info.additional_items', { defaultValue: 'Weitere Hinweise' })}
-                  </span>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {infoPlaces.map((place: any) => {
-                      // Resolve localized label for category badge
-                      const catLabel = INTEREST_DATA[place.category]?.label?.de || place.category;
-                      
-                      return (
-                          <div key={place.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex gap-4 hover:shadow-md transition-shadow">
-                              <div className="bg-amber-50 w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 text-amber-600">
-                                  <Info className="w-5 h-5" />
-                              </div>
-                              <div className="min-w-0">
-                                  <h4 className="font-bold text-slate-800 text-sm mb-1 truncate" title={place.name}>
-                                    {place.name}
-                                  </h4>
-                                  <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed">
-                                      {place.description || place.reasoning || place.shortDesc}
-                                  </p>
-                                  <div className="mt-2 text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full inline-block font-medium">
-                                      {catLabel}
-                                  </div>
-                              </div>
-                          </div>
-                      );
-                  })}
-              </div>
-          </div>
-      )}
-
     </div>
   );
 };
-// --- END OF FILE 134 Zeilen ---
+
+// --- END OF FILE 149 Zeilen ---

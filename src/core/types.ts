@@ -1,9 +1,12 @@
-// 21.01.2026 03:30 - FIX: Added missing Type Definitions for TourGuide & IdeenScout (Zero-Build-Error).
+// 21.01.2026 11:55 - FIX: Full Restore of types.ts plus InfoAutor & CockpitViewMode (Zero-Build-Error).
 // src/core/types.ts
-// 20.01.2026 17:15 - FIX: Added missing Task Keys (tourGuide, transferPlanner) to WorkflowStepId.
+// 21.01.2026 03:30 - FIX: Added missing Type Definitions for TourGuide & IdeenScout (Zero-Build-Error).
 
 // --- GENERAL TYPES ---
 export type LanguageCode = 'de' | 'en' | 'es' | 'fr' | 'it' | 'nl' | 'pl' | 'pt' | 'ru' | 'tr' | 'ja' | 'zh';
+
+// NEW: Centralized ViewModes for Cockpit Navigation
+export type CockpitViewMode = 'wizard' | 'analysis' | 'sights' | 'routeArchitect' | 'info';
 
 export interface LocalizedContent {
   de: string;
@@ -253,6 +256,16 @@ export interface TripUserProfile {
 
 // --- ANALYSIS RESULTS (STRICT V40 ENGLISH) ---
 
+export interface InfoChapter {
+  title: string;
+  content?: string;
+  text?: string; 
+}
+
+export interface InfoAutorResult {
+  chapters: InfoChapter[];
+}
+
 export interface ChefPlanerResult {
   metadata: {
     analyzedAt: string;
@@ -296,20 +309,20 @@ export interface ChefPlanerResult {
 
 export interface RouteProposal {
   id?: string;
-  title: string;          // former: routenName
-  description?: string;   // former: charakter
+  title: string;           // former: routenName
+  description?: string;    // former: charakter
   
   // Computed values
-  total_km?: number;      
+  total_km?: number;       
   total_drive_time?: number; 
   
-  stages?: Array<{        // former: uebernachtungsorte
+  stages?: Array<{         // former: uebernachtungsorte
       location_name: string;
       nights: number | string;
       reasoning?: string;
   }>;
   
-  waypoints?: Array<{     // former: ankerpunkte
+  waypoints?: Array<{      // former: ankerpunkte
     location: string;
     address?: string;
   }>;
@@ -412,6 +425,7 @@ export interface TripProject {
     // FIX: Added new analysis results
     tourGuide?: TourGuideResult | null;
     ideenScout?: IdeenScoutResult | null;
+    infoAutor?: InfoAutorResult | null; // NEW: Wired up InfoAutor
   };
   data: {
     places: Record<string, Place[]>; 
@@ -422,4 +436,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 450 Zeilen ---
+// --- END OF FILE 482 Zeilen ---

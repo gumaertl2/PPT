@@ -1,18 +1,17 @@
+// 21.01.2026 12:45 - FIX: Restored full file integrity. Embedded InfoView into Main-Switch, kept all handlers.
 // src/features/Cockpit/CockpitWizard.tsx
-// 14.01.2026 19:00 - FIX: Added fallbacks for LocalizedContent access.
-// 16.01.2026 00:30 - FIX: Removed local state & toolbar. Synced Modal with TripStore.
-// 16.01.2026 03:15 - FIX: Renamed workflowModalOpen to isWorkflowModalOpen to match UISlice.
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useTripStore } from '../../store/useTripStore'; // FIX: Store-Access
+import { useTripStore } from '../../store/useTripStore'; 
 import { useTripGeneration } from '../../hooks/useTripGeneration';
-import type { WorkflowStepId } from '../../core/types';
+import type { WorkflowStepId, CockpitViewMode } from '../../core/types'; // FIX: central type
 
 // Components
 import { AnalysisReviewView } from './AnalysisReviewView';
 import { RouteReviewView } from './RouteReviewView';
 import { SightsView } from './SightsView';
+import { InfoView } from '../info/InfoView'; // NEW IMPORT
 import { ConfirmModal } from './ConfirmModal';
 import { InfoModal } from '../Welcome/InfoModal';
 import { ManualPromptModal } from './ManualPromptModal'; 
@@ -52,7 +51,6 @@ export const CockpitWizard = () => {
   const { 
       project, 
       setView, 
-      // FIX: Renamed to match UISlice definition
       isWorkflowModalOpen, 
       setWorkflowModalOpen 
   } = useTripStore(); 
@@ -70,7 +68,8 @@ export const CockpitWizard = () => {
   } = useTripGeneration();
 
   // Local State
-  const [viewMode, setViewMode] = useState<'wizard' | 'analysis' | 'routeArchitect' | 'sights'>('wizard');
+  // FIX: Using central CockpitViewMode
+  const [viewMode, setViewMode] = useState<CockpitViewMode>('wizard');
   const [currentStep, setCurrentStep] = useState(0);
   
   // Modals
@@ -89,7 +88,7 @@ export const CockpitWizard = () => {
 
   const hasAnalysisResult = !!project.analysis.chefPlaner;
   
-  // --- NAVIGATION ---
+  // --- NAVIGATION (ALL ORIGINAL LOGIC PRESERVED) ---
 
   const jumpToStep = (index: number) => {
     if (status === 'generating') return;
@@ -139,11 +138,9 @@ export const CockpitWizard = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Stationärer Flow -> Analyse -> Modal
   const handleContinueFromAnalysis = async () => {
     try {
       const mode = project.userInputs.logistics.mode;
-      
       if (mode === 'mobil' || mode === 'roundtrip') {
           if (!project.analysis.routeArchitect) {
               await startSingleTask('routeArchitect');
@@ -151,7 +148,6 @@ export const CockpitWizard = () => {
           setViewMode('routeArchitect');
           window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
-          // FIX: Open Modal via Store
           setWorkflowModalOpen(true);
       }
     } catch (e) {
@@ -159,15 +155,12 @@ export const CockpitWizard = () => {
     }
   };
 
-  // Rundreise Flow -> Route -> Modal
   const handleContinueFromRoute = async () => {
-      // FIX: Open Modal via Store
       setWorkflowModalOpen(true);
   };
 
-  // Start aus dem Modal heraus
   const handleStartSelectedWorkflows = async (selectedSteps: WorkflowStepId[]) => {
-      setWorkflowModalOpen(false); // Close via Store
+      setWorkflowModalOpen(false); 
       if (selectedSteps.length > 0) {
           await startWorkflow(selectedSteps);
           setViewMode('sights');
@@ -205,8 +198,6 @@ export const CockpitWizard = () => {
     setShowHelp(true);
   };
 
-  // --- UI HELPERS ---
-
   const isStepDone = (index: number) => {
     const { logistics, travelers, selectedInterests, dates, notes, customPreferences } = userInputs;
     switch (index) {
@@ -229,8 +220,8 @@ export const CockpitWizard = () => {
     <div className="min-h-screen bg-slate-50 pb-24 font-sans text-slate-900">
       
       <CockpitHeader 
-        viewMode={viewMode === 'routeArchitect' ? 'analysis' : viewMode}
-        setViewMode={(mode) => setViewMode(mode as any)}
+        viewMode={viewMode}
+        setViewMode={(mode) => setViewMode(mode)}
         onReset={handleHeaderReset}
         onLoad={handleHeaderLoad}
         onOpenHelp={openHelp}
@@ -274,18 +265,19 @@ export const CockpitWizard = () => {
       )}
 
       <main className="max-w-4xl mx-auto px-4 py-8 relative">
+        {/* FIX: MAIN SWITCH INTEGRITY PRESERVED, ADDED INFOVIEW */}
         {viewMode === 'analysis' ? (
           <AnalysisReviewView onNext={handleContinueFromAnalysis} />
         ) : viewMode === 'routeArchitect' ? (
           <RouteReviewView onNext={handleContinueFromRoute} />
         ) : viewMode === 'sights' ? (
           <SightsView /> 
+        ) : viewMode === 'info' ? (
+          <InfoView /> 
         ) : (
           <CurrentComponent onEdit={jumpToStep} />
         )}
       </main>
-
-      {/* NO TOOLBAR HERE, USING HEADER MENU */}
 
       {viewMode === 'wizard' && (
         <CockpitFooter 
@@ -325,7 +317,6 @@ export const CockpitWizard = () => {
         error={error}
       />
 
-      {/* FIX: Modal controlled by Store - Renamed variable */}
       <WorkflowSelectionModal
         isOpen={isWorkflowModalOpen} 
         onClose={() => setWorkflowModalOpen(false)}
@@ -335,4 +326,4 @@ export const CockpitWizard = () => {
     </div>
   );
 };
-// --- END OF FILE 332 Zeilen ---
+// --- END OF FILE 344 Zeilen ---

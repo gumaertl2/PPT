@@ -1,8 +1,9 @@
-// 21.01.2026 02:15 - FIX: Implemented step-by-step Detail Toggle (+/-) for Compact/Standard/Details.
+// 21.01.2026 09:55 - FIX: Appended structured detail appendix to original standard view with Close & Scroll logic.
 // src/features/Cockpit/SightCard.tsx
+// 21.01.2026 02:15 - FIX: Implemented step-by-step Detail Toggle (+/-) for Compact/Standard/Details.
 // 21.01.2026 01:25 - FIX: Added full text display support for 'details' view level.
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react'; // FIX: useRef added
 import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
 // FIX: Import für Übersetzung
@@ -17,7 +18,8 @@ import {
   Minus, 
   Globe, 
   Search, 
-  Map as MapIcon
+  Map as MapIcon,
+  ChevronUp // FIX: Added for Close Button
 } from 'lucide-react';
 
 interface SightCardProps {
@@ -35,6 +37,9 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   const { t, i18n } = useTranslation(); // FIX: i18n added
   const { uiState, updatePlace, deletePlace } = useTripStore();
   
+  // FIX: Scroll Anchor for "Close & Scroll" Logic
+  const cardRef = useRef<HTMLDivElement>(null);
+
   // FIX: Local state initialized with 'kompakt'
   const [viewLevel, setViewLevel] = useState<ViewLevel>('kompakt');
   
@@ -152,6 +157,14 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     }
   };
 
+  // FIX: NEW Logic for Close Details (Return to standard level and scroll to top)
+  const handleCloseDetails = () => {
+    setViewLevel('standard');
+    setTimeout(() => {
+      cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  };
+
   const renderStars = () => {
     if (!rating) return null;
     return (
@@ -259,7 +272,8 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
 
   return (
     <>
-      <div className={`bg-white rounded-lg shadow-sm border p-3 mb-3 transition-all hover:shadow-md ${borderClass}`}>
+      {/* FIX: cardRef applied to outer container */}
+      <div ref={cardRef} className={`bg-white rounded-lg shadow-sm border p-3 mb-3 transition-all hover:shadow-md ${borderClass}`}>
         
         {/* ROW 1: HEADER */}
         <div className="flex justify-between items-start mb-1">
@@ -382,6 +396,58 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
                  {highlightText(data.logistics)}
                </div>
             )}
+
+            {/* FIX: APPEND STRUCTURED PDF-STYLE DETAILS ONLY IF ISDETAILED (Stage 3) */}
+            {isDetailed && (
+              <div className="mt-6 pt-6 border-t-2 border-dashed border-slate-100 space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                
+                {/* STRUCTURED DESCRIPTION PARSER (PDF Redaktionsanweisung) */}
+                <div className="space-y-4 text-[13px] leading-relaxed text-slate-800 px-1">
+                   {description.split(/\n\n/).map((section: string, idx: number) => {
+                      const content = section.trim();
+                      if (!content) return null;
+
+                      // Detection of Headers (Markdown ### or Keywords like 'Teil 1' or 'Top 5')
+                      const isHeader = content.startsWith('###') || 
+                                       content.toLowerCase().startsWith('teil') || 
+                                       content.toLowerCase().includes('top 5') ||
+                                       content.toLowerCase().includes('fakten');
+
+                      if (isHeader) {
+                          const cleanHeader = content.replace(/^###\s*/, '');
+                          return (
+                            <h4 key={idx} className="font-black text-blue-900 text-[11px] uppercase tracking-wider border-l-4 border-blue-600 pl-3 mt-8 mb-3 bg-slate-50 py-1 rounded-r shadow-sm">
+                               {highlightText(cleanHeader)}
+                            </h4>
+                          );
+                      }
+
+                      // Detection of List Items (e.g., "1. Titel")
+                      if (/^\d+\./.test(content)) {
+                          return (
+                            <div key={idx} className="pl-4 py-2 bg-white border border-slate-100 rounded-lg shadow-sm italic text-xs text-slate-700 border-l-4 border-slate-300 ml-2">
+                               {highlightText(content)}
+                            </div>
+                          );
+                      }
+
+                      // Normal Paragraph
+                      return <p key={idx} className="mb-3 text-xs leading-normal">{highlightText(content)}</p>;
+                   })}
+                </div>
+
+                {/* CLOSE BUTTON (Action Anchor) */}
+                <div className="pt-8 flex justify-center pb-4">
+                   <button 
+                      onClick={handleCloseDetails}
+                      className="flex items-center gap-2 px-10 py-2.5 bg-slate-800 hover:bg-black text-white rounded-full text-[10px] font-black transition-all shadow-lg hover:shadow-xl active:scale-95 group"
+                   >
+                      <ChevronUp className="w-4 h-4 group-hover:-translate-y-1 transition-transform" />
+                      {t('sights.close_details', { defaultValue: 'DETAILS SCHLIESSEN' })}
+                   </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -405,4 +471,4 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     </>
   );
 };
-// --- END OF FILE 378 Zeilen ---
+// --- END OF FILE 454 Zeilen ---
