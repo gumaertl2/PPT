@@ -1,5 +1,6 @@
-// 21.01.2026 00:30 - FIX: Enforced Strict JSON Protocol to prevent "Chatty AI" preambles (Flash/Pro compatible).
+// 21.01.2026 23:00 - FIX: Added "ID Integrity Protocol" to SYSTEM_GUARD to prevent Thinking Models from hallucinating new IDs.
 // src/core/prompts/PromptBuilder.ts
+// 21.01.2026 00:30 - FIX: Enforced Strict JSON Protocol to prevent "Chatty AI" preambles (Flash/Pro compatible).
 // 20.01.2026 17:50 - REFACTOR: "Operation Clean Sweep" - Updated SYSTEM_GUARD to enforce English Keys.
 // 19.01.2026 10:00 - SEC: Added SYSTEM_GUARD to prevent JSON Key Translation (Strict Protocol).
 // 17.01.2026 23:00 - ARCH: Enhanced Builder with centralized OS and Self-Check patterns for SOTA prompting.
@@ -27,6 +28,7 @@ export class PromptBuilder {
 4. **STRUCTURE PROTECTION:** You must NEVER translate **JSON KEYS**.
    - If the schema defines '{ "routes": ... }', you MUST NOT answer with '{ "routen": ... }'.
    - Strictly adhere to the keys from the output schema.
+5. **DATA INTEGRITY (IDs):** If input data contains IDs, you MUST retain them exactly. Do not generate new IDs unless explicitly asked.
 Context: The frontend crashes if a key is translated.
 ---
 `.trim();
@@ -92,4 +94,4 @@ Context: The frontend crashes if a key is translated.
     return this.parts.join('\n\n');
   }
 }
-// --- END OF FILE 90 Zeilen ---
+// --- END OF FILE 93 Zeilen ---
