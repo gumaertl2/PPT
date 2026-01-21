@@ -1,6 +1,6 @@
-// 21.01.2026 18:00 - FIX: Removed double 'models/' prefix causing 404 errors.
+// 21.01.2026 18:30 - FIX: Added aggressive JSON extraction to handle Thinking Mode verbosity.
 // src/services/gemini.ts
-// 21.01.2026 17:30 - FIX: Aligned determineModel with "Flash+ = Thinking" logic.
+// 21.01.2026 18:00 - FIX: Removed double 'models/' prefix causing 404 errors.
 
 import { CONFIG } from '../data/config';
 import type { ModelType } from '../data/config'; 
@@ -9,6 +9,21 @@ import type { TaskKey } from '../core/types';
 import { SecurityService } from './security';
 import { validateJson } from './validation';
 import { useTripStore } from '../store/useTripStore'; 
+
+// --- HELPER: JSON EXTRACTION ---
+// Schneidet alles weg, was kein JSON ist (z.B. Thinking-Prosa)
+function extractJsonBlock(text: string): string {
+  // 1. Suche nach dem ersten '{' und dem letzten '}'
+  const firstOpen = text.indexOf('{');
+  const lastClose = text.lastIndexOf('}');
+
+  if (firstOpen !== -1 && lastClose !== -1 && lastClose > firstOpen) {
+    return text.substring(firstOpen, lastClose + 1);
+  }
+  
+  // Fallback: Wenn kein Block gefunden, gib Original zurück (damit validateJson den Fehler wirft)
+  return text;
+}
 
 // --- FEHLER-KLASSEN ---
 
@@ -146,7 +161,7 @@ export const GeminiService = {
       throw new NoRetryError("Kein API-Key gefunden. Bitte Key in den Einstellungen speichern.", 401);
     }
 
-    // --- MODEL SELECTION LOGIC (V2.5 + Thinking Fix) ---
+    // --- MODEL SELECTION LOGIC ---
     
     let selectedModelKey: ModelType = 'pro'; 
     let modelEndpoint = '';
@@ -156,57 +171,44 @@ export const GeminiService = {
       temperature: 0.4 
     };
 
-    // LOGIK-KERN: Welches Modell gewinnt?
     const userHasSpecificOverride = taskKey && modelOverrides && modelOverrides[taskKey];
 
-    // 2. Entscheiden basierend auf Strategie
     if (currentStrategy === 'fast') {
-        // FIX: Removed 'models/' prefix as BaseURL already includes it
         modelEndpoint = 'gemini-2.5-flash:generateContent';
         selectedModelKey = 'flash';
     }
     else if (currentStrategy === 'pro') {
-        // FIX: Removed 'models/' prefix
         modelEndpoint = 'gemini-2.5-pro:generateContent';
         selectedModelKey = 'pro';
     }
     else if (currentStrategy === 'optimal') {
-        // FIX: "Thinking Mode" Logik
-        
+        // Thinking Mode Logic
         if (userHasSpecificOverride) {
-             // A. User will explizit PRO oder FLASH (ohne Thinking) via Matrix
              const forcedModel = modelOverrides[taskKey]!;
              if (forcedModel === 'pro') {
-                 // FIX: Removed 'models/' prefix
                  modelEndpoint = 'gemini-2.5-pro:generateContent';
                  selectedModelKey = 'pro';
              } else {
-                 // FIX: Removed 'models/' prefix
                  modelEndpoint = 'gemini-2.5-flash:generateContent';
                  selectedModelKey = 'flash';
              }
         } else {
-             // B. Standard für "Optimal" = Flash + Thinking (Smart Flash)
-             // FIX: Removed 'models/' prefix
+             // Optimal Default = Flash + Thinking
              modelEndpoint = 'gemini-2.5-flash:generateContent';
              selectedModelKey = 'flash'; 
              
-             // Activate Adaptive Thinking (Budget -1)
              generationConfig = {
                  thinkingConfig: {
                     includeThoughts: true,
                     thinkingBudget: -1 
                  }
-                 // NO Temperature for Thinking Models!
              };
         }
     }
     else {
-        // Fallback
         modelEndpoint = modelIdOverride || 'gemini-2.5-pro:generateContent';
     }
 
-    // Safety Catch
     if (!modelEndpoint && modelIdOverride) modelEndpoint = modelIdOverride;
 
     RateLimiter.checkRateLimit(selectedModelKey);
@@ -228,7 +230,6 @@ export const GeminiService = {
     const MAX_REPAIR_ATTEMPTS = 2;
     const INTERNAL_RETRIES = 1;
 
-    // Dev-Log
     if (import.meta.env.DEV) {
       console.log(`>>> API CALL [${currentStrategy}] -> ${modelEndpoint}`, { apiUrl, generationConfig });
     }
@@ -248,15 +249,11 @@ export const GeminiService = {
           signal: signal
         });
 
-        // HTTP Error Handling
         if (!response.ok) {
           const errorBody = await response.text();
           
           if (response.status === 404) {
-             throw new NoRetryError(
-               `Modell nicht gefunden (404). URL: ${modelEndpoint}. Bitte prüfen, ob der API-Key Zugriff auf Gemini 2.5 hat.`, 
-               404, errorBody, currentPrompt
-             );
+             throw new NoRetryError(`Modell nicht gefunden (404). URL: ${modelEndpoint}`, 404, errorBody, currentPrompt);
           }
 
           if (response.status === 429) {
@@ -288,37 +285,37 @@ export const GeminiService = {
           throw new NoRetryError("Leere Antwort von der KI erhalten.", 500, JSON.stringify(data), currentPrompt);
         }
 
-        const text = data.candidates[0].content.parts[0].text;
+        const rawText = data.candidates[0].content.parts[0].text;
+        
+        // FIX: Extract JSON from potentially chatty Thinking output
+        const cleanText = extractJsonBlock(rawText);
 
-        const validation = validateJson<T>(text, [], (msg) => console.warn(msg));
+        const validation = validateJson<T>(cleanText, [], (msg) => console.warn(msg));
 
         if (validation.valid && validation.data) {
           RateLimiter.recordCall(selectedModelKey);
-          
           const tokens = data.usageMetadata?.totalTokenCount || 0;
           (store as any).addUsageStats(tokens, selectedModelKey);
 
-          // 2. LOG RESPONSE
           if (isDebug) {
             store.logEvent({
               task: taskName,
               type: 'response',
               model: selectedModelKey,
-              content: text,
+              content: cleanText, // Log cleaned JSON
               meta: {
                 finishReason: data.candidates[0].finishReason,
                 tokens: data.usageMetadata, 
                 thinkingConfig: generationConfig.thinkingConfig,
-                attempt: attempt + 1
+                rawResponseSnippet: rawText.substring(0, 100) + "..." // Log start of raw response for debug
               }
             });
           }
 
           return validation.data;
         } else {
-          console.warn("Ungültiges JSON. Starte Reparatur...", text);
+          console.warn("Ungültiges JSON. Starte Reparatur...", cleanText);
           
-          // 3. LOG REPAIR ATTEMPT
           if (isDebug) {
              store.logEvent({
                task: taskName,
@@ -326,7 +323,7 @@ export const GeminiService = {
                model: selectedModelKey,
                content: `JSON Validation Failed. Starting Repair Attempt ${repairAttempts + 1}.`,
                meta: {
-                 invalidJson: text,
+                 invalidJson: cleanText,
                  error: validation.error
                }
              });
@@ -334,27 +331,27 @@ export const GeminiService = {
           
           if (repairAttempts < MAX_REPAIR_ATTEMPTS) {
             repairAttempts++;
-            currentPrompt = `SYSTEM ERROR: Invalid JSON received. You must fix this JSON:\n${text}\n\nError: ${validation.error}\n\nReturn ONLY valid JSON.`;
-            throw new ApiError(`JSON Validierung fehlgeschlagen.`, 422, text, currentPrompt);
+            // FIX: Stronger Repair Prompt for Thinking Models
+            currentPrompt = `SYSTEM ERROR: You returned TEXT instead of JSON. 
+            Stop chatting. Stop explaining. 
+            Output ONLY the raw JSON object for this data:\n${cleanText}\n\nError: ${validation.error}`;
+            
+            throw new ApiError(`JSON Validierung fehlgeschlagen.`, 422, cleanText, currentPrompt);
           } else {
-            throw new NoRetryError(`JSON Reparatur gescheitert.`, 422, text, currentPrompt);
+            throw new NoRetryError(`JSON Reparatur gescheitert.`, 422, cleanText, currentPrompt);
           }
         }
 
       } catch (error) {
         if (error instanceof UserAbortError) throw error;
         
-        // 4. LOG ERROR
         if (isDebug) {
            store.logEvent({
              task: taskName,
              type: 'error',
              model: selectedModelKey,
              content: (error as Error).message,
-             meta: {
-               rawError: error,
-               attempt: attempt + 1
-             }
+             meta: { rawError: error, attempt: attempt + 1 }
            });
         }
 
@@ -375,4 +372,4 @@ export const GeminiService = {
     throw new Error("Unbekannter Fehler im API-Loop.");
   }
 };
-// --- END OF FILE 332 Zeilen ---
+// --- END OF FILE 360 Zeilen ---
