@@ -1,17 +1,13 @@
-// 21.01.2026 10:48 - FIX: Final flat embedded report style. No Modal, No Overlay classes, No Kulinarik.
+// 21.01.2026 13:20 - FIX: Removed unused Lucide icons (TS6133). Maintained full integrity.
 // src/features/info/InfoView.tsx
-// 21.01.2026 10:45 - FIX: Resolved naming conflict between Lucide Map and JS Map constructor.
+// 21.01.2026 10:48 - FIX: Final flat embedded report style. No Modal, No Overlay classes, No Kulinarik.
 
 import React, { useMemo } from 'react';
 import { useTripStore } from '../../store/useTripStore';
 import { 
   Book, 
-  AlertTriangle, 
-  Info, 
-  Car, 
-  Phone,
-  Shield,
-  Map as MapIcon 
+  AlertTriangle 
+  // FIX: Removed unused imports Info, Car, Phone, Shield, MapIcon (TS6133)
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { INTEREST_DATA } from '../../data/interests';

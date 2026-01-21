@@ -1,11 +1,11 @@
-// 21.01.2026 12:45 - FIX: Restored full file integrity. Embedded InfoView into Main-Switch, kept all handlers.
+// 21.01.2026 13:30 - FIX: Verified import type for CockpitViewMode (Zero-Error Check).
 // src/features/Cockpit/CockpitWizard.tsx
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTripStore } from '../../store/useTripStore'; 
 import { useTripGeneration } from '../../hooks/useTripGeneration';
-import type { WorkflowStepId, CockpitViewMode } from '../../core/types'; // FIX: central type
+import type { WorkflowStepId, CockpitViewMode } from '../../core/types'; // FIX: import type used
 
 // Components
 import { AnalysisReviewView } from './AnalysisReviewView';

@@ -1,4 +1,4 @@
-// 21.01.2026 12:30 - FIX: Restored full file integrity. Only changed Info-Logic, kept all original handlers.
+// 21.01.2026 13:10 - FIX: Using import type for CockpitViewMode & removed unused Lucide icons (TS6133).
 // src/features/Cockpit/Layout/CockpitHeader.tsx
 
 import React, { useState, useRef } from 'react';
@@ -20,8 +20,8 @@ import {
   Save, 
   Upload, 
   FileText, 
-  Database, 
-  GitMerge,
+  // FIX: Removed Database (TS6133)
+  // FIX: Removed GitMerge (TS6133)
   Edit3,
   Home,
   Search, 
@@ -30,7 +30,7 @@ import {
 
 import { useTripStore } from '../../../store/useTripStore';
 import { SettingsModal } from '../SettingsModal';
-import { CockpitViewMode } from '../../../core/types'; // FIX: Using central type
+import type { CockpitViewMode } from '../../../core/types'; // FIX: verbatimModuleSyntax requirement (TS1484)
 
 interface CockpitHeaderProps {
   // FIX: Extended viewMode type to include central CockpitViewMode
@@ -410,8 +410,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
       />
-      {/* Modal Block for InfoView surgically removed to avoid overlay-clash */}
     </>
   );
 };
-// --- END OF FILE 412 Zeilen ---
+// --- END OF FILE 410 Zeilen ---
