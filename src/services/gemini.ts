@@ -1,6 +1,5 @@
-// 21.01.2026 18:30 - FIX: Added aggressive JSON extraction to handle Thinking Mode verbosity.
+// 21.01.2026 22:50 - FIX: Enforced MIME-Type JSON & Removed distracting System Prompts to prevent Context Loss.
 // src/services/gemini.ts
-// 21.01.2026 18:00 - FIX: Removed double 'models/' prefix causing 404 errors.
 
 import { CONFIG } from '../data/config';
 import type { ModelType } from '../data/config'; 
@@ -10,18 +9,14 @@ import { SecurityService } from './security';
 import { validateJson } from './validation';
 import { useTripStore } from '../store/useTripStore'; 
 
-// --- HELPER: JSON EXTRACTION ---
-// Schneidet alles weg, was kein JSON ist (z.B. Thinking-Prosa)
+// --- HELPER: JSON EXTRACTION (SIMPLE & ROBUST) ---
 function extractJsonBlock(text: string): string {
-  // 1. Suche nach dem ersten '{' und dem letzten '}'
   const firstOpen = text.indexOf('{');
   const lastClose = text.lastIndexOf('}');
 
   if (firstOpen !== -1 && lastClose !== -1 && lastClose > firstOpen) {
     return text.substring(firstOpen, lastClose + 1);
   }
-  
-  // Fallback: Wenn kein Block gefunden, gib Original zurück (damit validateJson den Fehler wirft)
   return text;
 }
 
@@ -118,38 +113,31 @@ const RateLimiter = {
 export const GeminiService = {
 
   determineModel(taskKey: TaskKey | null): ModelType {
-    // 1. Zugriff auf den Store (SSOT)
     const store = useTripStore.getState();
     const { strategy, modelOverrides } = store.aiSettings;
 
-    // 2. Globale Strategien (Harte Überschreibung)
     if (strategy === 'pro') return 'pro';
     if (strategy === 'fast') return 'flash'; 
 
-    // 3. Strategie "Optimal" (Matrix-Modus)
     if (taskKey) {
-        // A. Gibt es einen User-Override für diesen speziellen Task?
         if (modelOverrides && modelOverrides[taskKey]) {
             return modelOverrides[taskKey]! as ModelType; 
         }
-
-        // B. FIX: Default for Optimal is now FLASH (Thinking), not Config Default
-        return 'flash';
+        const defaultModel = CONFIG.taskRouting.defaults[taskKey];
+        if (defaultModel === 'pro') return 'pro';
+        return 'flash'; 
     }
-
-    // 4. Fallback of last resort
     return 'pro'; 
   },
 
   async call<T = any>(
     prompt: string, 
     taskKey: TaskKey | null = null,
-    modelIdOverride?: string,
+    modelIdOverride?: string, 
     onRetryDelay?: (delay: number, msg: string) => void,
     signal?: AbortSignal
   ): Promise<T> {
     
-    // 0. FLUGSCHREIBER SETUP
     const store = useTripStore.getState();
     const isDebug = store.aiSettings.debug;
     const taskName = taskKey || 'unknown';
@@ -161,14 +149,12 @@ export const GeminiService = {
       throw new NoRetryError("Kein API-Key gefunden. Bitte Key in den Einstellungen speichern.", 401);
     }
 
-    // --- MODEL SELECTION LOGIC ---
-    
     let selectedModelKey: ModelType = 'pro'; 
     let modelEndpoint = '';
-    
-    // Base Config
+    // Force JSON globally for all strategies to ensure structural integrity
     let generationConfig: any = { 
-      temperature: 0.4 
+        temperature: 0.4,
+        responseMimeType: 'application/json' 
     };
 
     const userHasSpecificOverride = taskKey && modelOverrides && modelOverrides[taskKey];
@@ -182,9 +168,8 @@ export const GeminiService = {
         selectedModelKey = 'pro';
     }
     else if (currentStrategy === 'optimal') {
-        // Thinking Mode Logic
         if (userHasSpecificOverride) {
-             const forcedModel = modelOverrides[taskKey]!;
+             const forcedModel = modelOverrides[taskKey!]!; 
              if (forcedModel === 'pro') {
                  modelEndpoint = 'gemini-2.5-pro:generateContent';
                  selectedModelKey = 'pro';
@@ -193,16 +178,21 @@ export const GeminiService = {
                  selectedModelKey = 'flash';
              }
         } else {
-             // Optimal Default = Flash + Thinking
-             modelEndpoint = 'gemini-2.5-flash:generateContent';
-             selectedModelKey = 'flash'; 
-             
-             generationConfig = {
-                 thinkingConfig: {
-                    includeThoughts: true,
-                    thinkingBudget: -1 
-                 }
-             };
+             const configDefault = taskKey ? CONFIG.taskRouting.defaults[taskKey] : undefined;
+             if (configDefault === 'pro') {
+                 modelEndpoint = 'gemini-2.5-pro:generateContent';
+                 selectedModelKey = 'pro';
+             } else {
+                 modelEndpoint = 'gemini-2.5-flash:generateContent';
+                 selectedModelKey = 'flash'; 
+                 generationConfig = {
+                     responseMimeType: 'application/json',
+                     thinkingConfig: {
+                        includeThoughts: true,
+                        thinkingBudget: -1 
+                     }
+                 };
+             }
         }
     }
     else {
@@ -213,19 +203,20 @@ export const GeminiService = {
 
     RateLimiter.checkRateLimit(selectedModelKey);
 
-    // 1. LOG REQUEST
+    // FIX: NO extra system prompts. Rely on MimeType and Model intelligence.
+    let finalPrompt = prompt;
+
     if (isDebug) {
       store.logEvent({
         task: taskName,
         type: 'request',
         model: `${selectedModelKey} (${currentStrategy}) [Thinking: ${!!generationConfig.thinkingConfig}]`, 
-        content: prompt
+        content: finalPrompt
       });
     }
 
     const apiUrl = `${CONFIG.api.baseUrl}${modelEndpoint}?key=${apiKey}`;
 
-    let currentPrompt = prompt;
     let repairAttempts = 0;
     const MAX_REPAIR_ATTEMPTS = 2;
     const INTERNAL_RETRIES = 1;
@@ -242,7 +233,7 @@ export const GeminiService = {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
-            contents: [{ parts: [{ text: currentPrompt }] }],
+            contents: [{ parts: [{ text: finalPrompt }] }],
             safetySettings: CONFIG.api.safetySettings,
             generationConfig: generationConfig 
           }),
@@ -251,28 +242,11 @@ export const GeminiService = {
 
         if (!response.ok) {
           const errorBody = await response.text();
-          
-          if (response.status === 404) {
-             throw new NoRetryError(`Modell nicht gefunden (404). URL: ${modelEndpoint}`, 404, errorBody, currentPrompt);
-          }
-
-          if (response.status === 429) {
-            if (errorBody.toLowerCase().includes("quota")) {
-              throw new QuotaExceededError("Google API-Quota erschöpft.", errorBody, currentPrompt);
-            } else {
-              throw new ServerOverloadError("Rate Limit überschritten.", 429, errorBody, currentPrompt);
-            }
-          }
-          
-          if (response.status === 503) {
-            throw new ServerOverloadError("Google Server überlastet (503).", 503, errorBody, currentPrompt);
-          }
-          
-          if (response.status >= 500) {
-            throw new ApiError(`Google Server Fehler (${response.status}).`, response.status, errorBody, currentPrompt);
-          }
-
-          throw new NoRetryError(`API-Fehler: ${response.status} - ${errorBody}`, response.status, errorBody, currentPrompt);
+          if (response.status === 404) throw new NoRetryError(`Modell nicht gefunden (404). URL: ${modelEndpoint}`, 404, errorBody, finalPrompt);
+          if (response.status === 429) throw new ServerOverloadError("Rate Limit überschritten.", 429, errorBody, finalPrompt);
+          if (response.status === 503) throw new ServerOverloadError("Google Server überlastet (503).", 503, errorBody, finalPrompt);
+          if (response.status >= 500) throw new ApiError(`Google Server Fehler (${response.status}).`, response.status, errorBody, finalPrompt);
+          throw new NoRetryError(`API-Fehler: ${response.status} - ${errorBody}`, response.status, errorBody, finalPrompt);
         }
 
         const data = await response.json();
@@ -280,14 +254,15 @@ export const GeminiService = {
         if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content) {
           const finish = data.candidates?.[0]?.finishReason;
           if (finish === 'SAFETY' || finish === 'BLOCK') {
-            throw new NoRetryError(`Blockiert durch Sicherheitsfilter (${finish}).`, 400, JSON.stringify(data), currentPrompt);
+            throw new NoRetryError(`Blockiert durch Sicherheitsfilter (${finish}).`, 400, JSON.stringify(data), finalPrompt);
           }
-          throw new NoRetryError("Leere Antwort von der KI erhalten.", 500, JSON.stringify(data), currentPrompt);
+          throw new NoRetryError("Leere Antwort von der KI erhalten.", 500, JSON.stringify(data), finalPrompt);
         }
 
-        const rawText = data.candidates[0].content.parts[0].text;
+        const parts = data.candidates[0].content.parts || [];
+        const rawText = parts.map((p: any) => p.text).join('');
         
-        // FIX: Extract JSON from potentially chatty Thinking output
+        // Use Simple Extraction
         const cleanText = extractJsonBlock(rawText);
 
         const validation = validateJson<T>(cleanText, [], (msg) => console.warn(msg));
@@ -302,12 +277,12 @@ export const GeminiService = {
               task: taskName,
               type: 'response',
               model: selectedModelKey,
-              content: cleanText, // Log cleaned JSON
+              content: cleanText, 
               meta: {
                 finishReason: data.candidates[0].finishReason,
                 tokens: data.usageMetadata, 
                 thinkingConfig: generationConfig.thinkingConfig,
-                rawResponseSnippet: rawText.substring(0, 100) + "..." // Log start of raw response for debug
+                rawResponseSnippet: rawText.substring(0, 100) + "..."
               }
             });
           }
@@ -322,23 +297,19 @@ export const GeminiService = {
                type: 'info',
                model: selectedModelKey,
                content: `JSON Validation Failed. Starting Repair Attempt ${repairAttempts + 1}.`,
-               meta: {
-                 invalidJson: cleanText,
-                 error: validation.error
-               }
+               meta: { invalidJson: cleanText, error: validation.error }
              });
           }
           
           if (repairAttempts < MAX_REPAIR_ATTEMPTS) {
             repairAttempts++;
-            // FIX: Stronger Repair Prompt for Thinking Models
-            currentPrompt = `SYSTEM ERROR: You returned TEXT instead of JSON. 
+            finalPrompt = `SYSTEM ERROR: You returned TEXT instead of JSON. 
             Stop chatting. Stop explaining. 
             Output ONLY the raw JSON object for this data:\n${cleanText}\n\nError: ${validation.error}`;
             
-            throw new ApiError(`JSON Validierung fehlgeschlagen.`, 422, cleanText, currentPrompt);
+            throw new ApiError(`JSON Validierung fehlgeschlagen.`, 422, cleanText, finalPrompt);
           } else {
-            throw new NoRetryError(`JSON Reparatur gescheitert.`, 422, cleanText, currentPrompt);
+            throw new NoRetryError(`JSON Reparatur gescheitert.`, 422, cleanText, finalPrompt);
           }
         }
 
@@ -372,4 +343,4 @@ export const GeminiService = {
     throw new Error("Unbekannter Fehler im API-Loop.");
   }
 };
-// --- END OF FILE 360 Zeilen ---
+// --- END OF FILE 380 Zeilen ---

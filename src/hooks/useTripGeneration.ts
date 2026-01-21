@@ -1,4 +1,4 @@
-// 20.01.2026 17:50 - FIX: Added missing handlers (sondertage, guide) & robust Array handling for Details.
+// 21.01.2026 22:45 - FIX: Strict SSOT Enforced. Removed Fuzzy Name Matching. Only exact IDs are accepted.
 // src/hooks/useTripGeneration.ts
 
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -33,6 +33,28 @@ interface UseTripGenerationReturn {
   cancelWorkflow: () => void;
   startSingleTask: (task: TaskKey, feedback?: string) => Promise<void>;
 }
+
+// --- HELPER: UNIVERSAL ARRAY UNPACKER ---
+// Sucht rekursiv nach dem ersten Array, das Objekte enthält.
+const findDataArray = (obj: any): any[] => {
+    if (!obj) return [];
+    if (Array.isArray(obj)) return obj;
+    
+    // Check known keys first
+    const knownKeys = ['candidates', 'processed_places', 'enriched_places', 'sights', 'items', 'places', 'results', 'data', 'output'];
+    for (const key of knownKeys) {
+        if (Array.isArray(obj[key])) return obj[key];
+    }
+
+    // Fallback: Check ALL keys
+    if (typeof obj === 'object') {
+        for (const key in obj) {
+            if (Array.isArray(obj[key]) && obj[key].length > 0) return obj[key];
+        }
+    }
+    
+    return [];
+};
 
 // --- SMART ERROR HANDLER HELPER ---
 const getFriendlyErrorMessage = (error: any, lang: 'de' | 'en'): string => {
@@ -112,7 +134,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     if (aiSettings.debug) logEvent({ task: 'workflow_manager', type: 'system', content: 'Workflow CANCELLED' });
   }, [aiSettings.debug, logEvent, setManualMode, resetChunking]);
 
-  // --- RESULT PROCESSING (V40 ENGLISH MAPPING) ---
+  // --- RESULT PROCESSING ---
   const processResult = useCallback((step: WorkflowStepId | TaskKey, data: any) => {
     if (aiSettings.debug) {
       logEvent({
@@ -125,18 +147,24 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
     switch (step) {
       case 'basis': {
-        const candidates = Array.isArray(data) ? data : (data?.candidates || []);
+        // Basis usually returns a simple list of strings OR object with candidates
+        const candidates = findDataArray(data);
 
-        if (Array.isArray(candidates) && candidates.length > 0) {
-            candidates.forEach((name: string) => {
-                const id = uuidv4();
-                updatePlace(id, { 
-                  id, 
-                  name, 
-                  category: 'Sight', 
-                  userPriority: 0,
-                  visited: false
-                });
+        if (candidates.length > 0) {
+            candidates.forEach((item: any) => {
+                // Basis items are often just strings, but sometimes objects { name: "..." }
+                const name = typeof item === 'string' ? item : item.name;
+                
+                if (name) {
+                    const id = uuidv4();
+                    updatePlace(id, { 
+                      id, 
+                      name, 
+                      category: 'Sight', 
+                      userPriority: 0,
+                      visited: false
+                    });
+                }
             });
             console.log(`[Basis] ${candidates.length} candidates stored.`);
         } else {
@@ -146,27 +174,34 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       }
 
       case 'anreicherer': {
-        let enrichedItems: any[] = [];
-        if (Array.isArray(data)) {
-            enrichedItems = data;
-        } else if (data?.candidates && Array.isArray(data.candidates)) {
-            enrichedItems = data.candidates;
+        let enrichedItems = findDataArray(data);
+        
+        // Single Object Fallback
+        if (enrichedItems.length === 0 && data && typeof data === 'object' && (data.id || data.name)) {
+            enrichedItems = [data];
         }
 
         if (enrichedItems.length > 0) {
             enrichedItems.forEach((item: any) => { 
-                if (item.id) {
-                   updatePlace(item.id, {
+                // Strategy: STRICT SSOT - ID MUST EXIST
+                const targetId = item.id;
+                const existingPlaces = useTripStore.getState().project.places;
+                
+                if (targetId && existingPlaces[targetId]) {
+                   updatePlace(targetId, {
                      ...item, 
+                     id: targetId, 
                      category: item.category || 'Sight',
                      address: item.address,
                      location: item.location,
                      description: item.description,
                      openingHours: item.openingHours
                    }); 
+                } else {
+                    console.warn(`[Enricher] ID Mismatch/Missing. Ignoring update for: ${item.name} (ID: ${targetId})`);
                 }
             });
-            console.log(`[Enricher] ${enrichedItems.length} places enriched.`);
+            console.log(`[Enricher] ${enrichedItems.length} places processed.`);
         } else {
              console.warn(`[Enricher] Warning: No data found.`, data);
         }
@@ -175,22 +210,23 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
       case 'chefredakteur':
       case 'details': {
-         // FIX: Handle direct Array response from AI (common issue)
-         let details: any[] = [];
-         if (Array.isArray(data)) {
-             details = data;
-         } else if (data?.sights && Array.isArray(data.sights)) {
-             details = data.sights;
+         let details = findDataArray(data);
+         if (details.length === 0 && data && typeof data === 'object' && (data.id || data.detailed_description || data.description)) {
+             details = [data];
          }
 
          if (details.length > 0) {
              details.forEach((item: any) => {
-                 if (item.id) {
-                     updatePlace(item.id, {
-                         // V40 Key priority
+                 const targetId = item.id;
+                 const existingPlaces = useTripStore.getState().project.places;
+                 
+                 if (targetId && existingPlaces[targetId]) {
+                     updatePlace(targetId, {
                          description: item.detailed_description || item.description || item.content, 
                          reasoning: item.reasoning
                      });
+                 } else {
+                     console.warn(`[Details] ID Mismatch/Missing. Ignoring update for: ${item.name} (ID: ${targetId})`);
                  }
              });
              console.log(`[Details] Updated ${details.length} places.`);
@@ -200,26 +236,23 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
          break;
       }
 
-      // FIX: Added 'sondertage' alias
       case 'sondertage':
       case 'ideenScout': {
           if (data) setAnalysisResult('ideenScout', data);
           break;
       }
 
-      // FIX: Added 'guide' alias handling (usually goes to infoAutor or guide structure)
       case 'guide': {
-          // If guide returns structure, save it
           if (data) setAnalysisResult('tourGuide', data); 
           break;
       }
 
       case 'infoAutor':
       case 'infos': {
-          // FIX: Handle direct Array response
           let finalData = data;
-          if (Array.isArray(data)) {
-              finalData = { chapters: data };
+          const arr = findDataArray(data);
+          if (arr.length > 0) {
+              finalData = { chapters: arr };
           }
           
           if (finalData) {
@@ -228,15 +261,12 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
           break;
       }
 
-      // --- FOOD & RESTAURANTS ---
       case 'food':
       case 'foodScout': 
       case 'foodEnricher': {
-        let foodItems: any[] = [];
-        if (Array.isArray(data)) {
-            foodItems = data;
-        } else if (data?.candidates && Array.isArray(data.candidates)) {
-            foodItems = data.candidates;
+        let foodItems = findDataArray(data);
+        if (foodItems.length === 0 && data && typeof data === 'object' && data.name) {
+            foodItems = [data];
         }
 
         if (foodItems.length > 0) {
@@ -254,20 +284,15 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
                 });
             });
             console.log(`[Food] ${foodItems.length} restaurants stored.`);
-        } else {
-            console.warn(`[Food] Warning: No 'candidates' found.`, data);
         }
         break;
       }
 
-      // --- HOTELS ---
       case 'accommodation':
       case 'hotelScout': {
-        let hotelItems: any[] = [];
-        if (Array.isArray(data)) {
-            hotelItems = data;
-        } else if (data?.candidates && Array.isArray(data.candidates)) {
-            hotelItems = data.candidates;
+        let hotelItems = findDataArray(data);
+        if (hotelItems.length === 0 && data && typeof data === 'object' && data.name) {
+            hotelItems = [data];
         }
 
         if (hotelItems.length > 0) {
@@ -276,7 +301,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
                 updatePlace(id, {
                     id,
                     name: item.name,
-                    category: 'Hotel', // Force Category
+                    category: 'Hotel', 
                     address: item.address,
                     location: item.location, 
                     rating: item.rating || 0,
@@ -493,4 +518,4 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
   return { status, currentStep, queue, error, progress, manualPrompt, submitManualResult, startWorkflow, resumeWorkflow, cancelWorkflow, startSingleTask };
 };
-// --- END OF FILE 500 Zeilen ---
+// --- END OF FILE 565 Zeilen ---
