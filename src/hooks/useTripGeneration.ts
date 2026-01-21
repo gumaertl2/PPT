@@ -1,4 +1,4 @@
-// 21.01.2026 22:45 - FIX: Strict SSOT Enforced. Removed Fuzzy Name Matching. Only exact IDs are accepted.
+// 22.01.2026 00:05 - FIX: Corrected Access Path for Places (project.data.places) to fix runtime crash.
 // src/hooks/useTripGeneration.ts
 
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -185,7 +185,8 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
             enrichedItems.forEach((item: any) => { 
                 // Strategy: STRICT SSOT - ID MUST EXIST
                 const targetId = item.id;
-                const existingPlaces = useTripStore.getState().project.places;
+                // FIX: Access places from project.data.places
+                const existingPlaces = useTripStore.getState().project.data?.places || {};
                 
                 if (targetId && existingPlaces[targetId]) {
                    updatePlace(targetId, {
@@ -218,7 +219,8 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
          if (details.length > 0) {
              details.forEach((item: any) => {
                  const targetId = item.id;
-                 const existingPlaces = useTripStore.getState().project.places;
+                 // FIX: Access places from project.data.places
+                 const existingPlaces = useTripStore.getState().project.data?.places || {};
                  
                  if (targetId && existingPlaces[targetId]) {
                      updatePlace(targetId, {

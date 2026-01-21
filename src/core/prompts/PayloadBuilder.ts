@@ -1,5 +1,7 @@
-// 21.01.2026 00:50 - FIX: Filtered out Service-Interests (Hotel/Food) for Collector to prevent "Double Bind" confusion.
+// 21.01.2026 23:55 - FIX: Dynamic Language Enforcement (supports IT, EN, etc.) instead of hardcoded German.
 // src/core/prompts/PayloadBuilder.ts
+// 21.01.2026 23:45 - FIX: Enforced German Output for ChefPlaner to override English Templates.
+// 21.01.2026 00:50 - FIX: Filtered out Service-Interests (Hotel/Food) for Collector to prevent "Double Bind" confusion.
 // 20.01.2026 23:45 - FIX: Mapped Interest IDs to full Objects for InfoAutor (prevents 'undefined' errors).
 
 import { useTripStore } from '../../store/useTripStore';
@@ -120,6 +122,20 @@ export const PayloadBuilder = {
             }
         };
         generatedPrompt = buildChefPlanerPrompt(slicedProject, feedback);
+        
+        // FIX: Dynamic Language Enforcement based on User Settings
+        const langCode = project.userInputs.aiOutputLanguage || 'de';
+        const langMap: Record<string, string> = {
+            de: 'DEUTSCH',
+            en: 'ENGLISCH',
+            it: 'ITALIENISCH',
+            fr: 'FRANZÖSISCH',
+            es: 'SPANISCH',
+            nl: 'NIEDERLÄNDISCH'
+        };
+        const targetLang = langMap[langCode] || 'DEUTSCH';
+        
+        generatedPrompt += `\n\n# SPRACH-REGEL\nAntworte in allen Textfeldern (wie 'analysis', 'strategy') ausschließlich auf ${targetLang}.`;
         break;
       }
       
@@ -336,4 +352,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 433 Zeilen ---
+// --- END OF FILE 448 Zeilen ---

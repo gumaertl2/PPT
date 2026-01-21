@@ -1,4 +1,4 @@
-// 21.01.2026 22:50 - FIX: Enforced MIME-Type JSON & Removed distracting System Prompts to prevent Context Loss.
+// 21.01.2026 23:30 - FIX: Implemented "Smart Iterative Extraction" to ignore Thinking Model preambles containing brackets.
 // src/services/gemini.ts
 
 import { CONFIG } from '../data/config';
@@ -9,15 +9,36 @@ import { SecurityService } from './security';
 import { validateJson } from './validation';
 import { useTripStore } from '../store/useTripStore'; 
 
-// --- HELPER: JSON EXTRACTION (SIMPLE & ROBUST) ---
+// --- HELPER: JSON EXTRACTION (SMART ITERATIVE) ---
 function extractJsonBlock(text: string): string {
-  const firstOpen = text.indexOf('{');
-  const lastClose = text.lastIndexOf('}');
+  let startIndex = text.indexOf('{');
+  const lastIndex = text.lastIndexOf('}');
 
-  if (firstOpen !== -1 && lastClose !== -1 && lastClose > firstOpen) {
-    return text.substring(firstOpen, lastClose + 1);
+  // Abort if structure is impossible
+  if (startIndex === -1 || lastIndex === -1 || startIndex >= lastIndex) {
+    return text;
   }
-  return text;
+
+  // Iterative Search: Try to parse from each '{' found.
+  // This solves the issue where Thinking Models output text like: 
+  // "I will use the format { ... } for my answer. Here is the JSON: { ... }"
+  let currentStart = startIndex;
+  
+  while (currentStart !== -1 && currentStart < lastIndex) {
+    const potentialJson = text.substring(currentStart, lastIndex + 1);
+    try {
+      // Cheap validation check
+      JSON.parse(potentialJson);
+      return potentialJson; // Found the valid block!
+    } catch (e) {
+      // Failed? Ignore this '{' and look for the next one
+      currentStart = text.indexOf('{', currentStart + 1);
+    }
+  }
+
+  // Fallback: If no valid JSON found, return the broadest cut 
+  // (Let the downstream validator handle the error details)
+  return text.substring(startIndex, lastIndex + 1);
 }
 
 // --- FEHLER-KLASSEN ---
@@ -262,7 +283,7 @@ export const GeminiService = {
         const parts = data.candidates[0].content.parts || [];
         const rawText = parts.map((p: any) => p.text).join('');
         
-        // Use Simple Extraction
+        // Use Smart Extraction
         const cleanText = extractJsonBlock(rawText);
 
         const validation = validateJson<T>(cleanText, [], (msg) => console.warn(msg));
@@ -343,4 +364,4 @@ export const GeminiService = {
     throw new Error("Unbekannter Fehler im API-Loop.");
   }
 };
-// --- END OF FILE 380 Zeilen ---
+// --- END OF FILE 400 Zeilen ---
