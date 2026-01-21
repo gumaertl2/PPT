@@ -1,12 +1,6 @@
-// 21.01.2026 15:40 - FEAT: Upgraded Strategies to Gemini 2.5 (Flash, Pro, Thinking).
+// 21.01.2026 16:30 - FIX: Removed unused 'Activity' import to resolve build error TS6133.
 // src/features/Cockpit/SettingsModal.tsx
-// 14.01.2026 14:15 - FIX: Corrected import casing 'data/Texts' (Linux support) and AiStrategy import.
-// 14.01.2026 19:55 - UPDATE: Added Matrix UI & Clean Labels (Phase 1 Complete)
-// 16.01.2026 05:45 - FIX: Switched TaskKey import to core/types to resolve TS2459/TS7053.
-// 16.01.2026 18:00 - FEAT: Added UI for Chunking Limits (Auto vs Manual).
-// 16.01.2026 19:15 - FEAT: Moved Chunking Limits into Matrix for granular control (V30 Parity).
-// 16.01.2026 19:30 - FIX: Filtered Matrix to show only canonical V40 Workflow Keys.
-// 16.01.2026 19:40 - FEAT: Added specialized helper agents (geoAnalyst, durationEstimator, etc.) to settings matrix.
+// 21.01.2026 15:40 - FEAT: Upgraded Strategies to Gemini 2.5 (Flash, Pro, Thinking).
 
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -15,7 +9,7 @@ import {
   Key, 
   HelpCircle, 
   BarChart3, 
-  Activity, 
+  // FIX: Removed unused 'Activity' (TS6133)
   Zap, 
   Cpu, 
   Settings, 
