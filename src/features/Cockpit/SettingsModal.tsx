@@ -1,3 +1,4 @@
+// 21.01.2026 15:40 - FEAT: Upgraded Strategies to Gemini 2.5 (Flash, Pro, Thinking).
 // src/features/Cockpit/SettingsModal.tsx
 // 14.01.2026 14:15 - FIX: Corrected import casing 'data/Texts' (Linux support) and AiStrategy import.
 // 14.01.2026 19:55 - UPDATE: Added Matrix UI & Clean Labels (Phase 1 Complete)
@@ -24,7 +25,8 @@ import {
   AlertTriangle,
   Server,
   Sliders, 
-  Layers   
+  Layers,
+  Brain // NEW: Icon for Thinking Mode
 } from 'lucide-react';
 import { useTripStore } from '../../store/useTripStore';
 import type { AiStrategy } from '../../store/useTripStore';
@@ -83,26 +85,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   if (!isOpen) return null;
 
+  // UPDATED: Strategies now map to Gemini 2.5 Models
   const strategies: Array<{ id: AiStrategy; label: string; icon: any; desc: string; color: string }> = [
     { 
       id: 'optimal', 
-      label: t('settings.strategy_optimal', 'Optimal'), 
-      icon: Activity, 
-      desc: 'Mix aus Pro & Flash', 
+      label: 'Thinking (Adaptive)', 
+      icon: Brain, 
+      desc: 'Gemini 2.5 Flash + Reasoning (Auto)', 
       color: 'text-blue-600 bg-blue-50 border-blue-200' 
     },
     { 
       id: 'pro', 
-      label: t('settings.strategy_pro', 'Pro'), 
+      label: 'Pro 2.5', 
       icon: Cpu, 
-      desc: 'Gemini 1.5 Pro (Qualität)', 
+      desc: 'Gemini 2.5 Pro (Deep Analysis)', 
       color: 'text-purple-600 bg-purple-50 border-purple-200' 
     },
     { 
       id: 'fast', 
-      label: t('settings.strategy_fast', 'Fast'), 
+      label: 'Flash 2.5', 
       icon: Zap, 
-      desc: 'Gemini 1.5 Flash (Speed)', 
+      desc: 'High Speed (1.5k RPM)', 
       color: 'text-amber-600 bg-amber-50 border-amber-200' 
     }
   ];

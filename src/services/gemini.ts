@@ -1,12 +1,10 @@
-// 18.01.2026 19:00 - FIX: Added 'modelIdOverride' to support Orchestrator routing. Validated against Zero-Build-Error policy.
+// 21.01.2026 15:55 - FIX: Integrated Gemini 2.5 Models & Thinking Mode (Budget -1).
 // src/services/gemini.ts
-// 14.01.2026 19:45 - UPDATE: Implemented dynamic model routing (Strategy + Overrides).
-// 16.01.2026 04:40 - FIX: Consolidating TaskKey import from core/types for build stability.
-// 17.01.2026 12:05 - FIX: Added type casting for dynamic model configuration lookups.
+// 18.01.2026 19:00 - FIX: Added 'modelIdOverride' to support Orchestrator routing. Validated against Zero-Build-Error policy.
 
 import { CONFIG } from '../data/config';
-import type { ModelType } from '../data/config'; // FIX: TaskKey removed from here
-import type { TaskKey } from '../core/types';   // FIX: Unified TaskKey import
+import type { ModelType } from '../data/config'; 
+import type { TaskKey } from '../core/types';   
 
 import { SecurityService } from './security';
 import { validateJson } from './validation';
@@ -111,18 +109,18 @@ export const GeminiService = {
 
     // 2. Globale Strategien (Harte Überschreibung)
     if (strategy === 'pro') return 'pro';
-    if (strategy === 'fast') return 'flash'; // FIX: Returned 'flash' to match ModelType
+    if (strategy === 'fast') return 'flash'; 
 
     // 3. Strategie "Optimal" (Matrix-Modus)
     if (taskKey) {
         // A. Gibt es einen User-Override für diesen speziellen Task?
         if (modelOverrides && modelOverrides[taskKey]) {
-            return modelOverrides[taskKey]! as ModelType; // FIX: Added Cast
+            return modelOverrides[taskKey]! as ModelType; 
         }
 
         // B. Fallback auf Default-Matrix aus Config
         if (CONFIG.taskRouting.defaults[taskKey]) {
-            return CONFIG.taskRouting.defaults[taskKey]! as ModelType; // FIX: Added Cast
+            return CONFIG.taskRouting.defaults[taskKey]! as ModelType; 
         }
     }
 
@@ -143,26 +141,50 @@ export const GeminiService = {
     const store = useTripStore.getState();
     const isDebug = store.aiSettings.debug;
     const taskName = taskKey || 'unknown';
+    const currentStrategy = store.aiSettings.strategy;
 
     const apiKey = SecurityService.loadApiKey();
     if (!apiKey) {
       throw new NoRetryError("Kein API-Key gefunden. Bitte Key in den Einstellungen speichern.", 401);
     }
 
-    // MODEL SELECTION: Override > Auto-Determine
-    // Wir brauchen 'selectedModelKey' als ModelType ('pro'|'flash') für den RateLimiter und Stats.
+    // MODEL SELECTION: 2.5 UPGRADE LOGIC
     let selectedModelKey: ModelType = 'pro'; 
     let modelEndpoint = '';
+    
+    // Dynamic Generation Config (for Thinking Mode)
+    const generationConfig: any = { 
+      temperature: 0.4 
+    };
 
     if (modelIdOverride) {
-        // Fall A: Orchestrator gibt uns den exakten Endpoint String (z.B. "gemini-2.5-flash:generateContent")
+        // Fall A: Orchestrator Override
         modelEndpoint = modelIdOverride;
-        // Wir leiten den Typ ab für RateLimiter (enthält 'flash' -> flash, sonst pro)
         selectedModelKey = modelIdOverride.toLowerCase().includes('flash') ? 'flash' : 'pro';
     } else {
-        // Fall B: Legacy / Direkter Aufruf -> Wir ermitteln selbst
-        selectedModelKey = this.determineModel(taskKey);
-        modelEndpoint = CONFIG.api.models[selectedModelKey] || CONFIG.api.models.pro;
+        // Fall B: Strategy Routing (V2.5 Upgrade)
+        if (currentStrategy === 'fast') {
+            // Flash 2.5 (High Speed)
+            modelEndpoint = 'models/gemini-2.5-flash:generateContent';
+            selectedModelKey = 'flash';
+        } 
+        else if (currentStrategy === 'pro') {
+            // Pro 2.5 (Deep Analysis)
+            modelEndpoint = 'models/gemini-2.5-pro:generateContent';
+            selectedModelKey = 'pro';
+        } 
+        else {
+            // Optimal / Default -> Flash 2.5 + Thinking Mode
+            // This is the hybrid "Smart Flash" configuration
+            modelEndpoint = 'models/gemini-2.5-flash:generateContent';
+            selectedModelKey = 'flash'; // Counts against Flash Quota
+            
+            // Activate Adaptive Thinking
+            generationConfig.thinkingConfig = {
+                includeThoughts: true,
+                thinkingBudget: -1 // Dynamic/Adaptive Budget
+            };
+        }
     }
 
     RateLimiter.checkRateLimit(selectedModelKey);
@@ -172,7 +194,7 @@ export const GeminiService = {
       store.logEvent({
         task: taskName,
         type: 'request',
-        model: selectedModelKey, // Log logic type
+        model: `${selectedModelKey} (${currentStrategy})`, // Log detailed model info
         content: prompt
       });
     }
@@ -186,7 +208,7 @@ export const GeminiService = {
 
     // Dev-Log
     if (import.meta.env.DEV) {
-      console.log(`>>> API CALL [${selectedModelKey}] -> ${modelEndpoint}`, apiUrl);
+      console.log(`>>> API CALL [${currentStrategy}] -> ${modelEndpoint}`, { apiUrl, generationConfig });
     }
 
     for (let attempt = 0; attempt <= INTERNAL_RETRIES; attempt++) {
@@ -199,9 +221,7 @@ export const GeminiService = {
           body: JSON.stringify({ 
             contents: [{ parts: [{ text: currentPrompt }] }],
             safetySettings: CONFIG.api.safetySettings,
-            generationConfig: { 
-              temperature: 0.4 
-            }
+            generationConfig: generationConfig // Injected Dynamic Config
           }),
           signal: signal
         });
@@ -212,7 +232,7 @@ export const GeminiService = {
           
           if (response.status === 404) {
              throw new NoRetryError(
-               `Modell nicht gefunden (404). URL: ${modelEndpoint}. Bitte prüfen, ob der API-Key korrekt ist und Zugriff auf das Modell hat.`, 
+               `Modell nicht gefunden (404). URL: ${modelEndpoint}. Bitte prüfen, ob der API-Key Zugriff auf Gemini 2.5 hat.`, 
                404, errorBody, currentPrompt
              );
           }
@@ -270,6 +290,7 @@ export const GeminiService = {
               meta: {
                 finishReason: data.candidates[0].finishReason,
                 tokens: data.usageMetadata, 
+                thinkingConfig: generationConfig.thinkingConfig, // Log if thinking was active
                 attempt: attempt + 1
               }
             });
@@ -337,4 +358,4 @@ export const GeminiService = {
     throw new Error("Unbekannter Fehler im API-Loop.");
   }
 };
-// --- END OF FILE 287 Zeilen ---
+// --- END OF FILE 332 Zeilen ---
