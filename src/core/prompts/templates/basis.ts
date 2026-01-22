@@ -1,3 +1,4 @@
+// 22.01.2026 23:30 - FIX: Synchronized Schema with CoT Instruction (added _thought_process).
 // 20.01.2026 22:00 - FIX: Restored V40 Architecture. Applied strict V30 logic to Rule 4 (No Food/Hotels).
 // src/core/prompts/templates/basis.ts
 // 19.01.2026 17:05 - FIX: Updated property access to match German keys in types.ts (ChefPlanerResult).
@@ -168,7 +169,9 @@ For each Topic above:
 5. **Names:** Output precise, official names (e.g., "Eiffelturm" instead of "Tower in Paris").
 6. **Route:** Strictly adhere to the defined route corridor (if Roundtrip).`;
 
+    // FIX: Explicitly added _thought_process to Schema for CoT sync
     const outputSchema = {
+        "_thought_process": "String (Strategy check: Seasonality, Mix & Dedup)",
         "candidates": [
             "String (Name of Candidate 1)",
             "String (Name of Candidate 2)",
@@ -185,4 +188,4 @@ For each Topic above:
         .withSelfCheck(['basic', 'research'])
         .build();
 };
-// --- END OF FILE 140 Zeilen ---
+// --- END OF FILE 142 Zeilen ---

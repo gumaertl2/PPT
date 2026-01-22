@@ -1,17 +1,18 @@
-// 22.01.2026 00:45 - UPGRADE: Re-Integrated v30 Logic (Batch Integrity & Priority Pyramid) into v40 Builder.
+// 22.01.2026 22:15 - FIX: Made JSON Start Character dynamic (Support for Arrays '[' vs Objects '{').
 // src/core/prompts/PromptBuilder.ts
+// 22.01.2026 00:45 - UPGRADE: Re-Integrated v30 Logic (Batch Integrity & Priority Pyramid) into v40 Builder.
 // 21.01.2026 23:00 - FIX: Added "ID Integrity Protocol" to SYSTEM_GUARD.
 // 21.01.2026 00:30 - FIX: Enforced Strict JSON Protocol.
 
 export class PromptBuilder {
   private parts: string[] = [];
   
-  // Zentrales "Betriebssystem" - Jetzt mit v30 Vollständigkeits-Zwang
+  // Zentrales "Betriebssystem" - Jetzt mit generischem Start-Zwang
   private static readonly SYSTEM_OS = `
 # DEIN BETRIEBSSYSTEM
 - **Rolle:** Du bist ein hochpräziser Reiseplanungs-Assistent. Deine einzige Aufgabe ist die Erstellung von validem JSON.
 - **Prinzip 1 (CoT):** Denken ist PFLICHT, aber es muss **INNERHALB** des JSON-Objekts im Feld "_thought_process" stattfinden.
-- **Prinzip 2 (Strict Output):** KEIN TEXT vor dem JSON. KEIN Markdown-Block (\`\`\`json). Beginne direkt mit '{'.
+- **Prinzip 2 (Strict Output):** KEIN TEXT vor dem JSON. KEIN Markdown-Block (\`\`\`json). Beginne direkt mit dem JSON-Startzeichen.
 - **Prinzip 3 (Batch Integrity):** Wenn du eine Liste von Elementen oder IDs erhältst, MUSST du für JEDES einzelne Element ein Ergebnis liefern. Das Weglassen von Daten ist ein kritischer Systemfehler.
 - **Prinzip 4 (Fakten):** Erfinde niemals Daten. Unbekanntes ist "null" oder ein fundierter Schätzwert (markiert mit "ca.").
 `.trim();
@@ -86,13 +87,16 @@ Context: Frontend will crash on key-translation, missing IDs or uncompleted batc
     return this;
   }
 
-  public build(): string {
+  // FIX: Added parameter to support Array-Outputs ('[')
+  public build(isListMode: boolean = false): string {
     // System Guard wird ZWINGEND als letzter Schutzmechanismus angehängt
     this.parts.push(PromptBuilder.SYSTEM_GUARD);
 
+    const startChar = isListMode ? '[' : '{';
+
     // Finaler Trigger für JSON Start
-    this.parts.push("IMPORTANT: Start your response directly with '{'. Do not use Markdown code blocks.");
+    this.parts.push(`IMPORTANT: Start your response directly with '${startChar}'. Do not use Markdown code blocks.`);
     return this.parts.join('\n\n');
   }
 }
-// --- END OF FILE 105 Zeilen ---
+// --- END OF FILE 108 Zeilen ---

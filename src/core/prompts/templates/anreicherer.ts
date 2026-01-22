@@ -1,5 +1,6 @@
-// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
+// 22.01.2026 22:45 - FIX: Enforced List-Mode via PromptBuilder.build(true) to allow JSON Array start '['.
 // src/core/prompts/templates/anreicherer.ts
+// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
 // 19.01.2026 18:40 - FIX: Migrated Output Schema to German V30 Keys & Added Strategic Briefing Context.
 // 15.01.2026 14:50 - UPDATE: Hardening (V30 Parity) - Whitelist Categories & Extra Fields.
 // 17.01.2026 23:55 - REFACTOR: Migrated to class-based PromptBuilder.
@@ -93,6 +94,7 @@ Do not invent new categories.`;
         .withInstruction(instructions)
         .withOutputSchema(outputSchema)
         .withSelfCheck(['basic', 'research'])
-        .build();
+        // FIX: Enable List Mode (Start with '[')
+        .build(true);
 };
-// --- END OF FILE 108 Zeilen ---
+// --- END OF FILE 109 Zeilen ---

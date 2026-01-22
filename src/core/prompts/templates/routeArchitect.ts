@@ -1,3 +1,4 @@
+// 22.01.2026 23:25 - FIX: Explicitly added _thought_process to Schema to sync with CoT Instruction.
 // 20.01.2026 23:45 - FIX: Restored ALL missing legacy fields (map_waypoints, hotel_changes) in V40 Schema.
 // src/core/prompts/templates/routeArchitect.ts
 // 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
@@ -59,7 +60,9 @@ Jeder Vorschlag benötigt:
   - \`nights\`: Anzahl der Nächte (Integer).
   - \`reasoning\`: Kurze Begründung (Warum dieser Stopp?).`;
 
+  // FIX: Explicitly defined _thought_process in Schema
   const outputSchema = {
+    "_thought_process": "String (CRITICAL: Execute step-by-step reasoning regarding strategy, seasonality and routing logic here)",
     "routes": [
       {
         "title": "String (e.g. 'Alpine Classic')",
@@ -99,4 +102,4 @@ Jeder Vorschlag benötigt:
     .withSelfCheck(['basic', 'planning'])
     .build();
 };
-// --- END OF FILE 115 Zeilen ---
+// --- END OF FILE 117 Zeilen ---
