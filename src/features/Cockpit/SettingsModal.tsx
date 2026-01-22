@@ -1,5 +1,6 @@
-// 21.01.2026 18:15 - FIX: Removed unused 'ModelType' and 'activeManual' to resolve TS6133.
+// 22.01.2026 14:30 - FIX: Cleanup of non-existent Tasks (Hallucinations) from Settings Matrix.
 // src/features/Cockpit/SettingsModal.tsx
+// 21.01.2026 18:15 - FIX: Removed unused 'ModelType' and 'activeManual' to resolve TS6133.
 // 21.01.2026 17:45 - UI: Implemented 3-Way Matrix (Pro, Fast, Thinking) with Smart Defaults.
 
 import React, { useState, useEffect } from 'react';
@@ -121,8 +122,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     'sondertage',
     'geoAnalyst',
     'durationEstimator',
-    'countryScout',
-    'foodCollector',
+    // FIX: Removed 'countryScout' (No Template)
+    // FIX: Removed 'foodCollector' (Redundant to 'food')
     'foodEnricher'
   ];
 

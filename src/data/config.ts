@@ -1,3 +1,4 @@
+// 22.01.2026 14:15 - FIX: Cleanup of non-existent Tasks (Hallucinations) to sync with Templates.
 // src/data/config.ts
 // 14.01.2026 13:45 - FIX: Added missing TaskKeys 'basis' and 'anreicherer' to support CockpitWizard workflow.
 // 16.01.2026 04:20 - FIX: Consistently using TaskKey from core/types. Expanded defaults to include workflow steps.
@@ -62,7 +63,6 @@ export const CONFIG = {
       modificationTagesplaner: 'pro',
       sondertage: 'pro',
       geoAnalyst: 'pro',
-      sightsChefredakteur: 'pro',
       infoAutor: 'pro',
       details: 'pro',
       infos: 'pro',
@@ -78,7 +78,6 @@ export const CONFIG = {
       foodScout: 'flash',
       transferUpdater: 'flash',
       ideenScout: 'flash',
-      timeOptimizer: 'flash',
       durationEstimator: 'flash',
       food: 'flash',
       accommodation: 'flash',
@@ -106,7 +105,6 @@ export const CONFIG = {
         accommodation: { auto: 20, manual: 40 },       // Alias
 
         // --- Text Generation Agents (Token Heavy) ---
-        sightsChefredakteur: { auto: 5, manual: 10 },  // Lange Texte -> kleine Chunks
         details: { auto: 5, manual: 10 },              // Alias
         infoAutor: { auto: 5, manual: 10 },            // Fakten & Texte
         infos: { auto: 5, manual: 10 },                // Alias
@@ -131,7 +129,6 @@ export const CONFIG = {
       initialTagesplaner: "tasks.initialTagesplaner",
       dayplan: "tasks.initialTagesplaner",
       modificationTagesplaner: "tasks.modificationTagesplaner",
-      sightsChefredakteur: "tasks.sightsChefredakteur",
       infoAutor: "tasks.infoAutor",
       foodCollector: "tasks.foodCollector",
       foodEnricher: "tasks.foodEnricher",
@@ -143,7 +140,6 @@ export const CONFIG = {
       transferUpdater: "tasks.transferUpdater",
       ideenScout: "tasks.ideenScout",
       countryScout: "tasks.countryScout",
-      timeOptimizer: "tasks.timeOptimizer",
       durationEstimator: "tasks.durationEstimator",
 
       // Mapping Workflow-Names to technical labels
@@ -157,4 +153,4 @@ export const CONFIG = {
     } as Partial<Record<TaskKey, string>>
   }
 };
-// --- END OF FILE 164 Zeilen ---
+// --- END OF FILE 160 Zeilen ---

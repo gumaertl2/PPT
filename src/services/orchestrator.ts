@@ -1,5 +1,7 @@
-// 20.01.2026 21:00 - FIX: Reverted Safety Clamp. Added Debug Log to trace Config loading issues.
+// 22.01.2026 14:45 - FIX: Harmonized Merge-Logic with Validation Schemas (days/sights/chapters support).
 // src/services/orchestrator.ts
+// 22.01.2026 14:00 - FIX: Implemented "Internal Chunk Loop" for Auto-Mode to prevent UI recursion bugs.
+// 20.01.2026 21:00 - FIX: Reverted Safety Clamp. Added Debug Log to trace Config loading issues.
 
 import { z } from 'zod';
 import { GeminiService } from './gemini';
@@ -54,12 +56,6 @@ const getTaskLimit = (task: TaskKey, isManual: boolean): number => {
     
     // 2. Global Limit
     const globalLimit = aiSettings.chunkLimits?.[mode];
-    // ACHTUNG: Wenn globalLimit gesetzt ist (z.B. default 10), gewinnt es hier immer!
-    // Wir wollen aber, dass task-spezifische Config-Defaults (z.B. 15) Vorrang vor globalen Defaults haben,
-    // solange der User nichts explizit überschrieben hat.
-    // Das könnte der Bug sein, warum er 10 nimmt (global default) statt 15 (config task specific).
-    // Ich kommentiere globalLimit hier NICHT aus (Protokoll!), aber ich tausche die Reihenfolge
-    // oder lese erst die Config.
     
     // FIX: Check CONFIG defaults FIRST, before falling back to Global Settings default
     const configDefault = CONFIG.taskRouting.chunkDefaults?.[task]?.[mode];
@@ -81,20 +77,143 @@ const resolveModelId = (task: TaskKey): string => {
     return CONFIG.api.models[recommendedType as 'pro'|'flash'] || CONFIG.api.models.flash;
 };
 
+// HELPER: Merge Results from Chunks
+const mergeResults = (results: any[], task: TaskKey): any => {
+    if (!results || results.length === 0) return null;
+    if (results.length === 1) return results[0];
+
+    console.log(`[Orchestrator] Merging ${results.length} chunks for ${task}...`);
+    
+    // Strategy A: Dayplan (Array concatenation for days)
+    if (['dayplan', 'initialTagesplaner'].includes(task)) {
+        const merged = JSON.parse(JSON.stringify(results[0])); // Clone first
+        
+        // Append days from subsequent chunks
+        for (let i = 1; i < results.length; i++) {
+             const chunk = results[i];
+             
+             // Support Schema (days) AND Legacy (itinerary.days)
+             const newDays = chunk.days || chunk.itinerary?.days || [];
+
+             if (Array.isArray(newDays)) {
+                 // Try to find where to push in the merged object
+                 if (merged.days && Array.isArray(merged.days)) {
+                     merged.days.push(...newDays);
+                 } else if (merged.itinerary?.days && Array.isArray(merged.itinerary.days)) {
+                     merged.itinerary.days.push(...newDays);
+                 } else {
+                     // Fallback: If merged structure is unexpected, ensure we have a days array
+                     if (!merged.days) merged.days = [];
+                     merged.days.push(...newDays);
+                 }
+             }
+        }
+        return merged;
+    }
+
+    // Strategy B: Object Merge (Places, Content, Sights, Chapters)
+    // For V40, places are often Record<string, Place>. Spreading merges them correctly.
+    let merged: any = {};
+    
+    // If results are arrays (rare in V40 core, but possible for lists)
+    if (Array.isArray(results[0])) {
+        return results.flat();
+    }
+
+    // Object Deep Merge (Harmonized with Validation Schemas)
+    results.forEach(chunk => {
+        // 1. Maps / Records
+        if (chunk.places) {
+            merged.places = { ...(merged.places || {}), ...chunk.places };
+        }
+        if (chunk.content) {
+            merged.content = { ...(merged.content || {}), ...chunk.content };
+        }
+        
+        // 2. Lists (Validation Schema Keys)
+        if (chunk.sights && Array.isArray(chunk.sights)) {
+            merged.sights = [...(merged.sights || []), ...chunk.sights];
+        }
+        if (chunk.chapters && Array.isArray(chunk.chapters)) {
+            merged.chapters = [...(merged.chapters || []), ...chunk.chapters];
+        }
+
+        // 3. Fallback: Copy other keys (last wins)
+        Object.keys(chunk).forEach(key => {
+            if (!['places', 'content', 'sights', 'chapters'].includes(key)) {
+                merged[key] = chunk[key];
+            }
+        });
+    });
+
+    return merged;
+};
+
 export const TripOrchestrator = {
   
+  // Internal Loop for Auto-Mode to prevent UI Recursion
+  async executeInternalChunkLoop(task: TaskKey, totalItems: number, limit: number): Promise<any> {
+     const store = useTripStore.getState();
+     const totalChunks = Math.ceil(totalItems / limit);
+     const collectedResults: any[] = [];
+     const modelId = resolveModelId(task);
+     const schema = SCHEMA_MAP[task];
+
+     console.log(`[Orchestrator] Starting INTERNAL Loop for ${task}: ${totalChunks} chunks.`);
+
+     for (let i = 1; i <= totalChunks; i++) {
+         console.log(`[Orchestrator] Processing Chunk ${i}/${totalChunks}...`);
+         
+         // UPDATE STORE silently (isActive=false) to provide context for PayloadBuilder
+         // but prevent UI hooks from interfering.
+         store.setChunkingState({
+             isActive: false, 
+             currentChunk: i,
+             totalChunks: totalChunks,
+             results: collectedResults // Pass previous results for context (e.g. visited sights)
+         });
+
+         // Build Prompt via Options
+         const prompt = PayloadBuilder.buildPrompt(task, undefined, {
+             chunkIndex: i,
+             limit: limit,
+             totalChunks: totalChunks
+         });
+
+         // Execute
+         const rawResult = await GeminiService.call(prompt, task, modelId);
+
+         // Validate
+         let validatedData = rawResult;
+         if (schema) {
+            const validation = schema.safeParse(rawResult);
+            if (!validation.success) {
+                console.warn(`[Orchestrator] Validation Failed for chunk ${i}.`, JSON.stringify(rawResult, null, 2));
+                // In auto-loop, we might want to retry or throw. For now, strict error.
+                throw new Error(`KI-Antwort für Chunk ${i} ungültig.`);
+            }
+            validatedData = validation.data;
+         }
+
+         collectedResults.push(validatedData);
+     }
+
+     store.resetChunking();
+     return mergeResults(collectedResults, task);
+  },
+
   async executeTask(task: TaskKey, feedback?: string): Promise<any> {
     const store = useTripStore.getState();
     const { project, chunkingState, setChunkingState, apiKey } = store;
 
-    // --- 1. CHUNKING INITIALISIERUNG ---
+    // --- 1. CHUNKING CHECK ---
     const chunkableTasks: TaskKey[] = [
         'anreicherer', 'chefredakteur', 'infoAutor', 'foodEnricher', 'chefPlaner',
-        'dayplan', 'initialTagesplaner', // TIME BASED
+        'dayplan', 'initialTagesplaner',
         'infos', 'details', 'basis'
     ];
     
-    if (chunkableTasks.includes(task) && (!chunkingState.isActive || chunkingState.currentChunk === 0)) {
+    if (chunkableTasks.includes(task)) {
         let totalItems = 0;
         const isManual = !apiKey;
         const limit = getTaskLimit(task, isManual);
@@ -113,13 +232,11 @@ export const TripOrchestrator = {
         else if (['basis', 'sightCollector'].includes(task)) {
              totalItems = project.userInputs.selectedInterests.length;
         }
-
-        // B. TIME BASED (Fix: Dauer in Tagen)
+        // B. TIME BASED
         else if (['dayplan', 'initialTagesplaner'].includes(task)) {
             totalItems = project.userInputs.dates.duration || 1;
         }
-
-        // C. TOPIC BASED (Fix: Anzahl der Info-Themen)
+        // C. TOPIC BASED
         else if (['infos', 'infoAutor'].includes(task)) {
             const appendixInterests = project.userInputs.selectedInterests.filter(id => 
                 APPENDIX_ONLY_INTERESTS.includes(id)
@@ -127,24 +244,31 @@ export const TripOrchestrator = {
             totalItems = appendixInterests.length > 0 ? appendixInterests.length : 1;
         }
 
-        // INIT STATE
+        // --- DECISION: INTERNAL LOOP (Auto) vs. UI LOOP (Manual) ---
         if (totalItems > limit) {
-            const totalChunks = Math.ceil(totalItems / limit);
-            console.log(`[Orchestrator] Starting Chunk Loop for ${task}: ${totalItems} Items / Limit ${limit} = ${totalChunks} Chunks (Mode: ${isManual ? 'Manual' : 'Auto'})`);
-            
-            setChunkingState({
-                isActive: true,
-                currentChunk: 1, 
-                totalChunks: totalChunks,
-                results: [] 
-            });
-            await new Promise(r => setTimeout(r, 50));
+             if (apiKey) {
+                 // AUTO MODE: Use Internal Loop (No UI State Recursion)
+                 return this.executeInternalChunkLoop(task, totalItems, limit);
+             } else {
+                 // MANUAL MODE: Use UI Loop (Keep existing behavior)
+                 if (!chunkingState.isActive || chunkingState.currentChunk === 0) {
+                     const totalChunks = Math.ceil(totalItems / limit);
+                     setChunkingState({
+                        isActive: true,
+                        currentChunk: 1, 
+                        totalChunks: totalChunks,
+                        results: [] 
+                     });
+                     await new Promise(r => setTimeout(r, 50));
+                 }
+             }
         } else {
+            // No chunking needed
             if (chunkingState.isActive) store.resetChunking();
         }
     }
 
-    // --- 2. PROMPT & MODEL ---
+    // --- 2. STANDARD EXECUTION (Single Chunk or Manual Step) ---
     const prompt = PayloadBuilder.buildPrompt(task, feedback);
     const modelId = resolveModelId(task);
     
@@ -172,4 +296,4 @@ export const TripOrchestrator = {
     return validatedData;
   }
 };
-// --- END OF FILE 163 Zeilen ---
+// --- END OF FILE 256 Zeilen ---

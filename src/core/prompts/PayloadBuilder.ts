@@ -1,5 +1,6 @@
-// 21.01.2026 23:55 - FIX: Dynamic Language Enforcement (supports IT, EN, etc.) instead of hardcoded German.
+// 22.01.2026 12:00 - FIX: Added 'options' parameter to buildPrompt for Orchestrator-controlled Chunking.
 // src/core/prompts/PayloadBuilder.ts
+// 21.01.2026 23:55 - FIX: Dynamic Language Enforcement (supports IT, EN, etc.) instead of hardcoded German.
 // 21.01.2026 23:45 - FIX: Enforced German Output for ChefPlaner to override English Templates.
 // 21.01.2026 00:50 - FIX: Filtered out Service-Interests (Hotel/Food) for Collector to prevent "Double Bind" confusion.
 // 20.01.2026 23:45 - FIX: Mapped Interest IDs to full Objects for InfoAutor (prevents 'undefined' errors).
@@ -31,7 +32,7 @@ import { filterByRadius } from '../utils/geo';
 import type { GeoPoint } from '../utils/geo';
 
 export const PayloadBuilder = {
-  buildPrompt: (task: TaskKey, feedback?: string): string => {
+  buildPrompt: (task: TaskKey, feedback?: string, options?: { chunkIndex?: number, limit?: number, totalChunks?: number }): string => {
     const state = useTripStore.getState();
     const { project, aiSettings, apiKey } = state; 
     const chunkingState = (state as any).chunkingState as ChunkingState;
@@ -48,10 +49,11 @@ export const PayloadBuilder = {
     };
 
     const sliceData = (items: any[], taskKey: TaskKey) => {
-        const limit = getTaskChunkLimit(taskKey);
-        const currentChunk = (chunkingState?.isActive && chunkingState.currentChunk > 0) 
+        const limit = options?.limit || getTaskChunkLimit(taskKey);
+        const currentChunk = options?.chunkIndex || 
+                             ((chunkingState?.isActive && chunkingState.currentChunk > 0) 
                              ? chunkingState.currentChunk 
-                             : 1;
+                             : 1);
         const startIndex = (currentChunk - 1) * limit;
         const endIndex = startIndex + limit;
         return items.slice(startIndex, endIndex);
@@ -189,11 +191,13 @@ export const PayloadBuilder = {
       case 'dayplan':
       case 'initialTagesplaner': {
         let contextData: any = undefined;
+        const isActive = options ? true : chunkingState?.isActive;
         
-        if (chunkingState?.isActive) {
-            const limit = getTaskChunkLimit('dayplan');
-            const currentChunk = chunkingState.currentChunk;
+        if (isActive) {
+            const limit = options?.limit || getTaskChunkLimit('dayplan');
+            const currentChunk = options?.chunkIndex || chunkingState.currentChunk;
             const dayOffset = (currentChunk - 1) * limit;
+            const totalChunks = options?.totalChunks || chunkingState.totalChunks;
             
             // Berechne verbleibende Tage für diesen Chunk
             const totalDuration = project.userInputs.dates.duration;
@@ -204,7 +208,7 @@ export const PayloadBuilder = {
                 days: daysInChunk,
                 isChunked: true,
                 chunkIndex: currentChunk,
-                totalChunks: chunkingState.totalChunks
+                totalChunks: totalChunks
             };
         }
         generatedPrompt = buildInitialTagesplanerPrompt(project, contextData, feedback, getVisitedSightIds());
@@ -262,8 +266,8 @@ export const PayloadBuilder = {
           generatedPrompt = buildChefredakteurPrompt(
               project, 
               slicedPlaces, 
-              chunkingState?.currentChunk || 1, 
-              chunkingState?.totalChunks || 1
+              options?.chunkIndex || chunkingState?.currentChunk || 1, 
+              options?.totalChunks || chunkingState?.totalChunks || 1
           ) || "";
           break;
       }
@@ -276,7 +280,7 @@ export const PayloadBuilder = {
               APPENDIX_ONLY_INTERESTS.includes(id)
           );
 
-          if (chunkingState?.isActive) {
+          if (chunkingState?.isActive || options) {
               slicedTopics = sliceData(appendixInterests, 'infoAutor');
           } else {
               slicedTopics = appendixInterests;
@@ -297,8 +301,8 @@ export const PayloadBuilder = {
           generatedPrompt = buildInfoAutorPrompt(
               project, 
               mappedTopics, // Pass mapped objects instead of strings
-              chunkingState?.currentChunk || 1, 
-              chunkingState?.totalChunks || 1, 
+              options?.chunkIndex || chunkingState?.currentChunk || 1, 
+              options?.totalChunks || chunkingState?.totalChunks || 1, 
               []
           ) || "";
           break;
@@ -352,4 +356,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 448 Zeilen ---
+// --- END OF FILE 464 Zeilen ---
