@@ -1,9 +1,7 @@
-// 22.01.2026 12:00 - FIX: Added 'options' parameter to buildPrompt for Orchestrator-controlled Chunking.
+// 22.01.2026 15:15 - FIX: Added "Strict Data Filter" to sliceData to prevent garbage payload for enrichment.
 // src/core/prompts/PayloadBuilder.ts
+// 22.01.2026 12:00 - FIX: Added 'options' parameter to buildPrompt for Orchestrator-controlled Chunking.
 // 21.01.2026 23:55 - FIX: Dynamic Language Enforcement (supports IT, EN, etc.) instead of hardcoded German.
-// 21.01.2026 23:45 - FIX: Enforced German Output for ChefPlaner to override English Templates.
-// 21.01.2026 00:50 - FIX: Filtered out Service-Interests (Hotel/Food) for Collector to prevent "Double Bind" confusion.
-// 20.01.2026 23:45 - FIX: Mapped Interest IDs to full Objects for InfoAutor (prevents 'undefined' errors).
 
 import { useTripStore } from '../../store/useTripStore';
 import { INTEREST_DATA } from '../../data/interests';
@@ -49,6 +47,14 @@ export const PayloadBuilder = {
     };
 
     const sliceData = (items: any[], taskKey: TaskKey) => {
+        // FIX: Strict Data Filter - Remove garbage before slicing
+        // Allow strings (for legacy/events) BUT require ID & Name for objects (Places)
+        const validItems = items.filter(item => {
+            if (!item) return false;
+            if (typeof item === 'string') return true; // Legacy support
+            return item.id && item.name; // Strict Object Requirement
+        });
+
         const limit = options?.limit || getTaskChunkLimit(taskKey);
         const currentChunk = options?.chunkIndex || 
                              ((chunkingState?.isActive && chunkingState.currentChunk > 0) 
@@ -56,7 +62,7 @@ export const PayloadBuilder = {
                              : 1);
         const startIndex = (currentChunk - 1) * limit;
         const endIndex = startIndex + limit;
-        return items.slice(startIndex, endIndex);
+        return validItems.slice(startIndex, endIndex);
     };
 
     const getVisitedSightIds = (): string[] => {
@@ -356,4 +362,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 464 Zeilen ---
+// --- END OF FILE 480 Zeilen ---

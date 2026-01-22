@@ -1,14 +1,15 @@
-// 22.01.2026 02:00 - FIX: Removed 'chunkingState' dependency to prevent Race Condition during Orchestrator Init.
+// 22.01.2026 15:45 - REFACTOR: Decoupled Data Processing to ResultProcessor (Service Pattern).
 // src/hooks/useTripGeneration.ts
+// 22.01.2026 02:00 - FIX: Removed 'chunkingState' dependency to prevent Race Condition during Orchestrator Init.
 // 22.01.2026 01:00 - FIX: Removed 'currentStep' dependency.
 // 22.01.2026 00:05 - FIX: Corrected Access Path for Places.
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { v4 as uuidv4 } from 'uuid';
 import { useTripStore } from '../store/useTripStore';
 import { PayloadBuilder } from '../core/prompts/PayloadBuilder';
 import { TripOrchestrator } from '../services/orchestrator';
+import { ResultProcessor } from '../services/ResultProcessor';
 import { WORKFLOW_STEPS } from '../core/Workflow/steps';
 import type { WorkflowStepId, TaskKey } from '../core/types';
 
@@ -35,27 +36,6 @@ interface UseTripGenerationReturn {
   cancelWorkflow: () => void;
   startSingleTask: (task: TaskKey, feedback?: string) => Promise<void>;
 }
-
-// --- HELPER: UNIVERSAL ARRAY UNPACKER ---
-const findDataArray = (obj: any): any[] => {
-    if (!obj) return [];
-    if (Array.isArray(obj)) return obj;
-    
-    // Check known keys first
-    const knownKeys = ['candidates', 'processed_places', 'enriched_places', 'sights', 'items', 'places', 'results', 'data', 'output'];
-    for (const key of knownKeys) {
-        if (Array.isArray(obj[key])) return obj[key];
-    }
-
-    // Fallback: Check ALL keys
-    if (typeof obj === 'object') {
-        for (const key in obj) {
-            if (Array.isArray(obj[key]) && obj[key].length > 0) return obj[key];
-        }
-    }
-    
-    return [];
-};
 
 // --- SMART ERROR HANDLER HELPER ---
 const getFriendlyErrorMessage = (error: any, lang: 'de' | 'en'): string => {
@@ -101,8 +81,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
   const { 
     aiSettings,
     logEvent,
-    setAnalysisResult,
-    updatePlace,
     addNotification,
     dismissNotification,
     project,
@@ -135,214 +113,11 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     if (aiSettings.debug) logEvent({ task: 'workflow_manager', type: 'system', content: 'Workflow CANCELLED' });
   }, [aiSettings.debug, logEvent, setManualMode, resetChunking]);
 
-  // --- RESULT PROCESSING ---
+  // --- RESULT PROCESSING DELEGATION ---
   const processResult = useCallback((step: WorkflowStepId | TaskKey, data: any) => {
-    if (aiSettings.debug) {
-      logEvent({
-        task: step,
-        type: 'info',
-        content: `Processing Result for ${step}`,
-        meta: { dataKeys: Object.keys(data || {}) }
-      });
-    }
-
-    switch (step) {
-      case 'basis': {
-        const candidates = findDataArray(data);
-
-        if (candidates.length > 0) {
-            candidates.forEach((item: any) => {
-                const name = typeof item === 'string' ? item : item.name;
-                
-                if (name) {
-                    const id = uuidv4();
-                    updatePlace(id, { 
-                      id, 
-                      name, 
-                      category: 'Sight', 
-                      userPriority: 0,
-                      visited: false
-                    });
-                }
-            });
-            console.log(`[Basis] ${candidates.length} candidates stored.`);
-        } else {
-            console.warn(`[Basis] Warning: No 'candidates' found.`, data);
-        }
-        break;
-      }
-
-      case 'anreicherer': {
-        let enrichedItems = findDataArray(data);
-        
-        if (enrichedItems.length === 0 && data && typeof data === 'object' && (data.id || data.name)) {
-            enrichedItems = [data];
-        }
-
-        if (enrichedItems.length > 0) {
-            enrichedItems.forEach((item: any) => { 
-                const targetId = item.id;
-                const existingPlaces = useTripStore.getState().project.data?.places || {};
-                
-                if (targetId && existingPlaces[targetId]) {
-                   updatePlace(targetId, {
-                     ...item, 
-                     id: targetId, 
-                     category: item.category || 'Sight',
-                     address: item.address,
-                     location: item.location,
-                     description: item.description,
-                     openingHours: item.openingHours
-                   }); 
-                } else {
-                    console.warn(`[Enricher] ID Mismatch/Missing. Ignoring update for: ${item.name} (ID: ${targetId})`);
-                }
-            });
-            console.log(`[Enricher] ${enrichedItems.length} places processed.`);
-        } else {
-             console.warn(`[Enricher] Warning: No data found.`, data);
-        }
-        break;
-      }
-
-      case 'chefredakteur':
-      case 'details': {
-         let details = findDataArray(data);
-         if (details.length === 0 && data && typeof data === 'object' && (data.id || data.detailed_description || data.description)) {
-             details = [data];
-         }
-
-         if (details.length > 0) {
-             details.forEach((item: any) => {
-                 const targetId = item.id;
-                 const existingPlaces = useTripStore.getState().project.data?.places || {};
-                 
-                 if (targetId && existingPlaces[targetId]) {
-                     updatePlace(targetId, {
-                         description: item.detailed_description || item.description || item.content, 
-                         reasoning: item.reasoning
-                     });
-                 } else {
-                     console.warn(`[Details] ID Mismatch/Missing. Ignoring update for: ${item.name} (ID: ${targetId})`);
-                 }
-             });
-             console.log(`[Details] Updated ${details.length} places.`);
-         } else {
-             console.warn('[Details] No content found. Received:', data);
-         }
-         break;
-      }
-
-      case 'sondertage':
-      case 'ideenScout': {
-          if (data) setAnalysisResult('ideenScout', data);
-          break;
-      }
-
-      case 'guide': {
-          if (data) setAnalysisResult('tourGuide', data); 
-          break;
-      }
-
-      case 'infoAutor':
-      case 'infos': {
-          let finalData = data;
-          const arr = findDataArray(data);
-          if (arr.length > 0) {
-              finalData = { chapters: arr };
-          }
-          
-          if (finalData) {
-              setAnalysisResult('infoAutor', finalData);
-          }
-          break;
-      }
-
-      case 'food':
-      case 'foodScout': 
-      case 'foodEnricher': {
-        let foodItems = findDataArray(data);
-        if (foodItems.length === 0 && data && typeof data === 'object' && data.name) {
-            foodItems = [data];
-        }
-
-        if (foodItems.length > 0) {
-            foodItems.forEach((item: any) => {
-                const id = item.id || uuidv4(); 
-                updatePlace(id, {
-                    id,
-                    name: item.name,
-                    category: 'Restaurant', 
-                    address: item.address,
-                    location: item.location, 
-                    rating: item.rating || 0,
-                    description: `${item.cuisine || ''} - ${item.priceLevel || ''} (${item.guides?.join(', ') || ''})`,
-                    ...item 
-                });
-            });
-            console.log(`[Food] ${foodItems.length} restaurants stored.`);
-        }
-        break;
-      }
-
-      case 'accommodation':
-      case 'hotelScout': {
-        let hotelItems = findDataArray(data);
-        if (hotelItems.length === 0 && data && typeof data === 'object' && data.name) {
-            hotelItems = [data];
-        }
-
-        if (hotelItems.length > 0) {
-            hotelItems.forEach((item: any) => {
-                const id = item.id || uuidv4(); 
-                updatePlace(id, {
-                    id,
-                    name: item.name,
-                    category: 'Hotel', 
-                    address: item.address,
-                    location: item.location, 
-                    rating: item.rating || 0,
-                    description: item.description || item.reasoning,
-                    ...item 
-                });
-            });
-            console.log(`[Hotel] ${hotelItems.length} hotels stored.`);
-        }
-        break;
-      }
-
-      case 'tourGuide': {
-         if (data) setAnalysisResult('tourGuide', data);
-         break;
-      }
-
-      case 'transferPlanner': {
-         if (data) setAnalysisResult('transferPlanner', data);
-         break;
-      }
-
-      case 'chefPlaner':
-         if (data) setAnalysisResult('chefPlaner', data);
-         break;
-
-      case 'routeArchitect':
-      case 'routenArchitekt':
-         if (data) setAnalysisResult('routeArchitect', data);
-         break;
-      
-      case 'geoAnalyst':
-         if (data) setAnalysisResult('geoAnalyst', data);
-         break;
-
-      case 'initialTagesplaner':
-      case 'dayplan':
-         if (data) setAnalysisResult('initialTagesplaner', data);
-         break;
-      
-      default:
-        console.log(`Processor: No specific handler for ${step}`, data);
-    }
-  }, [aiSettings.debug, logEvent, setAnalysisResult, updatePlace]);
+      // Delegate entire logic to Service
+      ResultProcessor.process(step, data);
+  }, []); // No dependencies needed as ResultProcessor accesses Store directly
 
   // --- WORKFLOW ENGINE ---
   useEffect(() => {
@@ -437,7 +212,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     queue, status, aiSettings.debug, logEvent, processResult, addNotification, 
     dismissNotification, cancelWorkflow, t, lang, setManualMode, setChunkingState, resetChunking
   ]);
-  // ^ FIX: Removed 'currentStep' AND 'chunkingState' from dependencies to prevent double firing
 
   const startWorkflow = useCallback((steps: WorkflowStepId[]) => {
     if (steps.length === 0) return;
@@ -516,4 +290,4 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
   return { status, currentStep, queue, error, progress, manualPrompt, submitManualResult, startWorkflow, resumeWorkflow, cancelWorkflow, startSingleTask };
 };
-// --- END OF FILE 565 Zeilen ---
+// --- END OF FILE 230 Zeilen ---
