@@ -1,40 +1,124 @@
-// 22.01.2026 15:30 - FEAT: Created ResultProcessor to decouple data logic from UI hooks (Refactoring).
+// 22.01.2026 20:10 - FIX: Enable String-Extraction in Arrays & Restore ID Logging.
 // src/services/ResultProcessor.ts
 
 import { v4 as uuidv4 } from 'uuid';
 import { useTripStore } from '../store/useTripStore';
 import type { WorkflowStepId, TaskKey } from '../core/types';
 
-// --- HELPER: UNIVERSAL ARRAY UNPACKER ---
-const findDataArray = (obj: any): any[] => {
-    if (!obj) return [];
-    if (Array.isArray(obj)) return obj;
+// --- HELPER: LEVENSHTEIN DISTANCE ---
+const getSimilarity = (s1: string, s2: string): number => {
+    const longer = s1.length > s2.length ? s1 : s2;
+    const shorter = s1.length > s2.length ? s2 : s1;
+    const longerLength = longer.length;
+    if (longerLength === 0) return 1.0;
 
-    // Check known keys first
-    const knownKeys = ['candidates', 'processed_places', 'enriched_places', 'sights', 'items', 'places', 'results', 'data', 'output'];
-    for (const key of knownKeys) {
-        if (Array.isArray(obj[key])) return obj[key];
+    const costs = new Array();
+    for (let i = 0; i <= longer.length; i++) {
+        let lastValue = i;
+        for (let j = 0; j <= shorter.length; j++) {
+            if (i === 0) {
+                costs[j] = j;
+            } else {
+                if (j > 0) {
+                    let newValue = costs[j - 1];
+                    if (longer.charAt(i - 1) !== shorter.charAt(j - 1)) {
+                        newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+                    }
+                    costs[j - 1] = lastValue;
+                    lastValue = newValue;
+                }
+            }
+        }
+        if (i > 0) costs[shorter.length] = lastValue;
+    }
+    return (longerLength - costs[shorter.length]) / longerLength;
+};
+
+// --- HELPER: SMART ID FINDER ---
+const resolvePlaceId = (item: any, existingPlaces: Record<string, any>, debug: boolean): string | undefined => {
+    if (item.id && existingPlaces[item.id]) return item.id;
+
+    if (item.name) {
+        const searchName = item.name.trim().toLowerCase();
+        let bestMatchId: string | undefined = undefined;
+        let bestScore = 0;
+
+        Object.values(existingPlaces).forEach((p: any) => {
+            if (!p.name) return;
+            const targetName = p.name.trim().toLowerCase();
+            const score = getSimilarity(searchName, targetName);
+            if (score > bestScore) {
+                bestScore = score;
+                bestMatchId = p.id;
+            }
+        });
+
+        if (bestScore > 0.8 && bestMatchId) {
+            if (debug) console.log(`[ResultProcessor] 🧠 Fuzzy Match: "${item.name}" ≈ "${existingPlaces[bestMatchId].name}" (${(bestScore*100).toFixed(0)}%)`);
+            return bestMatchId;
+        }
+    }
+    return undefined;
+};
+
+// --- HELPER: THE VACUUM CLEANER V3 (String Support Enabled) ---
+const extractItems = (data: any): any[] => {
+    let items: any[] = [];
+
+    if (!data) return [];
+
+    // Case A: Array - recurse into elements
+    if (Array.isArray(data)) {
+        data.forEach(element => {
+            if (typeof element === 'object' && element !== null) {
+                items = items.concat(extractItems(element));
+            } else if (typeof element === 'string') {
+                // Allow strings! (Needed for Basis candidates)
+                if (element.trim().length > 0) items.push(element);
+            }
+        });
+        return items;
     }
 
-    // Fallback: Check ALL keys
-    if (typeof obj === 'object') {
-        for (const key in obj) {
-            if (Array.isArray(obj[key]) && obj[key].length > 0) return obj[key];
+    // Primitives (outside of arrays) are usually not what we want from the root
+    if (typeof data !== 'object') return [];
+
+    // Case B: Object
+    // 1. Is this a candidate/place itself?
+    const isPlace = (data.name || data.id)
+        && !data.candidates && !data.enriched_places && !data.places && !data.results;
+
+    if (isPlace) {
+        items.push(data);
+    }
+
+    // 2. Scan specific container keys (Priority search)
+    const containerKeys = ['candidates', 'processed_places', 'enriched_places', 'sights', 'items', 'places', 'results', 'data', 'chapters', 'recommendations'];
+    let foundContainer = false;
+
+    for (const key of containerKeys) {
+        if (data[key]) {
+            items = items.concat(extractItems(data[key]));
+            foundContainer = true;
         }
     }
 
-    return [];
+    // 3. Fallback: DEEP SEARCH
+    if (!foundContainer) {
+         Object.values(data).forEach(value => {
+             if (typeof value === 'object' && value !== null) {
+                 items = items.concat(extractItems(value));
+             }
+         });
+    }
+
+    return items;
 };
 
 export const ResultProcessor = {
   process: (step: WorkflowStepId | TaskKey, data: any) => {
     const state = useTripStore.getState();
-    const { 
-        aiSettings,
-        logEvent,
-        setAnalysisResult,
-        updatePlace
-    } = state;
+    const { aiSettings, logEvent, setAnalysisResult, updatePlace } = state;
 
     if (aiSettings.debug) {
       logEvent({
@@ -45,22 +129,25 @@ export const ResultProcessor = {
       });
     }
 
+    // --- UNIVERSAL EXTRACTION ---
+    const extractedItems = extractItems(data);
+
     switch (step) {
       case 'basis': {
-        const candidates = findDataArray(data);
-
-        if (candidates.length > 0) {
-            candidates.forEach((item: any) => {
-                // FIX: Strict Type Conversion (The ID Factory)
+        if (extractedItems.length > 0) {
+            extractedItems.forEach((item: any) => {
                 const isString = typeof item === 'string';
                 const name = isString ? item : item.name;
 
                 if (name) {
-                    const id = isString ? uuidv4() : (item.id || uuidv4());
+                    const existingPlaces = state.project.data?.places || {};
+                    const existingId = resolvePlaceId({ name }, existingPlaces, false);
+                    const id = existingId || (isString ? uuidv4() : (item.id || uuidv4()));
 
-                    // Log conversion for debugging
-                    if (isString && aiSettings.debug) {
-                        console.log(`[Basis] Auto-converted string to object: "${name}" -> ${id}`);
+                    if (aiSettings.debug) {
+                         const logMsg = isString ? `[Basis] String: "${name}"` : `[Basis] Object: "${name}"`;
+                         // FIX: Added ID back to log output
+                         console.log(existingId ? `${logMsg} -> Merged (${id})` : `${logMsg} -> New ID (${id})`);
                     }
 
                     updatePlace(id, {
@@ -69,31 +156,28 @@ export const ResultProcessor = {
                       category: 'Sight',
                       userPriority: 0,
                       visited: false,
-                      // Preserve other fields if item was an object
                       ...(isString ? {} : item)
                     });
                 }
             });
-            console.log(`[Basis] ${candidates.length} candidates stored.`);
+            console.log(`[Basis] Processed ${extractedItems.length} items.`);
         } else {
-            console.warn(`[Basis] Warning: No 'candidates' found.`, data);
+            // DEBUG: Show what we actually got if extraction fails
+            console.warn(`[Basis] No items found in payload. Raw Keys:`, Object.keys(data || {}));
+            if (aiSettings.debug) console.log('Raw Data Dump:', JSON.stringify(data).substring(0, 200) + '...');
         }
         break;
       }
 
       case 'anreicherer': {
-        let enrichedItems = findDataArray(data);
+        const existingPlaces = useTripStore.getState().project.data?.places || {};
 
-        if (enrichedItems.length === 0 && data && typeof data === 'object' && (data.id || data.name)) {
-            enrichedItems = [data];
-        }
+        if (extractedItems.length > 0) {
+            let successCount = 0;
+            extractedItems.forEach((item: any) => {
+                const targetId = resolvePlaceId(item, existingPlaces, aiSettings.debug);
 
-        if (enrichedItems.length > 0) {
-            enrichedItems.forEach((item: any) => {
-                const targetId = item.id;
-                const existingPlaces = useTripStore.getState().project.data?.places || {};
-
-                if (targetId && existingPlaces[targetId]) {
+                if (targetId) {
                    updatePlace(targetId, {
                      ...item,
                      id: targetId,
@@ -101,173 +185,97 @@ export const ResultProcessor = {
                      address: item.address,
                      location: item.location,
                      description: item.description,
-                     openingHours: item.openingHours
+                     openingHours: item.openingHours,
+                     rating: item.rating
                    });
+                   successCount++;
                 } else {
-                    console.warn(`[Enricher] ID Mismatch/Missing. Ignoring update for: ${item.name} (ID: ${targetId})`);
+                    if (item.name || (typeof item === 'string')) {
+                         const n = typeof item === 'string' ? item : item.name;
+                         console.warn(`[Enricher] Dropped (No Match): "${n}"`);
+                    }
                 }
             });
-            console.log(`[Enricher] ${enrichedItems.length} places processed.`);
+            console.log(`[Enricher] Updated ${successCount} / ${extractedItems.length} extracted items.`);
         } else {
-             console.warn(`[Enricher] Warning: No data found.`, data);
+             console.warn(`[Enricher] No items found. Raw keys:`, Object.keys(data || {}));
         }
         break;
       }
 
       case 'chefredakteur':
       case 'details': {
-         let details = findDataArray(data);
-         if (details.length === 0 && data && typeof data === 'object' && (data.id || data.detailed_description || data.description)) {
-             details = [data];
-         }
-
-         if (details.length > 0) {
-             details.forEach((item: any) => {
-                 const targetId = item.id;
-                 const existingPlaces = useTripStore.getState().project.data?.places || {};
-
-                 if (targetId && existingPlaces[targetId]) {
+         const existingPlaces = useTripStore.getState().project.data?.places || {};
+         if (extractedItems.length > 0) {
+             let successCount = 0;
+             extractedItems.forEach((item: any) => {
+                 const targetId = resolvePlaceId(item, existingPlaces, aiSettings.debug);
+                 if (targetId) {
                      updatePlace(targetId, {
                          description: item.detailed_description || item.description || item.content,
                          reasoning: item.reasoning
                      });
-                 } else {
-                     console.warn(`[Details] ID Mismatch/Missing. Ignoring update for: ${item.name} (ID: ${targetId})`);
+                     successCount++;
                  }
              });
-             console.log(`[Details] Updated ${details.length} places.`);
-         } else {
-             console.warn('[Details] No content found. Received:', data);
+             console.log(`[Details] Updated ${successCount} items.`);
          }
          break;
       }
 
-      case 'sondertage':
-      case 'ideenScout': {
-          if (data) setAnalysisResult('ideenScout', data);
-          break;
-      }
-
-      case 'guide': {
-          if (data) setAnalysisResult('tourGuide', data);
-          break;
-      }
-
-      case 'infoAutor':
-      case 'infos': {
-          let finalData = data;
-          const arr = findDataArray(data);
-          if (arr.length > 0) {
-              finalData = { chapters: arr };
-          }
-
-          if (finalData) {
-              setAnalysisResult('infoAutor', finalData);
-          }
-          break;
-      }
-
       case 'food':
       case 'foodScout':
-      case 'foodEnricher': {
-        let foodItems = findDataArray(data);
-        if (foodItems.length === 0 && data && typeof data === 'object' && data.name) {
-            foodItems = [data];
-        }
-
-        if (foodItems.length > 0) {
-            foodItems.forEach((item: any) => {
-                // FIX: Strict Type Conversion for Food
-                const isString = typeof item === 'string';
-                const name = isString ? item : item.name;
-
-                if (name) {
-                    const id = isString ? uuidv4() : (item.id || uuidv4());
-
-                    if (isString && aiSettings.debug) {
-                        console.log(`[Food] Auto-converted string to object: "${name}" -> ${id}`);
-                    }
-
-                    updatePlace(id, {
-                        id,
-                        name,
-                        category: 'Restaurant',
-                        address: isString ? undefined : item.address,
-                        location: isString ? undefined : item.location,
-                        rating: isString ? 0 : (item.rating || 0),
-                        description: isString ? 'Restaurant' : `${item.cuisine || ''} - ${item.priceLevel || ''} (${item.guides?.join(', ') || ''})`,
-                        ...(isString ? {} : item)
-                    });
-                }
-            });
-            console.log(`[Food] ${foodItems.length} restaurants stored.`);
-        }
-        break;
-      }
-
+      case 'foodEnricher':
       case 'accommodation':
       case 'hotelScout': {
-        let hotelItems = findDataArray(data);
-        if (hotelItems.length === 0 && data && typeof data === 'object' && data.name) {
-            hotelItems = [data];
-        }
-
-        if (hotelItems.length > 0) {
-            hotelItems.forEach((item: any) => {
-                // FIX: Strict Type Conversion for Hotels
+        const category = ['food', 'foodScout', 'foodEnricher'].includes(step) ? 'Restaurant' : 'Hotel';
+        if (extractedItems.length > 0) {
+            extractedItems.forEach((item: any) => {
                 const isString = typeof item === 'string';
                 const name = isString ? item : item.name;
-
                 if (name) {
-                    const id = isString ? uuidv4() : (item.id || uuidv4());
-
-                    if (isString && aiSettings.debug) {
-                        console.log(`[Hotel] Auto-converted string to object: "${name}" -> ${id}`);
-                    }
-
+                    const id = item.id || uuidv4();
                     updatePlace(id, {
                         id,
                         name,
-                        category: 'Hotel',
-                        address: isString ? undefined : item.address,
-                        location: isString ? undefined : item.location,
-                        rating: isString ? 0 : (item.rating || 0),
-                        description: isString ? 'Hotel' : (item.description || item.reasoning),
+                        category,
+                        address: item.address,
+                        location: item.location,
+                        rating: item.rating || 0,
+                        description: isString ? category : (item.description || item.cuisine || ''),
                         ...(isString ? {} : item)
                     });
                 }
             });
-            console.log(`[Hotel] ${hotelItems.length} hotels stored.`);
+            console.log(`[${category}] Stored ${extractedItems.length} items.`);
         }
         break;
       }
 
-      case 'tourGuide': {
-         if (data) setAnalysisResult('tourGuide', data);
-         break;
-      }
+      case 'sondertage':
+      case 'ideenScout':
+          if (data) setAnalysisResult('ideenScout', data);
+          break;
 
-      case 'transferPlanner': {
-         if (data) setAnalysisResult('transferPlanner', data);
-         break;
-      }
+      case 'guide':
+          if (data) setAnalysisResult('tourGuide', data);
+          break;
 
+      case 'infoAutor':
+      case 'infos':
+          if (extractedItems.length > 0) setAnalysisResult('infoAutor', { chapters: extractedItems });
+          else if (data) setAnalysisResult('infoAutor', data);
+          break;
+
+      case 'tourGuide':
+      case 'transferPlanner':
       case 'chefPlaner':
-         if (data) setAnalysisResult('chefPlaner', data);
-         break;
-
       case 'routeArchitect':
       case 'routenArchitekt':
-         if (data) setAnalysisResult('routeArchitect', data);
-         break;
-
       case 'geoAnalyst':
-         if (data) setAnalysisResult('geoAnalyst', data);
-         break;
-
       case 'initialTagesplaner':
       case 'dayplan':
-         if (data) setAnalysisResult('initialTagesplaner', data);
+         if (data) setAnalysisResult(step as any, data);
          break;
 
       default:
@@ -275,4 +283,4 @@ export const ResultProcessor = {
     }
   }
 };
-// --- END OF FILE 250 Zeilen ---
+// --- END OF FILE 308 Zeilen ---

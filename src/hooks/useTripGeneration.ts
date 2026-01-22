@@ -1,8 +1,7 @@
-// 22.01.2026 15:45 - REFACTOR: Decoupled Data Processing to ResultProcessor (Service Pattern).
+// 22.01.2026 17:00 - UX: Added Real-Time Chunk Progress to Notifications (e.g., "Step 1/5").
 // src/hooks/useTripGeneration.ts
+// 22.01.2026 15:45 - REFACTOR: Decoupled Data Processing to ResultProcessor (Service Pattern).
 // 22.01.2026 02:00 - FIX: Removed 'chunkingState' dependency to prevent Race Condition during Orchestrator Init.
-// 22.01.2026 01:00 - FIX: Removed 'currentStep' dependency.
-// 22.01.2026 00:05 - FIX: Corrected Access Path for Places.
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -117,7 +116,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
   const processResult = useCallback((step: WorkflowStepId | TaskKey, data: any) => {
       // Delegate entire logic to Service
       ResultProcessor.process(step, data);
-  }, []); // No dependencies needed as ResultProcessor accesses Store directly
+  }, []); 
 
   // --- WORKFLOW ENGINE ---
   useEffect(() => {
@@ -141,9 +140,15 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       setCurrentStep(nextStepId);
       const stepLabel = stepDef?.label[lang] || nextStepId;
       
+      // UX UPGRADE: Add Chunk Progress Info
+      let progressSuffix = "";
+      if (chunkingState.isActive && chunkingState.totalChunks > 1) {
+          progressSuffix = ` (${chunkingState.currentChunk}/${chunkingState.totalChunks})`;
+      }
+
       const loadingId = addNotification({ 
         type: 'loading', 
-        message: t('status.workflow_start', { step: stepLabel }), 
+        message: t('status.workflow_start', { step: stepLabel }) + progressSuffix, 
         autoClose: false,
         actions: [
           {
@@ -246,9 +251,16 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       const stepDef = WORKFLOW_STEPS.find(s => s.id === task);
       const stepLabel = stepDef?.label[lang] || task;
 
+      // UX UPGRADE: Chunk Info for Single Tasks (if applicable)
+      const currentChunkState = useTripStore.getState().chunkingState;
+      let progressSuffix = "";
+      if (currentChunkState.isActive && currentChunkState.totalChunks > 1) {
+          progressSuffix = ` (${currentChunkState.currentChunk}/${currentChunkState.totalChunks})`;
+      }
+
       const loadingId = addNotification({ 
         type: 'loading', 
-        message: t('status.workflow_start', { step: stepLabel }), 
+        message: t('status.workflow_start', { step: stepLabel }) + progressSuffix, 
         autoClose: false,
         actions: [
           {
@@ -290,4 +302,4 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
   return { status, currentStep, queue, error, progress, manualPrompt, submitManualResult, startWorkflow, resumeWorkflow, cancelWorkflow, startSingleTask };
 };
-// --- END OF FILE 230 Zeilen ---
+// --- END OF FILE 245 Zeilen ---

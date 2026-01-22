@@ -1,12 +1,11 @@
-// 22.01.2026 14:45 - FIX: Harmonized Merge-Logic with Validation Schemas (days/sights/chapters support).
+// 22.01.2026 21:45 - FIX: Implemented Incremental Saving via ResultProcessor to prevent data loss.
 // src/services/orchestrator.ts
-// 22.01.2026 14:00 - FIX: Implemented "Internal Chunk Loop" for Auto-Mode to prevent UI recursion bugs.
-// 20.01.2026 21:00 - FIX: Reverted Safety Clamp. Added Debug Log to trace Config loading issues.
 
 import { z } from 'zod';
 import { GeminiService } from './gemini';
 import { PayloadBuilder } from '../core/prompts/PayloadBuilder';
 import { useTripStore } from '../store/useTripStore';
+import { ResultProcessor } from './ResultProcessor'; // <--- NEW IMPORT
 import { CONFIG } from '../data/config';
 import { APPENDIX_ONLY_INTERESTS } from '../data/constants'; 
 import { 
@@ -138,10 +137,23 @@ const mergeResults = (results: any[], task: TaskKey): any => {
             merged.chapters = [...(merged.chapters || []), ...chunk.chapters];
         }
 
-        // 3. Fallback: Copy other keys (last wins)
+        // 3. Fallback: Copy other keys (Concatenate Arrays!)
         Object.keys(chunk).forEach(key => {
             if (!['places', 'content', 'sights', 'chapters'].includes(key)) {
-                merged[key] = chunk[key];
+                const value = chunk[key];
+                
+                // If it's an array, CONCATENATE instead of overwrite
+                if (Array.isArray(value)) {
+                    merged[key] = [...(merged[key] || []), ...value];
+                } 
+                // If it's an object, shallow merge
+                else if (typeof value === 'object' && value !== null) {
+                    merged[key] = { ...(merged[key] || {}), ...value };
+                }
+                // Primitives still overwrite (Last Wins)
+                else {
+                    merged[key] = value;
+                }
             }
         });
     });
@@ -151,7 +163,7 @@ const mergeResults = (results: any[], task: TaskKey): any => {
 
 export const TripOrchestrator = {
   
-  // Internal Loop for Auto-Mode to prevent UI Recursion
+  // Internal Loop for Auto-Mode (SEQUENTIAL EXECUTION)
   async executeInternalChunkLoop(task: TaskKey, totalItems: number, limit: number): Promise<any> {
      const store = useTripStore.getState();
      const totalChunks = Math.ceil(totalItems / limit);
@@ -159,18 +171,17 @@ export const TripOrchestrator = {
      const modelId = resolveModelId(task);
      const schema = SCHEMA_MAP[task];
 
-     console.log(`[Orchestrator] Starting INTERNAL Loop for ${task}: ${totalChunks} chunks.`);
+     console.log(`[Orchestrator] Starting SEQUENTIAL Loop for ${task}: ${totalChunks} chunks.`);
 
      for (let i = 1; i <= totalChunks; i++) {
          console.log(`[Orchestrator] Processing Chunk ${i}/${totalChunks}...`);
          
-         // UPDATE STORE silently (isActive=false) to provide context for PayloadBuilder
-         // but prevent UI hooks from interfering.
+         // UPDATE STORE (VISIBLE UI)
          store.setChunkingState({
-             isActive: false, 
+             isActive: true, 
              currentChunk: i,
              totalChunks: totalChunks,
-             results: collectedResults // Pass previous results for context (e.g. visited sights)
+             results: collectedResults 
          });
 
          // Build Prompt via Options
@@ -189,13 +200,23 @@ export const TripOrchestrator = {
             const validation = schema.safeParse(rawResult);
             if (!validation.success) {
                 console.warn(`[Orchestrator] Validation Failed for chunk ${i}.`, JSON.stringify(rawResult, null, 2));
-                // In auto-loop, we might want to retry or throw. For now, strict error.
                 throw new Error(`KI-Antwort für Chunk ${i} ungültig.`);
             }
             validatedData = validation.data;
          }
 
+         // --- NEW: INCREMENTAL SAVE ---
+         // Save validated chunk immediately to store
+         console.log(`[Orchestrator] Incrementally saving chunk ${i}/${totalChunks}...`);
+         ResultProcessor.process(task, validatedData);
+         // -----------------------------
+
          collectedResults.push(validatedData);
+
+         // SAFETY DELAY
+         if (i < totalChunks) {
+             await new Promise(resolve => setTimeout(resolve, 500));
+         }
      }
 
      store.resetChunking();
@@ -258,8 +279,8 @@ export const TripOrchestrator = {
                         currentChunk: 1, 
                         totalChunks: totalChunks,
                         results: [] 
-                     });
-                     await new Promise(r => setTimeout(r, 50));
+                      });
+                      await new Promise(r => setTimeout(r, 50));
                  }
              }
         } else {
@@ -296,4 +317,4 @@ export const TripOrchestrator = {
     return validatedData;
   }
 };
-// --- END OF FILE 256 Zeilen ---
+// --- END OF FILE 295 Zeilen ---

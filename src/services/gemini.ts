@@ -1,6 +1,5 @@
-// 22.01.2026 01:45 - FIX: Added Request Deduplication (Idempotency) to prevent double API calls from Frontend.
+// 22.01.2026 22:00 - FIX: Enhanced JSON Extraction to support Arrays [] correctly (fixes "1 item bug").
 // src/services/gemini.ts
-// 21.01.2026 23:30 - FIX: Implemented "Smart Iterative Extraction".
 
 import { CONFIG } from '../data/config';
 import type { ModelType } from '../data/config'; 
@@ -10,8 +9,28 @@ import { SecurityService } from './security';
 import { validateJson } from './validation';
 import { useTripStore } from '../store/useTripStore'; 
 
-// --- HELPER: JSON EXTRACTION (SMART ITERATIVE) ---
+// --- HELPER: JSON EXTRACTION (ARRAY AWARE) ---
 function extractJsonBlock(text: string): string {
+  // 1. Try to find an ARRAY first (most common for our lists)
+  const arrayStart = text.indexOf('[');
+  const arrayEnd = text.lastIndexOf(']');
+
+  if (arrayStart !== -1 && arrayEnd !== -1 && arrayEnd > arrayStart) {
+      // Check if this array looks like the main container (and not just inside a text)
+      // Heuristic: If '[' comes before the first '{', it's likely the root.
+      const objectStart = text.indexOf('{');
+      if (objectStart === -1 || arrayStart < objectStart) {
+           const potentialJson = text.substring(arrayStart, arrayEnd + 1);
+           try {
+               JSON.parse(potentialJson);
+               return potentialJson; // Found a valid array!
+           } catch (e) {
+               // Array parsing failed, fall back to object search
+           }
+      }
+  }
+
+  // 2. Fallback: Try to find an OBJECT (classic logic)
   let startIndex = text.indexOf('{');
   const lastIndex = text.lastIndexOf('}');
 
@@ -21,6 +40,7 @@ function extractJsonBlock(text: string): string {
 
   let currentStart = startIndex;
   
+  // Smart Iterative Search for Objects
   while (currentStart !== -1 && currentStart < lastIndex) {
     const potentialJson = text.substring(currentStart, lastIndex + 1);
     try {
@@ -288,6 +308,7 @@ export const GeminiService = {
             const parts = data.candidates[0].content.parts || [];
             const rawText = parts.map((p: any) => p.text).join('');
             
+            // FIX: Use enhanced extractor that understands Arrays []
             const cleanText = extractJsonBlock(rawText);
 
             const validation = validateJson<T>(cleanText, [], (msg) => console.warn(msg));
@@ -380,4 +401,4 @@ export const GeminiService = {
     return promise;
   }
 };
-// --- END OF FILE 438 Zeilen ---
+// --- END OF FILE 462 Zeilen ---
