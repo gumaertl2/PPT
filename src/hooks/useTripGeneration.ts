@@ -1,5 +1,7 @@
-// 22.01.2026 00:05 - FIX: Corrected Access Path for Places (project.data.places) to fix runtime crash.
+// 22.01.2026 02:00 - FIX: Removed 'chunkingState' dependency to prevent Race Condition during Orchestrator Init.
 // src/hooks/useTripGeneration.ts
+// 22.01.2026 01:00 - FIX: Removed 'currentStep' dependency.
+// 22.01.2026 00:05 - FIX: Corrected Access Path for Places.
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -35,7 +37,6 @@ interface UseTripGenerationReturn {
 }
 
 // --- HELPER: UNIVERSAL ARRAY UNPACKER ---
-// Sucht rekursiv nach dem ersten Array, das Objekte enthält.
 const findDataArray = (obj: any): any[] => {
     if (!obj) return [];
     if (Array.isArray(obj)) return obj;
@@ -147,12 +148,10 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
     switch (step) {
       case 'basis': {
-        // Basis usually returns a simple list of strings OR object with candidates
         const candidates = findDataArray(data);
 
         if (candidates.length > 0) {
             candidates.forEach((item: any) => {
-                // Basis items are often just strings, but sometimes objects { name: "..." }
                 const name = typeof item === 'string' ? item : item.name;
                 
                 if (name) {
@@ -176,16 +175,13 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       case 'anreicherer': {
         let enrichedItems = findDataArray(data);
         
-        // Single Object Fallback
         if (enrichedItems.length === 0 && data && typeof data === 'object' && (data.id || data.name)) {
             enrichedItems = [data];
         }
 
         if (enrichedItems.length > 0) {
             enrichedItems.forEach((item: any) => { 
-                // Strategy: STRICT SSOT - ID MUST EXIST
                 const targetId = item.id;
-                // FIX: Access places from project.data.places
                 const existingPlaces = useTripStore.getState().project.data?.places || {};
                 
                 if (targetId && existingPlaces[targetId]) {
@@ -219,7 +215,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
          if (details.length > 0) {
              details.forEach((item: any) => {
                  const targetId = item.id;
-                 // FIX: Access places from project.data.places
                  const existingPlaces = useTripStore.getState().project.data?.places || {};
                  
                  if (targetId && existingPlaces[targetId]) {
@@ -439,9 +434,10 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     executeNextStep();
     return () => { isMounted = false; };
   }, [
-    queue, status, currentStep, aiSettings.debug, logEvent, processResult, addNotification, 
-    dismissNotification, cancelWorkflow, t, lang, setManualMode, chunkingState, setChunkingState, resetChunking
+    queue, status, aiSettings.debug, logEvent, processResult, addNotification, 
+    dismissNotification, cancelWorkflow, t, lang, setManualMode, setChunkingState, resetChunking
   ]);
+  // ^ FIX: Removed 'currentStep' AND 'chunkingState' from dependencies to prevent double firing
 
   const startWorkflow = useCallback((steps: WorkflowStepId[]) => {
     if (steps.length === 0) return;

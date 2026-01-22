@@ -1,5 +1,6 @@
-// 21.01.2026 23:30 - FIX: Implemented "Smart Iterative Extraction" to ignore Thinking Model preambles containing brackets.
+// 22.01.2026 01:45 - FIX: Added Request Deduplication (Idempotency) to prevent double API calls from Frontend.
 // src/services/gemini.ts
+// 21.01.2026 23:30 - FIX: Implemented "Smart Iterative Extraction".
 
 import { CONFIG } from '../data/config';
 import type { ModelType } from '../data/config'; 
@@ -14,30 +15,22 @@ function extractJsonBlock(text: string): string {
   let startIndex = text.indexOf('{');
   const lastIndex = text.lastIndexOf('}');
 
-  // Abort if structure is impossible
   if (startIndex === -1 || lastIndex === -1 || startIndex >= lastIndex) {
     return text;
   }
 
-  // Iterative Search: Try to parse from each '{' found.
-  // This solves the issue where Thinking Models output text like: 
-  // "I will use the format { ... } for my answer. Here is the JSON: { ... }"
   let currentStart = startIndex;
   
   while (currentStart !== -1 && currentStart < lastIndex) {
     const potentialJson = text.substring(currentStart, lastIndex + 1);
     try {
-      // Cheap validation check
       JSON.parse(potentialJson);
-      return potentialJson; // Found the valid block!
+      return potentialJson; 
     } catch (e) {
-      // Failed? Ignore this '{' and look for the next one
       currentStart = text.indexOf('{', currentStart + 1);
     }
   }
 
-  // Fallback: If no valid JSON found, return the broadest cut 
-  // (Let the downstream validator handle the error details)
   return text.substring(startIndex, lastIndex + 1);
 }
 
@@ -76,7 +69,7 @@ export class ServerOverloadError extends ApiError {
   constructor(message: string, status: number, rawResponse: string | null = null, prompt: string | null = null) {
     super(message, status, rawResponse, prompt);
     this.name = 'ServerOverloadError';
-    this.retryDelay = 120000; // 2 Minuten Default
+    this.retryDelay = 120000; 
   }
 }
 
@@ -132,6 +125,8 @@ const RateLimiter = {
 // --- SERVICE ---
 
 export const GeminiService = {
+  // NEW: Request Deduplication Map to prevent double calls from Frontend
+  _activeRequests: new Map<string, Promise<any>>(),
 
   determineModel(taskKey: TaskKey | null): ModelType {
     const store = useTripStore.getState();
@@ -165,6 +160,15 @@ export const GeminiService = {
     const currentStrategy = store.aiSettings.strategy;
     const { modelOverrides } = store.aiSettings;
 
+    // --- DEDUPLICATION CHECK ---
+    // Generate a unique key based on task, strategy and prompt content
+    const requestKey = `${taskName}:${currentStrategy}:${prompt.length}:${prompt.substring(0, 50)}`; 
+    
+    if (GeminiService._activeRequests.has(requestKey)) {
+        if (isDebug) console.log(`[GeminiService] Dedup: Reusing active request for ${taskName}`);
+        return GeminiService._activeRequests.get(requestKey) as Promise<T>;
+    }
+
     const apiKey = SecurityService.loadApiKey();
     if (!apiKey) {
       throw new NoRetryError("Kein API-Key gefunden. Bitte Key in den Einstellungen speichern.", 401);
@@ -172,7 +176,6 @@ export const GeminiService = {
 
     let selectedModelKey: ModelType = 'pro'; 
     let modelEndpoint = '';
-    // Force JSON globally for all strategies to ensure structural integrity
     let generationConfig: any = { 
         temperature: 0.4,
         responseMimeType: 'application/json' 
@@ -206,12 +209,13 @@ export const GeminiService = {
              } else {
                  modelEndpoint = 'gemini-2.5-flash:generateContent';
                  selectedModelKey = 'flash'; 
+                 // THINKING MODE REMAINS ACTIVE (USER CHOICE)
                  generationConfig = {
-                     responseMimeType: 'application/json',
-                     thinkingConfig: {
-                        includeThoughts: true,
-                        thinkingBudget: -1 
-                     }
+                      responseMimeType: 'application/json',
+                      thinkingConfig: {
+                         includeThoughts: true,
+                         thinkingBudget: -1 
+                      }
                  };
              }
         }
@@ -224,7 +228,6 @@ export const GeminiService = {
 
     RateLimiter.checkRateLimit(selectedModelKey);
 
-    // FIX: NO extra system prompts. Rely on MimeType and Model intelligence.
     let finalPrompt = prompt;
 
     if (isDebug) {
@@ -238,130 +241,143 @@ export const GeminiService = {
 
     const apiUrl = `${CONFIG.api.baseUrl}${modelEndpoint}?key=${apiKey}`;
 
-    let repairAttempts = 0;
-    const MAX_REPAIR_ATTEMPTS = 2;
-    const INTERNAL_RETRIES = 1;
+    // --- EXECUTION FUNCTION ---
+    const executeRequest = async (): Promise<T> => {
+        let repairAttempts = 0;
+        const MAX_REPAIR_ATTEMPTS = 2;
+        const INTERNAL_RETRIES = 1;
 
-    if (import.meta.env.DEV) {
-      console.log(`>>> API CALL [${currentStrategy}] -> ${modelEndpoint}`, { apiUrl, generationConfig });
-    }
-
-    for (let attempt = 0; attempt <= INTERNAL_RETRIES; attempt++) {
-      try {
-        if (signal?.aborted) throw new UserAbortError();
-
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            contents: [{ parts: [{ text: finalPrompt }] }],
-            safetySettings: CONFIG.api.safetySettings,
-            generationConfig: generationConfig 
-          }),
-          signal: signal
-        });
-
-        if (!response.ok) {
-          const errorBody = await response.text();
-          if (response.status === 404) throw new NoRetryError(`Modell nicht gefunden (404). URL: ${modelEndpoint}`, 404, errorBody, finalPrompt);
-          if (response.status === 429) throw new ServerOverloadError("Rate Limit überschritten.", 429, errorBody, finalPrompt);
-          if (response.status === 503) throw new ServerOverloadError("Google Server überlastet (503).", 503, errorBody, finalPrompt);
-          if (response.status >= 500) throw new ApiError(`Google Server Fehler (${response.status}).`, response.status, errorBody, finalPrompt);
-          throw new NoRetryError(`API-Fehler: ${response.status} - ${errorBody}`, response.status, errorBody, finalPrompt);
+        if (import.meta.env.DEV) {
+          console.log(`>>> API CALL [${currentStrategy}] -> ${modelEndpoint}`, { apiUrl, generationConfig });
         }
 
-        const data = await response.json();
+        for (let attempt = 0; attempt <= INTERNAL_RETRIES; attempt++) {
+          try {
+            if (signal?.aborted) throw new UserAbortError();
 
-        if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content) {
-          const finish = data.candidates?.[0]?.finishReason;
-          if (finish === 'SAFETY' || finish === 'BLOCK') {
-            throw new NoRetryError(`Blockiert durch Sicherheitsfilter (${finish}).`, 400, JSON.stringify(data), finalPrompt);
-          }
-          throw new NoRetryError("Leere Antwort von der KI erhalten.", 500, JSON.stringify(data), finalPrompt);
-        }
-
-        const parts = data.candidates[0].content.parts || [];
-        const rawText = parts.map((p: any) => p.text).join('');
-        
-        // Use Smart Extraction
-        const cleanText = extractJsonBlock(rawText);
-
-        const validation = validateJson<T>(cleanText, [], (msg) => console.warn(msg));
-
-        if (validation.valid && validation.data) {
-          RateLimiter.recordCall(selectedModelKey);
-          const tokens = data.usageMetadata?.totalTokenCount || 0;
-          (store as any).addUsageStats(tokens, selectedModelKey);
-
-          if (isDebug) {
-            store.logEvent({
-              task: taskName,
-              type: 'response',
-              model: selectedModelKey,
-              content: cleanText, 
-              meta: {
-                finishReason: data.candidates[0].finishReason,
-                tokens: data.usageMetadata, 
-                thinkingConfig: generationConfig.thinkingConfig,
-                rawResponseSnippet: rawText.substring(0, 100) + "..."
-              }
+            const response = await fetch(apiUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                contents: [{ parts: [{ text: finalPrompt }] }],
+                safetySettings: CONFIG.api.safetySettings,
+                generationConfig: generationConfig 
+              }),
+              signal: signal
             });
-          }
 
-          return validation.data;
-        } else {
-          console.warn("Ungültiges JSON. Starte Reparatur...", cleanText);
-          
-          if (isDebug) {
-             store.logEvent({
-               task: taskName,
-               type: 'info',
-               model: selectedModelKey,
-               content: `JSON Validation Failed. Starting Repair Attempt ${repairAttempts + 1}.`,
-               meta: { invalidJson: cleanText, error: validation.error }
-             });
-          }
-          
-          if (repairAttempts < MAX_REPAIR_ATTEMPTS) {
-            repairAttempts++;
-            finalPrompt = `SYSTEM ERROR: You returned TEXT instead of JSON. 
-            Stop chatting. Stop explaining. 
-            Output ONLY the raw JSON object for this data:\n${cleanText}\n\nError: ${validation.error}`;
+            if (!response.ok) {
+              const errorBody = await response.text();
+              if (response.status === 404) throw new NoRetryError(`Modell nicht gefunden (404). URL: ${modelEndpoint}`, 404, errorBody, finalPrompt);
+              if (response.status === 429) throw new ServerOverloadError("Rate Limit überschritten.", 429, errorBody, finalPrompt);
+              if (response.status === 503) throw new ServerOverloadError("Google Server überlastet (503).", 503, errorBody, finalPrompt);
+              if (response.status >= 500) throw new ApiError(`Google Server Fehler (${response.status}).`, response.status, errorBody, finalPrompt);
+              throw new NoRetryError(`API-Fehler: ${response.status} - ${errorBody}`, response.status, errorBody, finalPrompt);
+            }
+
+            const data = await response.json();
+
+            if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content) {
+              const finish = data.candidates?.[0]?.finishReason;
+              if (finish === 'SAFETY' || finish === 'BLOCK') {
+                throw new NoRetryError(`Blockiert durch Sicherheitsfilter (${finish}).`, 400, JSON.stringify(data), finalPrompt);
+              }
+              throw new NoRetryError("Leere Antwort von der KI erhalten.", 500, JSON.stringify(data), finalPrompt);
+            }
+
+            const parts = data.candidates[0].content.parts || [];
+            const rawText = parts.map((p: any) => p.text).join('');
             
-            throw new ApiError(`JSON Validierung fehlgeschlagen.`, 422, cleanText, finalPrompt);
-          } else {
-            throw new NoRetryError(`JSON Reparatur gescheitert.`, 422, cleanText, finalPrompt);
+            const cleanText = extractJsonBlock(rawText);
+
+            const validation = validateJson<T>(cleanText, [], (msg) => console.warn(msg));
+
+            if (validation.valid && validation.data) {
+              RateLimiter.recordCall(selectedModelKey);
+              const tokens = data.usageMetadata?.totalTokenCount || 0;
+              (store as any).addUsageStats(tokens, selectedModelKey);
+
+              if (isDebug) {
+                store.logEvent({
+                  task: taskName,
+                  type: 'response',
+                  model: selectedModelKey,
+                  content: cleanText, 
+                  meta: {
+                    finishReason: data.candidates[0].finishReason,
+                    tokens: data.usageMetadata, 
+                    thinkingConfig: generationConfig.thinkingConfig,
+                    rawResponseSnippet: rawText.substring(0, 100) + "..."
+                  }
+                });
+              }
+
+              return validation.data;
+            } else {
+              console.warn("Ungültiges JSON. Starte Reparatur...", cleanText);
+              
+              if (isDebug) {
+                 store.logEvent({
+                   task: taskName,
+                   type: 'info',
+                   model: selectedModelKey,
+                   content: `JSON Validation Failed. Starting Repair Attempt ${repairAttempts + 1}.`,
+                   meta: { invalidJson: cleanText, error: validation.error }
+                 });
+              }
+              
+              if (repairAttempts < MAX_REPAIR_ATTEMPTS) {
+                repairAttempts++;
+                finalPrompt = `SYSTEM ERROR: You returned TEXT instead of JSON. 
+                Stop chatting. Stop explaining. 
+                Output ONLY the raw JSON object for this data:\n${cleanText}\n\nError: ${validation.error}`;
+                
+                throw new ApiError(`JSON Validierung fehlgeschlagen.`, 422, cleanText, finalPrompt);
+              } else {
+                throw new NoRetryError(`JSON Reparatur gescheitert.`, 422, cleanText, finalPrompt);
+              }
+            }
+
+          } catch (error) {
+            if (error instanceof UserAbortError) throw error;
+            
+            if (isDebug) {
+               store.logEvent({
+                 task: taskName,
+                 type: 'error',
+                 model: selectedModelKey,
+                 content: (error as Error).message,
+                 meta: { rawError: error, attempt: attempt + 1 }
+               });
+            }
+
+            if (error instanceof QuotaExceededError) throw error;
+            if (error instanceof ServerOverloadError) throw error;
+            if (error instanceof NoRetryError) throw error;
+
+            if (attempt < INTERNAL_RETRIES) {
+              const delay = 1000 * (attempt + 1);
+              if (onRetryDelay) onRetryDelay(delay, "Verbindungsfehler, neuer Versuch...");
+              await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+              throw error;
+            }
           }
         }
+        throw new Error("Unbekannter Fehler im API-Loop.");
+    };
 
-      } catch (error) {
-        if (error instanceof UserAbortError) throw error;
-        
-        if (isDebug) {
-           store.logEvent({
-             task: taskName,
-             type: 'error',
-             model: selectedModelKey,
-             content: (error as Error).message,
-             meta: { rawError: error, attempt: attempt + 1 }
-           });
-        }
+    // --- START REQUEST & MANAGE DEDUP MAP ---
+    const promise = executeRequest();
+    
+    GeminiService._activeRequests.set(requestKey, promise);
+    
+    // Clean up map when finished (success or fail)
+    promise.finally(() => {
+        GeminiService._activeRequests.delete(requestKey);
+    });
 
-        if (error instanceof QuotaExceededError) throw error;
-        if (error instanceof ServerOverloadError) throw error;
-        if (error instanceof NoRetryError) throw error;
-
-        if (attempt < INTERNAL_RETRIES) {
-          const delay = 1000 * (attempt + 1);
-          if (onRetryDelay) onRetryDelay(delay, "Verbindungsfehler, neuer Versuch...");
-          await new Promise(resolve => setTimeout(resolve, delay));
-        } else {
-          throw error;
-        }
-      }
-    }
-
-    throw new Error("Unbekannter Fehler im API-Loop.");
+    return promise;
   }
 };
-// --- END OF FILE 400 Zeilen ---
+// --- END OF FILE 438 Zeilen ---
