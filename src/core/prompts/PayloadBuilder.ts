@@ -1,4 +1,4 @@
-// 24.01.2026 18:30 - FIX: Robust call to buildAnreichererPrompt (3 arguments).
+// 24.01.2026 19:00 - FIX: HARD RESET. Explicit 3-argument call to buildAnreichererPrompt.
 // src/core/prompts/PayloadBuilder.ts
 
 import { useTripStore } from '../../store/useTripStore';
@@ -169,7 +169,7 @@ export const PayloadBuilder = {
                 places: { "current_batch": slicedCandidates } as any 
             }
         };
-        // FIX: Robust 3-argument call.
+        // FIX: EXPLICIT 3 ARGUMENTS. This matches the new optional signature in anreicherer.ts
         generatedPrompt = buildAnreichererPrompt(slicedProject, feedback || "", {});
         break;
       }
@@ -228,7 +228,6 @@ export const PayloadBuilder = {
               project.userInputs.customPreferences?.foodMode === 'stars') {
               mode = 'stars';
           }
-          // FIX: Explicitly pass 3 arguments
           generatedPrompt = buildFoodScoutPrompt(project, mode, feedback || "");
           break;
       

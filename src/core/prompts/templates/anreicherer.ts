@@ -1,4 +1,4 @@
-// 24.01.2026 18:30 - FIX: Made arguments explicitly optional (?) to strictly resolve TS2554.
+// 24.01.2026 19:00 - FIX: HARD RESET. Arguments are strictly optional to prevent TS2554.
 // src/core/prompts/templates/anreicherer.ts
 
 import type { TripProject } from '../../types';
@@ -30,11 +30,12 @@ const SIGHT_SCHEMA = {
   "reasoning": "String (Short reasoning why this fits the strategy)"
 };
 
-// FIX: Added '?' to make feedback and _options strictly optional
+// FIX: Arguments 2 and 3 are marked with '?' (Optional)
+// FIX: _options has underscore to suppress 'unused variable' warning (TS6133)
 export const buildAnreichererPrompt = (
     project: TripProject, 
-    feedback?: string, // OPTIONAL
-    _options?: any     // OPTIONAL
+    feedback?: string, 
+    _options?: any 
 ): string => {
     const { userInputs, analysis } = project;
 
@@ -53,12 +54,14 @@ export const buildAnreichererPrompt = (
     // 3. DATA SOURCES
     let rawCandidates = [];
     
+    // Check batching
     if ((project.data.places as any).current_batch && Array.isArray((project.data.places as any).current_batch)) {
         rawCandidates = (project.data.places as any).current_batch.map((p: any) => ({
             id: p.id,
             name: p.name || "Unknown Place"
         }));
     } else {
+        // Fallback
         rawCandidates = Object.values(project.data.places || {}).flat().map((p: any) => ({
             id: p.id,
             name: p.name || "Unknown Place"
@@ -78,7 +81,7 @@ export const buildAnreichererPrompt = (
         travel_period: dates,
         strategic_guideline: strategicBriefing,
         places_to_process: candidatesList,
-        user_feedback: feedback || "" // Handle optional feedback
+        user_feedback: feedback || "" 
     };
 
     const instructions = `# INSTRUCTIONS
