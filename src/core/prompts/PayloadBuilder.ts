@@ -1,5 +1,5 @@
+// 24.01.2026 18:00 - FIX: Restored 3-argument call to buildAnreichererPrompt.
 // 24.01.2026 17:30 - FIX: Restored buildAnreichererPrompt call to 3 arguments.
-// 24.01.2026 17:00 - FIX: Fixed TS2554 by passing all required arguments to templates.
 // src/core/prompts/PayloadBuilder.ts
 
 import { useTripStore } from '../../store/useTripStore';
@@ -171,7 +171,7 @@ export const PayloadBuilder = {
             }
         };
         
-        // FIX: CALL WITH 3 ARGUMENTS NOW VALID
+        // FIX: CALL WITH 3 ARGUMENTS NOW VALID AND EXPECTED
         generatedPrompt = buildAnreichererPrompt(slicedProject, feedback || "", {});
         break;
       }

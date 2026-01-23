@@ -1,3 +1,4 @@
+// 24.01.2026 18:00 - FIX: Renamed unused 'options' to '_options' to satisfy Linter.
 // 24.01.2026 17:30 - FEATURE: Modernized Anreicherer signature (3 args) for Batching & Feedback support.
 // src/core/prompts/templates/anreicherer.ts
 
@@ -30,11 +31,11 @@ const SIGHT_SCHEMA = {
   "reasoning": "String (Short reasoning why this fits the strategy)"
 };
 
-// FIX: Updated signature to accept 3 arguments
+// FIX: Updated signature to accept 3 arguments, using '_options' to ignore unused var warning
 export const buildAnreichererPrompt = (
     project: TripProject, 
     feedback: string = "", 
-    options?: any 
+    _options?: any // Prefix '_' silences "unused variable" error
 ): string => {
     const { userInputs, analysis } = project;
 
@@ -54,14 +55,13 @@ export const buildAnreichererPrompt = (
     let rawCandidates = [];
     
     // Check if batching logic prepared a specific subset in 'data.places.current_batch'
-    // (This is how PayloadBuilder prepares data for the Enricher)
     if ((project.data.places as any).current_batch && Array.isArray((project.data.places as any).current_batch)) {
         rawCandidates = (project.data.places as any).current_batch.map((p: any) => ({
             id: p.id,
             name: p.name || "Unknown Place"
         }));
     } else {
-        // Fallback: Use all places (Legacy behavior)
+        // Fallback: Use all places
         rawCandidates = Object.values(project.data.places || {}).flat().map((p: any) => ({
             id: p.id,
             name: p.name || "Unknown Place"
