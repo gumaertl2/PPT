@@ -1,4 +1,4 @@
-/* 23.01.2026 16:45 - FIX: Optimized PrintReport structure for multi-page category layout. */
+/* 23.01.2026 18:15 - FIX: Adapted store access (uiState) and added dummy onNext (TS2741). */
 /* src/features/Cockpit/PrintReport.tsx */
 
 import React from 'react';
@@ -9,15 +9,16 @@ import { SightsView } from './SightsView';
 import { InfoView } from '../info/InfoView';
 
 const PrintReport: React.FC = () => {
-  const { isPrintMode, printConfig, project } = useTripStore();
+  const { uiState, project } = useTripStore();
+  const { isPrintMode, printConfig, detailLevel } = uiState; // FIX: Destructured from uiState
 
   // Nur rendern, wenn der Druckmodus aktiv ist
   if (!isPrintMode || !printConfig) return null;
 
-  const { detailLevel, sections } = printConfig;
+  const { sections } = printConfig;
 
   return (
-    <div className={`print-only print-container detail-${detailLevel} w-full bg-white text-slate-900 p-8`}>
+    <div className={`print-only print-container detail-${printConfig.detailLevel} w-full bg-white text-slate-900 p-8`}>
       
       {/* Titel des Berichts */}
       <div className="mb-12 border-b-4 border-slate-900 pb-4">
@@ -45,7 +46,8 @@ const PrintReport: React.FC = () => {
           <div className="mb-6 border-b-2 border-slate-200 pb-2">
             <h2 className="text-2xl font-bold uppercase text-blue-900">Fundament & Analyse</h2>
           </div>
-          <AnalysisReviewView />
+          {/* FIX: Added dummy onNext to satisfy TypeScript (TS2741) */}
+          <AnalysisReviewView onNext={() => {}} />
         </section>
       )}
 
@@ -80,4 +82,4 @@ const PrintReport: React.FC = () => {
 
 export default PrintReport;
 
-// --- END OF FILE 79 Zeilen ---
+// --- END OF FILE 81 Zeilen ---

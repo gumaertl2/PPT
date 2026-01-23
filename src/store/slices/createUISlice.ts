@@ -1,4 +1,4 @@
-// 23.01.2026 15:10 - FIX: Surgical addition of PrintMode and PrintConfig (Integrity Restore).
+// 23.01.2026 18:05 - FIX: Moved print properties to UIState to resolve TS2353 in ExportService.
 // src/store/slices/createUISlice.ts
 // 19.01.2026 16:00 - FEATURE: Added InfoView Modal State.
 // 12.01.2026 21:30 - ADDED: deletePlace action for SightCard trash function
@@ -32,6 +32,9 @@ export interface UIState {
   viewMode: 'list' | 'map';
   sortMode: 'category' | 'tour' | 'alphabetical';
   selectedPlaceId: string | null;
+  // FIX: Moved here for setUIState compatibility
+  isPrintMode: boolean;
+  printConfig: PrintConfig | null;
 }
 
 export type AppView = 'welcome' | 'wizard' | 'results' | 'analysis_review';
@@ -48,9 +51,7 @@ export interface UISlice {
   isInfoViewOpen: boolean;
   setInfoViewOpen: (isOpen: boolean) => void;
 
-  // NEW: Print Mode State
-  isPrintMode: boolean;
-  printConfig: PrintConfig | null;
+  // REMOVED: Top-level isPrintMode/printConfig
 
   // --- MANUAL MODE STATE (Neu) ---
   manualPrompt: string | null;
@@ -88,7 +89,9 @@ const initialUIState: UIState = {
   detailLevel: 'standard',
   viewMode: 'list',
   sortMode: 'category',
-  selectedPlaceId: null
+  selectedPlaceId: null,
+  isPrintMode: false, // FIX: Initialized in UIState
+  printConfig: null   // FIX: Initialized in UIState
 };
 
 export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => ({
@@ -102,9 +105,7 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
   isInfoViewOpen: false,
   setInfoViewOpen: (isOpen) => set({ isInfoViewOpen: isOpen }),
 
-  // NEW: Print Mode Implementation
-  isPrintMode: false,
-  printConfig: null,
+  // REMOVED: implementation of top-level print fields
 
   // --- MANUAL MODE IMPL (Neu) ---
   manualPrompt: null,

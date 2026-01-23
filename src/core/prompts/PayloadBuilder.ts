@@ -182,7 +182,7 @@ export const PayloadBuilder = {
                 ...project.data,
                 places: {
                     "current_batch": slicedCandidates
-                }
+                } as any // FIX: Type cast to allow array in Record structure for prompting
             }
         };
         generatedPrompt = buildAnreichererPrompt(slicedProject);

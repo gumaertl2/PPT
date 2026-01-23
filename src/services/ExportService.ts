@@ -1,4 +1,4 @@
-// 23.01.2026 13:15 - FIX: Added triggerPrint while preserving 7-column export & clipboard fallback.
+// 23.01.2026 18:10 - FIX: Verified triggerPrint compatibility and corrected string literals.
 // src/services/ExportService.ts
 
 import { useTripStore } from '../store/useTripStore';
@@ -36,8 +36,8 @@ export const ExportService = {
 
       // Google Maps Search Link erstellen
       const googleMapsLink = place.googlePlaceId 
-        ? `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${place.googlePlaceId}`
-        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name + " " + (place.address || ""))}`;
+        ? `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=$${place.googlePlaceId}`
+        : `https://www.google.com/maps/search/?api=1&query=$${encodeURIComponent(place.name + " " + (place.address || ""))}`;
 
       return [
         place.name || "Unbekannter Ort",

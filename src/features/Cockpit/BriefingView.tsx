@@ -6,7 +6,7 @@ import {
   ClipboardCheck, 
   Users, 
   Calendar, 
-  MapPin, 
+  // Fix MapPin removed  
   Zap, 
   CheckCircle2, 
   AlertCircle, 
@@ -17,7 +17,8 @@ import { useTranslation } from 'react-i18next';
 import { useTripStore } from '../../store/useTripStore';
 
 const BriefingView: React.FC = () => {
-  const { t } = useTranslation();
+  // Fix const { t } removed  
+  useTranslation();
   const { project } = useTripStore();
   const { userInputs, analysis } = project;
   const chefPlaner = analysis.chefPlaner;
