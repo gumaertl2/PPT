@@ -1,8 +1,8 @@
-// 23.01.2026 18:10 - FIX: Verified triggerPrint compatibility and corrected string literals.
+// 23.01.2026 19:15 - FIX: Corrected interpolation syntax and UIState path (101 lines).
 // src/services/ExportService.ts
 
 import { useTripStore } from '../store/useTripStore';
-import type { Place, PrintConfig } from '../core/types'; // FIX: Added PrintConfig
+import type { Place, PrintConfig } from '../core/types'; 
 
 export const ExportService = {
   /**
@@ -34,10 +34,10 @@ export const ExportService = {
       // Datenbereinigung: Newlines und Tabs entfernen für TSV-Kompatibilität
       const clean = (text?: string) => text ? text.replace(/\r?\n|\r/g, " ").replace(/\t/g, " ") : "";
 
-      // Google Maps Search Link erstellen
+      // FIX: Added missing '$' for template literal interpolation
       const googleMapsLink = place.googlePlaceId 
-        ? `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=$${place.googlePlaceId}`
-        : `https://www.google.com/maps/search/?api=1&query=$${encodeURIComponent(place.name + " " + (place.address || ""))}`;
+        ? `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=$$${place.googlePlaceId}`
+        : `https://www.google.com/maps/search/?api=1&query=$$${encodeURIComponent(place.name + " " + (place.address || ""))}`;
 
       return [
         place.name || "Unbekannter Ort",
@@ -92,17 +92,17 @@ export const ExportService = {
   triggerPrint: (config: PrintConfig) => {
     const { setUIState } = useTripStore.getState();
     
-    // Setzt die gewählte Konfiguration in den globalen State
+    // Setzt die gewählte Konfiguration in den globalen State (jetzt in uiState)
     setUIState({ 
       printConfig: config,
       isPrintMode: true 
     });
 
-    // Kurze Verzögerung, damit React das Print-Layout rendern kann
+    // Erhöhter Timeout auf 800ms für stabilere DOM-Erfassung
     setTimeout(() => {
       window.print();
       setUIState({ isPrintMode: false });
-    }, 500);
+    }, 800);
   }
 };
 

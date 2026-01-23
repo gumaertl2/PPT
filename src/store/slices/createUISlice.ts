@@ -1,11 +1,11 @@
-// 23.01.2026 18:05 - FIX: Moved print properties to UIState to resolve TS2353 in ExportService.
+// 23.01.2026 18:45 - FIX: Moved print states to UIState for setUIState compatibility (192 lines).
 // src/store/slices/createUISlice.ts
 // 19.01.2026 16:00 - FEATURE: Added InfoView Modal State.
 // 12.01.2026 21:30 - ADDED: deletePlace action for SightCard trash function
 
 import type { StateCreator } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import type { AppError, PrintConfig } from '../../core/types'; // FIX: Added PrintConfig
+import type { AppError, PrintConfig } from '../../core/types'; 
 
 // --- Types für Notifications ---
 export type NotificationType = 'success' | 'error' | 'info' | 'loading';
@@ -32,7 +32,7 @@ export interface UIState {
   viewMode: 'list' | 'map';
   sortMode: 'category' | 'tour' | 'alphabetical';
   selectedPlaceId: string | null;
-  // FIX: Moved here for setUIState compatibility
+  // FIX: Moved here for setUIState compatibility (resolves TS2353)
   isPrintMode: boolean;
   printConfig: PrintConfig | null;
 }
@@ -51,7 +51,7 @@ export interface UISlice {
   isInfoViewOpen: boolean;
   setInfoViewOpen: (isOpen: boolean) => void;
 
-  // REMOVED: Top-level isPrintMode/printConfig
+  // REMOVED: Top-level print fields to avoid redundancy and type errors
 
   // --- MANUAL MODE STATE (Neu) ---
   manualPrompt: string | null;
@@ -69,7 +69,7 @@ export interface UISlice {
   setUIState: (updates: Partial<UIState>) => void;
   resetUIFilter: () => void;
   updatePlace: (id: string, data: Partial<any>) => void;
-  deletePlace: (id: string) => void; // NEW ACTION
+  deletePlace: (id: string) => void; 
 
   // NEW: Controls visibility of the filter panel in SightsView
   isSightFilterOpen: boolean;
@@ -79,7 +79,7 @@ export interface UISlice {
   notifications: AppNotification[];
   addNotification: (notification: Omit<AppNotification, 'id'> & { id?: string }) => string;
   dismissNotification: (id: string) => void;
-  removeNotification: (id: string) => void; // Alias
+  removeNotification: (id: string) => void; 
   updateNotification: (id: string, updates: Partial<AppNotification>) => void;
 }
 
@@ -90,8 +90,8 @@ const initialUIState: UIState = {
   viewMode: 'list',
   sortMode: 'category',
   selectedPlaceId: null,
-  isPrintMode: false, // FIX: Initialized in UIState
-  printConfig: null   // FIX: Initialized in UIState
+  isPrintMode: false,
+  printConfig: null
 };
 
 export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => ({
@@ -105,7 +105,7 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
   isInfoViewOpen: false,
   setInfoViewOpen: (isOpen) => set({ isInfoViewOpen: isOpen }),
 
-  // REMOVED: implementation of top-level print fields
+  // IMPLEMENTATION: Print states are now part of initialUIState
 
   // --- MANUAL MODE IMPL (Neu) ---
   manualPrompt: null,
@@ -135,7 +135,6 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
     }
   })),
 
-  // updatePlace: Ändert Projektdaten, wird aber meist von der UI (SightsView) getriggert
   updatePlace: (id, data) => set((state: any) => {
     const newPlaces = { ...state.project.data.places };
     if (!newPlaces[id]) {
@@ -152,7 +151,6 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
     };
   }),
 
-  // NEW IMPLEMENTATION: DELETE PLACE
   deletePlace: (id) => set((state: any) => {
     const newPlaces = { ...state.project.data.places };
     delete newPlaces[id];
@@ -165,7 +163,6 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
     };
   }),
 
-  // NEW IMPLEMENTATION
   isSightFilterOpen: false,
   toggleSightFilter: () => set((state: any) => ({ isSightFilterOpen: !state.isSightFilterOpen })),
 
