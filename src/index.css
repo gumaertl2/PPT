@@ -1,3 +1,6 @@
+/* 23.01.2026 15:40 - FIX: Valid CSS comments & Multi-Page unlocking. */
+/* src/index.css */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,16 +11,25 @@ body {
 
 /* --- PRINT RULES (WYSIWYG) --- */
 @media print {
-  /* 1. Seite & Ränder optimieren */
+  /* 1. Seite & Ränder optimieren + PAGINATION FIX */
   @page {
     margin: 1.5cm;
     size: A4;
+  }
+
+  /* RADIKALER FIX: Erlaubt dem Browser über die erste Seite hinaus zu scrollen */
+  html, body, #root {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    position: static !important;
   }
 
   /* 2. Hintergrund & Textfarbe für Tinte optimieren */
   body {
     background: white !important;
     color: black !important;
+    -webkit-print-color-adjust: exact;
   }
 
   /* 3. Navigation, Buttons und UI-Elemente ausblenden */
@@ -33,7 +45,7 @@ body {
     display: none !important;
   }
 
-  /* 4. Container-Breite für A4 maximieren */
+  /* 4. Container-Breite für A4 maximieren & FLEX-FIX */
   .max-w-7xl, 
   .container,
   main {
@@ -43,14 +55,17 @@ body {
     padding: 0 !important;
     box-shadow: none !important;
     border: none !important;
+    display: block !important; /* Verhindert Flex-Layout-Fehler beim Umbruch */
   }
 
   /* 5. Seitenumbrüche nach Sektionen steuern */
   section, 
   .print-section {
-    page-break-inside: avoid;
+    page-break-inside: auto !important; /* Erlaubt Umbruch innerhalb langer Sektionen */
+    page-break-after: always; /* Jede Hauptsektion auf neuer Seite */
     margin-bottom: 2rem;
     display: block !important;
+    overflow: visible !important;
   }
 
   h1, h2, h3 {
@@ -63,6 +78,7 @@ body {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     color-adjust: exact !important;
+    overflow: visible !important; /* Verhindert das Abschneiden in Sub-Containern */
   }
 
   /* 7. Bilder optimieren */
@@ -81,3 +97,5 @@ body {
 .print-only {
   display: none;
 }
+
+/* --- END OF FILE 93 Zeilen --- */

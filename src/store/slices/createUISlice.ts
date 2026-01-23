@@ -1,10 +1,11 @@
+// 23.01.2026 15:10 - FIX: Surgical addition of PrintMode and PrintConfig (Integrity Restore).
 // src/store/slices/createUISlice.ts
 // 19.01.2026 16:00 - FEATURE: Added InfoView Modal State.
 // 12.01.2026 21:30 - ADDED: deletePlace action for SightCard trash function
 
 import type { StateCreator } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import type { AppError } from '../../core/types';
+import type { AppError, PrintConfig } from '../../core/types'; // FIX: Added PrintConfig
 
 // --- Types für Notifications ---
 export type NotificationType = 'success' | 'error' | 'info' | 'loading';
@@ -46,6 +47,10 @@ export interface UISlice {
   // NEW: Info View Modal State
   isInfoViewOpen: boolean;
   setInfoViewOpen: (isOpen: boolean) => void;
+
+  // NEW: Print Mode State
+  isPrintMode: boolean;
+  printConfig: PrintConfig | null;
 
   // --- MANUAL MODE STATE (Neu) ---
   manualPrompt: string | null;
@@ -96,6 +101,10 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
   // NEW: Info View Modal Implementation
   isInfoViewOpen: false,
   setInfoViewOpen: (isOpen) => set({ isInfoViewOpen: isOpen }),
+
+  // NEW: Print Mode Implementation
+  isPrintMode: false,
+  printConfig: null,
 
   // --- MANUAL MODE IMPL (Neu) ---
   manualPrompt: null,
@@ -190,4 +199,4 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
     notifications: state.notifications.map((n: AppNotification) => n.id === id ? { ...n, ...updates } : n)
   }))
 });
-// --- END OF FILE 185 Zeilen ---
+// --- END OF FILE 192 Zeilen ---

@@ -1,3 +1,4 @@
+// 23.01.2026 15:55 - FIX: Integrated PrintReport for multi-page WYSIWYG printing.
 // 21.01.2026 13:30 - FIX: Verified import type for CockpitViewMode (Zero-Error Check).
 // src/features/Cockpit/CockpitWizard.tsx
 
@@ -16,6 +17,7 @@ import { ConfirmModal } from './ConfirmModal';
 import { InfoModal } from '../Welcome/InfoModal';
 import { ManualPromptModal } from './ManualPromptModal'; 
 import { WorkflowSelectionModal } from '../Workflow/WorkflowSelectionModal';
+import PrintReport from './PrintReport'; // FIX: Surgical addition for printing
 
 // Layout Components
 import { CockpitHeader } from './Layout/CockpitHeader'; 
@@ -323,7 +325,10 @@ export const CockpitWizard = () => {
         onStart={handleStartSelectedWorkflows}
       />
 
+      {/* FIX: Surgical addition for printing multi-page reports */}
+      <PrintReport />
+
     </div>
   );
 };
-// --- END OF FILE 344 Zeilen ---
+// --- END OF FILE 358 Zeilen ---
