@@ -1,5 +1,4 @@
-// 24.01.2026 18:00 - FIX: Renamed unused 'options' to '_options' to satisfy Linter.
-// 24.01.2026 17:30 - FEATURE: Modernized Anreicherer signature (3 args) for Batching & Feedback support.
+// 24.01.2026 18:30 - FIX: Made arguments explicitly optional (?) to strictly resolve TS2554.
 // src/core/prompts/templates/anreicherer.ts
 
 import type { TripProject } from '../../types';
@@ -31,15 +30,15 @@ const SIGHT_SCHEMA = {
   "reasoning": "String (Short reasoning why this fits the strategy)"
 };
 
-// FIX: Updated signature to accept 3 arguments, using '_options' to ignore unused var warning
+// FIX: Added '?' to make feedback and _options strictly optional
 export const buildAnreichererPrompt = (
     project: TripProject, 
-    feedback: string = "", 
-    _options?: any // Prefix '_' silences "unused variable" error
+    feedback?: string, // OPTIONAL
+    _options?: any     // OPTIONAL
 ): string => {
     const { userInputs, analysis } = project;
 
-    // 1. STRATEGIC BRIEFING (V40 English Key)
+    // 1. STRATEGIC BRIEFING
     const strategicBriefing = (analysis.chefPlaner as any)?.strategic_briefing?.sammler_briefing || 
                               (analysis.chefPlaner as any)?.strategisches_briefing?.sammler_briefing || 
                               "Enrich the places with helpful information.";
@@ -51,17 +50,15 @@ export const buildAnreichererPrompt = (
         .map((cat: any) => cat.id)
         .join(', ');
 
-    // 3. DATA SOURCES (Support Batching via 'current_batch' if available)
+    // 3. DATA SOURCES
     let rawCandidates = [];
     
-    // Check if batching logic prepared a specific subset in 'data.places.current_batch'
     if ((project.data.places as any).current_batch && Array.isArray((project.data.places as any).current_batch)) {
         rawCandidates = (project.data.places as any).current_batch.map((p: any) => ({
             id: p.id,
             name: p.name || "Unknown Place"
         }));
     } else {
-        // Fallback: Use all places
         rawCandidates = Object.values(project.data.places || {}).flat().map((p: any) => ({
             id: p.id,
             name: p.name || "Unknown Place"
@@ -74,14 +71,14 @@ export const buildAnreichererPrompt = (
 
     const dates = `${userInputs.dates.start} to ${userInputs.dates.end}`;
 
-    // 4. PROMPT CONSTRUCTION via Builder
+    // 4. PROMPT CONSTRUCTION
     const role = `You are a high-precision "Data Enricher" for travel guides. Your task is to enrich a list of places with verifiable facts and inspiring descriptions.`;
 
     const contextData = {
         travel_period: dates,
         strategic_guideline: strategicBriefing,
         places_to_process: candidatesList,
-        user_feedback: feedback // Inject feedback if present
+        user_feedback: feedback || "" // Handle optional feedback
     };
 
     const instructions = `# INSTRUCTIONS
@@ -107,6 +104,6 @@ Do not invent new categories.`;
         .withInstruction(instructions)
         .withOutputSchema(outputSchema)
         .withSelfCheck(['basic', 'research'])
-        .build(true); // List Mode active
+        .build(true);
 };
 // --- END OF FILE 125 Zeilen ---

@@ -1,5 +1,4 @@
-// 24.01.2026 18:00 - FIX: Restored 3-argument call to buildAnreichererPrompt.
-// 24.01.2026 17:30 - FIX: Restored buildAnreichererPrompt call to 3 arguments.
+// 24.01.2026 18:30 - FIX: Robust call to buildAnreichererPrompt (3 arguments).
 // src/core/prompts/PayloadBuilder.ts
 
 import { useTripStore } from '../../store/useTripStore';
@@ -170,8 +169,7 @@ export const PayloadBuilder = {
                 places: { "current_batch": slicedCandidates } as any 
             }
         };
-        
-        // FIX: CALL WITH 3 ARGUMENTS NOW VALID AND EXPECTED
+        // FIX: Robust 3-argument call.
         generatedPrompt = buildAnreichererPrompt(slicedProject, feedback || "", {});
         break;
       }
