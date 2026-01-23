@@ -1,4 +1,4 @@
-/* 23.01.2026 18:15 - FIX: Adapted store access (uiState) and added dummy onNext (TS2741). */
+/* 23.01.2026 18:30 - FIX: Resolved TS6133 (Unused variable detailLevel). */
 /* src/features/Cockpit/PrintReport.tsx */
 
 import React from 'react';
@@ -10,7 +10,8 @@ import { InfoView } from '../info/InfoView';
 
 const PrintReport: React.FC = () => {
   const { uiState, project } = useTripStore();
-  const { isPrintMode, printConfig, detailLevel } = uiState; // FIX: Destructured from uiState
+  // FIX: Removed unused detailLevel from destructuring to resolve TS6133
+  const { isPrintMode, printConfig } = uiState; 
 
   // Nur rendern, wenn der Druckmodus aktiv ist
   if (!isPrintMode || !printConfig) return null;
@@ -46,7 +47,6 @@ const PrintReport: React.FC = () => {
           <div className="mb-6 border-b-2 border-slate-200 pb-2">
             <h2 className="text-2xl font-bold uppercase text-blue-900">Fundament & Analyse</h2>
           </div>
-          {/* FIX: Added dummy onNext to satisfy TypeScript (TS2741) */}
           <AnalysisReviewView onNext={() => {}} />
         </section>
       )}
@@ -54,7 +54,7 @@ const PrintReport: React.FC = () => {
       {/* 3. Reiseführer (Orte/Kategorien) */}
       {sections.categories && (
         <section className="print-section mb-12">
-          <div className="mb-6 border-b-2 border-slate-900 pb-2">
+          <div className="mb-6 border-b-2 border-slate-200 pb-2">
             <h2 className="text-2xl font-bold uppercase">Reiseführer: Orte & Sehenswürdigkeiten</h2>
           </div>
           <SightsView />
@@ -64,7 +64,7 @@ const PrintReport: React.FC = () => {
       {/* 4. Reise-Infos A-Z */}
       {sections.infos && project.analysis.infoAutor && (
         <section className="print-section mb-12">
-          <div className="mb-6 border-b-2 border-slate-900 pb-2">
+          <div className="mb-6 border-b-2 border-slate-200 pb-2">
             <h2 className="text-2xl font-bold uppercase">Reise-Infos (A-Z)</h2>
           </div>
           <InfoView />
@@ -82,4 +82,4 @@ const PrintReport: React.FC = () => {
 
 export default PrintReport;
 
-// --- END OF FILE 81 Zeilen ---
+// --- END OF FILE 80 Zeilen ---
