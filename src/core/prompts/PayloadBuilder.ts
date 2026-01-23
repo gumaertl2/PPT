@@ -1,4 +1,4 @@
-// 24.01.2026 19:00 - FIX: HARD RESET. Explicit 3-argument call to buildAnreichererPrompt.
+// 24.01.2026 19:15 - FIX: FINAL SYNC. Explicit 3-argument call matches optional definition.
 // src/core/prompts/PayloadBuilder.ts
 
 import { useTripStore } from '../../store/useTripStore';
@@ -169,7 +169,7 @@ export const PayloadBuilder = {
                 places: { "current_batch": slicedCandidates } as any 
             }
         };
-        // FIX: EXPLICIT 3 ARGUMENTS. This matches the new optional signature in anreicherer.ts
+        // FIX: EXPLICIT 3 ARGUMENTS. This matches the optional definition in anreicherer.ts
         generatedPrompt = buildAnreichererPrompt(slicedProject, feedback || "", {});
         break;
       }

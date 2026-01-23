@@ -1,4 +1,4 @@
-// 24.01.2026 19:00 - FIX: HARD RESET. Arguments are strictly optional to prevent TS2554.
+// 24.01.2026 19:15 - FIX: FINAL SYNC. Arguments are optional (?) to allow flexible usage.
 // src/core/prompts/templates/anreicherer.ts
 
 import type { TripProject } from '../../types';
@@ -31,7 +31,6 @@ const SIGHT_SCHEMA = {
 };
 
 // FIX: Arguments 2 and 3 are marked with '?' (Optional)
-// FIX: _options has underscore to suppress 'unused variable' warning (TS6133)
 export const buildAnreichererPrompt = (
     project: TripProject, 
     feedback?: string, 
