@@ -1,16 +1,19 @@
+// 23.01.2026 23:15 - FIX: Corrected 'Place' import to 'import type' to resolve SyntaxError.
+// 23.01.2026 22:00 - FEATURE: Integrated SightsMapView & Auto-Scroll (Surgical Insertion).
 // 21.01.2026 04:00 - FIX: Hardened TypeScript Types for Tours (Explicit 'any[]' casting) to solve build error.
 // src/features/Cockpit/SightsView.tsx
 // 21.01.2026 03:45 - FIX: Added missing 'any' type to 'tour' parameter in tourOptions useMemo loop.
 // 21.01.2026 03:00 - FIX: Connected 'Planning Mode' Props to SightFilterModal.
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useTripStore } from '../../store/useTripStore';
 import { SightCard } from './SightCard';
 import { SightFilterModal } from './SightFilterModal'; 
 import { useTranslation } from 'react-i18next';
 import { INTEREST_DATA } from '../../data/interests'; 
 import { APPENDIX_ONLY_INTERESTS } from '../../data/constants';
-import type { LanguageCode } from '../../core/types';
+import type { LanguageCode, Place } from '../../core/types'; // FIX: import type { Place }
+import { SightsMapView } from './SightsMapView';
 
 import { 
   FileText,
@@ -43,6 +46,20 @@ export const SightsView: React.FC = () => {
   const places = Object.values(data.places || {});
 
   const [showPlanningMode, setShowPlanningMode] = useState(false);
+
+  // FIX: AUTO-SCROLL LOGIC (Scroll to card when returning from map)
+  useEffect(() => {
+    if (uiState.viewMode === 'list' && uiState.selectedPlaceId) {
+      setTimeout(() => {
+        const element = document.getElementById(`card-${uiState.selectedPlaceId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          element.classList.add('ring-2', 'ring-blue-500', 'ring-offset-2', 'duration-1000');
+          setTimeout(() => element.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2'), 3000);
+        }
+      }, 150);
+    }
+  }, [uiState.selectedPlaceId, uiState.viewMode]);
   
   // FIX: Helper to resolve Label (city_info -> Stadt-Infos)
   const resolveCategoryLabel = (catId: string): string => {
@@ -135,7 +152,7 @@ export const SightsView: React.FC = () => {
           let count = 0;
           if (day.aktivitaeten) {
               count = day.aktivitaeten.filter((akt: any) => 
-                   places.some((p: any) => p.id === akt.original_sight_id)
+                    places.some((p: any) => p.id === akt.original_sight_id)
               ).length;
           }
           const label = `${t('sights.day', {defaultValue: 'Tag'})} ${index + 1}`;
@@ -252,40 +269,40 @@ export const SightsView: React.FC = () => {
                {/* SUNNY */}
                <div className="bg-amber-50/50 rounded-lg p-3 border border-amber-100">
                   <div className="flex items-center gap-2 mb-3 text-amber-700 font-semibold border-b border-amber-200/50 pb-2">
-                     <Sun className="w-4 h-4" /> Bei Sonnenschein
+                      <Sun className="w-4 h-4" /> Bei Sonnenschein
                   </div>
                   <div className="space-y-3">
-                     {(ideenScout.sunny_day_ideas || []).map((idee: any, i: number) => (
-                        <div key={i} className="bg-white p-2.5 rounded border border-amber-100 shadow-sm text-sm">
-                           <div className="font-bold text-slate-800">{idee.name}</div>
-                           <p className="text-xs text-slate-600 mt-1">{idee.description}</p>
-                           {idee.planning_note && (
-                              <div className="mt-2 text-[10px] bg-amber-50 text-amber-800 p-1.5 rounded">
-                                 💡 {idee.planning_note}
-                              </div>
-                           )}
-                        </div>
-                     ))}
+                      {(ideenScout.sunny_day_ideas || []).map((idee: any, i: number) => (
+                         <div key={i} className="bg-white p-2.5 rounded border border-amber-100 shadow-sm text-sm">
+                            <div className="font-bold text-slate-800">{idee.name}</div>
+                            <p className="text-xs text-slate-600 mt-1">{idee.description}</p>
+                            {idee.planning_note && (
+                               <div className="mt-2 text-[10px] bg-amber-50 text-amber-800 p-1.5 rounded">
+                                   💡 {idee.planning_note}
+                               </div>
+                            )}
+                         </div>
+                      ))}
                   </div>
                </div>
 
                {/* RAINY */}
                <div className="bg-slate-100/50 rounded-lg p-3 border border-slate-200">
                   <div className="flex items-center gap-2 mb-3 text-slate-600 font-semibold border-b border-slate-200 pb-2">
-                     <CloudRain className="w-4 h-4" /> Bei Regen
+                      <CloudRain className="w-4 h-4" /> Bei Regen
                   </div>
                   <div className="space-y-3">
-                     {(ideenScout.rainy_day_ideas || []).map((idee: any, i: number) => (
-                        <div key={i} className="bg-white p-2.5 rounded border border-slate-200 shadow-sm text-sm">
-                           <div className="font-bold text-slate-800">{idee.name}</div>
-                           <p className="text-xs text-slate-600 mt-1">{idee.description}</p>
-                           {idee.planning_note && (
-                              <div className="mt-2 text-[10px] bg-slate-50 text-slate-600 p-1.5 rounded">
-                                 ☂️ {idee.planning_note}
-                              </div>
-                           )}
-                        </div>
-                     ))}
+                      {(ideenScout.rainy_day_ideas || []).map((idee: any, i: number) => (
+                         <div key={i} className="bg-white p-2.5 rounded border border-slate-200 shadow-sm text-sm">
+                            <div className="font-bold text-slate-800">{idee.name}</div>
+                            <p className="text-xs text-slate-600 mt-1">{idee.description}</p>
+                            {idee.planning_note && (
+                               <div className="mt-2 text-[10px] bg-slate-50 text-slate-600 p-1.5 rounded">
+                                   ☂️ {idee.planning_note}
+                               </div>
+                            )}
+                         </div>
+                      ))}
                   </div>
                </div>
             </div>
@@ -374,13 +391,15 @@ export const SightsView: React.FC = () => {
         </h3>
         <div className="space-y-3">
           {items.map(place => (
-            <SightCard 
-               key={place.id} 
-               id={place.id} // SightCard expects 'id' separate prop in legacy
-               data={place} 
-               mode="selection" 
-               showPriorityControls={showPlanningMode}
-            />
+            // FIX: Added ID anchor for scroll-into-view
+            <div key={place.id} id={`card-${place.id}`}>
+                <SightCard 
+                   id={place.id} // SightCard expects 'id' separate prop in legacy
+                   data={place} 
+                   mode="selection" 
+                   showPriorityControls={showPlanningMode}
+                />
+            </div>
           ))}
         </div>
       </div>
@@ -422,27 +441,37 @@ export const SightsView: React.FC = () => {
         </div>
       )}
 
-      {/* 2. SONDERTAGE */}
-      {renderSondertage()}
-
-      {/* 3. LISTS */}
-      
-      <div className="bg-white rounded-xl border-2 border-blue-600 shadow-sm p-4 md:p-6 mb-8 relative">
-        <div className="absolute -top-3 left-6 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1">
-           {showPlanningMode ? <Briefcase className="w-3 h-3" /> : <FileText className="w-3 h-3" />}
-           {t('sights.candidates', { defaultValue: 'KANDIDATEN' })} ({filteredLists.main.length})
+      {/* FIX: Conditional Rendering for Map View */}
+      {uiState.viewMode === 'map' ? (
+        <div className="mb-8">
+            {/* Show Map View */}
+            <SightsMapView places={[...filteredLists.main, ...filteredLists.reserve] as Place[]} />
         </div>
-        <div className="mt-2">{renderGroupedList(filteredLists.main)}</div>
-      </div>
+      ) : (
+        <>
+            {/* 2. SONDERTAGE (Only in List Mode) */}
+            {renderSondertage()}
 
-      {filteredLists.reserve.length > 0 && (
-        <div className="bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 p-4 md:p-6 relative opacity-90 hover:opacity-100 transition-opacity">
-           <div className="absolute -top-3 left-6 bg-gray-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1">
-             <Filter className="w-3 h-3" />
-             {t('sights.reserve', { defaultValue: 'RESERVE / WENIGER PASSEND' })} ({filteredLists.reserve.length})
-           </div>
-           <div className="mt-2">{renderGroupedList(filteredLists.reserve)}</div>
-        </div>
+            {/* 3. LISTS (Only in List Mode) */}
+            
+            <div className="bg-white rounded-xl border-2 border-blue-600 shadow-sm p-4 md:p-6 mb-8 relative">
+                <div className="absolute -top-3 left-6 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1">
+                    {showPlanningMode ? <Briefcase className="w-3 h-3" /> : <FileText className="w-3 h-3" />}
+                    {t('sights.candidates', { defaultValue: 'KANDIDATEN' })} ({filteredLists.main.length})
+                </div>
+                <div className="mt-2">{renderGroupedList(filteredLists.main)}</div>
+            </div>
+
+            {filteredLists.reserve.length > 0 && (
+                <div className="bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 p-4 md:p-6 relative opacity-90 hover:opacity-100 transition-opacity">
+                    <div className="absolute -top-3 left-6 bg-gray-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1">
+                    <Filter className="w-3 h-3" />
+                    {t('sights.reserve', { defaultValue: 'RESERVE / WENIGER PASSEND' })} ({filteredLists.reserve.length})
+                    </div>
+                    <div className="mt-2">{renderGroupedList(filteredLists.reserve)}</div>
+                </div>
+            )}
+        </>
       )}
 
       {/* 4. NEW FILTER MODAL OVERLAY */}
@@ -461,4 +490,4 @@ export const SightsView: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 462 Zeilen ---
+// --- END OF FILE 485 Zeilen ---

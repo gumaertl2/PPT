@@ -1,3 +1,4 @@
+// 23.01.2026 21:30 - FEATURE: Enabled Map Trigger for bidirectional navigation.
 // 23.01.2026 17:05 - FIX: Emergency correction of ReferenceError (removed phantom 'item' prefix).
 // 23.01.2026 16:30 - FIX: Added no-print classes to interactive elements for clean PDF output.
 // src/features/Cockpit/SightCard.tsx
@@ -37,7 +38,7 @@ type ViewLevel = typeof VIEW_LEVELS[number];
 
 export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selection', showPriorityControls = true }) => {
   const { t, i18n } = useTranslation(); // FIX: i18n added
-  const { uiState, updatePlace, deletePlace } = useTripStore();
+  const { uiState, updatePlace, deletePlace, setUIState } = useTripStore(); // FIX: added setUIState
   
   // FIX: Scroll Anchor for "Close & Scroll" Logic
   const cardRef = useRef<HTMLDivElement>(null);
@@ -332,9 +333,13 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
                >
                  <Search className="w-3.5 h-3.5" />
                </a>
-               <span className="text-gray-300 cursor-not-allowed" title="Karte (Coming soon)">
+               <button 
+                 onClick={(e) => { e.stopPropagation(); setUIState({ selectedPlaceId: id, viewMode: 'map' }); }}
+                 className="text-gray-400 hover:text-blue-600 transition-colors" 
+                 title="Auf Karte zeigen"
+               >
                  <MapIcon className="w-3.5 h-3.5" />
-               </span>
+               </button>
             </div>
         </div>
 

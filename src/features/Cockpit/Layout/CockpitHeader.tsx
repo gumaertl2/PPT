@@ -1,3 +1,5 @@
+// 24.01.2026 14:15 - FIX: Map Button resets selection to trigger 'Overview Mode'.
+// 23.01.2026 23:45 - FEATURE: Enabled Map Button in Header & Refined Guide/Map Toggle Logic.
 // 23.01.2026 14:45 - FIX: Resolved SyntaxError by centralizing PrintConfig import.
 // 23.01.2026 13:45 - FIX: Integrated PrintModal & triggerPrint logic (Step 5 of 5).
 // src/features/Cockpit/Layout/CockpitHeader.tsx
@@ -21,8 +23,6 @@ import {
   Save, 
   Upload, 
   FileText, 
-  // FIX: Removed Database (TS6133)
-  // FIX: Removed GitMerge (TS6133)
   Edit3,
   Home,
   Search, 
@@ -31,13 +31,12 @@ import {
 
 import { useTripStore } from '../../../store/useTripStore';
 import { SettingsModal } from '../SettingsModal';
-import ExportModal from '../ExportModal'; // FIX: Surgical addition
-import PrintModal from '../PrintModal'; // FIX: Default Import only
-import { ExportService } from '../../../services/ExportService'; // FIX: Surgical addition
-import type { CockpitViewMode, PrintConfig } from '../../../core/types'; // FIX: Centralized Type Import
+import ExportModal from '../ExportModal'; 
+import PrintModal from '../PrintModal'; 
+import { ExportService } from '../../../services/ExportService'; 
+import type { CockpitViewMode, PrintConfig } from '../../../core/types'; 
 
 interface CockpitHeaderProps {
-  // FIX: Extended viewMode type to include central CockpitViewMode
   viewMode: CockpitViewMode;
   setViewMode: (mode: CockpitViewMode) => void;
   onReset: () => void;      
@@ -67,7 +66,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     isSightFilterOpen,   
     uiState, 
     setUIState
-    // FIX: Removed isInfoViewOpen / setInfoViewOpen as it's no longer a modal
   } = useTripStore();
   
   const hasAnalysisResult = !!project.analysis.chefPlaner;
@@ -76,14 +74,14 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
   // Local State
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [isExportModalOpen, setIsExportModalOpen] = useState(false); // FIX: New State
-  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false); // FIX: New State
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false); 
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false); 
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isFilterActive = uiState.searchTerm || uiState.categoryFilter.length > 0;
 
-  // --- ACTIONS LOGIC (ALL ORIGINAL HANDLERS PRESERVED) ---
+  // --- ACTIONS LOGIC ---
 
   const handleOpenAiWorkflows = () => {
     setShowActionsMenu(false);
@@ -246,13 +244,19 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
              <button 
                onClick={() => {
                  if (viewMode === 'sights') {
-                   toggleSightFilter();
+                   // Switch back to list if currently in map mode, else toggle filter
+                   if (uiState.viewMode === 'map') {
+                     setUIState({ viewMode: 'list' });
+                   } else {
+                     toggleSightFilter();
+                   }
                  } else {
                    setViewMode('sights');
+                   setUIState({ viewMode: 'list' });
                  }
                }} 
                className={`flex flex-col items-center px-2 py-1 rounded transition-colors ${
-                 viewMode === 'sights' 
+                 viewMode === 'sights' && uiState.viewMode !== 'map' 
                    ? 'text-blue-600 bg-blue-50' 
                    : 'text-slate-500 hover:bg-slate-100'
                }`}
@@ -261,7 +265,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                <span className="text-[10px] font-bold uppercase tracking-wide hidden md:inline">{t('wizard.toolbar.guide')}</span>
              </button>
 
-             {/* FIX: Info Button now triggers viewMode switch */}
              <button 
                onClick={() => setViewMode('info')}
                className={`flex flex-col items-center px-2 py-1 rounded transition-colors ${
@@ -274,7 +277,19 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                <span className="text-[10px] font-bold uppercase tracking-wide hidden md:inline">{t('wizard.toolbar.info_travel')}</span>
              </button>
 
-             <button className="flex flex-col items-center px-2 py-1 text-slate-400 hover:text-slate-600 cursor-not-allowed opacity-60">
+             {/* FIX: Enabled Map Button with Selection Reset */}
+             <button 
+               onClick={() => {
+                 setViewMode('sights');
+                 // FIX: Explicitly set selectedPlaceId to null to trigger "Overview Mode"
+                 setUIState({ viewMode: 'map', selectedPlaceId: null });
+               }}
+               className={`flex flex-col items-center px-2 py-1 rounded transition-colors ${
+                 viewMode === 'sights' && uiState.viewMode === 'map'
+                   ? 'text-blue-600 bg-blue-50' 
+                   : 'text-slate-500 hover:bg-slate-100'
+               }`}
+             >
                <MapIcon className="w-4 h-4 lg:w-5 lg:h-5 mb-0.5" />
                <span className="text-[10px] font-bold uppercase tracking-wide hidden md:inline">{t('wizard.toolbar.map')}</span>
              </button>
@@ -432,13 +447,11 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
         onClose={() => setShowSettingsModal(false)}
       />
 
-      {/* FIX: Integrated ExportModal with Instructions */}
       <ExportModal 
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
       />
 
-      {/* FIX: Integrated PrintModal with Instructions (Step 5/5) */}
       <PrintModal 
         isOpen={isPrintModalOpen}
         onClose={() => setIsPrintModalOpen(false)}
@@ -448,4 +461,4 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
   );
 };
 
-// --- END OF FILE 438 Zeilen ---
+// --- END OF FILE 450 Zeilen ---
