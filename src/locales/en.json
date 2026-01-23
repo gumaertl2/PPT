@@ -408,5 +408,30 @@
     "no_stops": "No stops defined.",
     "save_start": "Save & Start",
     "save_anyway": "Save Anyway"
+  },
+"export": {
+    "title": "Google Maps Export",
+    "copied_title": "Data copied!",
+    "copied_subtitle": "The travel data is already in your clipboard. Now follow these steps:",
+    "step1_text": "Open a new Google Sheet and paste the data into cell A1 (Right click -> Paste).",
+    "step1_btn": "Open new Google Sheet",
+    "step2_text": "In Google My Maps, create a new map and click \"Import\".",
+    "step2_btn": "Open Google My Maps",
+    "step3_text": "Select your Google Sheet during import. Use the \"Name\" or \"Address\" column for position and \"Name\" as title."
+  },
+  "print": {
+    "title": "Print Configurator",
+    "subtitle": "Assemble your individual travel report",
+    "detail_level": "Detail Level",
+    "sections_label": "Select Sections",
+    "footer_tip": "Tip: Save the printout as a PDF to take it with you digitally.",
+    "btn_start": "Start Print",
+    "sections": {
+      "briefing": "Briefing & Strategy",
+      "analysis": "Foundation & Analysis",
+      "tours": "Guide (Tours)",
+      "categories": "Guide (Categories)",
+      "infos": "Travel Info A-Z"
+    }
   }
 }

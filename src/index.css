@@ -1,4 +1,4 @@
-/* 23.01.2026 15:40 - FIX: Valid CSS comments & Multi-Page unlocking. */
+/* 23.01.2026 16:15 - FIX: Radical print isolation to prevent "visible area only" issue. */
 /* src/index.css */
 
 @tailwind base;
@@ -23,49 +23,45 @@ body {
     min-height: 0 !important;
     overflow: visible !important;
     position: static !important;
-  }
-
-  /* 2. Hintergrund & Textfarbe für Tinte optimieren */
-  body {
     background: white !important;
-    color: black !important;
-    -webkit-print-color-adjust: exact;
   }
 
-  /* 3. Navigation, Buttons und UI-Elemente ausblenden */
-  header, 
-  nav, 
-  footer, 
-  button, 
-  .no-print,
-  [role="dialog"],
-  .fixed,
-  .sticky,
-  aside {
+  /* 2. RADIKALE TRENNUNG: Verstecke die gesamte interaktive App-UI */
+  #root > *:not(.print-only) {
     display: none !important;
   }
 
-  /* 4. Container-Breite für A4 maximieren & FLEX-FIX */
-  .max-w-7xl, 
-  .container,
-  main {
+  /* 3. Druck-Container Sichtbarkeit */
+  .print-only {
+    display: block !important;
+    position: relative !important;
+    width: 100% !important;
+    overflow: visible !important;
+  }
+
+  /* 4. Navigation, Buttons und UI-Elemente (Backup-Sicherung) */
+  header, nav, footer, button, .no-print, [role="dialog"], .fixed, .sticky, aside {
+    display: none !important;
+  }
+
+  /* 5. Layout-Optimierung für A4 */
+  .max-w-7xl, .container, main {
     max-width: 100% !important;
     width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
     box-shadow: none !important;
     border: none !important;
-    display: block !important; /* Verhindert Flex-Layout-Fehler beim Umbruch */
+    display: block !important;
   }
 
-  /* 5. Seitenumbrüche nach Sektionen steuern */
-  section, 
-  .print-section {
-    page-break-inside: auto !important; /* Erlaubt Umbruch innerhalb langer Sektionen */
-    page-break-after: always; /* Jede Hauptsektion auf neuer Seite */
+  /* 6. Seitenumbrüche nach Sektionen */
+  section, .print-section {
+    page-break-inside: auto !important;
+    page-break-after: always;
     margin-bottom: 2rem;
     display: block !important;
-    overflow: visible !important;
+    border: none !important;
   }
 
   h1, h2, h3 {
@@ -73,23 +69,25 @@ body {
     color: #000 !important;
   }
 
-  /* 6. Farben & Hintergründe erzwingen (für Badges/Pills) */
+  /* 7. SightCard Print-Optik (Flaches Design für Papier) */
+  .print-container .bg-white {
+    box-shadow: none !important;
+    border: 1px solid #e2e8f0 !important;
+    margin-bottom: 1rem !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* 8. Farben & Hintergründe erzwingen */
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     color-adjust: exact !important;
-    overflow: visible !important; /* Verhindert das Abschneiden in Sub-Containern */
   }
 
-  /* 7. Bilder optimieren */
+  /* 9. Bilder optimieren */
   img {
     max-width: 100% !important;
     page-break-inside: avoid;
-  }
-
-  /* Falls du eine spezielle Klasse für Druck-Layouts nutzt */
-  .print-only {
-    display: block !important;
   }
 }
 
@@ -98,4 +96,4 @@ body {
   display: none;
 }
 
-/* --- END OF FILE 93 Zeilen --- */
+/* --- END OF FILE 99 Zeilen --- */

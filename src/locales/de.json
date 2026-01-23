@@ -408,5 +408,30 @@
     "no_stops": "Keine Stationen definiert.",
     "save_start": "Speichern & Starten",
     "save_anyway": "Trotzdem Speichern"
+  },
+"export": {
+    "title": "Google Maps Export",
+    "copied_title": "Daten kopiert!",
+    "copied_subtitle": "Die Reisedaten befinden sich bereits in deiner Zwischenablage. Folge nun diesen Schritten:",
+    "step1_text": "Öffne ein neues Google Sheet und füge die Daten in Zelle A1 ein (Rechtsklick -> Einfügen).",
+    "step1_btn": "Neues Google Sheet öffnen",
+    "step2_text": "Erstelle in Google My Maps eine neue Karte und klicke auf \"Importieren\".",
+    "step2_btn": "Google My Maps öffnen",
+    "step3_text": "Wähle beim Import dein Google Sheet aus. Nutze die Spalte \"Name\" oder \"Adresse\" für die Position und \"Name\" als Titel."
+  },
+  "print": {
+    "title": "Druck-Konfigurator",
+    "subtitle": "Stelle deinen individuellen Reisebericht zusammen",
+    "detail_level": "Detailtiefe",
+    "sections_label": "Sektionen wählen",
+    "footer_tip": "Tipp: Speichere den Ausdruck als PDF, um ihn digital mitzunehmen.",
+    "btn_start": "Druck starten",
+    "sections": {
+      "briefing": "Briefing & Strategie",
+      "analysis": "Fundament & Analyse",
+      "tours": "Reiseführer (Touren)",
+      "categories": "Reiseführer (Kategorien)",
+      "infos": "Reise-Infos A-Z"
+    }
   }
 }

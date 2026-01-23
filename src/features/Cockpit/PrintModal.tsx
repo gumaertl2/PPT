@@ -1,7 +1,8 @@
-// 23.01.2026 14:35 - FIX: Resolved SyntaxError by importing types from central types.ts.
+// 23.01.2026 17:35 - i18n: Replaced hardcoded strings using useTranslation (137 lines base).
 // src/features/Cockpit/PrintModal.tsx
 
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next'; // FIX: i18n import
 import { 
   X, 
   Printer, 
@@ -12,7 +13,7 @@ import {
   Settings2,
   CheckCircle2
 } from 'lucide-react';
-import type { PrintConfig, DetailLevel } from '../../core/types'; // FIX: Import from central types
+import type { PrintConfig, DetailLevel } from '../../core/types';
 
 interface PrintModalProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ interface PrintModalProps {
 }
 
 const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onConfirm }) => {
+  const { t } = useTranslation(); // FIX: hook added
   const [detailLevel, setDetailLevel] = useState<DetailLevel>('standard');
   const [sections, setSections] = useState({
     briefing: true,
@@ -47,8 +49,8 @@ const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onConfirm }) =
               <Printer size={22} />
             </div>
             <div>
-              <h3 className="font-extrabold text-slate-900 text-lg">Druck-Konfigurator</h3>
-              <p className="text-xs text-slate-500 font-medium italic">Stelle deinen individuellen Reisebericht zusammen</p>
+              <h3 className="font-extrabold text-slate-900 text-lg">{t('print.title')}</h3>
+              <p className="text-xs text-slate-500 font-medium italic">{t('print.subtitle')}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400">
@@ -61,7 +63,7 @@ const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onConfirm }) =
           {/* DETAIL-STUFEN (3 Schalter) */}
           <div className="space-y-3">
             <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 ml-1">
-              <Settings2 size={14} /> Detailtiefe
+              <Settings2 size={14} /> {t('print.detail_level')}
             </label>
             <div className="grid grid-cols-3 p-1 bg-slate-100 rounded-2xl border border-slate-200/50">
               {(['compact', 'standard', 'details'] as DetailLevel[]).map((level) => (
@@ -74,7 +76,7 @@ const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onConfirm }) =
                       : 'text-slate-500 hover:text-slate-700'
                   }`}
                 >
-                  {level.charAt(0).toUpperCase() + level.slice(1)}
+                  {t(`sights.${level}`)}
                 </button>
               ))}
             </div>
@@ -83,15 +85,15 @@ const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onConfirm }) =
           {/* SEKTIONEN AUSWAHL */}
           <div className="space-y-3">
             <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 ml-1">
-              <Layout size={14} /> Sektionen wählen
+              <Layout size={14} /> {t('print.sections_label')}
             </label>
             <div className="grid grid-cols-1 gap-2">
               {[
-                { id: 'briefing', label: 'Briefing & Strategie', icon: <FileText size={16} /> },
-                { id: 'analysis', label: 'Fundament & Analyse', icon: <CheckCircle2 size={16} /> },
-                { id: 'tours', label: 'Reiseführer (Touren)', icon: <Map size={16} /> },
-                { id: 'categories', label: 'Reiseführer (Kategorien)', icon: <Layout size={16} /> },
-                { id: 'infos', label: 'Reise-Infos A-Z', icon: <Info size={16} /> },
+                { id: 'briefing', label: t('print.sections.briefing'), icon: <FileText size={16} /> },
+                { id: 'analysis', label: t('print.sections.analysis'), icon: <CheckCircle2 size={16} /> },
+                { id: 'tours', label: t('print.sections.tours'), icon: <Map size={16} /> },
+                { id: 'categories', label: t('print.sections.categories'), icon: <Layout size={16} /> },
+                { id: 'infos', label: t('print.sections.infos'), icon: <Info size={16} /> },
               ].map((section) => (
                 <button
                   key={section.id}
@@ -124,13 +126,13 @@ const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onConfirm }) =
         {/* FOOTER */}
         <div className="px-8 py-6 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
           <p className="text-[10px] text-slate-400 font-medium max-w-[200px]">
-            Tipp: Speichere den Ausdruck als PDF, um ihn digital mitzunehmen.
+            {t('print.footer_tip')}
           </p>
           <button 
             onClick={() => onConfirm({ detailLevel, sections })}
             className="px-8 py-3 bg-slate-900 text-white font-bold rounded-2xl hover:bg-blue-600 transition-all active:scale-95 shadow-xl shadow-slate-200 flex items-center gap-2"
           >
-            <Printer size={18} /> Druck starten
+            <Printer size={18} /> {t('print.btn_start')}
           </button>
         </div>
       </div>
@@ -140,4 +142,4 @@ const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onConfirm }) =
 
 export default PrintModal;
 
-// --- END OF FILE 137 Zeilen ---
+// --- END OF FILE 139 Zeilen ---

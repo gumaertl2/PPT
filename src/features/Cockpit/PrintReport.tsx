@@ -1,5 +1,5 @@
-// 23.01.2026 15:25 - NEW: PrintReport component to aggregate selected sections for multi-page printing.
-// src/features/Cockpit/PrintReport.tsx
+/* 23.01.2026 16:45 - FIX: Optimized PrintReport structure for multi-page category layout. */
+/* src/features/Cockpit/PrintReport.tsx */
 
 import React from 'react';
 import { useTripStore } from '../../store/useTripStore';
@@ -11,31 +11,47 @@ import { InfoView } from '../info/InfoView';
 const PrintReport: React.FC = () => {
   const { isPrintMode, printConfig, project } = useTripStore();
 
-  // Sicherheits-Check: Nur rendern, wenn Druckmodus aktiv und Konfiguration vorhanden
+  // Nur rendern, wenn der Druckmodus aktiv ist
   if (!isPrintMode || !printConfig) return null;
 
   const { detailLevel, sections } = printConfig;
 
   return (
-    <div className={`print-only print-container print-${detailLevel} w-full bg-white text-slate-900`}>
+    <div className={`print-only print-container detail-${detailLevel} w-full bg-white text-slate-900 p-8`}>
       
+      {/* Titel des Berichts */}
+      <div className="mb-12 border-b-4 border-slate-900 pb-4">
+        <h1 className="text-4xl font-black uppercase tracking-tighter">
+          {project.meta.name || 'Reisebericht'}
+        </h1>
+        <p className="text-sm text-slate-500 font-bold mt-2">
+          Erstellt mit Papatours am {new Date().toLocaleDateString('de-DE')}
+        </p>
+      </div>
+
       {/* 1. Briefing & Strategie */}
       {sections.briefing && (
-        <section className="print-section">
+        <section className="print-section mb-12">
+          <div className="mb-6 border-b-2 border-slate-200 pb-2">
+            <h2 className="text-2xl font-bold uppercase text-blue-900">Briefing & Strategie</h2>
+          </div>
           <BriefingView />
         </section>
       )}
 
       {/* 2. Fundament & Analyse */}
       {sections.analysis && project.analysis.chefPlaner && (
-        <section className="print-section">
+        <section className="print-section mb-12">
+          <div className="mb-6 border-b-2 border-slate-200 pb-2">
+            <h2 className="text-2xl font-bold uppercase text-blue-900">Fundament & Analyse</h2>
+          </div>
           <AnalysisReviewView />
         </section>
       )}
 
-      {/* 3. Reiseführer (Kategorien / Sights) */}
+      {/* 3. Reiseführer (Orte/Kategorien) */}
       {sections.categories && (
-        <section className="print-section">
+        <section className="print-section mb-12">
           <div className="mb-6 border-b-2 border-slate-900 pb-2">
             <h2 className="text-2xl font-bold uppercase">Reiseführer: Orte & Sehenswürdigkeiten</h2>
           </div>
@@ -45,20 +61,18 @@ const PrintReport: React.FC = () => {
 
       {/* 4. Reise-Infos A-Z */}
       {sections.infos && project.analysis.infoAutor && (
-        <section className="print-section">
-          <div className="mb-6 border-b-2 border-slate-900 pb-2 page-break-before">
-            <h2 className="text-2xl font-bold uppercase">Wichtige Reise-Infos (A-Z)</h2>
+        <section className="print-section mb-12">
+          <div className="mb-6 border-b-2 border-slate-900 pb-2">
+            <h2 className="text-2xl font-bold uppercase">Reise-Infos (A-Z)</h2>
           </div>
           <InfoView />
         </section>
       )}
 
-      {/* Platzhalter für Reiseführer (Touren / Tage) */}
-      {sections.tours && (
-        <section className="print-section italic text-slate-400 p-8 border border-dashed border-slate-200 text-center">
-          Die Sektion 'Reiseführer (Touren/Tage)' wird in Kürze integriert.
-        </section>
-      )}
+      {/* Footer für jede Seite (via CSS geregelt) */}
+      <div className="fixed bottom-0 left-0 right-0 hidden print:block text-[10px] text-slate-400 text-center pt-4 border-t border-slate-100">
+        Seite 1 von 1 — {project.meta.name} — Papatours Reiseplaner
+      </div>
 
     </div>
   );
@@ -66,4 +80,4 @@ const PrintReport: React.FC = () => {
 
 export default PrintReport;
 
-// --- END OF FILE 68 Zeilen ---
+// --- END OF FILE 79 Zeilen ---

@@ -1,5 +1,7 @@
-// 21.01.2026 09:55 - FIX: Appended structured detail appendix to original standard view with Close & Scroll logic.
+// 23.01.2026 17:05 - FIX: Emergency correction of ReferenceError (removed phantom 'item' prefix).
+// 23.01.2026 16:30 - FIX: Added no-print classes to interactive elements for clean PDF output.
 // src/features/Cockpit/SightCard.tsx
+// 21.01.2026 09:55 - FIX: Appended structured detail appendix to original standard view with Close & Scroll logic.
 // 21.01.2026 02:15 - FIX: Implemented step-by-step Detail Toggle (+/-) for Compact/Standard/Details.
 // 21.01.2026 01:25 - FIX: Added full text display support for 'details' view level.
 
@@ -181,7 +183,7 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     const canStepUp = currentLevelIndex < VIEW_LEVELS.length - 1;
 
     return (
-      <div className="flex items-center gap-0.5 bg-slate-50 rounded p-0.5 border border-slate-100 ml-2">
+      <div className="flex items-center gap-0.5 bg-slate-50 rounded p-0.5 border border-slate-100 ml-2 no-print">
         <button 
           onClick={handleStepDown}
           disabled={!canStepDown}
@@ -192,6 +194,7 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
           }`}
           title={t('sights.less_details', { defaultValue: 'Weniger Details' })}
         >
+          {/* FIX: Removed 'item.' prefix to resolve ReferenceError */}
           <Minus className="w-3 h-3" />
         </button>
         
@@ -225,7 +228,7 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     const btnBase = "px-2 py-0.5 text-[10px] font-bold rounded shadow-sm transition-all border";
     
     return (
-      <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-gray-100">
+      <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-gray-100 no-print">
         <button
           onClick={() => handlePriorityChange(3)}
           className={`${btnBase} ${priority === 3 ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-gray-700 hover:bg-indigo-50 border-gray-200'}`}
@@ -314,7 +317,7 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
 
             {renderStars()}
 
-            <div className="flex items-center gap-2 ml-auto">
+            <div className="flex items-center gap-2 ml-auto no-print">
                {data.website && (
                  <a href={data.website} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-600" title="Homepage">
                    <Globe className="w-3.5 h-3.5" />
@@ -437,7 +440,7 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
                 </div>
 
                 {/* CLOSE BUTTON (Action Anchor) */}
-                <div className="pt-8 flex justify-center pb-4">
+                <div className="pt-8 flex justify-center pb-4 no-print">
                    <button 
                       onClick={handleCloseDetails}
                       className="flex items-center gap-2 px-10 py-2.5 bg-slate-800 hover:bg-black text-white rounded-full text-[10px] font-black transition-all shadow-lg hover:shadow-xl active:scale-95 group"
