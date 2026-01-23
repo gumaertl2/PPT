@@ -1,9 +1,5 @@
-// 22.01.2026 22:45 - FIX: Enforced List-Mode via PromptBuilder.build(true) to allow JSON Array start '['.
+// 24.01.2026 17:30 - FEATURE: Modernized Anreicherer signature (3 args) for Batching & Feedback support.
 // src/core/prompts/templates/anreicherer.ts
-// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
-// 19.01.2026 18:40 - FIX: Migrated Output Schema to German V30 Keys & Added Strategic Briefing Context.
-// 15.01.2026 14:50 - UPDATE: Hardening (V30 Parity) - Whitelist Categories & Extra Fields.
-// 17.01.2026 23:55 - REFACTOR: Migrated to class-based PromptBuilder.
 
 import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
@@ -34,11 +30,15 @@ const SIGHT_SCHEMA = {
   "reasoning": "String (Short reasoning why this fits the strategy)"
 };
 
-export const buildAnreichererPrompt = (project: TripProject): string => {
+// FIX: Updated signature to accept 3 arguments
+export const buildAnreichererPrompt = (
+    project: TripProject, 
+    feedback: string = "", 
+    options?: any 
+): string => {
     const { userInputs, analysis } = project;
 
     // 1. STRATEGIC BRIEFING (V40 English Key)
-    // We try to access the new English key first, fallback to old if not migrated in runtime state
     const strategicBriefing = (analysis.chefPlaner as any)?.strategic_briefing?.sammler_briefing || 
                               (analysis.chefPlaner as any)?.strategisches_briefing?.sammler_briefing || 
                               "Enrich the places with helpful information.";
@@ -50,11 +50,23 @@ export const buildAnreichererPrompt = (project: TripProject): string => {
         .map((cat: any) => cat.id)
         .join(', ');
 
-    // 3. DATA SOURCES
-    const rawCandidates = Object.values(project.data.places || {}).flat().map((p: any) => ({
-        id: p.id,
-        name: p.name || "Unknown Place"
-    }));
+    // 3. DATA SOURCES (Support Batching via 'current_batch' if available)
+    let rawCandidates = [];
+    
+    // Check if batching logic prepared a specific subset in 'data.places.current_batch'
+    // (This is how PayloadBuilder prepares data for the Enricher)
+    if ((project.data.places as any).current_batch && Array.isArray((project.data.places as any).current_batch)) {
+        rawCandidates = (project.data.places as any).current_batch.map((p: any) => ({
+            id: p.id,
+            name: p.name || "Unknown Place"
+        }));
+    } else {
+        // Fallback: Use all places (Legacy behavior)
+        rawCandidates = Object.values(project.data.places || {}).flat().map((p: any) => ({
+            id: p.id,
+            name: p.name || "Unknown Place"
+        }));
+    }
 
     const candidatesList = rawCandidates.length > 0 
         ? rawCandidates 
@@ -68,7 +80,8 @@ export const buildAnreichererPrompt = (project: TripProject): string => {
     const contextData = {
         travel_period: dates,
         strategic_guideline: strategicBriefing,
-        places_to_process: candidatesList 
+        places_to_process: candidatesList,
+        user_feedback: feedback // Inject feedback if present
     };
 
     const instructions = `# INSTRUCTIONS
@@ -94,7 +107,6 @@ Do not invent new categories.`;
         .withInstruction(instructions)
         .withOutputSchema(outputSchema)
         .withSelfCheck(['basic', 'research'])
-        // FIX: Enable List Mode (Start with '[')
-        .build(true);
+        .build(true); // List Mode active
 };
-// --- END OF FILE 109 Zeilen ---
+// --- END OF FILE 125 Zeilen ---

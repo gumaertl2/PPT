@@ -1,5 +1,5 @@
-// 24.01.2026 16:30 - FIX: Synced buildFoodScoutPrompt usage (3 arguments) to match template.
-// 22.01.2026 15:15 - FIX: Added "Strict Data Filter" to sliceData.
+// 24.01.2026 17:30 - FIX: Restored buildAnreichererPrompt call to 3 arguments.
+// 24.01.2026 17:00 - FIX: Fixed TS2554 by passing all required arguments to templates.
 // src/core/prompts/PayloadBuilder.ts
 
 import { useTripStore } from '../../store/useTripStore';
@@ -162,6 +162,7 @@ export const PayloadBuilder = {
       case 'intelligentEnricher': {
         const allPlaces = Object.values(project.data.places || {}).flat();
         const slicedCandidates = sliceData(allPlaces, 'anreicherer');
+        
         const slicedProject = {
             ...project,
             data: {
@@ -169,7 +170,9 @@ export const PayloadBuilder = {
                 places: { "current_batch": slicedCandidates } as any 
             }
         };
-        generatedPrompt = buildAnreichererPrompt(slicedProject);
+        
+        // FIX: CALL WITH 3 ARGUMENTS NOW VALID
+        generatedPrompt = buildAnreichererPrompt(slicedProject, feedback || "", {});
         break;
       }
 
@@ -227,7 +230,7 @@ export const PayloadBuilder = {
               project.userInputs.customPreferences?.foodMode === 'stars') {
               mode = 'stars';
           }
-          // FIX: Explicitly pass 3 arguments to satisfy signature
+          // FIX: Explicitly pass 3 arguments
           generatedPrompt = buildFoodScoutPrompt(project, mode, feedback || "");
           break;
       
