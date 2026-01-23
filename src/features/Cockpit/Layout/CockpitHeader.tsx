@@ -1,4 +1,5 @@
-// 21.01.2026 13:10 - FIX: Using import type for CockpitViewMode & removed unused Lucide icons (TS6133).
+// 23.01.2026 14:45 - FIX: Resolved SyntaxError by centralizing PrintConfig import.
+// 23.01.2026 13:45 - FIX: Integrated PrintModal & triggerPrint logic (Step 5 of 5).
 // src/features/Cockpit/Layout/CockpitHeader.tsx
 
 import React, { useState, useRef } from 'react';
@@ -25,12 +26,15 @@ import {
   Edit3,
   Home,
   Search, 
-  X        
+  X         
 } from 'lucide-react';
 
 import { useTripStore } from '../../../store/useTripStore';
 import { SettingsModal } from '../SettingsModal';
-import type { CockpitViewMode } from '../../../core/types'; // FIX: verbatimModuleSyntax requirement (TS1484)
+import ExportModal from '../ExportModal'; // FIX: Surgical addition
+import PrintModal from '../PrintModal'; // FIX: Default Import only
+import { ExportService } from '../../../services/ExportService'; // FIX: Surgical addition
+import type { CockpitViewMode, PrintConfig } from '../../../core/types'; // FIX: Centralized Type Import
 
 interface CockpitHeaderProps {
   // FIX: Extended viewMode type to include central CockpitViewMode
@@ -72,6 +76,8 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
   // Local State
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false); // FIX: New State
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false); // FIX: New State
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -172,6 +178,11 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
   const placeholderAction = (name: string) => {
     alert(`Aktion '${name}' ist noch nicht implementiert.`);
     setShowActionsMenu(false);
+  };
+
+  const handlePrintConfirm = (config: PrintConfig) => {
+    setIsPrintModalOpen(false);
+    ExportService.triggerPrint(config);
   };
 
   const renderAutoManualButton = () => {
@@ -370,10 +381,20 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                     <button onClick={() => placeholderAction('Ad-hoc Food')} className="w-full text-left px-4 py-2 hover:bg-blue-50 text-slate-700 flex items-center gap-3 text-sm font-medium">
                       <Zap className="w-4 h-4 text-amber-500" /> {t('wizard.actions_menu.adhoc_food')}
                     </button>
-                    <button onClick={() => placeholderAction('Karten Export')} className="w-full text-left px-4 py-2 hover:bg-blue-50 text-slate-700 flex items-center gap-3 text-sm font-medium">
+                    <button 
+                      onClick={async () => { 
+                        setShowActionsMenu(false); 
+                        const success = await ExportService.copyExportToClipboard();
+                        if (success) setIsExportModalOpen(true);
+                      }} 
+                      className="w-full text-left px-4 py-2 hover:bg-blue-50 text-slate-700 flex items-center gap-3 text-sm font-medium"
+                    >
                       <Globe className="w-4 h-4 text-green-500" /> {t('wizard.actions_menu.map_export')}
                     </button>
-                    <button onClick={() => placeholderAction('Drucken')} className="w-full text-left px-4 py-2 hover:bg-blue-50 text-slate-700 flex items-center gap-3 text-sm font-medium">
+                    <button 
+                      onClick={() => { setShowActionsMenu(false); setIsPrintModalOpen(true); }} 
+                      className="w-full text-left px-4 py-2 hover:bg-blue-50 text-slate-700 flex items-center gap-3 text-sm font-medium"
+                    >
                       <Printer className="w-4 h-4 text-slate-500" /> {t('wizard.actions_menu.print')}
                     </button>
                     
@@ -410,7 +431,21 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
       />
+
+      {/* FIX: Integrated ExportModal with Instructions */}
+      <ExportModal 
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+      />
+
+      {/* FIX: Integrated PrintModal with Instructions (Step 5/5) */}
+      <PrintModal 
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        onConfirm={handlePrintConfirm}
+      />
     </>
   );
 };
-// --- END OF FILE 410 Zeilen ---
+
+// --- END OF FILE 438 Zeilen ---

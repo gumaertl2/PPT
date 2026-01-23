@@ -1,5 +1,7 @@
-// 21.01.2026 11:55 - FIX: Full Restore of types.ts plus InfoAutor & CockpitViewMode (Zero-Build-Error).
+// 23.01.2026 14:20 - FIX: Added PrintConfig & DetailLevel to central types (SSOT).
+// 23.01.2026 11:45 - FIX: Synchronized Place structure and Record type with real JSON data.
 // src/core/types.ts
+// 21.01.2026 11:55 - FIX: Full Restore of types.ts plus InfoAutor & CockpitViewMode (Zero-Build-Error).
 // 21.01.2026 03:30 - FIX: Added missing Type Definitions for TourGuide & IdeenScout (Zero-Build-Error).
 
 // --- GENERAL TYPES ---
@@ -316,7 +318,7 @@ export interface RouteProposal {
   total_km?: number;       
   total_drive_time?: number; 
   
-  stages?: Array<{         // former: uebernachtungsorte
+  stages?: Array<{          // former: uebernachtungsorte
       location_name: string;
       nights: number | string;
       reasoning?: string;
@@ -360,7 +362,7 @@ export interface IdeenScoutResult {
         name: string;
         description: string;
         planning_note?: string;
-    }>;
+     }>;
     rainy_day_ideas: Array<{
         name: string;
         description: string;
@@ -392,6 +394,7 @@ export interface Place {
   shortDesc?: string;
   description?: string; 
   openingHours?: string[] | string; 
+  website?: string; // FIX: Added missing field from JSON
   reasoning?: string; // FIX: Added reasoning
   logistics?: string; // FIX: Added logistics
   priceLevel?: string; // FIX: Added priceLevel
@@ -403,8 +406,22 @@ export interface Place {
 
 export interface ChunkingContext {
   dayOffset: number;   
-  days: number;        
+  days: number;         
   stations: string[];  
+}
+
+// NEW: Print & Report Types
+export type DetailLevel = 'compact' | 'standard' | 'details';
+
+export interface PrintConfig {
+  detailLevel: DetailLevel;
+  sections: {
+    briefing: boolean;
+    analysis: boolean;
+    tours: boolean;
+    categories: boolean;
+    infos: boolean;
+  };
 }
 
 // --- MAIN PROJECT STRUCTURE ---
@@ -428,7 +445,7 @@ export interface TripProject {
     infoAutor?: InfoAutorResult | null; // NEW: Wired up InfoAutor
   };
   data: {
-    places: Record<string, Place[]>; 
+    places: Record<string, Place>; // FIX: Changed from Place[] to Record<string, Place> for SSOT compliance
     content: Record<string, any>; 
     routes: Record<string, any>;
   };
@@ -436,4 +453,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 482 Zeilen ---
+// --- END OF FILE 497 Zeilen ---

@@ -5,3 +5,79 @@
 body {
   @apply bg-slate-50 text-slate-900;
 }
+
+/* --- PRINT RULES (WYSIWYG) --- */
+@media print {
+  /* 1. Seite & Ränder optimieren */
+  @page {
+    margin: 1.5cm;
+    size: A4;
+  }
+
+  /* 2. Hintergrund & Textfarbe für Tinte optimieren */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* 3. Navigation, Buttons und UI-Elemente ausblenden */
+  header, 
+  nav, 
+  footer, 
+  button, 
+  .no-print,
+  [role="dialog"],
+  .fixed,
+  .sticky,
+  aside {
+    display: none !important;
+  }
+
+  /* 4. Container-Breite für A4 maximieren */
+  .max-w-7xl, 
+  .container,
+  main {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* 5. Seitenumbrüche nach Sektionen steuern */
+  section, 
+  .print-section {
+    page-break-inside: avoid;
+    margin-bottom: 2rem;
+    display: block !important;
+  }
+
+  h1, h2, h3 {
+    page-break-after: avoid;
+    color: #000 !important;
+  }
+
+  /* 6. Farben & Hintergründe erzwingen (für Badges/Pills) */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* 7. Bilder optimieren */
+  img {
+    max-width: 100% !important;
+    page-break-inside: avoid;
+  }
+
+  /* Falls du eine spezielle Klasse für Druck-Layouts nutzt */
+  .print-only {
+    display: block !important;
+  }
+}
+
+/* Verstecke Druck-Spezialelemente im Web-Modus */
+.print-only {
+  display: none;
+}
