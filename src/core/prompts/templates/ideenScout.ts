@@ -1,3 +1,4 @@
+// 23.01.2026 15:55 - FIX: Synchronized Schema with CoT Instruction (added _thought_process).
 // 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
 // src/core/prompts/templates/ideenScout.ts
 // 17.01.2026 18:20 - FEAT: Ported 'IdeenScout' (Special Days) from V30.
@@ -50,7 +51,9 @@ Suggest exciting and cozy indoor activities (e.g. museums, cafes, historical bui
       "planning_note": "String (Tips, e.g. 'Visit in the morning')"
   };
 
+  // FIX: Added _thought_process to Schema
   const outputSchema = {
+    "_thought_process": "String (Analyze location & identify creative gaps)",
     "sunny_day_ideas": [ideaSchema],
     "rainy_day_ideas": [ideaSchema]
   };
@@ -63,4 +66,4 @@ Suggest exciting and cozy indoor activities (e.g. museums, cafes, historical bui
     .withSelfCheck(['basic', 'research'])
     .build();
 };
-// --- END OF FILE 68 Zeilen ---
+// --- END OF FILE 69 Zeilen ---

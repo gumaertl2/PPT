@@ -1,3 +1,4 @@
+// 23.01.2026 15:35 - FIX: Synchronized Schema with CoT Instruction (added _thought_process).
 // 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
 // src/core/prompts/templates/foodEnricher.ts
 // 19.01.2026 13:30 - FIX: Restored V30 Legacy Schema (German Keys) for Consistency with FoodScout.
@@ -36,8 +37,9 @@ Research each candidate live on the web.
 # FALLBACK
 If a restaurant is not found, mark it as "found": false. Do not invent anything.`;
 
-  // FIX: Schema converted to V40 English keys
+  // FIX: Schema converted to V40 English keys & CoT added
   const outputSchema = {
+    "_thought_process": "String (Research verification & strategy)",
     "enriched_candidates": [
       {
         "original_name": "String",
@@ -62,4 +64,4 @@ If a restaurant is not found, mark it as "found": false. Do not invent anything.
     .withSelfCheck(['basic', 'research'])
     .build();
 };
-// --- END OF FILE 65 Zeilen ---
+// --- END OF FILE 66 Zeilen ---

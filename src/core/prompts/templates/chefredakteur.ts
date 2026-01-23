@@ -1,3 +1,4 @@
+// 23.01.2026 15:15 - FIX: Enforced List-Mode (build(true)) & Synchronized Schema with CoT Instruction.
 // 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
 // src/core/prompts/templates/chefredakteur.ts
 // 19.01.2026 19:05 - FIX: Integrated Strategic Briefing context and updated to German ChefPlaner keys.
@@ -64,6 +65,7 @@ export const buildChefredakteurPrompt = (
     // FIX: Schema converted to V40 English keys
     const outputSchema = [
         { 
+            _thought_process: "String (Brief strategy: Context check & content focus)",
             id: "String", 
             type: "String (MUST match the Type from the task list exactly)",
             content: "String (Markdown formatted, escape all line breaks as \\n)",
@@ -111,6 +113,7 @@ ${aufgabenListe}
         .withInstruction(instructions)
         .withOutputSchema(outputSchema)
         .withSelfCheck(['basic', 'research'])
-        .build();
+        // FIX: Enable List Mode (Start with '[')
+        .build(true);
 };
-// --- END OF FILE 117 Zeilen ---
+// --- END OF FILE 118 Zeilen ---

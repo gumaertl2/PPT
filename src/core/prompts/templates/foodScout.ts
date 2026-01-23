@@ -1,3 +1,4 @@
+// 23.01.2026 15:20 - FIX: Synchronized Schema with CoT Instruction (added _thought_process).
 // 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
 // src/core/prompts/templates/foodScout.ts
 // 19.01.2026 13:05 - FIX: Restored V30 Legacy Schema (vorschlaege, geo_koordinaten) for SSOT compliance.
@@ -64,8 +65,9 @@ ${qualityFilterInstruction}
 # MANDATORY
 Geographic data is MANDATORY for distance calculation.`;
 
-  // FIX: Schema converted to V40 English keys
+  // FIX: Schema converted to V40 English keys & CoT added
   const outputSchema = {
+    "_thought_process": "String (Brief search strategy & criteria check)",
     "candidates": [
       {
         "name": "String",
@@ -89,4 +91,4 @@ Geographic data is MANDATORY for distance calculation.`;
     .withSelfCheck(['basic', 'research'])
     .build();
 };
-// --- END OF FILE 87 Zeilen ---
+// --- END OF FILE 88 Zeilen ---

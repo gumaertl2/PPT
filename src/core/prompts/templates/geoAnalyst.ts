@@ -1,3 +1,4 @@
+// 23.01.2026 15:50 - FIX: Synchronized Schema with CoT Instruction (added _thought_process).
 // 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
 // src/core/prompts/templates/geoAnalyst.ts
 // 19.01.2026 19:35 - FIX: Corrected PromptBuilder pattern for Strategic Briefing injection.
@@ -54,8 +55,9 @@ ${routing}
 # OUTPUT
 Create a list of recommended hubs with reasoning.`;
 
-  // FIX: Schema converted to V40 English keys
+  // FIX: Schema converted to V40 English keys & CoT added
   const outputSchema = {
+    "_thought_process": "String (Geo-Strategic evaluation of locations)",
     "recommended_hubs": [
       {
         "hub_name": "String (Name of City/Town)",
@@ -77,4 +79,4 @@ Create a list of recommended hubs with reasoning.`;
     .withSelfCheck(['planning'])
     .build();
 };
-// --- END OF FILE 70 Zeilen ---
+// --- END OF FILE 71 Zeilen ---

@@ -1,3 +1,4 @@
+// 23.01.2026 15:25 - FIX: Synchronized Schema with CoT Instruction (added _thought_process).
 // 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
 // src/core/prompts/templates/hotelScout.ts
 // 19.01.2026 19:55 - FIX: Corrected Export Signature & PromptBuilder Pattern.
@@ -66,8 +67,9 @@ Find 3 concrete accommodation options in or very close to **"${locationName}"**.
 Fill the schema exactly for each option.
 IMPORTANT: Research a real, working booking URL (Booking.com, Airbnb, or Direct).`;
 
-  // FIX: Schema converted to V40 English keys
+  // FIX: Schema converted to V40 English keys & CoT added
   const outputSchema = {
+    "_thought_process": "String (Check availability, budget & location strategy)",
     "candidates": [
       {
         "name": "String (Official Name)",
@@ -92,4 +94,4 @@ IMPORTANT: Research a real, working booking URL (Booking.com, Airbnb, or Direct)
     .withSelfCheck(['basic', 'research'])
     .build();
 };
-// --- END OF FILE 95 Zeilen ---
+// --- END OF FILE 96 Zeilen ---

@@ -1,3 +1,4 @@
+// 23.01.2026 17:00 - DOCS: Updated Silence Protocol (Dynamic Start Character for Lists).
 // 22.01.2026 16:30 - DOCS: Added "ResultProcessor" & "Strict Data Architecture" (ID Factory).
 // src/data/Texts/briefing.ts
 // 21.01.2026 05:00 - DOCS: Explicitly added "English Keys / Localized Values" Rule to Section 4.
@@ -103,8 +104,9 @@ Die API-Einstellung \`response_mime_type: 'application/json'\` allein reicht fü
 Wir erzwingen JSON-Konformität durch **In-Prompt-Constraints**:
 
 1.  **System OS Update:**
-    \`"NO PREAMBLE. NO MARKDOWN. START WITH '{'."\`
+    \`"NO PREAMBLE. NO MARKDOWN. START DIRECTLY WITH THE REQUIRED CHAR ('{' or '[')."\`
     Die KI darf keinen Text vor dem JSON generieren ("Here is your JSON...").
+    *Hinweis:* Der \`PromptBuilder\` setzt dynamisch \`{\` für Objekte und \`[\` für Listen (z.B. Chefredakteur).
 2.  **Thinking Container:**
     Der "Thought Process" (CoT) ist essenziell für Qualität, darf aber das JSON nicht brechen.
     **Regel:** Denken findet **innerhalb** des JSON-Keys \`_thought_process\` statt.
@@ -170,7 +172,7 @@ Details werden stufenweise enthüllt, um die UI ruhig zu halten:
 | \`basis\` | Sammler | **WICHTIG:** Payload-Filter aktiv! Service-Interessen (Hotel/Food) werden hier ausgeblendet ("Double Bind"-Prävention), damit er nur POIs sucht. |
 | \`anreicherer\` | Anreicherer | Sucht Details. Nutzt Batching (Default: 5-10 Items). |
 | \`guide\` | Guide | Erstellt Cluster/Touren für den View-Switcher. |
-| \`details\` | Details | Schreibt lange Texte für "Detail"-View. |
+| \`details\` | Details | Schreibt lange Texte für "Detail"-View (Liste!). |
 | \`tourGuide\` | Tour Guide | (Neu) Definiert Touren-Logik. |
 
 **B. Payload Filtering (Double Bind Fix)**
@@ -186,4 +188,4 @@ Stellt sicher, dass das "Silence Protocol" (Prompt) und der "Native JSON Mode" (
 `
   }
 };
-// --- END OF FILE 420 Zeilen ---
+// --- END OF FILE 423 Zeilen ---

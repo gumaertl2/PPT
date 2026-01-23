@@ -1,3 +1,4 @@
+// 23.01.2026 15:40 - FIX: Synchronized Schema with CoT Instruction (added _thought_process).
 // 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
 // src/core/prompts/templates/tourGuide.ts
 // 17.01.2026 23:10 - REFACTOR: Migrated to PromptBuilder pattern (Unified Builder).
@@ -37,8 +38,9 @@ Your task is to take the **entire list** of sights and organize them into geogra
 - **Rule 2 (No Timing):** Do NOT add times or time slots.
 - **Rule 3 (ID Integrity):** Use the exact \`id\` values from the input list.`;
 
-  // FIX: Schema converted to V40 English keys
+  // FIX: Schema converted to V40 English keys & CoT added
   const outputSchema = {
+    "_thought_process": "String (Geo-Analysis & Clustering Strategy)",
     "guide": {
       "title": "String (e.g. 'Your personal guide to Paris')",
       "intro": "String (Short, inviting introduction)",
@@ -61,4 +63,4 @@ Your task is to take the **entire list** of sights and organize them into geogra
     .withSelfCheck(['basic', 'planning'])
     .build();
 };
-// --- END OF FILE 65 Zeilen ---
+// --- END OF FILE 66 Zeilen ---

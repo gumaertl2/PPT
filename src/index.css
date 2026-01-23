@@ -1,4 +1,4 @@
-/* 23.01.2026 16:15 - FIX: Radical print isolation to prevent "visible area only" issue. */
+/* 23.01.2026 19:50 - FIX: Corrected print visibility logic to fix "blank page" issue. */
 /* src/index.css */
 
 @tailwind base;
@@ -11,40 +11,53 @@ body {
 
 /* --- PRINT RULES (WYSIWYG) --- */
 @media print {
-  /* 1. Seite & Ränder optimieren + PAGINATION FIX */
+  /* 1. Seite & Ränder optimieren */
   @page {
-    margin: 1.5cm;
+    margin: 0.5cm;
     size: A4;
   }
 
-  /* RADIKALER FIX: Erlaubt dem Browser über die erste Seite hinaus zu scrollen */
+  /* 2. Seite zurücksetzen */
   html, body, #root {
     height: auto !important;
     min-height: 0 !important;
     overflow: visible !important;
     position: static !important;
     background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
-  /* 2. RADIKALE TRENNUNG: Verstecke die gesamte interaktive App-UI */
-  #root > *:not(.print-only) {
-    display: none !important;
+  /* 3. VISIBILITY HACK: "Kind im Bade retten"
+     Statt display:none auf Container (was Kinder tötet), nutzen wir visibility.
+     So können wir .print-only gezielt wieder sichtbar machen.
+  */
+  body * {
+    visibility: hidden;
   }
 
-  /* 3. Druck-Container Sichtbarkeit */
+  /* 4. Den Druck-Container und ALLE seine Inhalte sichtbar schalten */
+  .print-only, .print-only * {
+    visibility: visible !important;
+  }
+
+  /* 5. Den Druck-Container absolut über alles legen */
   .print-only {
-    display: block !important;
-    position: relative !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
     width: 100% !important;
-    overflow: visible !important;
+    z-index: 9999 !important;
+    background: white !important;
+    display: block !important;
   }
 
-  /* 4. Navigation, Buttons und UI-Elemente (Backup-Sicherung) */
-  header, nav, footer, button, .no-print, [role="dialog"], .fixed, .sticky, aside {
+  /* 6. Störende UI-Elemente sicherheitshalber display:none (falls sie Layer überlagern) */
+  header, nav, footer, .no-print, [role="dialog"], button, .fixed, .sticky, aside {
     display: none !important;
   }
 
-  /* 5. Layout-Optimierung für A4 */
+  /* 7. Layout-Reset für Container */
   .max-w-7xl, .container, main {
     max-width: 100% !important;
     width: 100% !important;
@@ -52,16 +65,14 @@ body {
     padding: 0 !important;
     box-shadow: none !important;
     border: none !important;
-    display: block !important;
   }
 
-  /* 6. Seitenumbrüche nach Sektionen */
+  /* 8. Seitenumbrüche steuern */
   section, .print-section {
     page-break-inside: auto !important;
     page-break-after: always;
     margin-bottom: 2rem;
     display: block !important;
-    border: none !important;
   }
 
   h1, h2, h3 {
@@ -69,7 +80,7 @@ body {
     color: #000 !important;
   }
 
-  /* 7. SightCard Print-Optik (Flaches Design für Papier) */
+  /* 9. SightCard Print-Optik */
   .print-container .bg-white {
     box-shadow: none !important;
     border: 1px solid #e2e8f0 !important;
@@ -77,14 +88,13 @@ body {
     page-break-inside: avoid !important;
   }
 
-  /* 8. Farben & Hintergründe erzwingen */
+  /* 10. Farben erzwingen */
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     color-adjust: exact !important;
   }
 
-  /* 9. Bilder optimieren */
   img {
     max-width: 100% !important;
     page-break-inside: avoid;
@@ -96,4 +106,4 @@ body {
   display: none;
 }
 
-/* --- END OF FILE 99 Zeilen --- */
+/* --- END OF FILE 105 Zeilen --- */

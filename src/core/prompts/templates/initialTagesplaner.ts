@@ -1,3 +1,4 @@
+// 23.01.2026 15:30 - FIX: Synchronized Schema with CoT Instruction (added _thought_process).
 // 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
 // src/core/prompts/templates/initialTagesplaner.ts
 // 19.01.2026 19:20 - FIX: Corrected PromptBuilder pattern for Strategic Briefing & Appointments.
@@ -127,11 +128,13 @@ export const buildInitialTagesplanerPrompt = (
   4. **Logistics:** Short distances between activities.`);
 
   // 9. Output Format (V40 English Keys)
+  // FIX: Added _thought_process to string schema
   const outputFormat = `
   Answer EXCLUSIVELY with JSON.
   Structure must be exactly compatible with the V40 Frontend Renderer:
 
   {
+    "_thought_process": "String (Strategic planning step: Check constraints, open times & routing)",
     "days": [
       {
         "day": ${dayOffset + 1},
@@ -157,4 +160,4 @@ export const buildInitialTagesplanerPrompt = (
 
   return builder.build();
 };
-// --- END OF FILE 136 Zeilen ---
+// --- END OF FILE 137 Zeilen ---

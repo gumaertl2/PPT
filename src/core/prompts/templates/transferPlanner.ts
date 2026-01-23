@@ -1,3 +1,4 @@
+// 23.01.2026 15:45 - FIX: Synchronized Schema with CoT Instruction (added _thought_process).
 // 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
 // src/core/prompts/templates/transferPlanner.ts
 // 19.01.2026 13:40 - FIX: Restored V30 Legacy Schema (German Keys) for TransferPlanner.
@@ -59,8 +60,9 @@ ${modeInstruction}
 # OUTPUT SCHEMA
 Create a list of transfer connections.`;
 
-  // FIX: Schema converted to V40 English keys
+  // FIX: Schema converted to V40 English keys & CoT added
   const outputSchema = {
+    "_thought_process": "String (Route analysis & logic check)",
     "transfers": [
       {
         "from_id": "String (ID or 'BASE')",
@@ -82,4 +84,4 @@ Create a list of transfer connections.`;
     .withSelfCheck(['planning']) 
     .build();
 };
-// --- END OF FILE 76 Zeilen ---
+// --- END OF FILE 77 Zeilen ---
