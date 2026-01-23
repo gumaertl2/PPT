@@ -1,3 +1,4 @@
+// 24.01.2026 16:30 - FIX: Removed unused imports (TS6133) & maintained High-Contrast/Zoom Logic.
 // 24.01.2026 15:00 - FIX: Added Visual Highlighting (Pulse/Size) for selected marker.
 // src/features/Cockpit/SightsMapView.tsx
 
@@ -9,9 +10,7 @@ import { useTripStore } from '../../store/useTripStore';
 import type { Place } from '../../core/types';
 import { ExternalLink } from 'lucide-react';
 
-// FIX: Standard Leaflet Icons work poorly with Webpack/Vite out of the box
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+// FIX: Removed unused 'icon' and 'iconShadow' imports to resolve Vercel build errors.
 
 // --- HIGH CONTRAST PALETTE ---
 
@@ -52,13 +51,11 @@ const getCategoryColor = (cat?: string): string => {
   return match ? CATEGORY_COLORS[match] : DEFAULT_COLOR;
 };
 
-// FIX: Custom Icon now supports 'isSelected' state for Highlighting
+// Custom Icon with 'isSelected' state for Highlighting
 const createCustomIcon = (color: string, isSelected: boolean) => {
-  const size = isSelected ? 24 : 16;       // Größer wenn ausgewählt
-  const anchor = isSelected ? 12 : 8;      // Anchor anpassen (Hälfte der Größe)
-  const border = isSelected ? '3px solid #000' : '2px solid white'; // Dicker schwarzer Rand
-  
-  // Animation Class nur hinzufügen wenn ausgewählt
+  const size = isSelected ? 24 : 16;       
+  const anchor = isSelected ? 12 : 8;      
+  const border = isSelected ? '3px solid #000' : '2px solid white'; 
   const animClass = isSelected ? 'marker-pulse' : '';
 
   return L.divIcon({
@@ -232,9 +229,8 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
             <Marker 
               key={place.id} 
               position={[place.location!.lat, place.location!.lng]}
-              // FIX: Pass selection state to icon creator
               icon={createCustomIcon(getCategoryColor(place.category), isSelected)}
-              zIndexOffset={isSelected ? 1000 : 0} // Ensure selected is ALWAYS on top
+              zIndexOffset={isSelected ? 1000 : 0} 
               ref={(ref) => { markerRefs.current[place.id] = ref; }}
               eventHandlers={{
                 click: () => {
@@ -281,4 +277,4 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
     </div>
   );
 };
-// --- END OF FILE 258 Zeilen ---
+// --- END OF FILE 255 Zeilen ---

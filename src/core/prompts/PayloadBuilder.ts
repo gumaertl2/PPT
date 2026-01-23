@@ -1,7 +1,6 @@
-// 22.01.2026 15:15 - FIX: Added "Strict Data Filter" to sliceData to prevent garbage payload for enrichment.
+// 24.01.2026 16:30 - FIX: Synced buildFoodScoutPrompt usage (3 arguments) to match template.
+// 22.01.2026 15:15 - FIX: Added "Strict Data Filter" to sliceData.
 // src/core/prompts/PayloadBuilder.ts
-// 22.01.2026 12:00 - FIX: Added 'options' parameter to buildPrompt for Orchestrator-controlled Chunking.
-// 21.01.2026 23:55 - FIX: Dynamic Language Enforcement (supports IT, EN, etc.) instead of hardcoded German.
 
 import { useTripStore } from '../../store/useTripStore';
 import { INTEREST_DATA } from '../../data/interests';
@@ -47,12 +46,10 @@ export const PayloadBuilder = {
     };
 
     const sliceData = (items: any[], taskKey: TaskKey) => {
-        // FIX: Strict Data Filter - Remove garbage before slicing
-        // Allow strings (for legacy/events) BUT require ID & Name for objects (Places)
         const validItems = items.filter(item => {
             if (!item) return false;
-            if (typeof item === 'string') return true; // Legacy support
-            return item.id && item.name; // Strict Object Requirement
+            if (typeof item === 'string') return true; 
+            return item.id && item.name; 
         });
 
         const limit = options?.limit || getTaskChunkLimit(taskKey);
@@ -131,15 +128,10 @@ export const PayloadBuilder = {
         };
         generatedPrompt = buildChefPlanerPrompt(slicedProject, feedback);
         
-        // FIX: Dynamic Language Enforcement based on User Settings
         const langCode = project.userInputs.aiOutputLanguage || 'de';
         const langMap: Record<string, string> = {
-            de: 'DEUTSCH',
-            en: 'ENGLISCH',
-            it: 'ITALIENISCH',
-            fr: 'FRANZÖSISCH',
-            es: 'SPANISCH',
-            nl: 'NIEDERLÄNDISCH'
+            de: 'DEUTSCH', en: 'ENGLISCH', it: 'ITALIENISCH', 
+            fr: 'FRANZÖSISCH', es: 'SPANISCH', nl: 'NIEDERLÄNDISCH'
         };
         const targetLang = langMap[langCode] || 'DEUTSCH';
         
@@ -154,19 +146,13 @@ export const PayloadBuilder = {
 
       case 'basis':
       case 'sightCollector': {
-        // FILTER: Remove service-related interests (handled by specialized agents)
-        // to prevent the "Double Bind" confusion.
         const forbiddenForCollector = ['restaurant', 'hotel', 'accommodation', 'food'];
         const filteredInterests = project.userInputs.selectedInterests.filter(id => 
             !forbiddenForCollector.includes(id)
         );
-
         const filteredProject = {
             ...project,
-            userInputs: {
-                ...project.userInputs,
-                selectedInterests: filteredInterests
-            }
+            userInputs: { ...project.userInputs, selectedInterests: filteredInterests }
         };
         generatedPrompt = buildBasisPrompt(filteredProject);
         break;
@@ -180,9 +166,7 @@ export const PayloadBuilder = {
             ...project,
             data: {
                 ...project.data,
-                places: {
-                    "current_batch": slicedCandidates
-                } as any // FIX: Type cast to allow array in Record structure for prompting
+                places: { "current_batch": slicedCandidates } as any 
             }
         };
         generatedPrompt = buildAnreichererPrompt(slicedProject);
@@ -193,7 +177,6 @@ export const PayloadBuilder = {
         generatedPrompt = buildDurationEstimatorPrompt(project);
         break;
 
-      // FIX: Time-Based Chunking Logic
       case 'dayplan':
       case 'initialTagesplaner': {
         let contextData: any = undefined;
@@ -205,7 +188,6 @@ export const PayloadBuilder = {
             const dayOffset = (currentChunk - 1) * limit;
             const totalChunks = options?.totalChunks || chunkingState.totalChunks;
             
-            // Berechne verbleibende Tage für diesen Chunk
             const totalDuration = project.userInputs.dates.duration;
             const daysInChunk = Math.min(limit, totalDuration - dayOffset);
 
@@ -245,7 +227,8 @@ export const PayloadBuilder = {
               project.userInputs.customPreferences?.foodMode === 'stars') {
               mode = 'stars';
           }
-          generatedPrompt = buildFoodScoutPrompt(project, mode);
+          // FIX: Explicitly pass 3 arguments to satisfy signature
+          generatedPrompt = buildFoodScoutPrompt(project, mode, feedback || "");
           break;
       
       case 'foodEnricher': {
@@ -278,7 +261,6 @@ export const PayloadBuilder = {
           break;
       }
 
-      // FIX: Topic-Based Chunking Logic with Object Mapping
       case 'infos':
       case 'infoAutor': {
           let slicedTopics: string[] = [];
@@ -292,7 +274,6 @@ export const PayloadBuilder = {
               slicedTopics = appendixInterests;
           }
 
-          // FIX: Map string IDs to Objects required by Template
           const lang = (project.meta.language === 'en' ? 'en' : 'de') as 'de' | 'en';
           const mappedTopics = slicedTopics.map(id => {
               const def = INTEREST_DATA[id];
@@ -306,7 +287,7 @@ export const PayloadBuilder = {
 
           generatedPrompt = buildInfoAutorPrompt(
               project, 
-              mappedTopics, // Pass mapped objects instead of strings
+              mappedTopics, 
               options?.chunkIndex || chunkingState?.currentChunk || 1, 
               options?.totalChunks || chunkingState?.totalChunks || 1, 
               []

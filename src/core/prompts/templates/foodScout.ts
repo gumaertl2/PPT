@@ -1,9 +1,6 @@
+// 24.01.2026 16:30 - FIX: Added 'feedback' param to signature to resolve PayloadBuilder TS error.
 // 23.01.2026 15:20 - FIX: Synchronized Schema with CoT Instruction (added _thought_process).
-// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
 // src/core/prompts/templates/foodScout.ts
-// 19.01.2026 13:05 - FIX: Restored V30 Legacy Schema (vorschlaege, geo_koordinaten) for SSOT compliance.
-// 16.01.2026 19:45 - FIX: Added V30 "Star-Filter" Logic.
-// 18.01.2026 00:30 - REFACTOR: Migrated to class-based PromptBuilder.
 
 import type { TripProject, FoodSearchMode } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
@@ -11,7 +8,8 @@ import { getGuidesForCountry } from '../../../data/countries';
 
 export const buildFoodScoutPrompt = (
     project: TripProject, 
-    mode: FoodSearchMode = 'standard'
+    mode: FoodSearchMode = 'standard',
+    feedback: string = "" // FIX: Added 3rd argument for consistency
 ): string => {
   const { userInputs } = project;
   const { logistics, budget, vibe } = userInputs;
@@ -31,7 +29,7 @@ export const buildFoodScoutPrompt = (
 
   const guides = getGuidesForCountry(countryHint || location).join(', ');
 
-  // 2. Mode Logic (V30 Parity) - Translated to English
+  // 2. Mode Logic
   let qualityFilterInstruction = "";
   if (mode === 'standard') {
       qualityFilterInstruction = `### QUALITY FILTER (STANDARD)
@@ -53,7 +51,8 @@ The user explicitly requests upscale gastronomy.
     target_area: { location: location, country: countryHint },
     allowed_sources: guides,
     budget: budget,
-    vibe: vibe
+    vibe: vibe,
+    user_feedback: feedback // Use feedback in context if needed
   };
 
   const instructions = `# TASK
@@ -65,7 +64,6 @@ ${qualityFilterInstruction}
 # MANDATORY
 Geographic data is MANDATORY for distance calculation.`;
 
-  // FIX: Schema converted to V40 English keys & CoT added
   const outputSchema = {
     "_thought_process": "String (Brief search strategy & criteria check)",
     "candidates": [
@@ -91,4 +89,4 @@ Geographic data is MANDATORY for distance calculation.`;
     .withSelfCheck(['basic', 'research'])
     .build();
 };
-// --- END OF FILE 88 Zeilen ---
+// --- END OF FILE 90 Zeilen ---

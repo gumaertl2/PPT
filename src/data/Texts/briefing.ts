@@ -1,8 +1,7 @@
+// 24.01.2026 15:30 - DOCS: Added Map Integration (Bidirectional Nav & Strict Color Mapping) & Modal Docs.
 // 23.01.2026 17:00 - DOCS: Updated Silence Protocol (Dynamic Start Character for Lists).
 // 22.01.2026 16:30 - DOCS: Added "ResultProcessor" & "Strict Data Architecture" (ID Factory).
 // src/data/Texts/briefing.ts
-// 21.01.2026 05:00 - DOCS: Explicitly added "English Keys / Localized Values" Rule to Section 4.
-// 21.01.2026 04:30 - DOCS: Integrated "Anti-Chatty" Protocol, Payload Filtering & SightsView Refactoring.
 
 export const briefing = {
   de: {
@@ -26,6 +25,7 @@ Damit generierter Code sofort kompilierbar ist, nutze ausschließlich diesen Sta
 * **Data Processing:** ResultProcessor (Service Pattern).
 * **Styling:** Tailwind CSS (Utility First).
 * **Icons:** Lucide React.
+* **Maps:** Leaflet & React-Leaflet (OpenStreetMap).
 * **Date Handling:** Native Date API (oder date-fns wenn nötig).
 * **Deployment:** Wir verwenden Vercel.com.
 
@@ -43,7 +43,8 @@ Der Store (\`useTripStore\`) ist ein Assembler, der folgende Slices zusammenfüg
     * Verwaltet Laden (Hybrid: JSON/File) und Speichern.
 2.  **UISlice** (\`src/store/slices/createUISlice.ts\`):
     * Steuert Views (\`welcome\`, \`wizard\`, \`analysis\`).
-    * Steuert die **Anreicherer-UI** (Filter, Listenansicht).
+    * Steuert die **Anreicherer-UI** (Filter, Listenansicht, Map-View-Mode).
+    * Verwaltet \`selectedPlaceId\` für bidirektionale Navigation.
 3.  **SystemSlice** (\`src/store/slices/createSystemSlice.ts\`):
     * Infrastruktur: API-Key, AI-Settings (Modell-Matrix, Chunk-Limits).
     * Logging: **Flight Recorder** (Auto-Logging aller KI-Calls).
@@ -63,6 +64,7 @@ Um "God Objects" zu vermeiden, wurde die Datenverarbeitung aus der UI entfernt.
 #### C. COMPONENT ARCHITECTURE (UI Refactoring)
 Wir vermeiden "Blob-Komponenten" (>500 Zeilen).
 * **SightsView:** Die Hauptansicht (\`SightsView.tsx\`) delegiert komplexe UI-Logik an Sub-Komponenten.
+* **SightsMapView:** Kapselt die Leaflet-Karte, Custom Marker und Zoom-Logik.
 * **SightFilterModal:** Die Filter-Logik ist komplett in \`SightFilterModal.tsx\` ausgelagert.
 * **SightCard:** Verwaltet ihren eigenen lokalen Darstellungszustand (Detail-Level).
 
@@ -140,18 +142,22 @@ Wir erzwingen JSON-Konformität durch **In-Prompt-Constraints**:
 
 ---
 
-### 7. Business Rules & UI Standards (Update 21.01.2026)
+### 7. Business Rules & UI Standards (Update 24.01.2026)
 
 **A. Die "Reserve"-Logik (SightsView)**
 Ein Ort kommt in die Reserve, wenn: Prio -1, Dauer < min, oder Rating < min.
 Orte ohne Rating bleiben in der Hauptliste.
 
-**B. UI-Konzept: View Switcher (SightsView)**
-Statt einfacher Filter nutzen wir "Sichten" (Views), die die Liste grundlegend neu gruppieren:
-1.  **Kategorie:** Gruppierung nach Typ (Kultur, Natur...).
-2.  **Tour:** Gruppierung nach Touren (vom \`tourGuide\` definiert).
-3.  **Tag:** Gruppierung nach Reisetagen (vom \`dayplan\` definiert).
-4.  **A-Z:** Flache alphabetische Liste.
+**B. UI-Konzept: View Switcher & Map Integration**
+Statt einfacher Filter nutzen wir "Sichten" (Views):
+1.  **Liste (Standard):** Gruppierung nach Kategorie, Tour, Tag oder A-Z.
+2.  **Karte (Leaflet):**
+    * **Bidirektionale Navigation:** Klick auf Karte wählt Ort in Liste (Scroll-To). Klick auf Karten-Icon in Liste zoomt auf Ort in Karte.
+    * **Strict Color Mapping:** Marker-Farben folgen EXAKT den Keys in \`interests.ts\` (keine Synonyme).
+    * **Smart Zoom:**
+        * *Initial:* Zeigt alle Orte (FitBounds) ODER fokussiert Auswahl (Zoom 12).
+        * *Interaktion:* Klick auf Marker öffnet Popup, verändert aber den Zoom NICHT (Anti-Jumping).
+    * **Highlighting:** Aktiver Marker pulsiert und ist größer.
 
 **C. UI-Konzept: Progressive Disclosure (SightCard)**
 Details werden stufenweise enthüllt, um die UI ruhig zu halten:
@@ -159,6 +165,10 @@ Details werden stufenweise enthüllt, um die UI ruhig zu halten:
 * **Standard:** + Kurzbeschreibung & KPIs.
 * **Details:** + Volltext & Reasoning.
 * **Steuerung:** Über **+/- Buttons** kann jede Karte individuell "aufgeklappt" werden.
+
+**D. Export & Print**
+* **ExportModal:** Ermöglicht das Kopieren der JSON-Daten in die Zwischenablage für externe Tools.
+* **PrintModal / PrintReport:** Generiert eine druckoptimierte HTML-Ansicht (ohne UI-Elemente) für PDF-Export.
 
 ---
 
@@ -188,4 +198,4 @@ Stellt sicher, dass das "Silence Protocol" (Prompt) und der "Native JSON Mode" (
 `
   }
 };
-// --- END OF FILE 423 Zeilen ---
+// --- END OF FILE 462 Zeilen ---
