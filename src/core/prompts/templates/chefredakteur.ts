@@ -1,10 +1,7 @@
-// 23.01.2026 15:15 - FIX: Enforced List-Mode (build(true)) & Synchronized Schema with CoT Instruction.
-// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
+// 24.01.2026 18:00 - FIX: Thinking-Safe Architecture.
+// Implements strict JSON object with '_thought_process' to support Gemini 2.5 Flash.
+// Consumes input from 'prepareChefredakteurPayload'.
 // src/core/prompts/templates/chefredakteur.ts
-// 19.01.2026 19:05 - FIX: Integrated Strategic Briefing context and updated to German ChefPlaner keys.
-// 17.01.2026 19:10 - FEAT: Ported 'Chefredakteur' (Content Editor) from V30.
-// 17.01.2026 23:20 - REFACTOR: Migrated to PromptBuilder pattern (Unified Builder).
-// 17.01.2026 17:50 - FIX: Added .flat() to handle Place[] arrays correctly.
 
 import type { TripProject, Place } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
@@ -62,19 +59,6 @@ export const buildChefredakteurPrompt = (
         return `- **ID "${p.id}" (Title: ${p.titel}, Type: ${p.typ}):**${contextString}\n  ${anweisung}`;
     }).join('\n\n');
 
-    // FIX: Schema converted to V40 English keys
-    const outputSchema = [
-        { 
-            _thought_process: "String (Brief strategy: Context check & content focus)",
-            id: "String", 
-            type: "String (MUST match the Type from the task list exactly)",
-            content: "String (Markdown formatted, escape all line breaks as \\n)",
-            waypoints: [
-                { name: "String", address: "String" }
-            ]
-        }
-    ];
-
     const role = `You are an experienced Editor-in-Chief for premium travel guides. Your task is to write engaging, informative, and well-structured detail texts in Markdown format for a given list of sights (Museums, Architecture, Districts, etc.).`;
 
     const contextData = {
@@ -82,6 +66,7 @@ export const buildChefredakteurPrompt = (
         task_list: aufgabenListe
     };
 
+    // UPDATED INSTRUCTIONS: Merged Style & Output Format (Thinking-Safe)
     const instructions = `# EDITORIAL STYLE (BINDING)
 - **Style:** Your writing style must be factual, detailed, and informative.
 - **Strategy:** Consider the "strategic_guideline" for tonality and content weighting.
@@ -100,20 +85,35 @@ Here is the list of IDs and corresponding instructions (TIA) you must implement 
 ${aufgabenListe}
 ---
 
-# ADDITIONAL RULES
-- **For Type "Stadtbezirke" / "CityDistricts":** The object MUST ADDITIONALLY contain the field \`waypoints\`. Omit this field for all other types.
+# OUTPUT FORMAT (STRICT JSON)
+Return a SINGLE valid JSON object with a "_thought_process" field and an "articles" array.
+
+Structure:
+{
+  "_thought_process": "Briefly analyze the strategy and context for this batch...",
+  "articles": [
+    {
+      "id": "MUST MATCH ID FROM TASK LIST",
+      "type": "MUST MATCH TYPE FROM TASK LIST",
+      "content": "Your markdown text here (escape newlines as \\n)...",
+      "waypoints": [ { "name": "Station A", "address": "Address A" } ] // Only for Districts
+    }
+  ]
+}
+
+# FINAL RULES
 - The value of the \`id\` field MUST match the original ID from the task list exactly.
 - Format ALL URLs in the text as clickable links with descriptive text.
 - **MOST IMPORTANT FORMAT RULE:** The entire value of the "content" field must be a **single string**. All line breaks within your text **MUST** be escaped as \`\\n\`.`;
 
-    return new PromptBuilder()
-        .withOS()
-        .withRole(role)
-        .withContext(contextData, "EDITORIAL BRIEFING")
-        .withInstruction(instructions)
-        .withOutputSchema(outputSchema)
-        .withSelfCheck(['basic', 'research'])
-        // FIX: Enable List Mode (Start with '[')
-        .build(true);
+    const builder = new PromptBuilder();
+    
+    // Fix: Using new API without arguments in constructor
+    builder.withRole(role);
+    builder.withContext(JSON.stringify(contextData, null, 2), "EDITORIAL BRIEFING"); // Stringify context for safety
+    builder.withInstruction(instructions);
+    
+    // Fix: No .withOutputSchema(), no .build(true). Just standard build.
+    return builder.build();
 };
-// --- END OF FILE 118 Zeilen ---
+// --- END OF FILE 125 Zeilen ---

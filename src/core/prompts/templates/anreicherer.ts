@@ -1,21 +1,25 @@
-// 24.01.2026 17:00 - FIX: Architecture Compliance. 
-// 1. Injected missing candidate list.
-// 2. Added '_thought_process' field to JSON schema to contain AI reasoning within valid JSON.
+// 24.01.2026 19:00 - FIX: RESTORED FULL DATA SCHEMA.
+// Re-added missing fields (website, logistics, priceLevel, reasoning) from V30 logic.
+// Maintained 'Thinking-Safe' wrapper for Gemini 2.5.
 // src/core/prompts/templates/anreicherer.ts
 
 import { PromptBuilder } from '../PromptBuilder';
+import { INTEREST_DATA } from '../../../data/interests';
 
 export const buildAnreichererPrompt = (payload: any): string => {
   const builder = new PromptBuilder();
 
+  // 1. Generate Whitelist from System Data (SSOT)
+  const validCategories = Object.keys(INTEREST_DATA).join(', ');
+
   builder.withContext(`
 # ROLE
-You are the 'Data Specialist' (Anreicherer). Your task is to verify and enrich a list of candidates with hard facts.
+You are a high-precision "Data Enricher". Your task is to enrich a list of places with verifiable facts and inspiring descriptions.
 
 # GEO-CONTEXT & ROUTE (PRIORITY 1)
 ${payload.context.geo_context}
 
-# STRATEGIC GUIDELINE
+# STRATEGIC BRIEFING
 ${payload.context.strategic_guideline}
 
 # CONSTRAINTS
@@ -23,7 +27,6 @@ Travel Period: ${payload.context.travel_period}
 User Notes: ${payload.context.user_note}
   `);
 
-  // CRITICAL FIX: Explicitly inject the candidates list into the prompt text!
   const candidatesList = JSON.stringify(payload.context.places_to_process, null, 2);
 
   builder.withInstruction(`
@@ -31,30 +34,48 @@ Process the following ${payload.meta.total_count} candidates${payload.meta.chunk
 
 ${candidatesList}
 
-For each candidate, find:
-1. Official Name & Category
-2. Precise Address & Coordinates
-3. Short, engaging description (max 2 sentences)
-4. Opening Hours & Rating (if available)
+# INSTRUCTIONS & RULES
+1. **ID Retention:** You MUST use the exact \`id\` from the input list.
+2. **Completeness:** Return exactly one result object per input candidate.
+3. **Coordinates:** Find exact Geo-Coordinates (lat/lng).
+4. **Address:** Must be a navigable address.
+5. **Structure:** Separate \`city\` and \`country\`.
+6. **Strategy Focus:** Write the \`description\` and \`reasoning\` considering the Strategic Briefing.
 
-# BATCH INTEGRITY PROTOCOL
-- Verify the location against the provided GEO-CONTEXT.
-- If a place is outside the region/route, mark it clearly or suggest the closest correct match.
+# CATEGORY PROTOCOL (STRICT)
+You MUST assign one of the following system IDs to the "category" field. 
+**VALID CATEGORIES:** [${validCategories}]
+
+*Mapping Rules:*
+- Hiking/Walking -> 'sports' or 'nature'
+- Camping/Hotel -> 'hotel'
+- Eating/Drinking -> 'restaurant'
+- Sightseeing -> 'culture_history' or 'museum' or 'architecture'
 
 # OUTPUT FORMAT
 Return a SINGLE valid JSON object with a "_thought_process" field and a "candidates" array.
+
 Structure:
 {
-  "_thought_process": "Analyze the Geo-Context and Strategy here. Verify which candidates match the route...",
+  "_thought_process": "Analyze strategy. Map categories. Verify addresses...",
   "candidates": [
     {
-      "id": "original_id",
+      "id": "MUST MATCH INPUT ID",
       "name": "Official Name",
-      "category": "Sight/Museum/etc.",
-      "address": "Full Address",
+      "city": "City Name",
+      "country": "Country Name",
+      "category": "VALID_CATEGORY_ID",
+      "description": "Inspiring description (1-2 sentences)",
       "location": { "lat": 0.0, "lng": 0.0 },
-      "description": "Short text...",
-      "rating": 4.5
+      "address": "Navigable Address",
+      "openingHours": "Summary for travel period (or 'n/a')",
+      "website": "Official URL (or empty string)",
+      "rating": 4.5,
+      "ratingCount": 120,
+      "duration": 90, 
+      "priceLevel": "Free|Cheap|Moderate|Expensive",
+      "logistics": "Parking info or Public Transport info",
+      "reasoning": "Why fits this the strategy?"
     }
   ]
 }
@@ -62,4 +83,4 @@ Structure:
 
   return builder.build();
 };
-// --- END OF FILE 62 Zeilen ---
+// --- END OF FILE 86 Zeilen ---
