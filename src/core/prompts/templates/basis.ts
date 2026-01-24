@@ -1,6 +1,4 @@
-// 24.01.2026 14:50 - REFACTOR: Lean Basis Template (Sammler). 
-// Consumes pre-processed payload from 'prepareBasisPayload'. 
-// Focuses on high-precision candidate sourcing without internal logic overhead.
+// 24.01.2026 16:30 - FIX: PromptBuilder API compliance (zero-arg constructor, fluent 'with' methods).
 // src/core/prompts/templates/basis.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -8,10 +6,11 @@ import { PromptBuilder } from '../PromptBuilder';
 export const buildBasisPrompt = (payload: any): string => {
   const { context, instructions, constraints } = payload;
 
-  // We use the PromptBuilder to wrap our instructions in the System OS and Safety Guards.
-  const builder = new PromptBuilder('Basis / Sammler');
+  // FIX: Constructor takes no arguments
+  const builder = new PromptBuilder();
 
-  builder.setContext(`
+  // FIX: Use 'withContext' instead of 'setContext'. Added Role here.
+  builder.withContext(`
 # ROLE
 You are the 'Local Scout' (Sammler). Your task is to find a high-quality list of specific place names (candidates) for a trip.
 
@@ -31,19 +30,20 @@ ${instructions.architect_strategy}
 Do not suggest these again: ${context.already_known_places_block.join(', ')}
   `);
 
-  builder.setInstruction(`
+  // FIX: Use 'withInstruction' instead of 'setInstruction'.
+  // Merged Output Format here to ensure build safety.
+  builder.withInstruction(`
 ${instructions.creative_briefing}
 
 # TASK
 Find exactly ${constraints.target_count} candidates that perfectly fit the strategy and geo-corridor above.
 Ensure a mix of famous landmarks and hidden gems if the strategy allows.
-  `);
 
-  builder.setOutputFormat(`
+# OUTPUT FORMAT
 Return ONLY a valid JSON array of strings containing the names of the places.
 Example: ["Place A", "Place B", "Place C"]
   `);
 
   return builder.build();
 };
-// --- END OF FILE 48 Zeilen ---
+// --- END OF FILE 45 Zeilen ---

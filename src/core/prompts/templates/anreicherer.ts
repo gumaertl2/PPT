@@ -1,14 +1,14 @@
-// 24.01.2026 15:00 - REFACTOR: Lean Anreicherer Template (Enricher).
-// Consumes pre-processed payload from 'prepareAnreichererPayload'.
-// Implements 'BATCH INTEGRITY' to ensure high-quality fact-checking.
+// 24.01.2026 16:35 - FIX: PromptBuilder API compliance (zero-arg constructor, fluent 'with' methods).
 // src/core/prompts/templates/anreicherer.ts
 
 import { PromptBuilder } from '../PromptBuilder';
 
 export const buildAnreichererPrompt = (payload: any): string => {
-  const builder = new PromptBuilder('Anreicherer / Enricher');
+  // FIX: Constructor takes no arguments
+  const builder = new PromptBuilder();
 
-  builder.setContext(`
+  // FIX: Use 'withContext' instead of 'setContext'. Added Role here.
+  builder.withContext(`
 # ROLE
 You are the 'Data Specialist' (Anreicherer). Your task is to verify and enrich a list of candidates with hard facts.
 
@@ -23,7 +23,9 @@ Travel Period: ${payload.context.travel_period}
 User Notes: ${payload.context.user_note}
   `);
 
-  builder.setInstruction(`
+  // FIX: Use 'withInstruction' instead of 'setInstruction'.
+  // Merged Output Format here to ensure build safety.
+  builder.withInstruction(`
 Process the following ${payload.meta.total_count} candidates${payload.meta.chunk_info}.
 For each candidate, find:
 1. Official Name & Category
@@ -34,9 +36,8 @@ For each candidate, find:
 # BATCH INTEGRITY PROTOCOL
 - Verify the location against the provided GEO-CONTEXT.
 - If a place is outside the region/route, mark it clearly or suggest the closest correct match.
-  `);
 
-  builder.setOutputFormat(`
+# OUTPUT FORMAT
 Return a JSON array of objects with this structure:
 [{
   "id": "original_id",
@@ -51,4 +52,4 @@ Return a JSON array of objects with this structure:
 
   return builder.build();
 };
-// --- END OF FILE 53 Zeilen ---
+// --- END OF FILE 52 Zeilen ---
