@@ -1,3 +1,4 @@
+// 24.01.2026 13:00 - FEAT: Added 'detailContent' to Place interface (Separation of Concerns: Enricher vs Editor).
 // 23.01.2026 14:20 - FIX: Added PrintConfig & DetailLevel to central types (SSOT).
 // 23.01.2026 11:45 - FIX: Synchronized Place structure and Record type with real JSON data.
 // src/core/types.ts
@@ -393,6 +394,7 @@ export interface Place {
   // Content (English V40)
   shortDesc?: string;
   description?: string; 
+  detailContent?: string; // NEW: Editorial Content (Separated from Enricher)
   openingHours?: string[] | string; 
   website?: string; // FIX: Added missing field from JSON
   reasoning?: string; // FIX: Added reasoning

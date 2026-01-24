@@ -1,3 +1,4 @@
+// 24.01.2026 13:20 - REFACTOR: Integrated 'prepareChefredakteurPayload' for smarter clustering & instruction injection.
 // 24.01.2026 21:45 - FIX: Harmonized 'anreicherer' signature & fixed 'durationEstimator' arguments.
 // 24.01.2026 21:30 - FIX: Updated to use 'buildAnreichererPromptSafe'.
 // src/core/prompts/PayloadBuilder.ts
@@ -24,6 +25,9 @@ import { buildTourGuidePrompt } from './templates/tourGuide';
 import { buildChefredakteurPrompt } from './templates/chefredakteur';
 import { buildInfoAutorPrompt } from './templates/infoAutor';
 import { buildIdeenScoutPrompt } from './templates/ideenScout';
+
+// --- PREPARERS (V40 Strategy Pattern) ---
+import { prepareChefredakteurPayload } from './preparers/prepareChefredakteurPayload';
 
 import type { LocalizedContent, TaskKey, ChunkingState, TripProject, FoodSearchMode } from '../types';
 import { filterByRadius } from '../utils/geo';
@@ -251,11 +255,16 @@ export const PayloadBuilder = {
 
       case 'details':
       case 'chefredakteur' as any: {
-          const allPlaces = Object.values(project.data.places || {}).flat();
-          const slicedPlaces = sliceData(allPlaces, 'chefredakteur' as TaskKey);
+          // NEW: Use the specialized preparer (Clusters by category & Injects Instructions)
+          const preparedPlaces = prepareChefredakteurPayload(
+              project, 
+              options?.chunkIndex || chunkingState?.currentChunk || 1, 
+              options?.limit || getTaskChunkLimit('chefredakteur' as TaskKey)
+          );
+
           generatedPrompt = buildChefredakteurPrompt(
               project, 
-              slicedPlaces, 
+              preparedPlaces, 
               options?.chunkIndex || chunkingState?.currentChunk || 1, 
               options?.totalChunks || chunkingState?.totalChunks || 1
           ) || "";
@@ -344,4 +353,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 474 Zeilen ---
+// --- END OF FILE 485 Zeilen ---

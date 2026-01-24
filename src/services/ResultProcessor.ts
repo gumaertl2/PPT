@@ -1,3 +1,4 @@
+// 24.01.2026 13:05 - FIX: Redirected 'chefredakteur' output to 'detailContent' to protect 'description' (Enricher Data).
 // 22.01.2026 20:10 - FIX: Enable String-Extraction in Arrays & Restore ID Logging.
 // src/services/ResultProcessor.ts
 
@@ -212,7 +213,8 @@ export const ResultProcessor = {
                  const targetId = resolvePlaceId(item, existingPlaces, aiSettings.debug);
                  if (targetId) {
                      updatePlace(targetId, {
-                         description: item.detailed_description || item.description || item.content,
+                         // FIX: Save detailed text to 'detailContent' to avoid overwriting the enricher's short 'description'.
+                         detailContent: item.detailed_description || item.description || item.content,
                          reasoning: item.reasoning
                      });
                      successCount++;
