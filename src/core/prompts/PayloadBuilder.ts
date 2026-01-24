@@ -1,6 +1,6 @@
-// 24.01.2026 13:20 - REFACTOR: Integrated 'prepareChefredakteurPayload' for smarter clustering & instruction injection.
-// 24.01.2026 21:45 - FIX: Harmonized 'anreicherer' signature & fixed 'durationEstimator' arguments.
-// 24.01.2026 21:30 - FIX: Updated to use 'buildAnreichererPromptSafe'.
+// 24.01.2026 15:30 - REFACTOR: Hybrid PayloadBuilder. 
+// Uses NEW Preparers for Basis, Anreicherer, Editor.
+// KEEPS Legacy Logic for Food, Hotels, Transfers (Safety First).
 // src/core/prompts/PayloadBuilder.ts
 
 import { useTripStore } from '../../store/useTripStore';
@@ -11,7 +11,6 @@ import { CONFIG } from '../../data/config';
 // --- TEMPLATES ---
 import { buildChefPlanerPrompt } from './templates/chefPlaner';
 import { buildBasisPrompt } from './templates/basis';
-// FIX: Import the standard V40 function
 import { buildAnreichererPrompt } from './templates/anreicherer';
 import { buildRouteArchitectPrompt } from './templates/routeArchitect';
 import { buildDurationEstimatorPrompt } from './templates/durationEstimator';
@@ -27,6 +26,8 @@ import { buildInfoAutorPrompt } from './templates/infoAutor';
 import { buildIdeenScoutPrompt } from './templates/ideenScout';
 
 // --- PREPARERS (V40 Strategy Pattern) ---
+import { prepareBasisPayload } from './preparers/prepareBasisPayload';
+import { prepareAnreichererPayload } from './preparers/prepareAnreichererPayload';
 import { prepareChefredakteurPayload } from './preparers/prepareChefredakteurPayload';
 
 import type { LocalizedContent, TaskKey, ChunkingState, TripProject, FoodSearchMode } from '../types';
@@ -39,7 +40,7 @@ export const PayloadBuilder = {
     const { project, aiSettings, apiKey } = state; 
     const chunkingState = (state as any).chunkingState as ChunkingState;
 
-    // --- HELPER FUNCTIONS ---
+    // --- HELPER FUNCTIONS (Legacy Support) ---
 
     const getTaskChunkLimit = (taskKey: TaskKey): number => {
         const mode = apiKey ? 'auto' : 'manual';
@@ -118,6 +119,52 @@ export const PayloadBuilder = {
     let generatedPrompt = "";
 
     switch (task) {
+      // --- 1. NEW ARCHITECTURE (Preparer Pattern) ---
+
+      case 'basis':
+      case 'sightCollector': {
+        // V40: Use specialized Preparer
+        const payload = prepareBasisPayload(project);
+        generatedPrompt = buildBasisPrompt(payload);
+        break;
+      }
+      
+      case 'anreicherer':
+      case 'intelligentEnricher': {
+        // V40: Use specialized Preparer
+        const allPlaces = Object.values(project.data.places || {}).flat();
+        const slicedCandidates = sliceData(allPlaces, 'anreicherer');
+        
+        const payload = prepareAnreichererPayload(
+            project, 
+            slicedCandidates,
+            options?.chunkIndex || chunkingState?.currentChunk || 1,
+            options?.totalChunks || chunkingState?.totalChunks || 1
+        );
+        generatedPrompt = buildAnreichererPrompt(payload);
+        break;
+      }
+
+      case 'details':
+      case 'chefredakteur' as any: {
+          // V40: Use specialized Preparer
+          const preparedPlaces = prepareChefredakteurPayload(
+              project, 
+              options?.chunkIndex || chunkingState?.currentChunk || 1, 
+              options?.limit || getTaskChunkLimit('chefredakteur' as TaskKey)
+          );
+
+          generatedPrompt = buildChefredakteurPrompt(
+              project, 
+              preparedPlaces, 
+              options?.chunkIndex || chunkingState?.currentChunk || 1, 
+              options?.totalChunks || chunkingState?.totalChunks || 1
+          ) || "";
+          break;
+      }
+
+      // --- 2. LEGACY HANDLERS (Must remain until refactored) ---
+
       case 'chefPlaner': {
         const allAppointments = project.userInputs.dates.fixedEvents || [];
         const slicedAppointments = sliceData(allAppointments, 'chefPlaner');
@@ -139,7 +186,6 @@ export const PayloadBuilder = {
             fr: 'FRANZÖSISCH', es: 'SPANISCH', nl: 'NIEDERLÄNDISCH'
         };
         const targetLang = langMap[langCode] || 'DEUTSCH';
-        
         generatedPrompt += `\n\n# SPRACH-REGEL\nAntworte in allen Textfeldern (wie 'analysis', 'strategy') ausschließlich auf ${targetLang}.`;
         break;
       }
@@ -149,37 +195,7 @@ export const PayloadBuilder = {
         generatedPrompt = buildRouteArchitectPrompt(project);
         break;
 
-      case 'basis':
-      case 'sightCollector': {
-        const forbiddenForCollector = ['restaurant', 'hotel', 'accommodation', 'food'];
-        const filteredInterests = project.userInputs.selectedInterests.filter(id => 
-            !forbiddenForCollector.includes(id)
-        );
-        const filteredProject = {
-            ...project,
-            userInputs: { ...project.userInputs, selectedInterests: filteredInterests }
-        };
-        generatedPrompt = buildBasisPrompt(filteredProject);
-        break;
-      }
-      
-      case 'anreicherer':
-      case 'intelligentEnricher': {
-        const allPlaces = Object.values(project.data.places || {}).flat();
-        const slicedCandidates = sliceData(allPlaces, 'anreicherer');
-        
-        // V40 Standard: Direct call with explicit candidates list
-        generatedPrompt = buildAnreichererPrompt(
-            project, 
-            slicedCandidates,
-            options?.chunkIndex || chunkingState?.currentChunk || 1,
-            options?.totalChunks || chunkingState?.totalChunks || 1
-        ) || "";
-        break;
-      }
-
       case 'durationEstimator':
-        // FIX: Provide placeholders for required arguments
         generatedPrompt = buildDurationEstimatorPrompt(project, "", "");
         break;
 
@@ -187,13 +203,11 @@ export const PayloadBuilder = {
       case 'initialTagesplaner': {
         let contextData: any = undefined;
         const isActive = options ? true : chunkingState?.isActive;
-        
         if (isActive) {
             const limit = options?.limit || getTaskChunkLimit('dayplan');
             const currentChunk = options?.chunkIndex || chunkingState.currentChunk;
             const dayOffset = (currentChunk - 1) * limit;
             const totalChunks = options?.totalChunks || chunkingState.totalChunks;
-            
             const totalDuration = project.userInputs.dates.duration;
             const daysInChunk = Math.min(limit, totalDuration - dayOffset);
 
@@ -253,37 +267,17 @@ export const PayloadBuilder = {
            generatedPrompt = buildTourGuidePrompt(project);
            break;
 
-      case 'details':
-      case 'chefredakteur' as any: {
-          // NEW: Use the specialized preparer (Clusters by category & Injects Instructions)
-          const preparedPlaces = prepareChefredakteurPayload(
-              project, 
-              options?.chunkIndex || chunkingState?.currentChunk || 1, 
-              options?.limit || getTaskChunkLimit('chefredakteur' as TaskKey)
-          );
-
-          generatedPrompt = buildChefredakteurPrompt(
-              project, 
-              preparedPlaces, 
-              options?.chunkIndex || chunkingState?.currentChunk || 1, 
-              options?.totalChunks || chunkingState?.totalChunks || 1
-          ) || "";
-          break;
-      }
-
       case 'infos':
       case 'infoAutor': {
           let slicedTopics: string[] = [];
           const appendixInterests = project.userInputs.selectedInterests.filter(id => 
               APPENDIX_ONLY_INTERESTS.includes(id)
           );
-
           if (chunkingState?.isActive || options) {
               slicedTopics = sliceData(appendixInterests, 'infoAutor');
           } else {
               slicedTopics = appendixInterests;
           }
-
           const lang = (project.meta.language === 'en' ? 'en' : 'de') as 'de' | 'en';
           const mappedTopics = slicedTopics.map(id => {
               const def = INTEREST_DATA[id];
@@ -294,7 +288,6 @@ export const PayloadBuilder = {
                   anweisung: def?.aiInstruction?.[lang] || ""
               };
           });
-
           generatedPrompt = buildInfoAutorPrompt(
               project, 
               mappedTopics, 
@@ -353,4 +346,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 485 Zeilen ---
+// --- END OF FILE 510 Zeilen ---

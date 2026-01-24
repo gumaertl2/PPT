@@ -1,4 +1,6 @@
-// 24.01.2026 14:30 - FEAT: Advanced Basis Preparer. Implements "Hierarchy of Truth": ChefPlaner > RouteArchitect > UserInput.
+// 24.01.2026 16:00 - FEAT: Smart Interest Logic. 
+// IF interests selected -> Append them. 
+// IF NO interests -> Explicit instruction to rely purely on Character/Vibe.
 // src/core/prompts/preparers/prepareBasisPayload.ts
 
 import type { TripProject } from '../../types';
@@ -18,14 +20,24 @@ const getMonthName = (dateStr: string, lang: 'de' | 'en'): string => {
 };
 
 /**
- * Generiert das "Kreative Briefing" basierend auf den Interessen.
+ * Generiert das "Kreative Briefing" ODER die "Fallback-Instruktion".
  */
 const generateCreativeBriefing = (project: TripProject, lang: 'de' | 'en'): string => {
   const { userInputs } = project;
   const interests = userInputs.selectedInterests || [];
   
-  if (interests.length === 0) return "";
+  // LOGIC CHANGE: Smart Fallback
+  if (interests.length === 0) {
+      // CASE 1: Keine Interessen gewählt. 
+      // Wir geben eine harte Anweisung, NICHT zu raten, sondern sich auf Charakter/Vibe zu verlassen.
+      if (lang === 'de') {
+          return "### CREATIVE BRIEFING\nKEINE SPEZIFISCHEN INTERESSEN GEWÄHLT.\nIgnoriere das Thema 'Interessen'. Konzentriere dich zu 100% auf die oben definierte STRATEGIE (Charakter) und den gewünschten VIBE (Emotion). Suche Orte, die diese Stimmung perfekt einfangen.";
+      } else {
+          return "### CREATIVE BRIEFING\nNO SPECIFIC INTERESTS SELECTED.\nIgnore the topic of 'Interests'. Focus 100% on the STRATEGY (Character) defined above and the desired VIBE (Emotion). Find places that perfectly capture this atmosphere.";
+      }
+  }
 
+  // CASE 2: Interessen gewählt -> Wir bauen das detaillierte Briefing.
   let briefing = "### CREATIVE BRIEFING (Interests & Search Rules)\n";
   
   interests.forEach(id => {
@@ -33,22 +45,18 @@ const generateCreativeBriefing = (project: TripProject, lang: 'de' | 'en'): stri
     if (def) {
       const label = (def.label as any)[lang] || id;
       
-      // 1. Core Logic: Search Strategy aus INTEREST_DATA
       let searchStrategy = (def.searchStrategy as any)?.[lang];
 
-      // Fallback
       if (!searchStrategy) {
            const legacy = (def.aiInstruction as any)?.[lang] || "";
            searchStrategy = legacy || `Find suitable candidates related to ${label}.`;
       }
       
-      // 2. User Overrides (Custom Strategy)
       const customStrat = userInputs.customSearchStrategies?.[id];
       if (customStrat) {
           searchStrategy = `CUSTOM STRATEGY OVERRIDE: ${customStrat}`;
       }
 
-      // 3. User Specific Wishes (Custom Preference field)
       const customPref = userInputs.customPreferences[id] 
         ? `(USER SPECIFIC WISH: "${userInputs.customPreferences[id]}")` 
         : "";
@@ -63,17 +71,16 @@ const generateCreativeBriefing = (project: TripProject, lang: 'de' | 'en'): stri
 
 /**
  * Der Preparer für den "Sammler" (Basis).
- * Berechnet alle Kontext-Variablen im Voraus und respektiert die Daten-Hierarchie.
  */
 export const prepareBasisPayload = (project: TripProject) => {
     const { userInputs, meta, analysis } = project;
     const chefPlaner = analysis.chefPlaner;
-    const routeArchitect = analysis.routeArchitect; // <--- LEVEL 2 TRUTH
+    const routeArchitect = analysis.routeArchitect; 
     const { logistics, dates } = userInputs;
     
     const uiLang = meta.language === 'en' ? 'en' : 'de';
     
-    // 1. Data Sources (Hierarchy Check)
+    // 1. Data Sources
     const strategicBriefing = chefPlaner?.strategic_briefing;
     const validatedAppointments = chefPlaner?.validated_appointments || [];
     const existingNames = Object.values(project.data.places || {}).map((p: any) => p.name);
@@ -89,23 +96,18 @@ export const prepareBasisPayload = (project: TripProject) => {
         transportContext = `Transport: ${transportMode}.`;
     }
 
-    // 3. Logic: Geo Context (The "Hierarchy of Truth" Implementation)
+    // 3. Logic: Geo Context
     let searchRadiusInstruction = (strategicBriefing as any)?.search_radius_instruction || "Search within the destination.";
     
     if (logistics.mode === 'mobil') {
-        // CASE: RUNDREISE
         let routeString = "";
-        
-        // CHECK: Haben wir eine berechnete Route vom RouteArchitect?
         const calculatedRoute = routeArchitect?.routes?.[0];
         
         if (calculatedRoute && calculatedRoute.stages && calculatedRoute.stages.length > 0) {
-            // OPTION A: Nehme die berechnete Route (SSOT)
             const stages = calculatedRoute.stages.map(s => s.location_name).join(" -> ");
             const waypoints = calculatedRoute.waypoints?.map(w => w.location).join(", ") || "";
             routeString = `CALCULATED ROUTE: ${stages}. (Waypoints: ${waypoints})`;
         } else {
-            // OPTION B: Fallback auf User Inputs
             const stops = logistics.roundtrip.stops || [];
             const region = logistics.roundtrip.region || "Region";
             const start = logistics.roundtrip.startLocation || region;
@@ -123,7 +125,6 @@ export const prepareBasisPayload = (project: TripProject) => {
         Focus on stops and logical breaks along the path.
         `;
     } else if (logistics.mode === 'stationaer') {
-         // CASE: STATIONÄR
          const base = logistics.stationary.destination;
          const region = logistics.stationary.region;
          searchRadiusInstruction = `**MODE: STATIONARY**\nBase Location: ${base} (${region}).\nSearch for day-trips reachable from here.`;
@@ -133,14 +134,12 @@ export const prepareBasisPayload = (project: TripProject) => {
     const sammlerBriefing = (strategicBriefing as any)?.sammler_briefing || ""; 
     const noGos = userInputs.customPreferences['noGos'] || (uiLang === 'de' ? 'Keine' : 'None');
     
-    // User Supplements (Traue keiner KI allein)
     const userNotes = userInputs.notes ? `USER NOTES: "${userInputs.notes}"` : "";
     const userVibe = userInputs.vibe ? `DESIRED VIBE: ${userInputs.vibe}` : "";
 
-    // 5. Generate the Creative Briefing Block
+    // 5. Generate the Creative Briefing Block (with new logic)
     const creativeBriefingBlock = generateCreativeBriefing(project, uiLang);
 
-    // Return the clean Payload Object
     return {
         context: {
             travel_season: travelMonth,
@@ -148,7 +147,7 @@ export const prepareBasisPayload = (project: TripProject) => {
             already_known_places_block: existingNames,
             mandatory_appointments: validatedAppointments,
             no_gos: noGos,
-            user_supplements: `${userVibe}\n${userNotes}` // Adding user voice
+            user_supplements: `${userVibe}\n${userNotes}` 
         },
         instructions: {
             search_radius: searchRadiusInstruction,
@@ -160,4 +159,4 @@ export const prepareBasisPayload = (project: TripProject) => {
         }
     };
 };
-// --- END OF FILE 145 Zeilen ---
+// --- END OF FILE 153 Zeilen ---

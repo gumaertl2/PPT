@@ -1,4 +1,4 @@
-// 20.01.2026 22:30 - REFACTOR: "Operation Clean Sweep" - Migrated IDs to English. Content preserved.
+// 24.01.2026 16:15 - UPDATE: Enhanced "Hiking & Culture" strategy text for broader cultural definition.
 // src/data/strategies.ts
 /**
  * src/data/strategies.ts
@@ -44,8 +44,8 @@ export const STRATEGY_OPTIONS: Record<string, SelectOption> = {
     id: 'hiking_culture_mix',
     label: { de: "Wandern & Kultur (70/70-Mix)", en: "Hiking & Culture (70/70 Mix)" },
     promptInstruction: {
-      de: "DIESE STRATEGIE IST DIE OBERSTE DIREKTIVE. Sie überstimmt im Konfliktfall die Einstellungen für 'Stimmung' oder einzelne Interessen. ROLLE: Du bist ein Guide für flexible Aktiv-Urlauber. STRATEGIE: 'Maximum Options & Rhythm'. REGELN: 1. Wir benötigen maximale Flexibilität (Overprovisioning). 2. Für die AKTIV-TAGE: Suche explizit nach Wanderungen mit **700-1200 Höhenmetern**. 3. Für die KULTUR-TAGE: Nutze **ausschließlich** die vom Nutzer tatsächlich ausgewählten Interessen (z.B. Museum, Architektur, Stadt). Wenn ein Interesse (z.B. Museum) nicht gewählt ist, schlage es auch nicht vor! 4. Ziel: Liefere genug Ideen für 70% Wandertage UND 70% Kulturtage.",
-      en: "THIS STRATEGY IS THE PRIME DIRECTIVE. It overrides 'Vibe' or individual interests. ROLE: You are a guide for flexible active travelers. STRATEGY: 'Maximum Options & Rhythm'. RULES: 1. We need maximum flexibility (Overprovisioning). 2. For ACTIVE DAYS: Search explicitly for hikes with **700-1200 meters elevation gain**. 3. For CULTURE DAYS: Use **exclusively** the interests actually selected by the user. If an interest (e.g. Museum) is not selected, do not suggest it! 4. Goal: Provide enough ideas for 70% hiking days AND 70% culture days."
+      de: "DIESE STRATEGIE IST DIE OBERSTE DIREKTIVE. Sie überstimmt im Konfliktfall die Einstellungen für 'Stimmung' oder einzelne Interessen. ROLLE: Du bist ein Guide für flexible Aktiv-Urlauber. STRATEGIE: 'Maximum Options & Rhythm'. REGELN: 1. Wir benötigen maximale Flexibilität (Overprovisioning). 2. Für die AKTIV-TAGE: Suche explizit nach Wanderungen mit **700-1200 Höhenmetern**. 3. Für die KULTUR-TAGE: Suche nach einem breiten Spektrum kultureller Highlights, die die Identität der Region widerspiegeln. Dazu zählen insbesondere: Historische Altstädte, bedeutende Architektur, Museen, Ausgrabungsstätten, lokales Brauchtum und spirituelle Orte. Wähle Orte aus, die einen Kontrast zum Aktiv-Teil bieten und intellektuell oder ästhetisch anregend sind. 4. Ziel: Liefere genug Ideen für 70% Wandertage UND 70% Kulturtage.",
+      en: "THIS STRATEGY IS THE PRIME DIRECTIVE. It overrides 'Vibe' or individual interests. ROLE: You are a guide for flexible active travelers. STRATEGY: 'Maximum Options & Rhythm'. RULES: 1. We need maximum flexibility (Overprovisioning). 2. For ACTIVE DAYS: Search explicitly for hikes with **700-1200 meters elevation gain**. 3. For CULTURE DAYS: Search for a broad spectrum of cultural highlights that reflect the identity of the region. This specifically includes: historic old towns, significant architecture, museums, archaeological sites, local traditions, and spiritual places. Select locations that offer a contrast to the active segments and are intellectually or aesthetically stimulating. 4. Goal: Provide enough ideas for 70% hiking days AND 70% culture days."
     }
   },
   'culinary': { // former: kulinarik
@@ -113,4 +113,4 @@ export const STRATEGY_OPTIONS: Record<string, SelectOption> = {
     }
   }
 };
-// --- END OF FILE 135 Zeilen ---
+// --- END OF FILE 136 Zeilen ---
