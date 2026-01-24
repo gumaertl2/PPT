@@ -1,3 +1,4 @@
+// 24.01.2026 21:45 - FIX: Harmonized 'anreicherer' signature & fixed 'durationEstimator' arguments.
 // 24.01.2026 21:30 - FIX: Updated to use 'buildAnreichererPromptSafe'.
 // src/core/prompts/PayloadBuilder.ts
 
@@ -9,8 +10,8 @@ import { CONFIG } from '../../data/config';
 // --- TEMPLATES ---
 import { buildChefPlanerPrompt } from './templates/chefPlaner';
 import { buildBasisPrompt } from './templates/basis';
-// FIX: Import the renamed SAFE function
-import { buildAnreichererPromptSafe } from './templates/anreicherer';
+// FIX: Import the standard V40 function
+import { buildAnreichererPrompt } from './templates/anreicherer';
 import { buildRouteArchitectPrompt } from './templates/routeArchitect';
 import { buildDurationEstimatorPrompt } from './templates/durationEstimator';
 import { buildInitialTagesplanerPrompt } from './templates/initialTagesplaner';
@@ -163,21 +164,19 @@ export const PayloadBuilder = {
         const allPlaces = Object.values(project.data.places || {}).flat();
         const slicedCandidates = sliceData(allPlaces, 'anreicherer');
         
-        const slicedProject = {
-            ...project,
-            data: {
-                ...project.data,
-                places: { "current_batch": slicedCandidates } as any 
-            }
-        };
-        // FIX: CALL THE NEW SAFE FUNCTION
-        // Using 3 arguments is safe because of '...args' in definition
-        generatedPrompt = buildAnreichererPromptSafe(slicedProject, feedback || "", {});
+        // V40 Standard: Direct call with explicit candidates list
+        generatedPrompt = buildAnreichererPrompt(
+            project, 
+            slicedCandidates,
+            options?.chunkIndex || chunkingState?.currentChunk || 1,
+            options?.totalChunks || chunkingState?.totalChunks || 1
+        ) || "";
         break;
       }
 
       case 'durationEstimator':
-        generatedPrompt = buildDurationEstimatorPrompt(project);
+        // FIX: Provide placeholders for required arguments
+        generatedPrompt = buildDurationEstimatorPrompt(project, "", "");
         break;
 
       case 'dayplan':
@@ -345,4 +344,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 480 Zeilen ---
+// --- END OF FILE 474 Zeilen ---

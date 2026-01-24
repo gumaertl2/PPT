@@ -1,10 +1,16 @@
-// 24.01.2026 21:30 - FIX: Renamed function to 'Safe' version to bypass Vercel Cache/Sync issues.
+// 24.01.2026 11:35 - REFACTOR: V40 Signature Update (Explicit Candidates Array & Chunking).
+// 22.01.2026 22:45 - FIX: Enforced List-Mode via PromptBuilder.build(true) to allow JSON Array start '['.
 // src/core/prompts/templates/anreicherer.ts
+// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
+// 19.01.2026 18:40 - FIX: Migrated Output Schema to German V30 Keys & Added Strategic Briefing Context.
 
 import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
 import { INTEREST_DATA } from '../../../data/interests';
 
+/**
+ * Das Ziel-Schema für einen Ort in V40 (English).
+ */
 const SIGHT_SCHEMA = {
   "id": "String (MUST match the exact ID from input list!)",
   "name": "String (Official Name)",
@@ -27,19 +33,22 @@ const SIGHT_SCHEMA = {
   "reasoning": "String (Short reasoning why this fits the strategy)"
 };
 
-// FIX: Renamed to 'buildAnreichererPromptSafe'
-// FIX: Using rest arguments (...args) makes the signature accept ANY number of parameters (0 to infinity).
-export const buildAnreichererPromptSafe = (
+export const buildAnreichererPrompt = (
     project: TripProject, 
-    ...args: any[] 
-): string => {
-    const { userInputs, analysis } = project;
+    candidates: any[], 
+    currentChunk: number = 1, 
+    totalChunks: number = 1
+): string | null => {
     
-    // Safely extract optional args if present
-    const feedback = args[0] as string | undefined;
-    // const options = args[1]; 
+    // Safety Check
+    if (!candidates || candidates.length === 0) {
+        return null;
+    }
 
-    // 1. STRATEGIC BRIEFING
+    const { userInputs, analysis } = project;
+    const chunkingInfo = totalChunks > 1 ? ` (Block ${currentChunk}/${totalChunks})` : '';
+
+    // 1. STRATEGIC BRIEFING (V40 English Key)
     const strategicBriefing = (analysis.chefPlaner as any)?.strategic_briefing?.sammler_briefing || 
                               (analysis.chefPlaner as any)?.strategisches_briefing?.sammler_briefing || 
                               "Enrich the places with helpful information.";
@@ -51,38 +60,24 @@ export const buildAnreichererPromptSafe = (
         .map((cat: any) => cat.id)
         .join(', ');
 
-    // 3. DATA SOURCES
-    let rawCandidates = [];
-    
-    if ((project.data.places as any).current_batch && Array.isArray((project.data.places as any).current_batch)) {
-        rawCandidates = (project.data.places as any).current_batch.map((p: any) => ({
-            id: p.id,
-            name: p.name || "Unknown Place"
-        }));
-    } else {
-        rawCandidates = Object.values(project.data.places || {}).flat().map((p: any) => ({
-            id: p.id,
-            name: p.name || "Unknown Place"
-        }));
-    }
-
-    const candidatesList = rawCandidates.length > 0 
-        ? rawCandidates 
-        : [{ id: "dummy-example-id", name: "Example Sight" }];
+    // 3. DATA SOURCES (Directly from input args now)
+    const candidatesList = candidates.map((p: any) => ({
+        id: p.id,
+        name: p.name || "Unknown Place"
+    }));
 
     const dates = `${userInputs.dates.start} to ${userInputs.dates.end}`;
 
-    // 4. PROMPT CONSTRUCTION
+    // 4. PROMPT CONSTRUCTION via Builder
     const role = `You are a high-precision "Data Enricher" for travel guides. Your task is to enrich a list of places with verifiable facts and inspiring descriptions.`;
 
     const contextData = {
         travel_period: dates,
         strategic_guideline: strategicBriefing,
-        places_to_process: candidatesList,
-        user_feedback: feedback || ""
+        places_to_process: candidatesList 
     };
 
-    const instructions = `# INSTRUCTIONS
+    const instructions = `# INSTRUCTIONS${chunkingInfo}
 - **Rule 1 (ID Retention):** You MUST use the exact \`id\` from the input list in your result.
 - **Rule 2 (Completeness):** Your result must contain exactly as many objects as the input list.
 - **Rule 3 (Strategy Focus):** Write the \`description\` considering the "strategic_guideline".
@@ -96,7 +91,12 @@ Choose exactly ONE category for each place from this list:
 **[${validCategories}]**
 Do not invent new categories.`;
 
-    const outputSchema = [ SIGHT_SCHEMA ];
+    const outputSchema = [ 
+        { 
+            ...SIGHT_SCHEMA,
+            _thought_process: "String (Data check & strategy alignment)" 
+        } 
+    ];
 
     return new PromptBuilder()
         .withOS()
@@ -105,5 +105,7 @@ Do not invent new categories.`;
         .withInstruction(instructions)
         .withOutputSchema(outputSchema)
         .withSelfCheck(['basic', 'research'])
+        // FIX: Enable List Mode (Start with '[')
         .build(true);
 };
+// --- END OF FILE 115 Zeilen ---
