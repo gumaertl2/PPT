@@ -1,6 +1,5 @@
-// 24.01.2026 15:30 - REFACTOR: Hybrid PayloadBuilder. 
-// Uses NEW Preparers for Basis, Anreicherer, Editor.
-// KEEPS Legacy Logic for Food, Hotels, Transfers (Safety First).
+// 24.01.2026 17:35 - FIX: Wiring ChefPlaner to use 'prepareChefPlanerPayload'.
+// Solves Interface Mismatch (project vs payload) causing 'undefined' in prompts.
 // src/core/prompts/PayloadBuilder.ts
 
 import { useTripStore } from '../../store/useTripStore';
@@ -29,6 +28,7 @@ import { buildIdeenScoutPrompt } from './templates/ideenScout';
 import { prepareBasisPayload } from './preparers/prepareBasisPayload';
 import { prepareAnreichererPayload } from './preparers/prepareAnreichererPayload';
 import { prepareChefredakteurPayload } from './preparers/prepareChefredakteurPayload';
+import { prepareChefPlanerPayload } from './preparers/prepareChefPlanerPayload';
 
 import type { LocalizedContent, TaskKey, ChunkingState, TripProject, FoodSearchMode } from '../types';
 import { filterByRadius } from '../utils/geo';
@@ -166,27 +166,10 @@ export const PayloadBuilder = {
       // --- 2. LEGACY HANDLERS (Must remain until refactored) ---
 
       case 'chefPlaner': {
-        const allAppointments = project.userInputs.dates.fixedEvents || [];
-        const slicedAppointments = sliceData(allAppointments, 'chefPlaner');
-        const slicedProject = {
-            ...project,
-            userInputs: {
-                ...project.userInputs,
-                dates: {
-                    ...project.userInputs.dates,
-                    fixedEvents: slicedAppointments
-                }
-            }
-        };
-        generatedPrompt = buildChefPlanerPrompt(slicedProject, feedback);
-        
-        const langCode = project.userInputs.aiOutputLanguage || 'de';
-        const langMap: Record<string, string> = {
-            de: 'DEUTSCH', en: 'ENGLISCH', it: 'ITALIENISCH', 
-            fr: 'FRANZÖSISCH', es: 'SPANISCH', nl: 'NIEDERLÄNDISCH'
-        };
-        const targetLang = langMap[langCode] || 'DEUTSCH';
-        generatedPrompt += `\n\n# SPRACH-REGEL\nAntworte in allen Textfeldern (wie 'analysis', 'strategy') ausschließlich auf ${targetLang}.`;
+        // V40: Use specialized Preparer (Fixes Interface Mismatch)
+        // This ensures hotels/restaurants are filtered out via 'EXCLUDED_INTERESTS'
+        const payload = prepareChefPlanerPayload(project, feedback);
+        generatedPrompt = buildChefPlanerPrompt(payload);
         break;
       }
       
@@ -249,7 +232,7 @@ export const PayloadBuilder = {
           }
           generatedPrompt = buildFoodScoutPrompt(project, mode, feedback || "");
           break;
-      
+       
       case 'foodEnricher': {
           const candidates = getFilteredFoodCandidates(project);
           const slicedCandidates = sliceData(candidates, 'foodEnricher');
@@ -346,4 +329,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 510 Zeilen ---
+// --- END OF FILE 505 Zeilen ---
