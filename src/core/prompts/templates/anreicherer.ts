@@ -1,13 +1,13 @@
-// 24.01.2026 16:35 - FIX: PromptBuilder API compliance (zero-arg constructor, fluent 'with' methods).
+// 24.01.2026 17:00 - FIX: Architecture Compliance. 
+// 1. Injected missing candidate list.
+// 2. Added '_thought_process' field to JSON schema to contain AI reasoning within valid JSON.
 // src/core/prompts/templates/anreicherer.ts
 
 import { PromptBuilder } from '../PromptBuilder';
 
 export const buildAnreichererPrompt = (payload: any): string => {
-  // FIX: Constructor takes no arguments
   const builder = new PromptBuilder();
 
-  // FIX: Use 'withContext' instead of 'setContext'. Added Role here.
   builder.withContext(`
 # ROLE
 You are the 'Data Specialist' (Anreicherer). Your task is to verify and enrich a list of candidates with hard facts.
@@ -23,10 +23,14 @@ Travel Period: ${payload.context.travel_period}
 User Notes: ${payload.context.user_note}
   `);
 
-  // FIX: Use 'withInstruction' instead of 'setInstruction'.
-  // Merged Output Format here to ensure build safety.
+  // CRITICAL FIX: Explicitly inject the candidates list into the prompt text!
+  const candidatesList = JSON.stringify(payload.context.places_to_process, null, 2);
+
   builder.withInstruction(`
-Process the following ${payload.meta.total_count} candidates${payload.meta.chunk_info}.
+Process the following ${payload.meta.total_count} candidates${payload.meta.chunk_info}:
+
+${candidatesList}
+
 For each candidate, find:
 1. Official Name & Category
 2. Precise Address & Coordinates
@@ -38,18 +42,24 @@ For each candidate, find:
 - If a place is outside the region/route, mark it clearly or suggest the closest correct match.
 
 # OUTPUT FORMAT
-Return a JSON array of objects with this structure:
-[{
-  "id": "original_id",
-  "name": "Official Name",
-  "category": "Sight/Museum/etc.",
-  "address": "Full Address",
-  "location": { "lat": 0.0, "lng": 0.0 },
-  "description": "Short text...",
-  "rating": 4.5
-}]
+Return a SINGLE valid JSON object with a "_thought_process" field and a "candidates" array.
+Structure:
+{
+  "_thought_process": "Analyze the Geo-Context and Strategy here. Verify which candidates match the route...",
+  "candidates": [
+    {
+      "id": "original_id",
+      "name": "Official Name",
+      "category": "Sight/Museum/etc.",
+      "address": "Full Address",
+      "location": { "lat": 0.0, "lng": 0.0 },
+      "description": "Short text...",
+      "rating": 4.5
+    }
+  ]
+}
   `);
 
   return builder.build();
 };
-// --- END OF FILE 52 Zeilen ---
+// --- END OF FILE 62 Zeilen ---
