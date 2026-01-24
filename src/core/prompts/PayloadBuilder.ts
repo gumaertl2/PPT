@@ -1,4 +1,4 @@
-// 24.01.2026 20:00 - FIX: FORCE SYNC. Explicit 3-argument call to satisfy strict build.
+// 24.01.2026 21:00 - FIX: Import V2 function to fix build cache mismatch.
 // src/core/prompts/PayloadBuilder.ts
 
 import { useTripStore } from '../../store/useTripStore';
@@ -9,7 +9,8 @@ import { CONFIG } from '../../data/config';
 // --- TEMPLATES ---
 import { buildChefPlanerPrompt } from './templates/chefPlaner';
 import { buildBasisPrompt } from './templates/basis';
-import { buildAnreichererPrompt } from './templates/anreicherer';
+// FIX: IMPORT V2 HERE
+import { buildAnreichererPromptV2 } from './templates/anreicherer';
 import { buildRouteArchitectPrompt } from './templates/routeArchitect';
 import { buildDurationEstimatorPrompt } from './templates/durationEstimator';
 import { buildInitialTagesplanerPrompt } from './templates/initialTagesplaner';
@@ -169,8 +170,9 @@ export const PayloadBuilder = {
                 places: { "current_batch": slicedCandidates } as any 
             }
         };
-        // FIX: EXPLICIT 3 ARGUMENTS. This matches the new definition in anreicherer.ts
-        generatedPrompt = buildAnreichererPrompt(slicedProject, feedback || "", {});
+        
+        // FIX: CALL THE NEW V2 FUNCTION
+        generatedPrompt = buildAnreichererPromptV2(slicedProject, feedback || "", {});
         break;
       }
 

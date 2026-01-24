@@ -1,4 +1,4 @@
-// 24.01.2026 20:00 - FIX: FORCE SYNC. Using default values to ensure signature compatibility.
+// 24.01.2026 21:00 - FIX: Renamed to V2 to break Vercel Cache. Signature allows 1-3 args.
 // src/core/prompts/templates/anreicherer.ts
 
 import type { TripProject } from '../../types';
@@ -27,11 +27,11 @@ const SIGHT_SCHEMA = {
   "reasoning": "String (Short reasoning why this fits the strategy)"
 };
 
-// FIX: We use DEFAULT VALUES to satisfy any caller (1, 2 or 3 args).
-export const buildAnreichererPrompt = (
+// --- WICHTIG: NAME GEÄNDERT AUF V2 ---
+export const buildAnreichererPromptV2 = (
     project: TripProject, 
     feedback: string = "", 
-    _options: any = {}
+    _options: any = {} 
 ): string => {
     const { userInputs, analysis } = project;
 
@@ -47,14 +47,12 @@ export const buildAnreichererPrompt = (
 
     let rawCandidates = [];
     
-    // Check batching logic
     if ((project.data.places as any).current_batch && Array.isArray((project.data.places as any).current_batch)) {
         rawCandidates = (project.data.places as any).current_batch.map((p: any) => ({
             id: p.id,
             name: p.name || "Unknown Place"
         }));
     } else {
-        // Fallback logic
         rawCandidates = Object.values(project.data.places || {}).flat().map((p: any) => ({
             id: p.id,
             name: p.name || "Unknown Place"
