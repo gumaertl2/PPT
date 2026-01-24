@@ -1,4 +1,4 @@
-// 24.01.2026 21:00 - FIX: Renamed to V2 to break Vercel Cache. Signature allows 1-3 args.
+// 24.01.2026 21:30 - FIX: Renamed function to 'Safe' version to bypass Vercel Cache/Sync issues.
 // src/core/prompts/templates/anreicherer.ts
 
 import type { TripProject } from '../../types';
@@ -27,24 +27,31 @@ const SIGHT_SCHEMA = {
   "reasoning": "String (Short reasoning why this fits the strategy)"
 };
 
-// --- WICHTIG: NAME GEÄNDERT AUF V2 ---
-export const buildAnreichererPromptV2 = (
+// FIX: Renamed to 'buildAnreichererPromptSafe'
+// FIX: Using rest arguments (...args) makes the signature accept ANY number of parameters (0 to infinity).
+export const buildAnreichererPromptSafe = (
     project: TripProject, 
-    feedback: string = "", 
-    _options: any = {} 
+    ...args: any[] 
 ): string => {
     const { userInputs, analysis } = project;
+    
+    // Safely extract optional args if present
+    const feedback = args[0] as string | undefined;
+    // const options = args[1]; 
 
+    // 1. STRATEGIC BRIEFING
     const strategicBriefing = (analysis.chefPlaner as any)?.strategic_briefing?.sammler_briefing || 
                               (analysis.chefPlaner as any)?.strategisches_briefing?.sammler_briefing || 
                               "Enrich the places with helpful information.";
 
+    // 2. CATEGORY WHITELIST
     const safeInterestData = INTEREST_DATA || {};
     const validCategories = Object.values(safeInterestData)
         .filter((cat: any) => !cat.isSystem) 
         .map((cat: any) => cat.id)
         .join(', ');
 
+    // 3. DATA SOURCES
     let rawCandidates = [];
     
     if ((project.data.places as any).current_batch && Array.isArray((project.data.places as any).current_batch)) {
@@ -65,13 +72,14 @@ export const buildAnreichererPromptV2 = (
 
     const dates = `${userInputs.dates.start} to ${userInputs.dates.end}`;
 
+    // 4. PROMPT CONSTRUCTION
     const role = `You are a high-precision "Data Enricher" for travel guides. Your task is to enrich a list of places with verifiable facts and inspiring descriptions.`;
 
     const contextData = {
         travel_period: dates,
         strategic_guideline: strategicBriefing,
         places_to_process: candidatesList,
-        user_feedback: feedback
+        user_feedback: feedback || ""
     };
 
     const instructions = `# INSTRUCTIONS

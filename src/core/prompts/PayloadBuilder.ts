@@ -1,4 +1,4 @@
-// 24.01.2026 21:00 - FIX: Import V2 function to fix build cache mismatch.
+// 24.01.2026 21:30 - FIX: Updated to use 'buildAnreichererPromptSafe'.
 // src/core/prompts/PayloadBuilder.ts
 
 import { useTripStore } from '../../store/useTripStore';
@@ -9,8 +9,8 @@ import { CONFIG } from '../../data/config';
 // --- TEMPLATES ---
 import { buildChefPlanerPrompt } from './templates/chefPlaner';
 import { buildBasisPrompt } from './templates/basis';
-// FIX: IMPORT V2 HERE
-import { buildAnreichererPromptV2 } from './templates/anreicherer';
+// FIX: Import the renamed SAFE function
+import { buildAnreichererPromptSafe } from './templates/anreicherer';
 import { buildRouteArchitectPrompt } from './templates/routeArchitect';
 import { buildDurationEstimatorPrompt } from './templates/durationEstimator';
 import { buildInitialTagesplanerPrompt } from './templates/initialTagesplaner';
@@ -170,9 +170,9 @@ export const PayloadBuilder = {
                 places: { "current_batch": slicedCandidates } as any 
             }
         };
-        
-        // FIX: CALL THE NEW V2 FUNCTION
-        generatedPrompt = buildAnreichererPromptV2(slicedProject, feedback || "", {});
+        // FIX: CALL THE NEW SAFE FUNCTION
+        // Using 3 arguments is safe because of '...args' in definition
+        generatedPrompt = buildAnreichererPromptSafe(slicedProject, feedback || "", {});
         break;
       }
 
