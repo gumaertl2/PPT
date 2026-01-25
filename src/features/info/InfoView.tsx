@@ -1,95 +1,192 @@
-// 25.01.2026 13:30 - FIX: Connected to V40 'infoAutor' data and implemented strict Report Layout.
-// 21.01.2026 13:20 - FIX: Removed unused Lucide icons (TS6133). Maintained full integrity.
+// 25.01.2026 14:30 - FIX: Final "Chic Layout" with State-Machine Markdown Parser & exact Category Matching.
+// 25.01.2026 14:15 - FIX: Advanced Line-by-Line Markdown Parser for professional layout.
+// 25.01.2026 14:05 - FIX: Added Markdown Parser for Info Texts (from Places & Analysis).
 // src/features/info/InfoView.tsx
-// 21.01.2026 10:48 - FIX: Final flat embedded report style. No Modal, No Overlay classes, No Kulinarik.
 
 import React, { useMemo } from 'react';
 import { useTripStore } from '../../store/useTripStore';
 import { 
   Book, 
-  AlertTriangle 
-  // FIX: Removed unused imports Info, Car, Phone, Shield, MapIcon (TS6133)
+  AlertTriangle,
+  Info,
+  MapPin
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { INTEREST_DATA } from '../../data/interests';
 
-// Konstanten für Info-Kategorien (muss exakt mit APPENDIX_ONLY_INTERESTS übereinstimmen)
-const INFO_CATEGORIES = ['travel_info', 'city_info', 'arrival', 'general', 'sights', 'budget', 'ignored_places'];
+// Konstanten für Info-Kategorien (Exakt gemäß interests.ts für Info View)
+const INFO_CATEGORIES = [
+    'travel_info',  // Reiseinformationen
+    'city_info',    // StadtInfo
+    'arrival',      // Anreise
+    'budget',       // Budget
+    'hotel',        // Hotel / Camping
+    'ignored_places'// Nicht berücksichtigte Orte
+];
 
 export const InfoView: React.FC = () => {
   const { project } = useTripStore();
   const { t } = useTranslation();
   const { analysis, data } = project;
 
-  // 1. QUELLE A: Echte Info-Kapitel (V40 Standard: infoAutor) + Filter Kulinarik
+  // 1. DATA AGGREGATION: Collect info from 'analysis.infoAutor' AND 'content.infos' AND specific places
   const infoChapters = useMemo(() => {
+    const chapters = new Map<string, any>();
+
+    // Source A: V40 Analysis Field (infoAutor)
     const v40Chapters = (analysis as any)?.infoAutor?.chapters || [];
-    const legacyInfos = data.content?.infos || []; 
-    
-    const all = [...v40Chapters, ...legacyInfos];
-    const unique = new Map(); // FIX: Now correctly refers to JS Map constructor
-    
-    all.forEach(c => {
-      // FIX: Strikter Ausschluss des Kulinarik-Blocks (Redaktionsvorgabe PDF)
-      if (c.title && !c.title.toLowerCase().includes('kulinarik')) {
-        unique.set(c.title, c);
-      }
+    v40Chapters.forEach((c: any) => {
+       if (c.title && !c.title.toLowerCase().includes('kulinarik')) {
+         chapters.set(c.title, c);
+       }
     });
-    return Array.from(unique.values());
+
+    // Source B: Legacy/Fallback (content.infos)
+    const legacyInfos = data.content?.infos || [];
+    legacyInfos.forEach((c: any) => {
+       if (c.title && !c.title.toLowerCase().includes('kulinarik')) {
+         chapters.set(c.title, c);
+       }
+    });
+
+    // Source C: Places acting as Info Containers (Category Match + Content Check)
+    Object.values(data.places || {}).forEach((place: any) => {
+        // Check if category belongs to Info View AND has substantial content
+        if (INFO_CATEGORIES.includes(place.category) && place.detailContent && place.detailContent.length > 50) {
+            
+            // Resolve Label from INTEREST_DATA
+            const catLabel = INTEREST_DATA[place.category]?.label?.de || place.category;
+            const title = place.name === place.category ? catLabel : place.name; // Use nice name if available
+
+            chapters.set(title, {
+                title: title,
+                content: place.detailContent,
+                categoryLabel: catLabel
+            });
+        }
+    });
+
+    return Array.from(chapters.values());
   }, [analysis, data]);
 
-  // 2. QUELLE B: Places, die eigentlich Infos sind (Fallback aus Guide)
+  // 2. APPENDIX: Remaining Places (that are valid Info Categories but small/no content)
   const infoPlaces = useMemo(() => {
     const allPlaces = Object.values(data.places || {});
-    return allPlaces.filter((p: any) => INFO_CATEGORIES.includes(p.category));
-  }, [data.places]);
+    const chapterTitles = new Set(infoChapters.map(c => c.title));
 
-  // PDF-Style Parser für fließenden Text (V30.3 Struktur)
-  const renderReportLine = (line: string, idx: number) => {
-    const trimmed = line.trim();
-    if (!trimmed) return <div key={idx} className="h-4" />;
+    return allPlaces.filter((p: any) => {
+        const isInfoCat = INFO_CATEGORIES.includes(p.category);
+        // Exclude if it's already a main chapter
+        const isChapter = p.detailContent && p.detailContent.length > 50; 
+        return isInfoCat && !isChapter;
+    });
+  }, [data.places, infoChapters]);
 
-    // Kapitel-Überschriften (z.B. "7. Organisatorisches")
-    if (/^\d+\./.test(trimmed)) {
-      return (
-        <h2 key={idx} className="text-2xl font-black text-slate-900 mt-10 mb-6 border-b-2 border-slate-900 pb-2 uppercase tracking-tighter">
-          {trimmed}
-        </h2>
-      );
-    }
+  // --- PROFESSIONAL MARKDOWN RENDERER (State Machine) ---
+  const renderMarkdown = (text: string) => {
+    if (!text) return null;
 
-    // Sektions-Header (z.B. "Teil 1:")
-    if (trimmed.toLowerCase().includes('teil') && trimmed.includes(':')) {
-      return (
-        <h3 key={idx} className="text-lg font-bold text-blue-900 mt-8 mb-4">
-          {trimmed}
-        </h3>
-      );
-    }
-
-    // Bullet Points mit fettem Label (z.B. "• Zoll: ...")
-    if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
-      const parts = trimmed.split(':');
-      if (parts.length > 1) {
-        const label = parts[0].replace(/^[•-]\s*/, '');
-        return (
-          <div key={idx} className="flex gap-2 ml-4 mb-3 text-slate-700 leading-relaxed text-sm">
-            <span className="font-bold text-slate-900">•</span>
-            <p>
-              <span className="font-bold text-slate-900">{label}:</span>
-              <span>{parts.slice(1).join(':')}</span>
-            </p>
-          </div>
+    const lines = text.split('\n');
+    const elements: React.ReactNode[] = [];
+    let listBuffer: React.ReactNode[] = [];
+    
+    // Helper: Flush the list buffer into a <ul>
+    const flushList = () => {
+      if (listBuffer.length > 0) {
+        elements.push(
+          <ul key={`list-${elements.length}`} className="mb-6 space-y-2 ml-1">
+            {listBuffer}
+          </ul>
         );
+        listBuffer = [];
       }
-    }
+    };
 
-    // Standard-Bericht-Text
-    return (
-      <p key={idx} className="text-sm text-slate-700 leading-relaxed mb-4 text-justify">
-        {trimmed}
-      </p>
-    );
+    // Helper: Parse inline bold (**text**)
+    const parseInline = (line: string) => {
+      const parts = line.split(/(\*\*.*?\*\*)/g);
+      return parts.map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+          return <strong key={i} className="font-bold text-slate-900">{part.slice(2, -2)}</strong>;
+        }
+        return part;
+      });
+    };
+
+    lines.forEach((line, index) => {
+      const trimmed = line.trim();
+      
+      // Empty lines reset lists
+      if (!trimmed) {
+        flushList();
+        return;
+      }
+
+      // 1. HEADERS (###)
+      if (trimmed.startsWith('#')) {
+        flushList();
+        const level = trimmed.match(/^#+/)?.[0].length || 0;
+        const content = trimmed.replace(/^#+\s*/, '').replace(/\*\*/g, ''); // Clean bold from headers
+
+        if (level === 1) {
+            elements.push(
+                <h3 key={`h1-${index}`} className="text-xl font-black text-slate-900 mt-12 mb-4 uppercase tracking-tight border-b border-slate-200 pb-2">
+                    {content}
+                </h3>
+            );
+        } else {
+            elements.push(
+                <h4 key={`h2-${index}`} className="text-base font-bold text-slate-800 mt-6 mb-2">
+                    {content}
+                </h4>
+            );
+        }
+        return;
+      }
+
+      // 2. LIST ITEMS (*, -, 1.)
+      const isList = /^[-\*•]/.test(trimmed) || /^\d+\./.test(trimmed);
+      
+      if (isList) {
+        const cleanContent = trimmed.replace(/^[-\*•\d\.]+\s*/, '');
+        
+        // Structured List Item: "**Label:** Value"
+        const parts = cleanContent.split(':');
+        let itemContent;
+
+        if (parts.length > 1 && parts[0].includes('**')) {
+             const label = parts[0].replace(/\*\*/g, '');
+             const val = parts.slice(1).join(':');
+             itemContent = (
+                 <span>
+                     <span className="font-bold text-slate-900 mr-2">{label}:</span>
+                     <span className="text-slate-700">{parseInline(val)}</span>
+                 </span>
+             );
+        } else {
+             itemContent = <span className="text-slate-700">{parseInline(cleanContent)}</span>;
+        }
+
+        listBuffer.push(
+            <li key={`li-${index}`} className="flex items-start gap-3 text-sm leading-relaxed pl-2">
+                <span className="text-blue-400 font-bold mt-1.5 text-[8px]">●</span>
+                <div className="flex-1">{itemContent}</div>
+            </li>
+        );
+        return;
+      }
+
+      // 3. PARAGRAPHS
+      flushList();
+      elements.push(
+        <p key={`p-${index}`} className="text-sm text-slate-600 leading-relaxed mb-4 text-justify">
+          {parseInline(trimmed)}
+        </p>
+      );
+    });
+
+    flushList(); // Final flush
+    return elements;
   };
 
   const hasData = infoChapters.length > 0 || infoPlaces.length > 0;
@@ -105,60 +202,70 @@ export const InfoView: React.FC = () => {
 
   return (
     <div className="animate-fade-in w-full">
-      {/* FLAT REPORT LAYOUT - No shell, no shadow, just content */}
+      {/* FLAT REPORT LAYOUT */}
       <div className="max-w-3xl mx-auto pt-4 pb-20 px-4 md:px-0">
         
         {/* DOCUMENT HEADER */}
         <div className="border-b-4 border-slate-900 pb-6 mb-12">
           <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase mb-2 leading-none">
-              {t('info.title', { defaultValue: 'Reise-Informationen' })}
+              {t('info.title', { defaultValue: 'Reise-Dossier' })}
           </h1>
-          <p className="text-lg text-slate-500 font-medium italic">
-              {t('info.subtitle', { defaultValue: 'Gesammelte Fakten, Regeln & Tipps für Ihre Reise.' })}
+          <p className="text-lg text-slate-500 font-medium italic flex items-center gap-2">
+              <Info className="w-5 h-5 text-blue-600" />
+              {t('info.subtitle', { defaultValue: 'Wichtige Informationen & Fakten.' })}
           </p>
         </div>
 
-        {/* CONTINUOUS REPORT BODY */}
-        <div className="space-y-4">
+        {/* CONTINUOUS REPORT BODY (Dynamic Chapters) */}
+        <div className="space-y-16">
           {infoChapters.map((chapter: any) => (
-              <div key={chapter.title} className="mb-16">
-                  {/* Subtle Separator instead of Card */}
-                  <div className="flex items-center gap-2 mb-6 opacity-20">
-                      <span className="text-[9px] font-black uppercase tracking-[0.3em] whitespace-nowrap">{chapter.title}</span>
-                      <div className="h-px w-full bg-slate-900" />
-                  </div>
+              <div key={chapter.title} className="bg-white">
+                  {/* Chapter Header (Only if content doesn't start with H1) */}
+                  {!(chapter.content || '').trim().startsWith('#') && (
+                      <div className="flex items-center gap-3 mb-8">
+                          <div className="w-1.5 h-1.5 bg-slate-900 rounded-full" />
+                          <h2 className="text-lg font-black uppercase tracking-widest text-slate-900">
+                              {chapter.title}
+                          </h2>
+                          <div className="h-px flex-1 bg-slate-200" />
+                      </div>
+                  )}
                   
+                  {/* Content Renderer */}
                   <div className="report-content">
-                      {(chapter.content || chapter.text || '').split('\n').map((line: string, i: number) => 
-                        renderReportLine(line, i)
-                      )}
+                      {renderMarkdown(chapter.content || chapter.text || '')}
                   </div>
               </div>
           ))}
         </div>
 
-        {/* APPENDIX (Fallback Places) */}
+        {/* APPENDIX (Small Items) */}
         {infoPlaces.length > 0 && (
-            <div className="mt-24 pt-12 border-t border-slate-200">
+            <div className="mt-24 pt-12 border-t-2 border-slate-100 bg-slate-50/50 p-8 rounded-xl">
                 <div className="flex items-center gap-2 mb-8">
-                    <AlertTriangle className="w-4 h-4 text-amber-500" />
+                    <AlertTriangle className="w-5 h-5 text-slate-400" />
                     <span className="text-xs font-black text-slate-400 uppercase tracking-widest">
-                        {t('info.additional_items', { defaultValue: 'Anhang: Ortshinweise' })}
+                        {t('info.additional_items', { defaultValue: 'Weitere Hinweise' })}
                     </span>
                 </div>
                 
-                <div className="space-y-10">
+                <div className="grid gap-4 sm:grid-cols-2">
                     {infoPlaces.map((place: any) => {
                         const catLabel = INTEREST_DATA[place.category]?.label?.de || place.category;
                         return (
-                            <div key={place.id} className="border-l-2 border-slate-200 pl-6">
-                                <h4 className="font-bold text-slate-900 text-base mb-1">{place.name}</h4>
-                                <p className="text-sm text-slate-600 mb-2 leading-relaxed italic">
+                            <div key={place.id} className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col">
+                                <div className="flex justify-between items-start mb-2">
+                                    <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                                        <MapPin className="w-3 h-3 text-slate-400" />
+                                        {place.name}
+                                    </h4>
+                                </div>
+                                <p className="text-xs text-slate-600 leading-relaxed italic mb-3 flex-1">
                                     {place.description || place.reasoning || place.shortDesc}
                                 </p>
-                                <div className="text-[10px] font-black text-slate-300 uppercase tracking-tighter">
-                                    Kategorie: {catLabel}
-                                </div>
+                                <span className="self-start text-[10px] font-bold text-slate-500 uppercase bg-slate-100 px-2 py-1 rounded">
+                                    {catLabel}
+                                </span>
                             </div>
                         );
                     })}
@@ -169,4 +276,4 @@ export const InfoView: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 149 Zeilen ---
+// --- END OF FILE 225 Zeilen ---

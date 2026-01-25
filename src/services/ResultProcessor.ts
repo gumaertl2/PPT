@@ -1,5 +1,5 @@
-// 24.01.2026 13:05 - FIX: Redirected 'chefredakteur' output to 'detailContent' to protect 'description' (Enricher Data).
-// 22.01.2026 20:10 - FIX: Enable String-Extraction in Arrays & Restore ID Logging.
+// 25.01.2026 14:45 - FIX: Save InfoAutor chapters as Array in data.content.infos.
+// Fixes Type Mismatch (InfoView expects Array, Store had Object).
 // src/services/ResultProcessor.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -264,10 +264,56 @@ export const ResultProcessor = {
           break;
 
       case 'infoAutor':
-      case 'infos':
-          if (extractedItems.length > 0) setAnalysisResult('infoAutor', { chapters: extractedItems });
-          else if (data) setAnalysisResult('infoAutor', data);
+      case 'infos': {
+          // FIX: Persist Chapters to data.content.infos AND ensure they have a title
+          if (extractedItems.length > 0) {
+              const currentContent = useTripStore.getState().project.data.content || {};
+              // Ensure we treat 'infos' as an array, defaulting to empty if missing
+              const currentInfos = Array.isArray(currentContent.infos) ? [...currentContent.infos] : [];
+              
+              const processedChapters = extractedItems.map((chapter: any) => {
+                  return {
+                      id: chapter.id || uuidv4(),
+                      type: chapter.type || 'info',
+                      // FALLBACK: If title is missing, generate one from name or ID to ensure InfoView displays it
+                      title: chapter.title || chapter.name || (chapter.id ? chapter.id.replace(/_/g, ' ') : 'Information'),
+                      content: chapter.content || chapter.description
+                  };
+              }).filter(c => c.content); // Only save meaningful chapters
+
+              // Merge strategy: Overwrite existing chapters with same ID/Title, append new ones
+              processedChapters.forEach(newChap => {
+                  const idx = currentInfos.findIndex(c => c.id === newChap.id || c.title === newChap.title);
+                  if (idx >= 0) {
+                      currentInfos[idx] = newChap;
+                  } else {
+                      currentInfos.push(newChap);
+                  }
+              });
+
+              // Save to Store (Persistence)
+              useTripStore.setState((s) => ({
+                  project: {
+                      ...s.project,
+                      data: {
+                          ...s.project.data,
+                          content: {
+                              ...s.project.data.content,
+                              infos: currentInfos // Save as Array
+                          }
+                      }
+                  }
+              }));
+
+              console.log(`[InfoAutor] Persisted ${processedChapters.length} chapters to data.content.infos`);
+              
+              // Update UI View (Immediate Feedback)
+              setAnalysisResult('infoAutor', { chapters: processedChapters });
+          } else if (data) {
+              setAnalysisResult('infoAutor', data);
+          }
           break;
+      }
 
       case 'tourGuide':
       case 'transferPlanner':
@@ -277,12 +323,12 @@ export const ResultProcessor = {
       case 'geoAnalyst':
       case 'initialTagesplaner':
       case 'dayplan':
-         if (data) setAnalysisResult(step as any, data);
-         break;
+        if (data) setAnalysisResult(step as any, data);
+        break;
 
       default:
         console.log(`Processor: No specific handler for ${step}`, data);
     }
   }
 };
-// --- END OF FILE 308 Zeilen ---
+// --- END OF FILE 339 Zeilen ---
