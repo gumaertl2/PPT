@@ -1,3 +1,5 @@
+// 25.01.2026 12:45 - FIX: Layout improvements (Parser logic, Spacing, Close-Button) & Added Google Maps Route Link.
+// 25.01.2026 11:35 - FEATURE: Added support for 'detailContent' (Chefredakteur Output) in Detail View.
 // 23.01.2026 21:30 - FEATURE: Enabled Map Trigger for bidirectional navigation.
 // 23.01.2026 17:05 - FIX: Emergency correction of ReferenceError (removed phantom 'item' prefix).
 // 23.01.2026 16:30 - FIX: Added no-print classes to interactive elements for clean PDF output.
@@ -22,7 +24,8 @@ import {
   Globe, 
   Search, 
   Map as MapIcon,
-  ChevronUp // FIX: Added for Close Button
+  ChevronUp, // FIX: Added for Close Button
+  Footprints // FIX: Added for Walk Icon
 } from 'lucide-react';
 
 interface SightCardProps {
@@ -179,6 +182,44 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     );
   };
 
+  // FEATURE: Render Route Link if waypoints exist
+  const renderWalkRoute = () => {
+    if (!data.waypoints || !Array.isArray(data.waypoints) || data.waypoints.length < 2) return null;
+
+    // Construct Google Maps Chain URL
+    const path = data.waypoints
+      .map((wp: any) => encodeURIComponent(wp.address || wp.name))
+      .join('/');
+    
+    // travelmode=walking forces walking directions
+    const url = `https://www.google.com/maps/dir/${path}?travelmode=walking`;
+
+    return (
+      <div className="mt-2 mb-1 p-2 bg-indigo-50 rounded border border-indigo-100 flex items-start gap-2">
+         <Footprints className="w-4 h-4 text-indigo-600 mt-0.5 shrink-0" />
+         <div className="flex-1">
+             <div className="text-[11px] font-bold text-indigo-800 mb-1">
+                 Spaziergang: {data.waypoints.length} Stationen
+             </div>
+             <ol className="text-[10px] text-indigo-700 list-decimal list-inside leading-tight mb-2 opacity-80">
+                 {data.waypoints.map((wp: any, i: number) => (
+                     <li key={i} className="truncate">{wp.name}</li>
+                 ))}
+             </ol>
+             <a 
+                href={url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[10px] font-bold text-white bg-indigo-600 px-2 py-1 rounded hover:bg-indigo-700 transition-colors shadow-sm"
+             >
+                <MapIcon className="w-3 h-3" />
+                Route auf Google Maps öffnen
+             </a>
+         </div>
+      </div>
+    );
+  };
+
   const renderViewControls = () => {
     const canStepDown = currentLevelIndex > 0;
     const canStepUp = currentLevelIndex < VIEW_LEVELS.length - 1;
@@ -250,7 +291,7 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
           Prio 2
         </button>
         <button
-          onClick={() => handlePriorityChange(-1)}
+          onClick={() => handlePriorityChange((-1))}
           className={`${btnBase} ${priority === -1 ? 'bg-gray-800 text-white border-gray-900' : 'bg-white text-gray-400 hover:bg-gray-100 border-gray-200'}`}
         >
           Ignore
@@ -404,39 +445,61 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
                  {highlightText(data.logistics)}
                </div>
             )}
+            
+            {/* FIX: Render Route Link if waypoints exist */}
+            {renderWalkRoute()}
 
             {/* FIX: APPEND STRUCTURED PDF-STYLE DETAILS ONLY IF ISDETAILED (Stage 3) */}
             {isDetailed && (
-              <div className="mt-6 pt-6 border-t-2 border-dashed border-slate-100 space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="mt-3 pt-3 border-t-2 border-dashed border-slate-100 space-y-3 animate-in fade-in slide-in-from-top-4 duration-500">
                 
                 {/* STRUCTURED DESCRIPTION PARSER (PDF Redaktionsanweisung) */}
-                <div className="space-y-4 text-[13px] leading-relaxed text-slate-800 px-1">
-                   {description.split(/\n\n/).map((section: string, idx: number) => {
+                <div className="space-y-3 text-[13px] leading-relaxed text-slate-800 px-1">
+                   {(data.detailContent || description).split(/\n\n/).map((section: string, idx: number) => {
                       const content = section.trim();
                       if (!content) return null;
 
-                      // Detection of Headers (Markdown ### or Keywords like 'Teil 1' or 'Top 5')
-                      const isHeader = content.startsWith('###') || 
-                                       content.toLowerCase().startsWith('teil') || 
-                                       content.toLowerCase().includes('top 5') ||
-                                       content.toLowerCase().includes('fakten');
+                      // FIX: Improved Header Detection (Must be short and specific)
+                      const isHeader = content.length < 100 && (
+                          content.startsWith('###') || 
+                          content.toLowerCase().startsWith('teil') || 
+                          (content.toLowerCase().includes('top 5') && content.length < 50) || // Only trigger Top 5 if really a headline
+                          (content.toLowerCase().includes('fakten') && content.length < 50)
+                      );
 
                       if (isHeader) {
                           const cleanHeader = content.replace(/^###\s*/, '');
                           return (
-                            <h4 key={idx} className="font-black text-blue-900 text-[11px] uppercase tracking-wider border-l-4 border-blue-600 pl-3 mt-8 mb-3 bg-slate-50 py-1 rounded-r shadow-sm">
+                            <h4 key={idx} className="font-black text-blue-900 text-[11px] uppercase tracking-wider border-l-4 border-blue-600 pl-3 mt-6 mb-2 bg-slate-50 py-1 rounded-r shadow-sm">
                                {highlightText(cleanHeader)}
                             </h4>
                           );
                       }
 
-                      // Detection of List Items (e.g., "1. Titel")
-                      if (/^\d+\./.test(content)) {
-                          return (
-                            <div key={idx} className="pl-4 py-2 bg-white border border-slate-100 rounded-lg shadow-sm italic text-xs text-slate-700 border-l-4 border-slate-300 ml-2">
-                               {highlightText(content)}
+                      // FIX: Detect Multi-Line Lists (split by single newline)
+                      const lines = content.split('\n');
+                      if (lines.length > 1) {
+                         return (
+                            <div key={idx} className="mb-3">
+                              {lines.map((line, lIdx) => {
+                                 const cleanLine = line.trim();
+                                 if (!cleanLine) return null;
+                                 
+                                 // Check for list markers
+                                 const isListItem = /^[-\*•\d\.]/.test(cleanLine);
+                                 
+                                 if (isListItem) {
+                                     return (
+                                        <div key={lIdx} className="pl-4 py-1 text-xs text-slate-700 border-l-2 border-slate-200 ml-1 mb-1">
+                                            {highlightText(cleanLine)}
+                                        </div>
+                                     );
+                                 }
+                                 
+                                 return <p key={lIdx} className="mb-1 text-xs">{highlightText(cleanLine)}</p>;
+                              })}
                             </div>
-                          );
+                         );
                       }
 
                       // Normal Paragraph
@@ -445,10 +508,10 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
                 </div>
 
                 {/* CLOSE BUTTON (Action Anchor) */}
-                <div className="pt-8 flex justify-center pb-4 no-print">
+                <div className="pt-4 flex justify-center pb-2 no-print">
                    <button 
                       onClick={handleCloseDetails}
-                      className="flex items-center gap-2 px-10 py-2.5 bg-slate-800 hover:bg-black text-white rounded-full text-[10px] font-black transition-all shadow-lg hover:shadow-xl active:scale-95 group"
+                      className="flex items-center gap-2 px-10 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-full text-[10px] font-bold transition-all border border-slate-200 shadow-sm active:scale-95 group"
                    >
                       <ChevronUp className="w-4 h-4 group-hover:-translate-y-1 transition-transform" />
                       {t('sights.close_details', { defaultValue: 'DETAILS SCHLIESSEN' })}
@@ -479,4 +542,4 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     </>
   );
 };
-// --- END OF FILE 454 Zeilen ---
+// --- END OF FILE 505 Zeilen ---
