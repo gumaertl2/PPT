@@ -1,9 +1,10 @@
+// 25.01.2026 18:35 - FIX: Removed unused import 'APPENDIX_ONLY_INTERESTS' to resolve TS6133 build error.
 // 25.01.2026 13:20 - FIX: Integrated Smart InfoAutor Logic.
 // src/core/prompts/PayloadBuilder.ts
 
 import { useTripStore } from '../../store/useTripStore';
 import { INTEREST_DATA } from '../../data/interests';
-import { APPENDIX_ONLY_INTERESTS } from '../../data/constants'; 
+// FIX: Removed unused import APPENDIX_ONLY_INTERESTS
 import { CONFIG } from '../../data/config';
 
 // --- TEMPLATES ---

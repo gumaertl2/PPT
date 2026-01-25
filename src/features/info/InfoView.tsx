@@ -1,6 +1,5 @@
+// 25.01.2026 18:40 - FIX: Final Layout with State-Machine Parser & Removed unused 'chapterTitles' (TS6133).
 // 25.01.2026 14:30 - FIX: Final "Chic Layout" with State-Machine Markdown Parser & exact Category Matching.
-// 25.01.2026 14:15 - FIX: Advanced Line-by-Line Markdown Parser for professional layout.
-// 25.01.2026 14:05 - FIX: Added Markdown Parser for Info Texts (from Places & Analysis).
 // src/features/info/InfoView.tsx
 
 import React, { useMemo } from 'react';
@@ -72,15 +71,15 @@ export const InfoView: React.FC = () => {
   // 2. APPENDIX: Remaining Places (that are valid Info Categories but small/no content)
   const infoPlaces = useMemo(() => {
     const allPlaces = Object.values(data.places || {});
-    const chapterTitles = new Set(infoChapters.map(c => c.title));
+    // FIX: Removed unused 'chapterTitles' to resolve TS6133
 
     return allPlaces.filter((p: any) => {
         const isInfoCat = INFO_CATEGORIES.includes(p.category);
-        // Exclude if it's already a main chapter
+        // Exclude if it's already a main chapter (based on content length)
         const isChapter = p.detailContent && p.detailContent.length > 50; 
         return isInfoCat && !isChapter;
     });
-  }, [data.places, infoChapters]);
+  }, [data.places]);
 
   // --- PROFESSIONAL MARKDOWN RENDERER (State Machine) ---
   const renderMarkdown = (text: string) => {
@@ -276,4 +275,4 @@ export const InfoView: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 225 Zeilen ---
+// --- END OF FILE 223 Zeilen ---
