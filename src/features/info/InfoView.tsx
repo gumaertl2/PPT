@@ -1,3 +1,4 @@
+// 25.01.2026 13:30 - FIX: Connected to V40 'infoAutor' data and implemented strict Report Layout.
 // 21.01.2026 13:20 - FIX: Removed unused Lucide icons (TS6133). Maintained full integrity.
 // src/features/info/InfoView.tsx
 // 21.01.2026 10:48 - FIX: Final flat embedded report style. No Modal, No Overlay classes, No Kulinarik.
@@ -123,8 +124,8 @@ export const InfoView: React.FC = () => {
               <div key={chapter.title} className="mb-16">
                   {/* Subtle Separator instead of Card */}
                   <div className="flex items-center gap-2 mb-6 opacity-20">
-                     <span className="text-[9px] font-black uppercase tracking-[0.3em] whitespace-nowrap">{chapter.title}</span>
-                     <div className="h-px w-full bg-slate-900" />
+                      <span className="text-[9px] font-black uppercase tracking-[0.3em] whitespace-nowrap">{chapter.title}</span>
+                      <div className="h-px w-full bg-slate-900" />
                   </div>
                   
                   <div className="report-content">
@@ -168,5 +169,4 @@ export const InfoView: React.FC = () => {
     </div>
   );
 };
-
 // --- END OF FILE 149 Zeilen ---

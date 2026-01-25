@@ -1,5 +1,4 @@
-// 24.01.2026 17:35 - FIX: Wiring ChefPlaner to use 'prepareChefPlanerPayload'.
-// Solves Interface Mismatch (project vs payload) causing 'undefined' in prompts.
+// 25.01.2026 13:20 - FIX: Integrated Smart InfoAutor Logic.
 // src/core/prompts/PayloadBuilder.ts
 
 import { useTripStore } from '../../store/useTripStore';
@@ -29,6 +28,7 @@ import { prepareBasisPayload } from './preparers/prepareBasisPayload';
 import { prepareAnreichererPayload } from './preparers/prepareAnreichererPayload';
 import { prepareChefredakteurPayload } from './preparers/prepareChefredakteurPayload';
 import { prepareChefPlanerPayload } from './preparers/prepareChefPlanerPayload';
+import { prepareInfoAutorPayload } from './preparers/prepareInfoAutorPayload';
 
 import type { LocalizedContent, TaskKey, ChunkingState, TripProject, FoodSearchMode } from '../types';
 import { filterByRadius } from '../utils/geo';
@@ -252,31 +252,20 @@ export const PayloadBuilder = {
 
       case 'infos':
       case 'infoAutor': {
-          let slicedTopics: string[] = [];
-          const appendixInterests = project.userInputs.selectedInterests.filter(id => 
-              APPENDIX_ONLY_INTERESTS.includes(id)
-          );
-          if (chunkingState?.isActive || options) {
-              slicedTopics = sliceData(appendixInterests, 'infoAutor');
-          } else {
-              slicedTopics = appendixInterests;
-          }
-          const lang = (project.meta.language === 'en' ? 'en' : 'de') as 'de' | 'en';
-          const mappedTopics = slicedTopics.map(id => {
-              const def = INTEREST_DATA[id];
-              return {
-                  id: id,
-                  titel: def?.label?.[lang] || id,
-                  typ: def?.label?.[lang] || "Info",
-                  anweisung: def?.aiInstruction?.[lang] || ""
-              };
-          });
+          // V40 LOGIC UPDATE: Use Smart Preparer
+          // 1. Get ALL relevant tasks (CityInfo for all stops, TravelInfo if abroad)
+          const allInfoTasks = prepareInfoAutorPayload(project);
+          
+          // 2. Slice if needed (though usually list is short)
+          const slicedTasks = sliceData(allInfoTasks, 'infoAutor');
+          
+          // 3. Build Prompt
           generatedPrompt = buildInfoAutorPrompt(
               project, 
-              mappedTopics, 
+              slicedTasks, 
               options?.chunkIndex || chunkingState?.currentChunk || 1, 
               options?.totalChunks || chunkingState?.totalChunks || 1, 
-              []
+              [] 
           ) || "";
           break;
       }
@@ -329,4 +318,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 505 Zeilen ---
+// --- END OF FILE 509 Zeilen ---

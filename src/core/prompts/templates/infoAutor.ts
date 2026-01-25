@@ -1,8 +1,6 @@
-// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
+// 25.01.2026 13:45 - REFACTOR: Template Simplified.
+// Hardcoded logic removed to allow V30 instructions from Preparer/Interests to take precedence.
 // src/core/prompts/templates/infoAutor.ts
-// 19.01.2026 19:25 - FIX: Corrected PromptBuilder pattern for Strategic Briefing injection.
-// 17.01.2026 19:15 - FEAT: Ported 'InfoAutor' (Logistics & Safety) from V30.
-// 18.01.2026 00:15 - FIX: Restored full complex logic (Country detection, Logistics Matrix).
 
 import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
@@ -43,47 +41,15 @@ export const buildInfoAutorPrompt = (
 
     // Generate Task Logic
     const taskList = tasksChunk.map(p => {
-        let instruction = p.anweisung || `No specific instruction found for type '${p.typ}'. Create a general, useful description for '${p.titel}'.`;
+        // REFACTOR: We now trust the 'anweisung' provided by the Smart Preparer (V30 Quality).
+        // We do NOT inject hardcoded logistics questions here anymore to avoid duplication.
+        
+        let instruction = p.anweisung || `Create a general, useful description for '${p.titel}'.`;
 
-        // CASE A: City Info (Parking & Logistics)
-        if (p.typ === 'StadtInfo' && p.contextLocation) {
-            instruction = instruction.replace('für jede wichtige Stadt auf meiner Reise', `for the city: **${p.contextLocation}**`);
-            instruction = instruction.replace('Erstelle für jede Stadt eine detaillierte, mehrteilige Zusammenfassung im Anhang.', `Create the detailed summary in the appendix **exclusively for the city ${p.contextLocation}**.`);
-            
-            // Safety Catch: Countries masked as Cities
-            if (['Tschechien', 'Österreich', 'Deutschland', 'Schweiz', 'Italien', 'France', 'Spain'].includes(p.contextLocation)) {
-                 instruction = `ATTENTION: The location "${p.contextLocation}" is a COUNTRY, not a city. Create a short overview of the most important tourist regions of this country instead. Ignore the instruction regarding city center parking.`;
-            } else {
-                 instruction += `\n\n**LOGISTICS MANDATORY:** Research and name concrete **parking options** for day tourists (e.g. large car park XY). Is the city center car-free?`;
-            }
-        }
-
-        // CASE B: Travel Information (Country specific)
-        if (p.typ === 'Reiseinformationen') {
-            const targetLocation = p.contextLocation || countriesListString;
-            
-            instruction += `\n\n--------------------------------------------------\n`;
-            instruction += `**LOGISTICS MATRIX (Hard Facts):**\n`;
-            instruction += `* **Origin:** ${home}\n`;
-            instruction += `* **Target Area:** ${targetLocation}\n`;
-            instruction += `* **Arrival:** ${arrivalType}\n\n`;
-            
-            instruction += `**YOUR TASK - SPECIFIC RESEARCH:**\n`;
-            
-            if (p.contextLocation) {
-                instruction += `1.  **FOCUS ON ${p.contextLocation.toUpperCase()}:**\n`;
-                instruction += `    * Write ONLY about ${p.contextLocation}.\n`;
-                instruction += `    * **Tolls & Vignette:** Prices 2025? Where to buy?\n`;
-                instruction += `    * **Traffic Rules:** Speed limits, headlights required?\n`;
-                instruction += `    * **Currency & Payment:** Card payment common?\n`;
-                
-                if (p.contextLocation !== 'Deutschland' && home.includes('Deutschland')) {
-                     instruction += `    * **Entry:** ID requirements for German citizens?\n`;
-                }
-            } else {
-                instruction += `1.  **COUNTRY CHECK:** Analyze the route through ${targetLocation}.\n`;
-            }
-            instruction += `--------------------------------------------------\n`;
+        // Context Injection (Minimal)
+        // If the preparer set a context (e.g. "Italy" or "Munich"), we enforce focus.
+        if (p.contextLocation) {
+             instruction += `\n\n**CONTEXT:** Focus exclusively on: ${p.contextLocation}`;
         }
 
         return `- **ID "${p.id}" (Title: ${p.titel}, Type: ${p.typ}):**\n  ${instruction}`;
@@ -98,7 +64,7 @@ export const buildInfoAutorPrompt = (
 # QUALITY REQUIREMENTS
 1.  **Explain instead of listing:** Write at least one full sentence for each point.
 2.  **The W-Questions:** Do not just say "There is a toll", but: WHAT does it cost? WHERE do you buy it?
-3.  **Length:** 300-500 words per topic. No repetitions!
+3.  **Length:** Respect the specific length instructions in each task (e.g. "half a page").
 
 # TASKS TO PROCESS${chunkingInfo}
 Here is the list of IDs and corresponding instructions (AIA).
@@ -116,7 +82,7 @@ ${taskList}
       "chapters": [
         { 
             id: "String", 
-            type: "String (MUST match the Type from the task list exactly)",
+            type: "String (MUST match the Type from the task list exactly)", 
             content: "String (Markdown formatted, escape all line breaks as \\n)"
         }
       ]
@@ -132,4 +98,4 @@ ${taskList}
         .withSelfCheck(['basic', 'research'])
         .build();
 };
-// --- END OF FILE 136 Zeilen ---
+// --- END OF FILE 94 Zeilen ---
