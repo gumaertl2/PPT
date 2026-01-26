@@ -1,5 +1,5 @@
-// 26.01.2026 19:45 - FIX: Wiring Update for Rich Chefredakteur Payload.
-// Extracts 'editorial_tasks' array from payload object to match Template signature.
+// 26.01.2026 20:00 - FIX: Argument Mismatch in Chefredakteur Call.
+// Added missing 'sliceData' step before calling prepareChefredakteurPayload.
 // src/core/prompts/PayloadBuilder.ts
 
 import { useTripStore } from '../../store/useTripStore';
@@ -147,18 +147,21 @@ export const PayloadBuilder = {
 
       case 'details':
       case 'chefredakteur' as any: {
-          // V40: Use specialized Preparer
-          // Returns object: { context: { editorial_tasks: [] }, instructions: {} }
+          // V40: FIX - Slice FIRST, then call Preparer
+          const allPlacesForEditor = Object.values(project.data.places || {}).flat();
+          const slicedCandidatesForEditor = sliceData(allPlacesForEditor, 'chefredakteur' as TaskKey);
+
           const payload = prepareChefredakteurPayload(
               project, 
+              slicedCandidatesForEditor, // <-- FIX: Passing Array now
               options?.chunkIndex || chunkingState?.currentChunk || 1, 
-              options?.limit || getTaskChunkLimit('chefredakteur' as TaskKey)
+              options?.totalChunks || chunkingState?.totalChunks || 1
           );
 
-          // WICHTIG: Template erwartet Array, Preparer liefert Objekt. Wir extrahieren das Array.
+          // WICHTIG: Template erwartet Array, Preparer liefert Objekt (Rich Version)
           generatedPrompt = buildChefredakteurPrompt(
               project, 
-              payload.context.editorial_tasks, 
+              payload.context.editorial_tasks, // <-- FIX: Extraction works
               options?.chunkIndex || chunkingState?.currentChunk || 1, 
               options?.totalChunks || chunkingState?.totalChunks || 1
           ) || "";
@@ -317,4 +320,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 518 Zeilen ---
+// --- END OF FILE 524 Zeilen ---
