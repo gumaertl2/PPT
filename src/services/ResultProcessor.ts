@@ -1,3 +1,4 @@
+// 27.01.2026 23:00 - FIX: Added Data Mapping for FoodEnricher V30 fields (Phone, Awards, etc.).
 // 27.01.2026 21:00 - FIX: foodScout now populates 'rawFoodCandidates' for Enricher Handover.
 // src/services/ResultProcessor.ts
 
@@ -248,6 +249,16 @@ export const ResultProcessor = {
                         location: item.location,
                         rating: item.rating || 0,
                         description: isString ? category : (item.description || item.cuisine || ''),
+                        
+                        // FIX: V30 Data Mapping (Phone, Awards, etc.)
+                        phone: item.phone_number,
+                        awards: item.awards,
+                        openingHoursHint: item.opening_hours_hint,
+                        cuisine: item.cuisine,
+                        vibe: item.vibe,
+                        website: item.website,
+                        priceLevel: item.price_level,
+
                         ...(isString ? {} : item)
                     });
 
@@ -397,4 +408,4 @@ export const ResultProcessor = {
     }
   }
 };
-// --- END OF FILE 380 Zeilen ---
+// --- END OF FILE 390 Zeilen ---

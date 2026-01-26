@@ -1,4 +1,4 @@
-// 27.01.2026 22:30 - FIX: FoodEnricher Template V30 Parity.
+// 27.01.2026 23:30 - FIX: FoodEnricher Template V30 Parity.
 // Enforces specific text structure (Distance template) and richer data extraction (Awards, Phone).
 // src/core/prompts/templates/foodEnricher.ts
 
@@ -23,7 +23,8 @@ You MUST follow this specific writing guideline:
 For the "description" field, you MUST start exactly like this:
 **"[Distance] entfernt: [Your text...]"**
 (Example: "1.3 km entfernt: Die Brasserie Colette bietet...")
-If distance is unknown, use "Im Ort: ..." or "In der Nähe: ...".
+If distance is unknown or 0, use "Im Ort: ..." or "In der Nähe: ...".
+(Use the "location_hint" provided in the input list to fill the [Distance] part).
 
 # DATA REQUIREMENTS (V30 STANDARD)
 1.  **Awards:** Search for Michelin (Stars, Bib Gourmand), Gault&Millau (Hauben), Feinschmecker using current data.
@@ -64,4 +65,4 @@ If a restaurant cannot be found or is permanently closed, set "found": false. Do
     .withSelfCheck(['research', 'quality'])
     .build();
 };
-// --- END OF FILE 68 Zeilen ---
+// --- END OF FILE 69 Zeilen ---
