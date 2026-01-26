@@ -1,7 +1,6 @@
-// 26.01.2026 10:30 - DOCS: Comprehensive File Inventory & Preparer Pattern Docs.
-// 24.01.2026 15:30 - DOCS: Added Map Integration (Bidirectional Nav & Strict Color Mapping) & Modal Docs.
-// 23.01.2026 17:00 - DOCS: Updated Silence Protocol (Dynamic Start Character for Lists).
-// 22.01.2026 16:30 - DOCS: Added "ResultProcessor" & "Strict Data Architecture" (ID Factory).
+// 26.01.2026 12:00 - DOCS: Optimization for Clarity.
+// Added Section 6 "The Life of a Prompt" to explain the Preparer-Chain practically.
+// Sharpened definitions of Builder, Preparer, Template for 100% third-party understanding.
 // src/data/Texts/briefing.ts
 
 export const briefing = {
@@ -75,11 +74,13 @@ Die Logik zur Erstellung von Prompts wurde entkoppelt, um Templates "dumm" und w
 1.  **Preparer** (\`src/core/prompts/preparers/...\`):
     * Enthält die **reine Business-Logik** (z.B. "Filtere Stadt-Infos für Heimatort heraus", "Inlandsreise-Check").
     * Bereitet das Payload-Objekt vor und wählt die passenden Texte aus \`interests.ts\`.
-2.  **Builder** (\`src/core/prompts/PayloadBuilder.ts\`):
-    * Die "Weiche". Wählt den richtigen Preparer basierend auf dem TaskKey.
+2.  **PayloadBuilder** (\`src/core/prompts/PayloadBuilder.ts\`):
+    * Die "Weiche" (Dispatcher). Wählt den richtigen Preparer basierend auf dem TaskKey.
+    * Kapselt Slicing-Logik (Chunks) für Batch-Verarbeitung.
 3.  **Template** (\`src/core/prompts/templates/...\`):
-    * **Rein:** Wandelt das Payload-Objekt in den finalen String.
+    * **Rein:** Wandelt das vorbereitete Payload-Objekt in den finalen String.
     * Enthält KEINE Geschäftslogik mehr (keine hardcodierten Logistik-Fragen).
+    * Nutzt den **PromptBuilder** für Struktur (Role, Context, Instructions).
 
 ---
 
@@ -128,15 +129,13 @@ Wir erzwingen JSON-Konformität durch **In-Prompt-Constraints**:
 1.  **System OS Update:**
     \`"NO PREAMBLE. NO MARKDOWN. START DIRECTLY WITH THE REQUIRED CHAR ('{' or '[')."\`
     Die KI darf keinen Text vor dem JSON generieren ("Here is your JSON...").
-    *Hinweis:* Der \`PromptBuilder\` setzt dynamisch \`{\` für Objekte und \`[\` für Listen (z.B. Chefredakteur).
+    *Hinweis:* Der \`PromptBuilder\` setzt dynamisch \`{\` für Objekte und \`[\` für Listen.
 2.  **Thinking Container:**
     Der "Thought Process" (CoT) ist essenziell für Qualität, darf aber das JSON nicht brechen.
     **Regel:** Denken findet **innerhalb** des JSON-Keys \`_thought_process\` statt.
     \`"Principle: Thinking MUST happen INSIDE the JSON key '_thought_process'."\`
 3.  **Language & Structure Separation:**
     * **KEYS sind Code:** JSON-Keys müssen strikt **Englisch** bleiben (passend zu TypeScript).
-        * *Richtig:* \`{ "description": "Eine schöne Aussicht" }\`
-        * *Falsch:* \`{ "beschreibung": "Eine schöne Aussicht" }\`
     * **VALUES sind Content:** Der Inhalt (Values) muss in der vom User gewählten Sprache sein (meist Deutsch).
     * *System Guard:* "You must NEVER translate JSON KEYS."
 
@@ -149,7 +148,7 @@ Wir erzwingen JSON-Konformität durch **In-Prompt-Constraints**:
 
 ### 5. Sicherheits- & Qualitäts-Protokolle
 
-1.  **Type Safety First:** \`any\` ist verboten (außer bei expliziten Casts für gemischte Datenstrukturen wie Touren).
+1.  **Type Safety First:** \`any\` ist verboten (außer bei expliziten Casts für gemischte Datenstrukturen).
 2.  **Strict Separation:** Keine Logik im UI, kein UI-String-Building im Service.
 3.  **Validation:** Zod Schemas für alle KI-Antworten.
 4.  **Internationalisierung (i18n):** Daten-Objekte nutzen \`LocalizedContent\`.
@@ -162,7 +161,32 @@ Wir erzwingen JSON-Konformität durch **In-Prompt-Constraints**:
 
 ---
 
-### 7. Business Rules & UI Standards (Update 24.01.2026)
+### 6. The Life of a Prompt (The Chain explained)
+
+Verständnis-Beispiel für den Task "Anreicherer":
+
+1.  **Start (UI):** Der User klickt "Details suchen". Der \`useTripGeneration\` Hook feuert Task \`anreicherer\`.
+2.  **Routing (PayloadBuilder):**
+    * Der \`PayloadBuilder\` sieht \`task: anreicherer\`.
+    * Er ruft \`prepareAnreichererPayload(project)\` auf.
+3.  **Preparation (Preparer Logic):**
+    * Der Preparer prüft: Welche Orte haben noch keine Details?
+    * Er wendet Limits an (z.B. max 5 pro Batch).
+    * Er gibt ein reines Daten-Objekt (Payload) zurück: \`{ candidates: [...], searchRadius: "5km" }\`.
+4.  **Construction (Template):**
+    * Der \`PayloadBuilder\` übergibt das Payload an \`templates/anreicherer.ts\`.
+    * Das Template nutzt \`PromptBuilder\`, um Role, Context und JSON-Schema zu setzen.
+    * Es injiziert die \`validCategories\` (SSOT aus \`interests.ts\`).
+5.  **Execution (Orchestrator):**
+    * Der Prompt geht an Gemini. Gemini antwortet mit JSON.
+6.  **Processing (ResultProcessor):**
+    * Das JSON landet im \`ResultProcessor\`.
+    * Er matched die neuen Details via ID auf die existierenden Orte im Store.
+    * Er speichert die Daten. UI aktualisiert sich.
+
+---
+
+### 7. Business Rules & UI Standards
 
 **A. Die "Reserve"-Logik (SightsView)**
 Ein Ort kommt in die Reserve, wenn: Prio -1, Dauer < min, oder Rating < min.
@@ -279,4 +303,4 @@ Stellt sicher, dass das "Silence Protocol" (Prompt) und der "Native JSON Mode" (
 `
   }
 };
-// --- END OF FILE 612 Zeilen ---
+// --- END OF FILE 650 Zeilen ---

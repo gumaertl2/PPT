@@ -1,10 +1,9 @@
-// 25.01.2026 18:35 - FIX: Removed unused import 'APPENDIX_ONLY_INTERESTS' to resolve TS6133 build error.
-// 25.01.2026 13:20 - FIX: Integrated Smart InfoAutor Logic.
+// 26.01.2026 18:45 - FIX: Integrated ALL Preparers (TourGuide, IdeenScout, InfoAutor, Chefredakteur).
+// Replaced legacy logic with V40 Payload/Preparer Pattern for strict separation of concerns.
 // src/core/prompts/PayloadBuilder.ts
 
 import { useTripStore } from '../../store/useTripStore';
 import { INTEREST_DATA } from '../../data/interests';
-// FIX: Removed unused import APPENDIX_ONLY_INTERESTS
 import { CONFIG } from '../../data/config';
 
 // --- TEMPLATES ---
@@ -30,6 +29,9 @@ import { prepareAnreichererPayload } from './preparers/prepareAnreichererPayload
 import { prepareChefredakteurPayload } from './preparers/prepareChefredakteurPayload';
 import { prepareChefPlanerPayload } from './preparers/prepareChefPlanerPayload';
 import { prepareInfoAutorPayload } from './preparers/prepareInfoAutorPayload';
+// NEW: Added missing preparers
+import { prepareTourGuidePayload } from './preparers/prepareTourGuidePayload';
+import { prepareIdeenScoutPayload } from './preparers/prepareIdeenScoutPayload';
 
 import type { LocalizedContent, TaskKey, ChunkingState, TripProject, FoodSearchMode } from '../types';
 import { filterByRadius } from '../utils/geo';
@@ -124,7 +126,6 @@ export const PayloadBuilder = {
 
       case 'basis':
       case 'sightCollector': {
-        // V40: Use specialized Preparer
         const payload = prepareBasisPayload(project);
         generatedPrompt = buildBasisPrompt(payload);
         break;
@@ -132,7 +133,6 @@ export const PayloadBuilder = {
       
       case 'anreicherer':
       case 'intelligentEnricher': {
-        // V40: Use specialized Preparer
         const allPlaces = Object.values(project.data.places || {}).flat();
         const slicedCandidates = sliceData(allPlaces, 'anreicherer');
         
@@ -148,7 +148,6 @@ export const PayloadBuilder = {
 
       case 'details':
       case 'chefredakteur' as any: {
-          // V40: Use specialized Preparer
           const preparedPlaces = prepareChefredakteurPayload(
               project, 
               options?.chunkIndex || chunkingState?.currentChunk || 1, 
@@ -164,15 +163,60 @@ export const PayloadBuilder = {
           break;
       }
 
-      // --- 2. LEGACY HANDLERS (Must remain until refactored) ---
+      case 'infos':
+      case 'infoAutor': {
+          // 1. Get ALL relevant tasks (CityInfo for all stops, TravelInfo if abroad)
+          const allInfoTasks = prepareInfoAutorPayload(project);
+          
+          // 2. Slice if needed (though usually list is short)
+          const slicedTasks = sliceData(allInfoTasks, 'infoAutor');
+          
+          // 3. Build Prompt with tasksChunk
+          generatedPrompt = buildInfoAutorPrompt(
+              project, 
+              slicedTasks, 
+              options?.chunkIndex || chunkingState?.currentChunk || 1, 
+              options?.totalChunks || chunkingState?.totalChunks || 1, 
+              [] // detectedCountries not strictly needed here anymore as Preparer handles logic
+          ) || "";
+          break;
+      }
+
+      case 'sondertage':
+      case 'ideenScout': {
+          // NEW: Batch-Logic via Preparer
+          // 1. Generate tasks for all Hubs (minus Home)
+          const allIdeenTasks = prepareIdeenScoutPayload(project);
+          
+          // 2. Slice/Chunk the tasks (e.g. 3 cities per call)
+          const slicedIdeenTasks = sliceData(allIdeenTasks, 'ideenScout');
+
+          // 3. Build Prompt with tasksChunk
+          generatedPrompt = buildIdeenScoutPrompt(
+              project, 
+              slicedIdeenTasks,
+              options?.chunkIndex || chunkingState?.currentChunk || 1,
+              options?.totalChunks || chunkingState?.totalChunks || 1
+          ) || "";
+          break;
+      }
+
+      case 'guide':
+      case 'reisefuehrer':
+      case 'tourGuide': {
+           // NEW: Geo-Logic via Preparer
+           const payload = prepareTourGuidePayload(project);
+           generatedPrompt = buildTourGuidePrompt(payload);
+           break;
+      }
 
       case 'chefPlaner': {
-        // V40: Use specialized Preparer (Fixes Interface Mismatch)
-        // This ensures hotels/restaurants are filtered out via 'EXCLUDED_INTERESTS'
         const payload = prepareChefPlanerPayload(project, feedback);
         generatedPrompt = buildChefPlanerPrompt(payload);
         break;
       }
+
+      // --- 2. LEGACY / SPECIAL HANDLERS ---
       
       case 'routeArchitect':
       case 'routenArchitekt':
@@ -246,42 +290,6 @@ export const PayloadBuilder = {
           break;
       }
 
-      case 'guide':
-      case 'reisefuehrer':
-           generatedPrompt = buildTourGuidePrompt(project);
-           break;
-
-      case 'infos':
-      case 'infoAutor': {
-          // V40 LOGIC UPDATE: Use Smart Preparer
-          // 1. Get ALL relevant tasks (CityInfo for all stops, TravelInfo if abroad)
-          const allInfoTasks = prepareInfoAutorPayload(project);
-          
-          // 2. Slice if needed (though usually list is short)
-          const slicedTasks = sliceData(allInfoTasks, 'infoAutor');
-          
-          // 3. Build Prompt
-          generatedPrompt = buildInfoAutorPrompt(
-              project, 
-              slicedTasks, 
-              options?.chunkIndex || chunkingState?.currentChunk || 1, 
-              options?.totalChunks || chunkingState?.totalChunks || 1, 
-              [] 
-          ) || "";
-          break;
-      }
-
-      case 'sondertage':
-      case 'ideenScout':
-          let location = "Reiseziel";
-          if (project.userInputs.logistics.mode === 'stationaer') {
-              location = project.userInputs.logistics.stationary.destination;
-          } else if (project.userInputs.logistics.roundtrip.startLocation) {
-              location = project.userInputs.logistics.roundtrip.startLocation;
-          }
-          generatedPrompt = buildIdeenScoutPrompt(project, location, getVisitedSightIds());
-          break;
-
       default:
         throw new Error(`PayloadBuilder: Unknown task '${task}'`);
     }
@@ -319,4 +327,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 509 Zeilen ---
+// --- END OF FILE 515 Zeilen ---

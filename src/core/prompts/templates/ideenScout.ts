@@ -1,47 +1,67 @@
-// 23.01.2026 15:55 - FIX: Synchronized Schema with CoT Instruction (added _thought_process).
-// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
+// 26.01.2026 17:45 - FEAT: IdeenScout Batch Update.
+// Supports processing multiple locations (Hubs) in one go.
+// Enforces "Home-Filter" and "Duplicate-Protection" via Task-Payload.
 // src/core/prompts/templates/ideenScout.ts
-// 17.01.2026 18:20 - FEAT: Ported 'IdeenScout' (Special Days) from V30.
-// 17.01.2026 23:30 - REFACTOR: Migrated to PromptBuilder pattern (Unified Builder).
 
 import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
 
 export const buildIdeenScoutPrompt = (
     project: TripProject, 
-    location: string, 
-    blockedActivities: string[] = [] // IDs or names already planned
-): string => {
-  const { userInputs } = project;
-  const { selectedInterests } = userInputs;
+    tasksChunk: any[], // List of hubs to process
+    currentChunk: number = 1,
+    totalChunks: number = 1
+): string | null => {
 
-  // Interest String
+  // Safety Check
+  if (!tasksChunk || tasksChunk.length === 0) {
+      return null;
+  }
+
+  const { userInputs, analysis } = project;
+  const { selectedInterests } = userInputs;
   const interestsString = selectedInterests.join(', ');
 
-  const role = `You are a creative and local "Idea Scout". Your task is to find unique and suitable activities for special days in a specific location. You create **NO** schedule, but a flexible, detailed pool of ideas.`;
+  const chunkingInfo = totalChunks > 1 ? ` (Block ${currentChunk}/${totalChunks})` : '';
 
-  const mission = `# YOUR MISSION
-Find 2-3 brand new, creative ideas for the overnight stay location **"${location}"** for each of the following two scenarios. Research **live on the internet** for every idea.
+  // 1. STRATEGIC BRIEFING
+  const strategicBriefing = (analysis.chefPlaner as any)?.strategic_briefing?.sammler_briefing || 
+                            (analysis.chefPlaner as any)?.strategisches_briefing?.sammler_briefing || 
+                            "";
 
-### Scenario 1: A perfect Sunny Day to relax
-Suggest outdoor activities that are relaxing and enjoyable (e.g. parks, lakes, viewpoints).
+  // 2. BUILD TASK LIST
+  const taskInstructions = tasksChunk.map(task => {
+      const blockedList = task.blocked && task.blocked.length > 0 
+          ? `\n   - **ALREADY PLANNED (DO NOT REPEAT):** ${JSON.stringify(task.blocked)}` 
+          : "";
 
-### Scenario 2: A rainy or uncomfortable day
-Suggest exciting and cozy indoor activities (e.g. museums, cafes, historical buildings).
+      return `
+### LOCATION: "${task.location}" (ID: ${task.id})
+1. **Scenario Sunny:** Find 2-3 outdoor ideas (relaxing, parks, views).
+2. **Scenario Rainy:** Find 2-3 indoor ideas (museums, cozy cafes).
+3. **Constraints:** ${blockedList}
+4. **Fallback:** If "${task.location}" is too small, search in the surrounding region (20-30min drive).`;
+  }).join('\n\n----------------\n\n');
 
-# FALLBACK STRATEGY FOR SMALL PLACES (IMPORTANT!)
-- If the place **"${location}"** is very small and has no indoor attractions:
-- **IMMEDIATELY EXPAND YOUR SEARCH RADIUS TO THE REGION!**
-- Search within a 20-30 minute drive for the next larger town.
-- It is much better to provide a regional idea than an empty list.
-- State in the \`planning_note\` that a short drive is necessary.
+  const role = `You are a creative and local "Idea Scout". Your task is to find unique and suitable activities for special days for a LIST of locations. You create **NO** schedule, but a flexible, detailed pool of ideas.`;
 
-# MANDATORY RULES
-- **Rule 1 (No Duplicates):** Your suggestions must **NOT** be included in the list of already planned places: ${JSON.stringify(blockedActivities)}.
-- **Rule 2 (Inspiration):** Be guided by the core interests: ${interestsString}.
-- **Rule 3 (Fact Depth):** An address is mandatory. Unknown is \`null\`.`;
+  const instructions = `# YOUR MISSION${chunkingInfo}
+Process the following locations and find alternative ideas for "Sunny" and "Rainy" days.
+Research **live on the internet** for every idea.
 
-  // FIX: Schema converted to V40 English keys
+# TASK LIST
+${taskInstructions}
+
+# MANDATORY RULES (APPLY TO ALL)
+- **Rule 1 (No Duplicates):** Strictly respect the "ALREADY PLANNED" list for each location.
+- **Rule 2 (Inspiration):** Be guided by the user interests: ${interestsString}.
+- **Rule 3 (Fact Depth):** An address is mandatory. Unknown is \`null\`.
+- **Rule 4 (Regional Fallback):** If a place has no indoor options, expand search radius immediately and note it.
+
+# OUTPUT SCHEMA
+Return a SINGLE valid JSON object.`;
+
+  // FIX: Schema converted to V40 English keys & Batch Structure
   const ideaSchema = {
       "name": "String",
       "description": "String (Why is this a great idea?)",
@@ -51,19 +71,26 @@ Suggest exciting and cozy indoor activities (e.g. museums, cafes, historical bui
       "planning_note": "String (Tips, e.g. 'Visit in the morning')"
   };
 
-  // FIX: Added _thought_process to Schema
+  // NEW: Results Array for Batch Processing
   const outputSchema = {
-    "_thought_process": "String (Analyze location & identify creative gaps)",
-    "sunny_day_ideas": [ideaSchema],
-    "rainy_day_ideas": [ideaSchema]
+    "_thought_process": "String (Analyze locations & identify creative gaps)",
+    "results": [
+        {
+            "id": "String (Must match Task ID)",
+            "location": "String (City Name)",
+            "sunny_day_ideas": [ideaSchema],
+            "rainy_day_ideas": [ideaSchema]
+        }
+    ]
   };
 
   return new PromptBuilder()
     .withOS()
     .withRole(role)
-    .withInstruction(mission)
+    .withContext(strategicBriefing, "STRATEGIC GUIDELINE")
+    .withInstruction(instructions)
     .withOutputSchema(outputSchema)
     .withSelfCheck(['basic', 'research'])
     .build();
 };
-// --- END OF FILE 69 Zeilen ---
+// --- END OF FILE 92 Zeilen ---

@@ -1,33 +1,23 @@
-// 23.01.2026 15:40 - FIX: Synchronized Schema with CoT Instruction (added _thought_process).
-// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
+// 26.01.2026 18:15 - FIX: TourGuide Template Update.
+// Consumes pre-processed payload from 'prepareTourGuidePayload'.
+// Now utilizes GEO-COORDINATES provided in context for better clustering.
 // src/core/prompts/templates/tourGuide.ts
-// 17.01.2026 23:10 - REFACTOR: Migrated to PromptBuilder pattern (Unified Builder).
-// 17.01.2026 22:15 - FIX: Updated data access (places instead of sights).
-// 17.01.2026 17:55 - FIX: Added .flat() to handle Place[] arrays correctly.
 
-import type { TripProject, Place } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
 
-export const buildTourGuidePrompt = (project: TripProject): string => {
-  // We access collected sights (V40: project.data.places)
-  const allSights = Object.values(project.data.places || {}).flat() as Place[];
+export const buildTourGuidePrompt = (payload: any): string => {
+  // 1. Unpack Payload (from Preparer)
+  const { context, instructions } = payload;
+  const sightsForPrompt = context.sights;
 
-  // Mapping for AI
-  const sightsForPrompt = allSights.map((sight: Place) => ({
-      id: sight.id,
-      name: sight.name,
-      address: sight.address || sight.vicinity || "Unknown",
-      category: sight.category,
-      // Fallback for optional properties
-      min_duration_minutes: (sight as any).min_duration_minutes || 60 
-  }));
-
-  const role = `You are an experienced Travel Guide Author and Geographic Analyst. Your strength is transforming a loose collection of places into a compelling and logical narrative that a traveler can use for self-guided exploration.
+  // 2. Setup Builder
+  // We use the Role defined in the Preparer (or fallback if missing)
+  const role = instructions?.role || `You are an experienced Travel Guide Author and Geographic Analyst. Your strength is transforming a loose collection of places into a compelling and logical narrative that a traveler can use for self-guided exploration.
 
 Your task is to take the **entire list** of sights and organize them into geographically coherent "Exploration Tours". You create **NO** time schedule, but a purely spatial structure.`;
 
-  const instructions = `# WORK STEPS
-1.  **Analysis:** Analyze the geographic location of all places in the provided list.
+  const promptInstructions = `# WORK STEPS
+1.  **Analysis:** Analyze the geographic location (Lat/Lng) of all places in the provided list.
 2.  **Clustering:** Group the places into meaningful, dense clusters (e.g., by neighborhood). Aim for 2-5 clusters.
 3.  **Naming:** Give each cluster a creative title (e.g., "Tour 1: The Historic Heart").
 4.  **Sequencing:** Arrange the sights **within each cluster** in a logical order for a walk.
@@ -38,7 +28,7 @@ Your task is to take the **entire list** of sights and organize them into geogra
 - **Rule 2 (No Timing):** Do NOT add times or time slots.
 - **Rule 3 (ID Integrity):** Use the exact \`id\` values from the input list.`;
 
-  // FIX: Schema converted to V40 English keys & CoT added
+  // FIX: Schema converted to V40 English keys & CoT added (Preserved from original)
   const outputSchema = {
     "_thought_process": "String (Geo-Analysis & Clustering Strategy)",
     "guide": {
@@ -57,10 +47,10 @@ Your task is to take the **entire list** of sights and organize them into geogra
   return new PromptBuilder()
     .withOS()
     .withRole(role)
-    .withContext(sightsForPrompt, "DATA BASIS (Complete list of all ideas)")
-    .withInstruction(instructions)
+    .withContext(sightsForPrompt, "DATA BASIS (Complete list of all ideas with Geo-Coords)")
+    .withInstruction(promptInstructions)
     .withOutputSchema(outputSchema)
     .withSelfCheck(['basic', 'planning'])
     .build();
 };
-// --- END OF FILE 66 Zeilen ---
+// --- END OF FILE 62 Zeilen ---
