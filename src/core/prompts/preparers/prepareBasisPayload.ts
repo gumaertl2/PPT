@@ -1,10 +1,28 @@
-// 24.01.2026 16:00 - FEAT: Smart Interest Logic. 
-// IF interests selected -> Append them. 
-// IF NO interests -> Explicit instruction to rely purely on Character/Vibe.
+// 26.01.2026 11:30 - FIX: Strict Interest Filtering for Basis (Sammler).
+// Prevents the Collector from searching for Services (Hotels, Food) or Meta-Info (Budget),
+// ensuring it only focuses on physical Sights & Activities for the Itinerary.
 // src/core/prompts/preparers/prepareBasisPayload.ts
 
 import type { TripProject } from '../../types';
 import { INTEREST_DATA } from '../../../data/interests';
+
+// --- BLACKLIST: Interests NOT for the Sammler ---
+// These are handled by specialist agents (HotelScout, FoodScout, InfoAutor).
+const EXCLUDED_FOR_BASIS = [
+    // Services (Handled by Scouts)
+    'hotel', 'camping', 'accommodation', 
+    'restaurant', 'food', 'culinary',
+    
+    // Meta-Infos (Handled by InfoAutor)
+    'budget', 
+    'arrival', 
+    'logistics', 
+    'transport',
+    'city_info', 
+    'travel_info',
+    'general_info',
+    'ignored_places'
+];
 
 /**
  * Helper: Extract month name for Seasonality Context
@@ -24,16 +42,20 @@ const getMonthName = (dateStr: string, lang: 'de' | 'en'): string => {
  */
 const generateCreativeBriefing = (project: TripProject, lang: 'de' | 'en'): string => {
   const { userInputs } = project;
-  const interests = userInputs.selectedInterests || [];
+  const rawInterests = userInputs.selectedInterests || [];
+  
+  // FIX: FILTERING
+  // Only pass interests that are NOT on the blacklist.
+  const interests = rawInterests.filter(id => !EXCLUDED_FOR_BASIS.includes(id));
   
   // LOGIC CHANGE: Smart Fallback
   if (interests.length === 0) {
-      // CASE 1: Keine Interessen gewählt. 
+      // CASE 1: Keine Interessen gewählt (oder alle wurden gefiltert). 
       // Wir geben eine harte Anweisung, NICHT zu raten, sondern sich auf Charakter/Vibe zu verlassen.
       if (lang === 'de') {
-          return "### CREATIVE BRIEFING\nKEINE SPEZIFISCHEN INTERESSEN GEWÄHLT.\nIgnoriere das Thema 'Interessen'. Konzentriere dich zu 100% auf die oben definierte STRATEGIE (Charakter) und den gewünschten VIBE (Emotion). Suche Orte, die diese Stimmung perfekt einfangen.";
+          return "### CREATIVE BRIEFING\nKEINE SPEZIFISCHEN AKTIVITÄTS-INTERESSEN GEWÄHLT.\nIgnoriere das Thema 'Interessen'. Konzentriere dich zu 100% auf die oben definierte STRATEGIE (Charakter) und den gewünschten VIBE (Emotion). Suche Orte, die diese Stimmung perfekt einfangen.";
       } else {
-          return "### CREATIVE BRIEFING\nNO SPECIFIC INTERESTS SELECTED.\nIgnore the topic of 'Interests'. Focus 100% on the STRATEGY (Character) defined above and the desired VIBE (Emotion). Find places that perfectly capture this atmosphere.";
+          return "### CREATIVE BRIEFING\nNO SPECIFIC ACTIVITY INTERESTS SELECTED.\nIgnore the topic of 'Interests'. Focus 100% on the STRATEGY (Character) defined above and the desired VIBE (Emotion). Find places that perfectly capture this atmosphere.";
       }
   }
 
@@ -155,8 +177,9 @@ export const prepareBasisPayload = (project: TripProject) => {
             creative_briefing: creativeBriefingBlock
         },
         constraints: {
+            // Updated to use the value synced from AnalysisReviewView
             target_count: userInputs.searchSettings?.sightsCount || 30
         }
     };
 };
-// --- END OF FILE 153 Zeilen ---
+// --- END OF FILE 168 Zeilen ---

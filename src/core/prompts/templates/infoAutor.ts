@@ -1,5 +1,6 @@
-// 25.01.2026 13:45 - REFACTOR: Template Simplified.
-// Hardcoded logic removed to allow V30 instructions from Preparer/Interests to take precedence.
+// 26.01.2026 16:15 - FIX: MERGED User Logic with Research Protocol.
+// Retains full context (Home, Arrival, Countries) and strict PromptBuilder setup.
+// Adds strict 'Live Research' permission for factual chapters.
 // src/core/prompts/templates/infoAutor.ts
 
 import type { TripProject } from '../../types';
@@ -22,12 +23,12 @@ export const buildInfoAutorPrompt = (
     
     const chunkingInfo = totalChunks > 1 ? ` (Block ${currentChunk}/${totalChunks})` : '';
 
-    // 1. STRATEGIC BRIEFING (V40 English Key)
+    // 1. STRATEGIC BRIEFING
     const strategicBriefing = (analysis.chefPlaner as any)?.strategic_briefing?.sammler_briefing || 
                               (analysis.chefPlaner as any)?.strategisches_briefing?.sammler_briefing || 
                               "";
 
-    // Data Mapping
+    // Data Mapping (Context Extraction)
     let home = 'Unknown';
     if (logistics.mode === 'roundtrip' && logistics.roundtrip.startLocation) {
         home = logistics.roundtrip.startLocation;
@@ -41,18 +42,20 @@ export const buildInfoAutorPrompt = (
 
     // Generate Task Logic
     const taskList = tasksChunk.map(p => {
-        // REFACTOR: We now trust the 'anweisung' provided by the Smart Preparer (V30 Quality).
-        // We do NOT inject hardcoded logistics questions here anymore to avoid duplication.
+        // COMPATIBILITY FIX: Accept both new 'instruction' (from new Preparer) and old 'anweisung'
+        let instruction = p.instruction || p.anweisung || `Create a general, useful description for '${p.title || p.titel}'.`;
+        const title = p.title || p.titel || "Unknown Title";
+        const type = p.type || p.typ || "general";
         
-        let instruction = p.anweisung || `Create a general, useful description for '${p.titel}'.`;
-
         // Context Injection (Minimal)
         // If the preparer set a context (e.g. "Italy" or "Munich"), we enforce focus.
-        if (p.contextLocation) {
-             instruction += `\n\n**CONTEXT:** Focus exclusively on: ${p.contextLocation}`;
+        // Also map 'context' from new Preparer to 'contextLocation' if needed.
+        const contextLoc = p.context || p.contextLocation;
+        if (contextLoc) {
+             instruction += `\n\n**CONTEXT:** Focus exclusively on: ${contextLoc}`;
         }
 
-        return `- **ID "${p.id}" (Title: ${p.titel}, Type: ${p.typ}):**\n  ${instruction}`;
+        return `- **ID "${p.id}" (Title: ${title}, Type: ${type}):**\n  ${instruction}`;
     }).join('\n\n');
 
     const role = `You are an experienced Editor-in-Chief for travel guides, specializing in logistics and legal advice. Your task is to fill text placeholders with precise, researched facts.`;
@@ -60,6 +63,11 @@ export const buildInfoAutorPrompt = (
     const instructions = `# EDITORIAL STYLE
 - **Focus:** Utility value, safety, and avoiding tourist traps.
 - **Style:** Factual, direct, warning where necessary.
+
+# RESEARCH PROTOCOL (LIVE)
+1. **LIVE RESEARCH REQUIRED:** You MUST search the internet to find current facts for these topics (Visa rules, Toll prices, Public transport ticket names).
+2. **Fact Check:** Ensure numbers (prices, limits) are reasonably current.
+3. **Validation:** If you find conflicting info, use the most recent official source (e.g. embassy websites).
 
 # QUALITY REQUIREMENTS
 1.  **Explain instead of listing:** Write at least one full sentence for each point.
@@ -73,7 +81,7 @@ Here is the list of IDs and corresponding instructions (AIA).
 ${taskList}
 ---`;
 
-    // FIX: Schema converted to V40 English keys
+    // FIX: Schema converted to V40 English keys (Preserved from your file)
     const outputSchema = {
       "_thought_process": [
         "String (Step 1: Analyze task...)",
@@ -98,4 +106,4 @@ ${taskList}
         .withSelfCheck(['basic', 'research'])
         .build();
 };
-// --- END OF FILE 94 Zeilen ---
+// --- END OF FILE 109 Zeilen ---

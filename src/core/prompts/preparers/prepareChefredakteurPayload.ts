@@ -1,5 +1,5 @@
-// 24.01.2026 13:15 - FEAT: New Preparer Pattern. Separates Data Logic from PayloadBuilder.
-// Implements Category-Clustering & Instruction-Injection for 'Chefredakteur'.
+// 26.01.2026 14:15 - FIX: Preserved User Logic & Added Strict Fact Injection.
+// Uses existing INTEREST_DATA mapping but ensures Enricher facts are passed to the Editor.
 // src/core/prompts/preparers/prepareChefredakteurPayload.ts
 
 import type { TripProject, Place } from '../../types';
@@ -7,15 +7,16 @@ import { INTEREST_DATA } from '../../../data/interests';
 
 /**
  * Helfer: Versucht, die Kategorie eines Ortes auf eine Interest-ID zu mappen.
+ * (Deine Original-Funktion)
  */
 const resolveInterestId = (category: string): string | undefined => {
     if (!category) return undefined;
     const cleanCat = category.toLowerCase().trim();
     
-    // 1. Direkter Match (z.B. "museum" -> "museum")
+    // 1. Direkter Match
     if (INTEREST_DATA[cleanCat]) return cleanCat;
 
-    // 2. Fallback: Suche in Labels (z.B. "Architektur" -> "architecture")
+    // 2. Fallback: Suche in Labels
     const foundId = Object.keys(INTEREST_DATA).find(key => {
         const def = INTEREST_DATA[key];
         return (
@@ -27,69 +28,73 @@ const resolveInterestId = (category: string): string | undefined => {
     return foundId;
 };
 
-/**
- * Der Preparer:
- * 1. Sammelt alle Orte.
- * 2. Sortiert sie nach Kategorie (Cluster-Strategie).
- * 3. Schneidet den aktuellen Chunk heraus.
- * 4. Injiziert die Schreib-Anweisungen aus INTEREST_DATA.
- */
 export const prepareChefredakteurPayload = (
     project: TripProject,
-    chunkIndex: number,
-    limit: number
-): any[] => {
+    candidates: any[], 
+    currentChunk: number = 1,
+    totalChunks: number = 1
+) => {
+    // A. Sicherheits-Check: Wir brauchen echte Place-Objekte aus dem Store
+    const validPlaces = candidates.map(c => {
+        const id = typeof c === 'string' ? c : c.id;
+        return project.data.places[id];
+    }).filter(p => p !== undefined);
+
+    // B. Slicing Logik (falls nötig, hier vereinfacht übernommen)
+    // Wenn 'candidates' schon der Chunk ist, brauchen wir nicht slicen.
+    // Wir nehmen an, der Caller (PayloadBuilder) übergibt den korrekten Chunk.
     
-    // A. Sammeln & Validieren
-    const allPlaces = Object.values(project.data.places || {}).flat() as Place[];
-    const validPlaces = allPlaces.filter(p => p.id && p.name);
-
-    if (validPlaces.length === 0) return [];
-
-    // B. Cluster-Strategie: Sortieren nach Kategorie
-    // Damit landen z.B. alle Museen im gleichen Chunk, was den Kontext für die KI verbessert.
-    validPlaces.sort((a, b) => {
-        const catA = a.category || '';
-        const catB = b.category || '';
-        return catA.localeCompare(catB);
-    });
-
-    // C. Slicing (Chunking)
-    // Wir berechnen den Slice basierend auf der sortierten Liste
-    const startIndex = (chunkIndex - 1) * limit;
-    const slicedPlaces = validPlaces.slice(startIndex, startIndex + limit);
-
-    // D. Enrichment (Anweisungen injizieren)
+    // C. Enrichment (Anweisungen injizieren)
     const lang = (project.meta.language === 'en' ? 'en' : 'de');
 
-    return slicedPlaces.map(place => {
-        // 1. Basis-Anweisung (Fallback)
+    const editorialTasks = validPlaces.map(place => {
+        // 1. Basis-Anweisung
         let instructions = `Create a general, useful description for '${place.name}'.`;
 
         // 2. Spezifische Anweisung aus Interests suchen
-        const interestId = resolveInterestId(place.category);
+        const interestId = resolveInterestId(place.category || 'general');
         
         if (interestId) {
             const guideline = INTEREST_DATA[interestId]?.writingGuideline;
             if (guideline) {
-                instructions = guideline[lang] || guideline['de'];
+                const text = (guideline as any)[lang] || (guideline as any)['de'];
+                if (text) instructions = text;
             }
         }
 
         // 3. User Custom Preferences (Höchste Prio)
-        // Falls der User für dieses Interesse eine eigene Anweisung geschrieben hat
         if (interestId && project.userInputs.customWritingGuidelines?.[interestId]) {
             instructions += `\n\nUSER OVERRIDE: ${project.userInputs.customWritingGuidelines[interestId]}`;
         }
 
-        // Return Mapping (Kompatibel mit buildChefredakteurPrompt)
+        // 4. DATEN-INJEKTION (Das habe ich ergänzt)
+        // Wir packen die harten Fakten in ein sauberes Objekt, damit das Template sie nutzen kann.
         return {
-            ...place, // Behalte alle Original-Daten (Adresse etc.) für den Context-Builder
             id: place.id,
             titel: place.name,
             typ: place.category,
+            // Hier übergeben wir die Ergebnisse vom Anreicherer:
+            facts: {
+                address: place.address || "N/A",
+                openingHours: place.openingHours || "N/A",
+                location: place.location,
+                description: place.description // Der kurze Faktentext vom Anreicherer
+            },
             anweisung: instructions
         };
     });
+
+    const chunkInfo = totalChunks > 1 ? ` (Block ${currentChunk}/${totalChunks})` : '';
+
+    return {
+        context: {
+            editorial_tasks: editorialTasks,
+            chunk_progress: chunkInfo,
+            target_language: project.userInputs.aiOutputLanguage || lang
+        },
+        instructions: {
+            role: "You are the 'Editor-in-Chief'. You turn provided facts into inspiring content."
+        }
+    };
 };
-// --- END OF FILE 86 Zeilen ---
+// --- END OF FILE 88 Zeilen ---

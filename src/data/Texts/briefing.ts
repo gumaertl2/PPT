@@ -1,3 +1,4 @@
+// 26.01.2026 10:30 - DOCS: Comprehensive File Inventory & Preparer Pattern Docs.
 // 24.01.2026 15:30 - DOCS: Added Map Integration (Bidirectional Nav & Strict Color Mapping) & Modal Docs.
 // 23.01.2026 17:00 - DOCS: Updated Silence Protocol (Dynamic Start Character for Lists).
 // 22.01.2026 16:30 - DOCS: Added "ResultProcessor" & "Strict Data Architecture" (ID Factory).
@@ -57,6 +58,7 @@ Um "God Objects" zu vermeiden, wurde die Datenverarbeitung aus der UI entfernt.
     * Zentraler Service für alle KI-Antworten.
     * Beinhaltet die **"ID Factory"** (Strict Type Conversion): Wandelt Strings sofort in Objekte um.
     * Manipuliert den Store direkt via \`useTripStore.getState()\`.
+    * **Content Router:** Entscheidet basierend auf der Kategorie, ob Daten in \`data.places\` (Karte/Guide) oder \`data.content.infos\` (InfoView) landen.
 * **useTripGeneration** (\`src/hooks/useTripGeneration.ts\`):
     * Reiner UI-Hook (Queue, Status, Notifications).
     * Delegiert Datenlogik an \`ResultProcessor\`.
@@ -67,6 +69,17 @@ Wir vermeiden "Blob-Komponenten" (>500 Zeilen).
 * **SightsMapView:** Kapselt die Leaflet-Karte, Custom Marker und Zoom-Logik.
 * **SightFilterModal:** Die Filter-Logik ist komplett in \`SightFilterModal.tsx\` ausgelagert.
 * **SightCard:** Verwaltet ihren eigenen lokalen Darstellungszustand (Detail-Level).
+
+#### D. PROMPT GENERATION (Preparer Pattern) - NEU V40.4
+Die Logik zur Erstellung von Prompts wurde entkoppelt, um Templates "dumm" und wartbar zu halten:
+1.  **Preparer** (\`src/core/prompts/preparers/...\`):
+    * Enthält die **reine Business-Logik** (z.B. "Filtere Stadt-Infos für Heimatort heraus", "Inlandsreise-Check").
+    * Bereitet das Payload-Objekt vor und wählt die passenden Texte aus \`interests.ts\`.
+2.  **Builder** (\`src/core/prompts/PayloadBuilder.ts\`):
+    * Die "Weiche". Wählt den richtigen Preparer basierend auf dem TaskKey.
+3.  **Template** (\`src/core/prompts/templates/...\`):
+    * **Rein:** Wandelt das Payload-Objekt in den finalen String.
+    * Enthält KEINE Geschäftslogik mehr (keine hardcodierten Logistik-Fragen).
 
 ---
 
@@ -87,9 +100,16 @@ interface TripProject {
       ideenScout?: IdeenScoutResult; // Flex-Optionen
   };
   data: {
-      places: Record<string, Place>;  // POIs (durch Basis/Anreicherer gefüllt). WICHTIG: Places haben IMMER eine ID (UUID v4).
+      // 1. GUIDE VIEW (Physische Orte & Aktivitäten)
+      // Hier landen: Museen, Wandern, Sport, Natur, Restaurants, Hotels (als Marker).
+      places: Record<string, Place>;  // IMMER mit ID (UUID v4).
       routes: Record<string, Route>;
-      content: Record<string, Content>; // Lange Texte, Infos
+      
+      // 2. INFO VIEW (Reines Wissen & Texte)
+      // Hier landen: Reiseinfos, Budget, Anreise, Stadtinfos, Ignored Places.
+      content: {
+          infos: ContentChapter[]; // Array<{id, title, content, type}>
+      };
   };
   itinerary: { days: DayPlan[] };    // Der finale Plan
 }
@@ -184,6 +204,7 @@ Details werden stufenweise enthüllt, um die UI ruhig zu halten:
 | \`guide\` | Guide | Erstellt Cluster/Touren für den View-Switcher. |
 | \`details\` | Details | Schreibt lange Texte für "Detail"-View (Liste!). |
 | \`tourGuide\` | Tour Guide | (Neu) Definiert Touren-Logik. |
+| \`infoAutor\` | Info Autor | Erstellt Text-Kapitel für den InfoView (Logik im Preparer). |
 
 **B. Payload Filtering (Double Bind Fix)**
 Der \`PayloadBuilder\` filtert für den Task \`basis\` (Sammler) aktiv alle Interessen heraus, die Services betreffen (Food, Hotel).
@@ -195,7 +216,67 @@ Modell-Wahl via Matrix. \`geoAnalyst\`, \`durationEstimator\`, \`foodEnricher\`,
 **D. The Orchestrator**
 Kapselt \`Select -> Resolve -> Execute -> Validate\`.
 Stellt sicher, dass das "Silence Protocol" (Prompt) und der "Native JSON Mode" (API) Hand in Hand arbeiten.
+
+---
+
+### 9. File Inventory (Complete Overview)
+
+Übersicht aller relevanten Projektdateien und ihrer Aufgaben.
+
+#### Core Logic & Services (Das Gehirn)
+* **\`src/core/logic/ResultProcessor.ts\`**: Der "Bibliothekar". Nimmt KI-Antworten entgegen, validiert sie, führt IDs zusammen (Fuzzy Matching) und sortiert Daten in \`places\` oder \`content\`.
+* **\`src/services/orchestrator.ts\`**: Der "Manager". Steuert den Ablauf (Select Model -> Build Prompt -> Call API -> Process Result).
+* **\`src/core/prompts/PayloadBuilder.ts\`**: Die "Weiche". Verbindet jeden Task mit seinem spezifischen Preparer und Template.
+* **\`src/core/prompts/PromptBuilder.ts\`**: Fluent API zum Zusammenbauen von Prompts (OS, Context, Instructions, Schema).
+* **\`src/services/gemini.ts\`**: Die Schnittstelle zur Google AI API.
+* **\`src/services/validation.ts\`**: Zod-Schemas zur Validierung aller KI-Antworten.
+* **\`src/services/security.ts\`**: API-Key Management und Verschlüsselung.
+
+#### Preparers (Business Logic Layer) - \`src/core/prompts/preparers/\`
+* **\`prepareInfoAutorPayload.ts\`**: Filtert Logistik-Infos (Heimatort, Inlandsreise) und stellt Text-Aufgaben zusammen.
+* **\`prepareChefPlanerPayload.ts\`**: Bereitet User-Inputs und Interessen für die Erstanalyse vor.
+* **\`prepareAnreichererPayload.ts\`**: Kümmert sich um das Batching und Slicing von Orten für die Detail-Suche.
+* **\`prepareBasisPayload.ts\`**: Extrahiert relevante Interessen für die POI-Suche.
+* **\`prepareChefredakteurPayload.ts\`**: Wählt Orte für die detaillierte Beschreibung aus.
+
+#### Templates (Text Generation Layer) - \`src/core/prompts/templates/\`
+* **\`infoAutor.ts\`**: Rendert die Anweisungen für den Info-Autor (ohne eigene Logik).
+* **\`chefPlaner.ts\`**: Prompt für die Fundamentalanalyse.
+* **\`basis.ts\`**: Prompt für die POI-Suche ("Sight Collector").
+* **\`anreicherer.ts\`**: Prompt für Detailsuche ("Enricher").
+* **\`chefredakteur.ts\`**: Prompt für ausführliche Beschreibungen.
+* **\`foodScout.ts\` / \`hotelScout.ts\`**: Prompts für die Suche nach Restaurants und Hotels.
+* **\`routeArchitect.ts\`**: Prompt für die Routenberechnung.
+* **\`tourGuide.ts\`**: Prompt für die Touren-Planung.
+* **\`geoAnalyst.ts\`**: Prompt für geografische Analysen.
+* **\`initialTagesplaner.ts\`**: Prompt für die erste Tagesplanung.
+
+#### Store & Data (Das Gedächtnis)
+* **\`src/store/useTripStore.ts\`**: Der zentrale Zustand (Zustand Assembler).
+* **\`src/store/slices/createProjectSlice.ts\`**: Verwaltet Projektdaten (Laden/Speichern).
+* **\`src/store/slices/createUISlice.ts\`**: Steuert UI-Zustände (Views, Modale).
+* **\`src/store/slices/createSystemSlice.ts\`**: System-Settings und Logging.
+* **\`src/data/interests.ts\`**: Die zentrale Datenbank für Interessen, Labels und redaktionelle Anweisungen (V30 Quality).
+* **\`src/core/types.ts\`**: TypeScript-Interfaces für das gesamte Projekt.
+
+#### UI Features (Das Gesicht) - \`src/features/Cockpit/\`
+* **\`SightsView.tsx\`**: Hauptansicht für Orte (Liste/Karte).
+* **\`SightsMapView.tsx\`**: Die Kartenkomponente.
+* **\`SightCard.tsx\`**: Einzelne Karte für einen Ort (mit +/- Logik).
+* **\`CockpitWizard.tsx\`**: Der Assistent, der den User durch den Prozess führt.
+* **\`SettingsModal.tsx\`**: Einstellungen für KI-Modelle.
+* **\`ExportModal.tsx\` / \`PrintModal.tsx\`**: Export-Funktionen.
+* **\`SightFilterModal.tsx\`**: Filterung der Orte.
+
+#### UI Features - Steps (\`src/features/Cockpit/steps/\`)
+* **\`ProfileStep.tsx\`**: Eingabe des Reiseprofils (Pace, Budget).
+* **\`InterestsStep.tsx\`**: Auswahl der Interessen.
+* **\`LogisticsStep.tsx\`**: Eingabe von Reisedaten und Orten.
+* **\`TravelerStep.tsx\`**: Eingabe der Reisenden.
+
+#### UI Features - Info (\`src/features/info/\`)
+* **\`InfoView.tsx\`**: Ansicht für Text-Kapitel (Reiseinfos, Budget). Zeigt Daten aus \`data.content.infos\`.
 `
   }
 };
-// --- END OF FILE 462 Zeilen ---
+// --- END OF FILE 612 Zeilen ---

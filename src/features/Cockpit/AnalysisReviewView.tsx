@@ -1,4 +1,5 @@
-// 20.01.2026 19:30 - FIX: Updated Analysis View to consume V40 English Keys (ChefPlaner).
+// 26.01.2026 10:45 - FIX: Sync Suggestion Count to SearchSettings.
+// Ensures the Collector (Basis) receives the value shown in the UI (User Input or Smart Recommendation).
 // src/features/Cockpit/AnalysisReviewView.tsx
 
 import React, { useState, useEffect } from 'react';
@@ -25,8 +26,8 @@ interface AnalysisReviewViewProps {
 export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }) => {
   const { t } = useTranslation();
   
-  // Store Access
-  const { project, setWorkflowModalOpen, setCustomPreference } = useTripStore();
+  // Store Access - FIX: Added updateSearchSettings
+  const { project, setWorkflowModalOpen, updateSearchSettings } = useTripStore();
   const { startSingleTask, status } = useTripGeneration(); 
   
   const analysis = project.analysis.chefPlaner;
@@ -36,20 +37,22 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
   
   // INTELLIGENTE INITIALISIERUNG DES COUNTS
   const [suggestionCount, setSuggestionCount] = useState<number>(() => {
-    // FIX: Updated to English Key (smart_limit_recommendation)
+    // 1. Priority: Smart Recommendation from ChefPlaner
     if (project.analysis.chefPlaner?.smart_limit_recommendation?.value) {
       return project.analysis.chefPlaner.smart_limit_recommendation.value;
     }
-    const saved = project.userInputs?.customPreferences?.suggestionCount;
-    if (saved) {
-      return parseInt(saved, 10);
+    // 2. Priority: Already saved setting (if user navigates back and forth)
+    if (project.userInputs?.searchSettings?.sightsCount) {
+        return project.userInputs.searchSettings.sightsCount;
     }
+    // 3. Fallback: Default
     return 50;
   });
 
+  // FIX: Write directly to searchSettings so 'prepareBasisPayload' can read it
   useEffect(() => {
-    setCustomPreference('suggestionCount', String(suggestionCount));
-  }, [suggestionCount, setCustomPreference]);
+    updateSearchSettings({ sightsCount: suggestionCount });
+  }, [suggestionCount, updateSearchSettings]);
 
   const handleReRun = async () => {
     if (!feedback.trim()) return;
@@ -75,7 +78,6 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
     );
   }
 
-  // FIX: Updated to English Key (corrections)
   const hasCorrections = analysis.corrections && (
       (analysis.corrections.notes && analysis.corrections.notes.length > 0) || 
       analysis.corrections.corrected_destination
@@ -94,7 +96,6 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
                 {t('analysis.correctionsTitle')}
               </h3>
               <ul className="mt-1 space-y-0.5 text-sm text-green-800 list-disc list-inside">
-                {/* FIX: Updated to English Key (corrections.notes) */}
                 {analysis.corrections?.notes?.map((note, idx) => (
                   <li key={idx}>{note}</li>
                 ))}
@@ -111,12 +112,9 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
           {t('analysis.plausibility')}
         </h3>
         <p className="text-sm text-gray-700 leading-relaxed mb-4">
-          {/* FIX: Updated to English Key (plausibility_check) */}
           {analysis.plausibility_check || t('analysis.noCheck')}
         </p>
         
-        {/* Strategisches Briefing */}
-        {/* FIX: Updated to English Key (strategic_briefing) */}
         {analysis.strategic_briefing && (
           <div className="pt-4 border-t border-gray-100">
              <h4 className="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-2">
@@ -134,7 +132,6 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
       </div>
 
       {/* 2. VALIDIERTE HOTELS */}
-      {/* FIX: Updated to English Key (validated_hotels) */}
       {analysis.validated_hotels && analysis.validated_hotels.length > 0 && (
         <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
             <div className="bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-800 uppercase flex items-center gap-2">
@@ -155,7 +152,6 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
       )}
 
       {/* 3. VALIDIERTE TERMINE */}
-      {/* FIX: Updated to English Key (validated_appointments) */}
       {analysis.validated_appointments && analysis.validated_appointments.length > 0 && (
         <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
           <div className="bg-amber-50 px-4 py-2 text-xs font-bold text-amber-800 uppercase flex items-center gap-2">
@@ -205,7 +201,6 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
           <label className="block text-sm font-bold text-gray-800 mb-1">
              {t('analysis.countLabel')}
           </label>
-          {/* FIX: Updated to English Key (smart_limit_recommendation) */}
           {analysis.smart_limit_recommendation?.value ? (
              <div className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded border border-amber-100 inline-block">
                <strong>{t('analysis.smartLimit')}: {analysis.smart_limit_recommendation.value}</strong>
@@ -258,4 +253,4 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
     </div>
   );
 };
-// --- END OF FILE 190 Zeilen ---
+// --- END OF FILE 195 Zeilen ---
