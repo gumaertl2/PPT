@@ -1,6 +1,4 @@
-// 26.01.2026 12:45 - FIX: Enhanced Geo-Context with RouteArchitect Data.
-// Now prioritizes the calculated route (if available) over raw user inputs
-// to give the Enricher the most precise search corridor possible.
+// 26.01.2026 19:15 - FIX: Linter Cleanups & Requested Fields Injection.
 // src/core/prompts/preparers/prepareAnreichererPayload.ts
 
 import type { TripProject } from '../../types';
@@ -14,22 +12,20 @@ export const prepareAnreichererPayload = (
     const { meta, userInputs, analysis } = project;
     const uiLang = meta.language === 'en' ? 'en' : 'de';
     
-    // 1. GLOBAL GEO CONTEXT (The Safety Net)
-    // We construct a precise "Search Corridor" string.
+    // 1. GLOBAL GEO CONTEXT
     let globalContext = "";
 
-    // PRIORITY A: Route Architect (Most precise for Roundtrips)
+    // PRIORITY A: Route Architect
     const calculatedRoute = analysis.routeArchitect?.routes?.[0];
     
     if (userInputs.logistics.mode === 'mobil' && calculatedRoute) {
-        // Use the calculated stages as the defined corridor
         const stages = calculatedRoute.stages?.map(s => s.location_name).join(" -> ");
         globalContext = `Roundtrip Route: ${stages}`;
         if (calculatedRoute.waypoints) {
             globalContext += ` (via: ${calculatedRoute.waypoints.map(w => w.location).join(", ")})`;
         }
     } 
-    // PRIORITY B: User Inputs (Fallback or Stationary)
+    // PRIORITY B: Stationary
     else if (userInputs.logistics.mode === 'stationaer') {
         const dest = userInputs.logistics.stationary.destination || "";
         const reg = userInputs.logistics.stationary.region || "";
@@ -47,27 +43,23 @@ export const prepareAnreichererPayload = (
 
     // 2. DATA PREPARATION
     const itemsToEnrich = candidates.map(c => {
-        // If it's a string, use it as name
         if (typeof c === 'string') return { name: c };
-        
-        // If it's an object, extract name and ID. 
         return { 
             name: c.name,
             id: c.id, 
-            // We hint the AI to look within the global context OR specific vicinity if available
             context_hint: c.vicinity || c.region || globalContext 
         };
     });
 
-    // 3. TARGET FIELDS DEFINITION
+    // 3. TARGET FIELDS (Now used in context)
     const requestedFields = [
-        "official_name", // Correct spelling
-        "address",       // Street, ZIP, City
-        "location",      // { lat, lng }
-        "description",   // Factual short description (max 2 sentences)
-        "openingHours",  // String representation
-        "rating",        // Number or null
-        "category"       // inferred category (Sight, Nature, Museum, etc.)
+        "official_name (Correct spelling)", 
+        "address (Street, ZIP, City)",       
+        "location (lat, lng)",      
+        "description (Factual short description, max 2 sentences)",   
+        "openingHours (String representation)",  
+        "rating (Number or null)",        
+        "category (Inferred category)"       
     ];
 
     const chunkInfo = `Processing Block ${currentChunk} of ${totalChunks}`;
@@ -75,7 +67,8 @@ export const prepareAnreichererPayload = (
     return {
         context: {
             candidates_list: itemsToEnrich,
-            search_region: globalContext, // <-- NOW INCLUDES ROUTE ARCHITECT DATA
+            search_region: globalContext,
+            required_fields: requestedFields, // <-- Fix: Used here
             chunk_progress: chunkInfo,
             target_language: userInputs.aiOutputLanguage || uiLang
         },

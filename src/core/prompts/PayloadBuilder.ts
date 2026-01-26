@@ -1,5 +1,5 @@
-// 26.01.2026 18:45 - FIX: Integrated ALL Preparers (TourGuide, IdeenScout, InfoAutor, Chefredakteur).
-// Replaced legacy logic with V40 Payload/Preparer Pattern for strict separation of concerns.
+// 26.01.2026 19:45 - FIX: Wiring Update for Rich Chefredakteur Payload.
+// Extracts 'editorial_tasks' array from payload object to match Template signature.
 // src/core/prompts/PayloadBuilder.ts
 
 import { useTripStore } from '../../store/useTripStore';
@@ -29,7 +29,6 @@ import { prepareAnreichererPayload } from './preparers/prepareAnreichererPayload
 import { prepareChefredakteurPayload } from './preparers/prepareChefredakteurPayload';
 import { prepareChefPlanerPayload } from './preparers/prepareChefPlanerPayload';
 import { prepareInfoAutorPayload } from './preparers/prepareInfoAutorPayload';
-// NEW: Added missing preparers
 import { prepareTourGuidePayload } from './preparers/prepareTourGuidePayload';
 import { prepareIdeenScoutPayload } from './preparers/prepareIdeenScoutPayload';
 
@@ -43,7 +42,7 @@ export const PayloadBuilder = {
     const { project, aiSettings, apiKey } = state; 
     const chunkingState = (state as any).chunkingState as ChunkingState;
 
-    // --- HELPER FUNCTIONS (Legacy Support) ---
+    // --- HELPER FUNCTIONS ---
 
     const getTaskChunkLimit = (taskKey: TaskKey): number => {
         const mode = apiKey ? 'auto' : 'manual';
@@ -148,15 +147,18 @@ export const PayloadBuilder = {
 
       case 'details':
       case 'chefredakteur' as any: {
-          const preparedPlaces = prepareChefredakteurPayload(
+          // V40: Use specialized Preparer
+          // Returns object: { context: { editorial_tasks: [] }, instructions: {} }
+          const payload = prepareChefredakteurPayload(
               project, 
               options?.chunkIndex || chunkingState?.currentChunk || 1, 
               options?.limit || getTaskChunkLimit('chefredakteur' as TaskKey)
           );
 
+          // WICHTIG: Template erwartet Array, Preparer liefert Objekt. Wir extrahieren das Array.
           generatedPrompt = buildChefredakteurPrompt(
               project, 
-              preparedPlaces, 
+              payload.context.editorial_tasks, 
               options?.chunkIndex || chunkingState?.currentChunk || 1, 
               options?.totalChunks || chunkingState?.totalChunks || 1
           ) || "";
@@ -165,33 +167,22 @@ export const PayloadBuilder = {
 
       case 'infos':
       case 'infoAutor': {
-          // 1. Get ALL relevant tasks (CityInfo for all stops, TravelInfo if abroad)
           const allInfoTasks = prepareInfoAutorPayload(project);
-          
-          // 2. Slice if needed (though usually list is short)
           const slicedTasks = sliceData(allInfoTasks, 'infoAutor');
-          
-          // 3. Build Prompt with tasksChunk
           generatedPrompt = buildInfoAutorPrompt(
               project, 
               slicedTasks, 
               options?.chunkIndex || chunkingState?.currentChunk || 1, 
               options?.totalChunks || chunkingState?.totalChunks || 1, 
-              [] // detectedCountries not strictly needed here anymore as Preparer handles logic
+              [] 
           ) || "";
           break;
       }
 
       case 'sondertage':
       case 'ideenScout': {
-          // NEW: Batch-Logic via Preparer
-          // 1. Generate tasks for all Hubs (minus Home)
           const allIdeenTasks = prepareIdeenScoutPayload(project);
-          
-          // 2. Slice/Chunk the tasks (e.g. 3 cities per call)
           const slicedIdeenTasks = sliceData(allIdeenTasks, 'ideenScout');
-
-          // 3. Build Prompt with tasksChunk
           generatedPrompt = buildIdeenScoutPrompt(
               project, 
               slicedIdeenTasks,
@@ -204,7 +195,6 @@ export const PayloadBuilder = {
       case 'guide':
       case 'reisefuehrer':
       case 'tourGuide': {
-           // NEW: Geo-Logic via Preparer
            const payload = prepareTourGuidePayload(project);
            generatedPrompt = buildTourGuidePrompt(payload);
            break;
@@ -216,7 +206,7 @@ export const PayloadBuilder = {
         break;
       }
 
-      // --- 2. LEGACY / SPECIAL HANDLERS ---
+      // --- 2. LEGACY HANDLERS ---
       
       case 'routeArchitect':
       case 'routenArchitekt':
@@ -327,4 +317,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 515 Zeilen ---
+// --- END OF FILE 518 Zeilen ---

@@ -1,8 +1,9 @@
-// 26.01.2026 14:15 - FIX: Preserved User Logic & Added Strict Fact Injection.
-// Uses existing INTEREST_DATA mapping but ensures Enricher facts are passed to the Editor.
+// 26.01.2026 19:40 - FIX: RESTORED Rich Logic (No Simplification).
+// Returns full object { context, instructions } with strict Fact Injection.
+// Fixed only TS6196 (Unused Place import).
 // src/core/prompts/preparers/prepareChefredakteurPayload.ts
 
-import type { TripProject, Place } from '../../types';
+import type { TripProject } from '../../types';
 import { INTEREST_DATA } from '../../../data/interests';
 
 /**
@@ -67,7 +68,7 @@ export const prepareChefredakteurPayload = (
             instructions += `\n\nUSER OVERRIDE: ${project.userInputs.customWritingGuidelines[interestId]}`;
         }
 
-        // 4. DATEN-INJEKTION (Das habe ich ergänzt)
+        // 4. DATEN-INJEKTION (Strict Facts)
         // Wir packen die harten Fakten in ein sauberes Objekt, damit das Template sie nutzen kann.
         return {
             id: place.id,

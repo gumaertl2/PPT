@@ -1,5 +1,5 @@
-// 26.01.2026 17:00 - FIX: Architecture Alignment. Returns Task[] Array.
-// Implements "Home-Filter" and combined Instructions for PayloadBuilder.
+// 26.01.2026 19:25 - FIX: Type Safety fixes for UserInputs.
+// Corrects 'origin' access and 'profile.budget' path.
 // src/core/prompts/preparers/prepareInfoAutorPayload.ts
 
 import type { TripProject } from '../../types';
@@ -18,7 +18,6 @@ const isDomesticTravel = (home: string, region: string, stops: string[]): boolea
     const h = normalize(home);
     const destStr = (region + ' ' + stops.join(' ')).toLowerCase();
 
-    // Heuristic for DACH
     if (h.includes('deutschland') || h.includes('germany')) {
         return destStr.includes('deutschland') || destStr.includes('germany') || destStr.includes('bayern') || destStr.includes('berlin');
     }
@@ -41,8 +40,13 @@ export const prepareInfoAutorPayload = (project: TripProject): any[] => {
     const { userInputs, meta, analysis } = project;
     const lang = meta.language === 'en' ? 'en' : 'de';
     
-    // 1. GATHER LOGISTICS
-    const origin = userInputs.logistics.origin || "Unknown";
+    // 1. GATHER LOGISTICS (Safe Access)
+    const log = userInputs.logistics as any;
+    const origin = log.origin || 
+                   userInputs.logistics.roundtrip.startLocation || 
+                   (userInputs.logistics.stationary as any)?.origin || 
+                   "Unknown";
+
     let destinationRegion = "";
     let hubs: string[] = [];
 
@@ -51,33 +55,27 @@ export const prepareInfoAutorPayload = (project: TripProject): any[] => {
         hubs = [userInputs.logistics.stationary.destination];
     } else {
         destinationRegion = userInputs.logistics.roundtrip.region || "";
-        // Get Hubs from RouteArchitect (Priority) or User Input
         if (analysis.routeArchitect?.routes?.[0]?.stages) {
             hubs = analysis.routeArchitect.routes[0].stages.map(s => s.location_name);
         } else {
             hubs = userInputs.logistics.roundtrip.stops.map(s => s.location);
         }
     }
-    // Cleanup Hubs
     hubs = hubs.filter(h => h && h.length > 2);
 
     // 2. GENERATE TASKS
     const tasks: any[] = [];
     const selectedIds = userInputs.selectedInterests || [];
 
-    // Helper to build the combined instruction
     const getInstruction = (id: string) => {
         const def = INTEREST_DATA[id];
         if (!def) return "";
-        
         const strategy = resolveText(def.searchStrategy, lang);
         const guide = resolveText(def.writingGuideline, lang);
-        
-        // COMBINED POWER INSTRUCTION
         return `### SEARCH STRATEGY (WHAT TO FIND)\n${strategy}\n\n### EDITORIAL GUIDELINE (HOW TO WRITE)\n${guide}`;
     };
 
-    // A. TRAVEL INFO (Country Level) - with Domestic Filter
+    // A. TRAVEL INFO
     if (selectedIds.includes('travel_info')) {
         if (!isDomesticTravel(origin, destinationRegion, hubs)) {
             const contextLoc = destinationRegion || hubs[0] || "Destination";
@@ -85,14 +83,14 @@ export const prepareInfoAutorPayload = (project: TripProject): any[] => {
                 id: 'travel_info_general',
                 typ: 'travel_info',
                 titel: lang === 'de' ? 'Wissenswertes & Reiseinfos' : 'Travel Essentials',
-                name: `Travel-Guide: ${contextLoc}`, // Required for PayloadBuilder filter logic
+                name: `Travel-Guide: ${contextLoc}`,
                 contextLocation: contextLoc,
                 anweisung: getInstruction('travel_info')
             });
         }
     }
 
-    // B. CITY INFO (Hub Level) - with Home City Filter
+    // B. CITY INFO
     if (selectedIds.includes('city_info')) {
         hubs.forEach((hub, index) => {
             if (!isSameCity(hub, origin)) {
@@ -108,21 +106,21 @@ export const prepareInfoAutorPayload = (project: TripProject): any[] => {
         });
     }
 
-    // C. GENERIC MODULES (Arrival, Budget, Ignored)
+    // C. GENERIC MODULES
     ['arrival', 'budget', 'ignored_places'].forEach(id => {
         if (selectedIds.includes(id)) {
             let contextStr = "";
             if (id === 'arrival') contextStr = `From: ${origin} To: ${hubs[0] || destinationRegion}`;
-            if (id === 'budget') contextStr = `Budget Level: ${userInputs.profile.budget}. Duration: ${userInputs.dates.duration} days.`;
+            // FIX: 'userInputs.budget' instead of 'profile.budget'
+            if (id === 'budget') contextStr = `Budget Level: ${userInputs.budget}. Duration: ${userInputs.dates.duration} days.`;
 
-            // Dynamic Titles
             let title = INTEREST_DATA[id]?.label?.[lang] || id;
             if (id === 'arrival') title = lang === 'de' ? 'Anreise-Vergleich' : 'Arrival Comparison';
             if (id === 'budget') title = lang === 'de' ? 'Kosten-Schätzung' : 'Budget Estimation';
 
             tasks.push({
                 id: id,
-                typ: id, // Matches INTEREST_DATA keys usually
+                typ: id,
                 titel: title,
                 name: title,
                 contextLocation: contextStr,
@@ -133,4 +131,4 @@ export const prepareInfoAutorPayload = (project: TripProject): any[] => {
 
     return tasks;
 };
-// --- END OF FILE 133 Zeilen ---
+// --- END OF FILE 135 Zeilen ---
