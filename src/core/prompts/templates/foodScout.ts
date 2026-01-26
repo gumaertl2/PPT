@@ -1,81 +1,42 @@
-// 24.01.2026 16:30 - FIX: Added 'feedback' param to signature to resolve PayloadBuilder TS error.
-// 23.01.2026 15:20 - FIX: Synchronized Schema with CoT Instruction (added _thought_process).
+// 26.01.2026 21:20 - FIX: FoodScout Template (Strict Mode).
+// Consumes Payload with strict List-Only logic.
 // src/core/prompts/templates/foodScout.ts
 
-import type { TripProject, FoodSearchMode } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
-import { getGuidesForCountry } from '../../../data/countries';
 
-export const buildFoodScoutPrompt = (
-    project: TripProject, 
-    mode: FoodSearchMode = 'standard',
-    feedback: string = "" // FIX: Added 3rd argument for consistency
-): string => {
-  const { userInputs } = project;
-  const { logistics, budget, vibe } = userInputs;
+export const buildFoodScoutPrompt = (payload: any): string => {
+  const { context, instructions } = payload;
+  
+  const role = instructions?.role || `You are a specialized Food-Scout.`;
+  const strategy = instructions?.strategy || "";
+  
+  const mainInstruction = `# TASK
+Search for restaurants in **${context.location_name}** matching the strict profile below.
+Search Area: ${context.search_area}
 
-  // 1. Determine Location & Guides
-  let location = "";
-  let countryHint = "";
+${strategy}
 
-  if (logistics.mode === 'stationaer') {
-      location = logistics.stationary.destination;
-      countryHint = logistics.stationary.region; 
-  } else {
-      const stops = logistics.roundtrip.stops.map(s => s.location).join(', ');
-      location = `the stops: ${stops}`;
-      countryHint = logistics.roundtrip.region;
-  }
+# ALLOWED SOURCES (WHITELIST)
+You must ONLY select restaurants that appear in one of these specific guides:
+**${context.guides_list.join(', ')}**
 
-  const guides = getGuidesForCountry(countryHint || location).join(', ');
-
-  // 2. Mode Logic
-  let qualityFilterInstruction = "";
-  if (mode === 'standard') {
-      qualityFilterInstruction = `### QUALITY FILTER (STANDARD)
-We are looking for excellent cuisine for daily travel, NOT a "Fine Dining" event.
-1. **Sources:** Use the guides (${guides}).
-2. **Category:** Look for "Bib Gourmand", "Tip", "Recommendation".
-3. **EXCLUDE:** Ignore restaurants with Michelin Stars (unless budget allows).`;
-  } else {
-      qualityFilterInstruction = `### QUALITY FILTER (GOURMET / STARS)
-The user explicitly requests upscale gastronomy.
-1. **Sources:** Use the guides (${guides}).
-2. **Category:** Prioritize restaurants with Stars (1-3) or Toques.`;
-  }
-
-  // 3. Prompt Builder
-  const role = `You are a culinary research scout. Your task is to find restaurants listed in renowned guides.`;
-
-  const contextData = {
-    target_area: { location: location, country: countryHint },
-    allowed_sources: guides,
-    budget: budget,
-    vibe: vibe,
-    user_feedback: feedback // Use feedback in context if needed
-  };
-
-  const instructions = `# TASK
-Search for restaurants in ${location} that match the filter criteria.
-Extract exact coordinates.
-
-${qualityFilterInstruction}
-
-# MANDATORY
-Geographic data is MANDATORY for distance calculation.`;
+# MANDATORY RULES
+1. **Source Check:** If a restaurant is not in one of the guides above, DISCARD IT.
+2. **Coordinates:** Geographic data (Lat/Lng) is MANDATORY.
+3. **No Hallucinations:** Only list places that actually exist and match the guide criteria.`;
 
   const outputSchema = {
-    "_thought_process": "String (Brief search strategy & criteria check)",
+    "_thought_process": "String (Verify guide listing & criteria match)",
     "candidates": [
       {
         "name": "String",
         "city": "String",
         "address": "String",
-        "description": "String (Short description of cuisine/vibe)",
+        "description": "String (Mention the specific Guide & Award, e.g. 'Michelin Bib Gourmand')",
         "location": { "lat": "Number", "lng": "Number" },
-        "guides": ["String"],
-        "cuisine": "String (e.g. 'Regional', 'Modern')",
-        "priceLevel": "String (e.g. '€€', '€€€')"
+        "guides": ["String (The specific guide from the whitelist)"],
+        "cuisine": "String",
+        "priceLevel": "String"
       }
     ]
   };
@@ -83,10 +44,10 @@ Geographic data is MANDATORY for distance calculation.`;
   return new PromptBuilder()
     .withOS()
     .withRole(role)
-    .withContext(contextData, "CONTEXT")
-    .withInstruction(instructions)
+    .withContext(context, "SEARCH CONTEXT")
+    .withInstruction(mainInstruction)
     .withOutputSchema(outputSchema)
-    .withSelfCheck(['basic', 'research'])
+    .withSelfCheck(['research', 'quality'])
     .build();
 };
-// --- END OF FILE 90 Zeilen ---
+// --- END OF FILE 48 Zeilen ---

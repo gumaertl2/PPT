@@ -1,5 +1,5 @@
-// 25.01.2026 14:45 - FIX: Save InfoAutor chapters as Array in data.content.infos.
-// Fixes Type Mismatch (InfoView expects Array, Store had Object).
+// 26.01.2026 23:30 - FEAT: Added 'special' Category for IdeenScout.
+// Maps Sunny/Rainy ideas to Places for Map/Guide visibility.
 // src/services/ResultProcessor.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -230,6 +230,7 @@ export const ResultProcessor = {
       case 'foodEnricher':
       case 'accommodation':
       case 'hotelScout': {
+        // Hier wird 'Restaurant' als Kategorie für Food gesetzt
         const category = ['food', 'foodScout', 'foodEnricher'].includes(step) ? 'Restaurant' : 'Hotel';
         if (extractedItems.length > 0) {
             extractedItems.forEach((item: any) => {
@@ -256,7 +257,48 @@ export const ResultProcessor = {
 
       case 'sondertage':
       case 'ideenScout':
+          // 1. Save Analysis Result (UI Panel)
           if (data) setAnalysisResult('ideenScout', data);
+
+          // 2. Convert to Places (Map/Guide) with category 'special'
+          if (data && data.results && Array.isArray(data.results)) {
+              const existingPlaces = useTripStore.getState().project.data?.places || {};
+              let addedCount = 0;
+
+              data.results.forEach((group: any) => {
+                  // Helper: Process list for a specific weather type
+                  const processList = (list: any[], subType: string) => {
+                      if (!Array.isArray(list)) return;
+                      list.forEach((item: any) => {
+                          const targetId = resolvePlaceId(item, existingPlaces, aiSettings.debug);
+                          const id = targetId || uuidv4();
+                          
+                          updatePlace(id, {
+                              id,
+                              name: item.name,
+                              category: 'special', // Eigene Kategorie für Sondertage
+                              address: item.address,
+                              description: item.description,
+                              // If AI provides no lat/lng, we store what we have.
+                              location: item.location || { lat: 0, lng: 0 }, 
+                              
+                              details: {
+                                  specialType: subType, // 'sunny' | 'rainy'
+                                  duration: item.estimated_duration_minutes,
+                                  note: item.planning_note,
+                                  website: item.website_url,
+                                  source: 'ideenScout'
+                              }
+                          });
+                          addedCount++;
+                      });
+                  };
+
+                  processList(group.sunny_day_ideas, 'sunny');
+                  processList(group.rainy_day_ideas, 'rainy');
+              });
+              console.log(`[IdeenScout] Added ${addedCount} special places.`);
+          }
           break;
 
       case 'guide':
@@ -331,4 +373,4 @@ export const ResultProcessor = {
     }
   }
 };
-// --- END OF FILE 339 Zeilen ---
+// --- END OF FILE 372 Zeilen ---

@@ -1,55 +1,48 @@
-// 23.01.2026 15:35 - FIX: Synchronized Schema with CoT Instruction (added _thought_process).
-// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
+// 26.01.2026 22:15 - FIX: FoodEnricher Template (Payload Pattern).
+// Implements strict Editorial Style Injection.
 // src/core/prompts/templates/foodEnricher.ts
-// 19.01.2026 13:30 - FIX: Restored V30 Legacy Schema (German Keys) for Consistency with FoodScout.
-// 16.01.2026 20:00 - FEAT: Added 'Menu & Vibe' Analysis.
-// 18.01.2026 00:35 - REFACTOR: Migrated to class-based PromptBuilder.
 
-import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
 
-export const buildFoodEnricherPrompt = (
-    project: TripProject,
-    candidates: any[]
-): string => {
-  // 1. STRATEGIC BRIEFING
-  const chefPlaner = project.analysis.chefPlaner;
-  const strategicBriefing = (chefPlaner as any)?.strategic_briefing?.sammler_briefing || 
-                            (chefPlaner as any)?.strategisches_briefing?.sammler_briefing || 
-                            "";
+export const buildFoodEnricherPrompt = (payload: any): string => {
+  // 1. Unpack Payload
+  const { context, instructions } = payload;
   
-  const role = `You are a culinary data enricher. Your task is to find details for a list of restaurant names.`;
+  const role = instructions?.role || `You are a culinary data enricher.`;
+  const editorialGuideline = instructions?.editorial_guideline || "";
 
-  const contextData = {
-    candidates_to_enrich: candidates
-  };
+  // 2. Build Instructions
+  const mainInstruction = `# TASK
+Research each restaurant candidate live on the web and enrich it with details.
 
-  const instructions = `# TASK
-Research each candidate live on the web.
+# EDITORIAL STYLE (BINDING)
+You MUST follow this specific writing guideline:
+"${editorialGuideline}"
 
 # DATA REQUIREMENTS
 1.  **Address:** Must be exact and navigable.
 2.  **Cuisine:** What is served? (e.g. "Modern Italian", "Traditional Bavarian").
 3.  **Vibe:** Describe the atmosphere in 3-4 words (e.g. "Romantic, Candlelight").
 4.  **Signature Dish:** Name 1-2 specialties if available.
-5.  **Price:** €, €€ or €€€.
+5.  **Price:** €, €€ or €€€ (Estimate based on menu).
 
-# FALLBACK
-If a restaurant is not found, mark it as "found": false. Do not invent anything.`;
+# FALLBACK RULE
+If a restaurant cannot be found or is permanently closed, set "found": false. Do NOT invent data.`;
 
-  // FIX: Schema converted to V40 English keys & CoT added
+  // 3. Schema
   const outputSchema = {
     "_thought_process": "String (Research verification & strategy)",
     "enriched_candidates": [
       {
         "original_name": "String",
         "found": "Boolean",
-        "address": "String",
+        "address": "String (Full Address)",
         "cuisine": "String",
+        "description": "String (Engaging text following the editorial guideline)",
         "vibe": ["String"],
         "signature_dish": "String",
         "price_level": "String",
-        "website": "String"
+        "website": "String | null"
       }
     ]
   };
@@ -57,11 +50,10 @@ If a restaurant is not found, mark it as "found": false. Do not invent anything.
   return new PromptBuilder()
     .withOS()
     .withRole(role)
-    .withContext(contextData, "INPUT LIST")
-    .withContext(strategicBriefing, "STRATEGIC GUIDELINE")
-    .withInstruction(instructions)
+    .withContext(context, "INPUT LIST & CONTEXT")
+    .withInstruction(mainInstruction)
     .withOutputSchema(outputSchema)
-    .withSelfCheck(['basic', 'research'])
+    .withSelfCheck(['research', 'quality'])
     .build();
 };
-// --- END OF FILE 66 Zeilen ---
+// --- END OF FILE 52 Zeilen ---

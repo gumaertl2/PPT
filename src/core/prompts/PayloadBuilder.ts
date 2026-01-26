@@ -1,5 +1,6 @@
-// 26.01.2026 20:00 - FIX: Argument Mismatch in Chefredakteur Call.
-// Added missing 'sliceData' step before calling prepareChefredakteurPayload.
+// 26.01.2026 23:45 - FIX: Integrated FoodScout & FoodEnricher Preparers.
+// - foodScout: Uses new Preparer with strict Guide/Strategy logic.
+// - foodEnricher: Consumes candidates from analysis.foodScout (Priority) or Fallback.
 // src/core/prompts/PayloadBuilder.ts
 
 import { useTripStore } from '../../store/useTripStore';
@@ -31,6 +32,9 @@ import { prepareChefPlanerPayload } from './preparers/prepareChefPlanerPayload';
 import { prepareInfoAutorPayload } from './preparers/prepareInfoAutorPayload';
 import { prepareTourGuidePayload } from './preparers/prepareTourGuidePayload';
 import { prepareIdeenScoutPayload } from './preparers/prepareIdeenScoutPayload';
+// NEW: Food Preparers
+import { prepareFoodScoutPayload } from './preparers/prepareFoodScoutPayload';
+import { prepareFoodEnricherPayload } from './preparers/prepareFoodEnricherPayload';
 
 import type { LocalizedContent, TaskKey, ChunkingState, TripProject, FoodSearchMode } from '../types';
 import { filterByRadius } from '../utils/geo';
@@ -153,7 +157,7 @@ export const PayloadBuilder = {
 
           const payload = prepareChefredakteurPayload(
               project, 
-              slicedCandidatesForEditor, // <-- FIX: Passing Array now
+              slicedCandidatesForEditor, 
               options?.chunkIndex || chunkingState?.currentChunk || 1, 
               options?.totalChunks || chunkingState?.totalChunks || 1
           );
@@ -161,7 +165,7 @@ export const PayloadBuilder = {
           // WICHTIG: Template erwartet Array, Preparer liefert Objekt (Rich Version)
           generatedPrompt = buildChefredakteurPrompt(
               project, 
-              payload.context.editorial_tasks, // <-- FIX: Extraction works
+              payload.context.editorial_tasks, 
               options?.chunkIndex || chunkingState?.currentChunk || 1, 
               options?.totalChunks || chunkingState?.totalChunks || 1
           ) || "";
@@ -207,6 +211,55 @@ export const PayloadBuilder = {
         const payload = prepareChefPlanerPayload(project, feedback);
         generatedPrompt = buildChefPlanerPrompt(payload);
         break;
+      }
+
+      // --- FOOD SECTION (V40 UPGRADE) ---
+
+      case 'food':
+      case 'foodScout':
+      case 'foodCollector': {
+          let mode: FoodSearchMode = 'standard';
+          if ((feedback && feedback.toLowerCase().includes('sterne')) || 
+              project.userInputs.customPreferences?.foodMode === 'stars') {
+              mode = 'stars';
+          }
+          // V40: Use specialized Preparer
+          const payload = prepareFoodScoutPayload(project, mode, feedback || "");
+          generatedPrompt = buildFoodScoutPrompt(payload);
+          break;
+      }
+       
+      case 'foodEnricher': {
+          // 1. SOURCE: Try to get candidates from Analysis (Scout Result)
+          // Fallback to legacy radius search if analysis is empty
+          let candidates = (project.analysis as any).foodScout?.candidates || [];
+          
+          if (!candidates || candidates.length === 0) {
+             candidates = getFilteredFoodCandidates(project);
+          }
+
+          // 2. SLICE: Batching logic
+          const slicedCandidates = sliceData(candidates, 'foodEnricher');
+          
+          // 3. GENERATE: Call Preparer & Template
+          if (slicedCandidates.length === 0 && candidates.length === 0) {
+              const payload = prepareFoodEnricherPayload(
+                  project, 
+                  [],
+                  options?.chunkIndex || chunkingState?.currentChunk || 1,
+                  options?.totalChunks || chunkingState?.totalChunks || 1
+              );
+              generatedPrompt = buildFoodEnricherPrompt(payload); 
+          } else {
+              const payload = prepareFoodEnricherPayload(
+                  project, 
+                  slicedCandidates,
+                  options?.chunkIndex || chunkingState?.currentChunk || 1,
+                  options?.totalChunks || chunkingState?.totalChunks || 1
+              );
+              generatedPrompt = buildFoodEnricherPrompt(payload);
+          }
+          break;
       }
 
       // --- 2. LEGACY HANDLERS ---
@@ -260,29 +313,6 @@ export const PayloadBuilder = {
           generatedPrompt = buildHotelScoutPrompt(project, "", feedback || "", "");
           break;
 
-      case 'food':
-      case 'foodScout':
-      case 'foodCollector': 
-          let mode: FoodSearchMode = 'standard';
-          if ((feedback && feedback.toLowerCase().includes('sterne')) || 
-              project.userInputs.customPreferences?.foodMode === 'stars') {
-              mode = 'stars';
-          }
-          generatedPrompt = buildFoodScoutPrompt(project, mode, feedback || "");
-          break;
-       
-      case 'foodEnricher': {
-          const candidates = getFilteredFoodCandidates(project);
-          const slicedCandidates = sliceData(candidates, 'foodEnricher');
-          
-          if (slicedCandidates.length === 0 && candidates.length === 0) {
-              generatedPrompt = buildFoodEnricherPrompt(project, []); 
-          } else {
-              generatedPrompt = buildFoodEnricherPrompt(project, slicedCandidates);
-          }
-          break;
-      }
-
       default:
         throw new Error(`PayloadBuilder: Unknown task '${task}'`);
     }
@@ -320,4 +350,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 524 Zeilen ---
+// --- END OF FILE 540 Zeilen ---
