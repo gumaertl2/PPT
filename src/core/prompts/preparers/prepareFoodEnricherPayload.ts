@@ -1,6 +1,5 @@
-// 26.01.2026 22:00 - FEAT: FoodEnricher Preparer.
-// Prepares candidates for deep research.
-// INJECTS: Editorial Guidelines from INTEREST_DATA['food'].
+// 27.01.2026 22:00 - FIX: Robust Candidate Fetching (Self-Service).
+// Looks into 'rawFoodCandidates' to find work, even if caller provides nothing.
 // src/core/prompts/preparers/prepareFoodEnricherPayload.ts
 
 import type { TripProject } from '../../types';
@@ -8,7 +7,7 @@ import { INTEREST_DATA } from '../../../data/interests';
 
 export const prepareFoodEnricherPayload = (
     project: TripProject,
-    candidates: any[],
+    candidates?: any[], // Changed to optional for robustness
     currentChunk: number = 1,
     totalChunks: number = 1
 ) => {
@@ -31,8 +30,23 @@ export const prepareFoodEnricherPayload = (
                               "";
 
     // 3. PREPARE CANDIDATES
+    // FIX: Self-Service - Check store if no candidates provided
+    let itemsToProcess = candidates;
+
+    if (!itemsToProcess || itemsToProcess.length === 0) {
+        // Look into the Store for the handover list from ResultProcessor
+        const rawCandidates = (project.data.content as any)?.rawFoodCandidates || [];
+        if (rawCandidates.length > 0) {
+            console.log(`[FoodEnricher] Found ${rawCandidates.length} candidates in Store (rawFoodCandidates).`);
+            itemsToProcess = rawCandidates;
+        } else {
+            console.warn(`[FoodEnricher] No candidates found in arguments or store.`);
+            itemsToProcess = [];
+        }
+    }
+
     // Candidates usually come from FoodScout (structured) or are raw strings/objects.
-    const itemsToEnrich = candidates.map(c => {
+    const itemsToEnrich = itemsToProcess.map(c => {
         // Safe access to properties
         const name = c.name || c.titel || "Unknown";
         // Location Hint: City or Lat/Lng
@@ -62,4 +76,4 @@ export const prepareFoodEnricherPayload = (
         }
     };
 };
-// --- END OF FILE 60 Zeilen ---
+// --- END OF FILE 79 Zeilen ---

@@ -1,9 +1,6 @@
+// 27.01.2026 21:45 - FIX: Added 'phone', 'awards' and 'openingHoursHint' to Place interface for FoodEnricher V30 parity.
 // 24.01.2026 13:00 - FEAT: Added 'detailContent' to Place interface (Separation of Concerns: Enricher vs Editor).
-// 23.01.2026 14:20 - FIX: Added PrintConfig & DetailLevel to central types (SSOT).
-// 23.01.2026 11:45 - FIX: Synchronized Place structure and Record type with real JSON data.
 // src/core/types.ts
-// 21.01.2026 11:55 - FIX: Full Restore of types.ts plus InfoAutor & CockpitViewMode (Zero-Build-Error).
-// 21.01.2026 03:30 - FIX: Added missing Type Definitions for TourGuide & IdeenScout (Zero-Build-Error).
 
 // --- GENERAL TYPES ---
 export type LanguageCode = 'de' | 'en' | 'es' | 'fr' | 'it' | 'nl' | 'pl' | 'pt' | 'ru' | 'tr' | 'ja' | 'zh';
@@ -401,6 +398,13 @@ export interface Place {
   logistics?: string; // FIX: Added logistics
   priceLevel?: string; // FIX: Added priceLevel
   
+  // NEW: Fields for FoodEnricher V30 Parity (27.01.2026)
+  phone?: string;
+  awards?: string[];
+  openingHoursHint?: string;
+  cuisine?: string;
+  vibe?: string[];
+
   // Status
   visited?: boolean;
   googlePlaceId?: string; // Legacy / Reference
@@ -455,4 +459,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 497 Zeilen ---
+// --- END OF FILE 505 Zeilen ---

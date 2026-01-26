@@ -1,11 +1,12 @@
-// 22.01.2026 21:45 - FIX: Implemented Incremental Saving via ResultProcessor to prevent data loss.
+// 27.01.2026 20:00 - FIX: Centralized Food Sequence Logic in Orchestrator.
+// Ensures consistent behavior for Ad-Hoc Button AND Workflow Step 7.
 // src/services/orchestrator.ts
 
 import { z } from 'zod';
 import { GeminiService } from './gemini';
 import { PayloadBuilder } from '../core/prompts/PayloadBuilder';
 import { useTripStore } from '../store/useTripStore';
-import { ResultProcessor } from './ResultProcessor'; // <--- NEW IMPORT
+import { ResultProcessor } from './ResultProcessor'; 
 import { CONFIG } from '../data/config';
 import { APPENDIX_ONLY_INTERESTS } from '../data/constants'; 
 import { 
@@ -223,15 +224,80 @@ export const TripOrchestrator = {
      return mergeResults(collectedResults, task);
   },
 
+  // Helper: Executes a single atomic task (Prompt -> API -> Validate -> Save)
+  async _executeSingleStep(task: TaskKey, feedback?: string): Promise<any> {
+      const store = useTripStore.getState();
+      const prompt = PayloadBuilder.buildPrompt(task, feedback);
+      const modelId = resolveModelId(task);
+      
+      if (store.aiSettings.debug) {
+          console.log(`[Orchestrator] Single Step: ${task} -> Model: ${modelId}`);
+      }
+
+      // 1. CALL API
+      const rawResult = await GeminiService.call(prompt, task, modelId);
+
+      // 2. VALIDATE
+      const schema = SCHEMA_MAP[task];
+      let validatedData = rawResult;
+
+      if (schema) {
+        const validation = schema.safeParse(rawResult);
+        if (!validation.success) {
+          console.warn(`[Orchestrator] Validation Failed for ${task}.`, JSON.stringify(rawResult, null, 2));
+          console.error(`[Orchestrator] Schema Errors:`, validation.error);
+          throw new Error(`KI-Antwort entspricht nicht dem V40-Schema für ${task}.`);
+        }
+        validatedData = validation.data;
+      }
+
+      // 3. SAVE
+      ResultProcessor.process(task, validatedData);
+      
+      return validatedData;
+  },
+
+  // MAIN ENTRY POINT
   async executeTask(task: TaskKey, feedback?: string): Promise<any> {
     const store = useTripStore.getState();
     const { project, chunkingState, setChunkingState, apiKey } = store;
 
-    // --- 1. CHUNKING CHECK ---
+    // --- A. SEQUENTIAL CHAINING: FOOD SCOUT + ENRICHER (NEW) ---
+    // If the requested task is 'foodScout' (or legacy 'food'), run the full sequence.
+    // This supports both the Ad-Hoc Button AND the Workflow Step 7.
+    if (task === 'foodScout' || task === 'food') {
+        console.log(`[Orchestrator] Detected Food Task. Starting Sequence: Scout -> Enricher`);
+        
+        try {
+            // 1. UI: Start
+            store.setChunkingState({ isActive: true, currentChunk: 1, totalChunks: 2, results: [] });
+            
+            // 2. Step 1: Scout (Finds restaurants)
+            const scoutResult = await this._executeSingleStep('foodScout', feedback);
+            
+            // 3. UI: Update (Prepare for Step 2)
+            store.setChunkingState({ currentChunk: 2 });
+            
+            // 4. Step 2: Enricher (Fetches details for found restaurants)
+            // Note: Enricher reads from Store (set by Scout via ResultProcessor)
+            // We call executeTask recursively so Enricher can use Chunking if needed!
+            await this.executeTask('foodEnricher'); 
+
+            return scoutResult; // Return initial scout data (or merged if preferred)
+
+        } catch (err) {
+            console.error("[Orchestrator] Food Sequence Failed", err);
+            throw err;
+        } finally {
+            // 5. Cleanup
+            store.resetChunking();
+        }
+    }
+
+    // --- B. CHUNKING CHECK (Standard Logic) ---
     const chunkableTasks: TaskKey[] = [
         'anreicherer', 'chefredakteur', 'infoAutor', 'foodEnricher', 'chefPlaner',
-        'dayplan', 'initialTagesplaner',
-        'infos', 'details', 'basis'
+        'dayplan', 'initialTagesplaner', 'infos', 'details', 'basis'
     ];
     
     if (chunkableTasks.includes(task)) {
@@ -239,11 +305,12 @@ export const TripOrchestrator = {
         const isManual = !apiKey;
         const limit = getTaskLimit(task, isManual);
 
-        // A. LIST BASED
+        // Calculate Items based on Task Type
         if (['anreicherer', 'chefredakteur', 'details'].includes(task)) {
             totalItems = Object.values(project.data.places || {}).flat().length;
         } 
         else if (task === 'foodEnricher') {
+            // Check candidates found by Scout
             const raw = (project.data.content as any)?.rawFoodCandidates || [];
             totalItems = raw.length; 
         }
@@ -253,68 +320,39 @@ export const TripOrchestrator = {
         else if (['basis', 'sightCollector'].includes(task)) {
              totalItems = project.userInputs.selectedInterests.length;
         }
-        // B. TIME BASED
         else if (['dayplan', 'initialTagesplaner'].includes(task)) {
             totalItems = project.userInputs.dates.duration || 1;
         }
-        // C. TOPIC BASED
         else if (['infos', 'infoAutor'].includes(task)) {
-            const appendixInterests = project.userInputs.selectedInterests.filter(id => 
-                APPENDIX_ONLY_INTERESTS.includes(id)
-            );
+            const appendixInterests = project.userInputs.selectedInterests.filter(id => APPENDIX_ONLY_INTERESTS.includes(id));
             totalItems = appendixInterests.length > 0 ? appendixInterests.length : 1;
         }
 
         // --- DECISION: INTERNAL LOOP (Auto) vs. UI LOOP (Manual) ---
         if (totalItems > limit) {
              if (apiKey) {
-                 // AUTO MODE: Use Internal Loop (No UI State Recursion)
                  return this.executeInternalChunkLoop(task, totalItems, limit);
              } else {
-                 // MANUAL MODE: Use UI Loop (Keep existing behavior)
+                 // Manual UI Loop
+                 // Only init if not already active (to respect sequences)
                  if (!chunkingState.isActive || chunkingState.currentChunk === 0) {
                      const totalChunks = Math.ceil(totalItems / limit);
-                     setChunkingState({
-                        isActive: true,
-                        currentChunk: 1, 
-                        totalChunks: totalChunks,
-                        results: [] 
-                      });
-                      await new Promise(r => setTimeout(r, 50));
+                     setChunkingState({ isActive: true, currentChunk: 1, totalChunks: totalChunks, results: [] });
+                     await new Promise(r => setTimeout(r, 50));
                  }
              }
         } else {
-            // No chunking needed
-            if (chunkingState.isActive) store.resetChunking();
+            // If called recursively (e.g. from Food Sequence), don't reset UI if it's already active for the sequence!
+            // Only reset if we are NOT in a sequence (totalChunks check might hint at it)
+            if (chunkingState.isActive && chunkingState.totalChunks <= 1) { 
+                store.resetChunking(); 
+            }
         }
     }
 
-    // --- 2. STANDARD EXECUTION (Single Chunk or Manual Step) ---
-    const prompt = PayloadBuilder.buildPrompt(task, feedback);
-    const modelId = resolveModelId(task);
-    
-    if (store.aiSettings.debug) {
-        console.log(`[Orchestrator] Task: ${task} -> Model: ${modelId}`);
-    }
-
-    // --- 3. EXECUTION ---
-    const rawResult = await GeminiService.call(prompt, task, modelId);
-
-    // --- 4. VALIDIERUNG ---
-    const schema = SCHEMA_MAP[task];
-    let validatedData = rawResult;
-
-    if (schema) {
-      const validation = schema.safeParse(rawResult);
-      if (!validation.success) {
-        console.warn(`[Orchestrator] Validation Failed for ${task}.`, JSON.stringify(rawResult, null, 2));
-        console.error(`[Orchestrator] Schema Errors:`, validation.error);
-        throw new Error(`KI-Antwort entspricht nicht dem V40-Schema für ${task}.`);
-      }
-      validatedData = validation.data;
-    }
-
-    return validatedData;
+    // --- C. STANDARD SINGLE EXECUTION ---
+    // Uses the helper to avoid code duplication
+    return this._executeSingleStep(task, feedback);
   }
 };
-// --- END OF FILE 295 Zeilen ---
+// --- END OF FILE 300 Zeilen ---

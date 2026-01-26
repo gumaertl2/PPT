@@ -1,5 +1,4 @@
-// 26.01.2026 23:30 - FEAT: Added 'special' Category for IdeenScout.
-// Maps Sunny/Rainy ideas to Places for Map/Guide visibility.
+// 27.01.2026 21:00 - FIX: foodScout now populates 'rawFoodCandidates' for Enricher Handover.
 // src/services/ResultProcessor.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -147,7 +146,6 @@ export const ResultProcessor = {
 
                     if (aiSettings.debug) {
                          const logMsg = isString ? `[Basis] String: "${name}"` : `[Basis] Object: "${name}"`;
-                         // FIX: Added ID back to log output
                          console.log(existingId ? `${logMsg} -> Merged (${id})` : `${logMsg} -> New ID (${id})`);
                     }
 
@@ -163,7 +161,6 @@ export const ResultProcessor = {
             });
             console.log(`[Basis] Processed ${extractedItems.length} items.`);
         } else {
-            // DEBUG: Show what we actually got if extraction fails
             console.warn(`[Basis] No items found in payload. Raw Keys:`, Object.keys(data || {}));
             if (aiSettings.debug) console.log('Raw Data Dump:', JSON.stringify(data).substring(0, 200) + '...');
         }
@@ -213,7 +210,6 @@ export const ResultProcessor = {
                  const targetId = resolvePlaceId(item, existingPlaces, aiSettings.debug);
                  if (targetId) {
                      updatePlace(targetId, {
-                         // FIX: Save detailed text to 'detailContent' to avoid overwriting the enricher's short 'description'.
                          detailContent: item.detailed_description || item.description || item.content,
                          reasoning: item.reasoning
                      });
@@ -232,12 +228,18 @@ export const ResultProcessor = {
       case 'hotelScout': {
         // Hier wird 'Restaurant' als Kategorie für Food gesetzt
         const category = ['food', 'foodScout', 'foodEnricher'].includes(step) ? 'Restaurant' : 'Hotel';
+        
         if (extractedItems.length > 0) {
+            const rawCandidates: any[] = []; // Collect items for Handover
+
             extractedItems.forEach((item: any) => {
                 const isString = typeof item === 'string';
                 const name = isString ? item : item.name;
+                
                 if (name) {
                     const id = item.id || uuidv4();
+                    
+                    // 1. Store in DB (SSOT)
                     updatePlace(id, {
                         id,
                         name,
@@ -248,8 +250,39 @@ export const ResultProcessor = {
                         description: isString ? category : (item.description || item.cuisine || ''),
                         ...(isString ? {} : item)
                     });
+
+                    // 2. Add to Handover List (if it's the Scout running)
+                    if (step === 'foodScout' || step === 'food') {
+                        rawCandidates.push({
+                            id,
+                            name,
+                            city: item.city || item.ort,
+                            guides: item.guides
+                        });
+                    }
                 }
             });
+            
+            // --- FIX: HANDOVER TO ENRICHER ---
+            // Wir speichern die Kandidaten explizit in 'rawFoodCandidates',
+            // damit der Enricher im nächsten Schritt weiß, was er tun soll.
+            if ((step === 'foodScout' || step === 'food') && rawCandidates.length > 0) {
+                console.log(`[ResultProcessor] 🤝 Handing over ${rawCandidates.length} candidates to FoodEnricher (rawFoodCandidates).`);
+                
+                useTripStore.setState((s) => ({
+                    project: {
+                        ...s.project,
+                        data: {
+                            ...s.project.data,
+                            content: {
+                                ...s.project.data.content,
+                                rawFoodCandidates: rawCandidates // <--- DIE LÖSUNG
+                            }
+                        }
+                    }
+                }));
+            }
+
             console.log(`[${category}] Stored ${extractedItems.length} items.`);
         }
         break;
@@ -266,7 +299,6 @@ export const ResultProcessor = {
               let addedCount = 0;
 
               data.results.forEach((group: any) => {
-                  // Helper: Process list for a specific weather type
                   const processList = (list: any[], subType: string) => {
                       if (!Array.isArray(list)) return;
                       list.forEach((item: any) => {
@@ -276,14 +308,13 @@ export const ResultProcessor = {
                           updatePlace(id, {
                               id,
                               name: item.name,
-                              category: 'special', // Eigene Kategorie für Sondertage
+                              category: 'special',
                               address: item.address,
                               description: item.description,
-                              // If AI provides no lat/lng, we store what we have.
                               location: item.location || { lat: 0, lng: 0 }, 
                               
                               details: {
-                                  specialType: subType, // 'sunny' | 'rainy'
+                                  specialType: subType,
                                   duration: item.estimated_duration_minutes,
                                   note: item.planning_note,
                                   website: item.website_url,
@@ -307,23 +338,19 @@ export const ResultProcessor = {
 
       case 'infoAutor':
       case 'infos': {
-          // FIX: Persist Chapters to data.content.infos AND ensure they have a title
           if (extractedItems.length > 0) {
               const currentContent = useTripStore.getState().project.data.content || {};
-              // Ensure we treat 'infos' as an array, defaulting to empty if missing
               const currentInfos = Array.isArray(currentContent.infos) ? [...currentContent.infos] : [];
               
               const processedChapters = extractedItems.map((chapter: any) => {
                   return {
                       id: chapter.id || uuidv4(),
                       type: chapter.type || 'info',
-                      // FALLBACK: If title is missing, generate one from name or ID to ensure InfoView displays it
                       title: chapter.title || chapter.name || (chapter.id ? chapter.id.replace(/_/g, ' ') : 'Information'),
                       content: chapter.content || chapter.description
                   };
-              }).filter(c => c.content); // Only save meaningful chapters
+              }).filter(c => c.content); 
 
-              // Merge strategy: Overwrite existing chapters with same ID/Title, append new ones
               processedChapters.forEach(newChap => {
                   const idx = currentInfos.findIndex(c => c.id === newChap.id || c.title === newChap.title);
                   if (idx >= 0) {
@@ -333,7 +360,6 @@ export const ResultProcessor = {
                   }
               });
 
-              // Save to Store (Persistence)
               useTripStore.setState((s) => ({
                   project: {
                       ...s.project,
@@ -341,15 +367,13 @@ export const ResultProcessor = {
                           ...s.project.data,
                           content: {
                               ...s.project.data.content,
-                              infos: currentInfos // Save as Array
+                              infos: currentInfos 
                           }
                       }
                   }
               }));
 
               console.log(`[InfoAutor] Persisted ${processedChapters.length} chapters to data.content.infos`);
-              
-              // Update UI View (Immediate Feedback)
               setAnalysisResult('infoAutor', { chapters: processedChapters });
           } else if (data) {
               setAnalysisResult('infoAutor', data);
@@ -373,4 +397,4 @@ export const ResultProcessor = {
     }
   }
 };
-// --- END OF FILE 372 Zeilen ---
+// --- END OF FILE 380 Zeilen ---

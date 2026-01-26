@@ -1,6 +1,5 @@
-// 27.01.2026 18:15 - FIX: Removed GPS Logic (Cleanup).
+// 27.01.2026 20:30 - FIX: Added UI Feedback (Loading Notification) for Ad-Hoc Search.
 // Location: src/features/Cockpit/AdHocFoodModal.tsx
-// Pure text-based location search.
 
 import React, { useState } from 'react';
 import { useTripStore } from '../../store/useTripStore';
@@ -13,7 +12,8 @@ interface AdHocFoodModalProps {
 }
 
 export const AdHocFoodModal: React.FC<AdHocFoodModalProps> = ({ isOpen, onClose }) => {
-  const { triggerAiTask } = useTripStore();
+  // FIX: Destructure notification actions
+  const { triggerAiTask, addNotification, dismissNotification } = useTripStore();
   const { t } = useTranslation();
   
   // State
@@ -23,17 +23,44 @@ export const AdHocFoodModal: React.FC<AdHocFoodModalProps> = ({ isOpen, onClose 
 
   if (!isOpen) return null;
 
-  const handleSearch = () => {
-    // Command String for Preparer
-    // Format: ADHOC_SEARCH|LOC:Name|RAD:10|MODE:stars
+  const handleSearch = async () => {
+    // 1. Prepare Command
     const locString = location || 'Umgebung';
     const feedbackString = `ADHOC_SEARCH|LOC:${locString}|RAD:${radius}|MODE:${mode}`;
 
-    // Trigger Task
-    triggerAiTask('foodScout', feedbackString);
-
-    // Close & Reset
+    // 2. CLOSE MODAL IMMEDIATELY (User returns to Cockpit)
     onClose();
+
+    // 3. SHOW LOADING NOTIFICATION (The "Window")
+    const loadingId = addNotification({
+        type: 'loading',
+        message: `${t('adhoc_food.title')}: ${t('status.analyzing')}`, // "Ad-Hoc...: Analysiere..."
+        autoClose: false
+    });
+
+    try {
+        // 4. RUN TASK (Awaited)
+        // Orchestrator handles the sequence (Scout -> Enricher)
+        await triggerAiTask('foodScout', feedbackString);
+
+        // 5. SUCCESS
+        dismissNotification(loadingId);
+        addNotification({
+            type: 'success',
+            message: t('status.success'),
+            autoClose: 3000
+        });
+
+    } catch (error) {
+        // 6. ERROR
+        console.error("Ad-Hoc Search Failed:", error);
+        dismissNotification(loadingId);
+        addNotification({
+            type: 'error',
+            message: t('status.error'),
+            autoClose: 5000
+        });
+    }
   };
 
   return (
@@ -72,6 +99,8 @@ export const AdHocFoodModal: React.FC<AdHocFoodModalProps> = ({ isOpen, onClose 
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder={t('adhoc_food.placeholder_location')}
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                // Auto-Focus for UX
+                autoFocus
               />
             </div>
           </div>
@@ -174,4 +203,4 @@ export const AdHocFoodModal: React.FC<AdHocFoodModalProps> = ({ isOpen, onClose 
     </div>
   );
 };
-// --- END OF FILE 115 Zeilen ---
+// --- END OF FILE 135 Zeilen ---

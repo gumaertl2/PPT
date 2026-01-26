@@ -1,10 +1,10 @@
-// 27.01.2026 18:45 - FIX: Added triggerAiTask to support Ad-Hoc Modal.
-// Uses correct 'TripOrchestrator' import and 'executeTask' method.
+// 27.01.2026 19:45 - FIX: triggerAiTask delegates purely to Orchestrator (SSOT).
+// Sequence logic moved to Orchestrator to support both Ad-Hoc and Workflow modes.
 // src/store/slices/createAnalysisSlice.ts
 
 import type { StateCreator } from 'zustand';
-import type { TripProject, ChefPlanerResult, RouteArchitectResult, TaskKey } from '../../core/types'; // FIX: Added TaskKey
-import { TripOrchestrator } from '../../services/orchestrator'; // FIX: Correct Import Name
+import type { TripProject, ChefPlanerResult, RouteArchitectResult, TaskKey } from '../../core/types';
+import { TripOrchestrator } from '../../services/orchestrator';
 
 // Helper Type to avoid circular dependency with TripStore
 type StoreState = {
@@ -14,7 +14,6 @@ type StoreState = {
 // --- INTERFACE DEFINITION ---
 export interface AnalysisSlice {
   // Actions
-  // FIX: Allow string as task key to support all dynamic V40 tasks (e.g. 'ideenScout', 'infoAutor')
   setAnalysisResult: (
     task: string, 
     data: any
@@ -22,13 +21,12 @@ export interface AnalysisSlice {
   
   clearAnalysis: () => void;
 
-  // NEW: Action to trigger AI tasks from UI components
+  // Trigger AI tasks from UI
   triggerAiTask: (task: string, feedback?: string) => Promise<void>;
   
   // Selectors
   getChefPlanerResult: () => ChefPlanerResult | null;
   getRouteArchitectResult: () => RouteArchitectResult | null;
-  // NEW: Generic selector for V40 components
   getAnalysisResult: (key: string) => any;
 }
 
@@ -44,11 +42,7 @@ export const createAnalysisSlice: StateCreator<
   
   setAnalysisResult: (task, data) => {
     set((state) => {
-      // FIX: Access analysis via 'project' property
       const newAnalysis = { ...state.project.analysis };
-
-      // FIX: Generic assignment for ALL tasks
-      // This covers: chefPlaner, routeArchitect, ideenScout, infoAutor, tourGuide, transferPlanner, etc.
       (newAnalysis as any)[task] = data;
 
       return {
@@ -71,19 +65,16 @@ export const createAnalysisSlice: StateCreator<
       project: {
           ...state.project,
           analysis: {
-            // Reset to empty object or minimal defaults if needed
-            // Keeping types happy by casting or partial reset
             ...({} as any) 
           }
       }
     }));
   },
 
-  // NEW: Implementation of triggerAiTask
+  // NEW: Pure Delegate to Orchestrator
+  // The Sequencing (Scout -> Enricher) is now handled internally by executeTask
   triggerAiTask: async (task, feedback) => {
       console.log(`[Store] Triggering AI Task: ${task}`, feedback ? `(Feedback: ${feedback})` : '');
-      // Delegate execution to the Orchestrator Service
-      // FIX: Correctly call TripOrchestrator.executeTask
       await TripOrchestrator.executeTask(task as TaskKey, feedback);
   },
 
@@ -97,10 +88,9 @@ export const createAnalysisSlice: StateCreator<
       return get().project.analysis.routeArchitect || null;
   },
 
-  // NEW: Generic selector implementation
   getAnalysisResult: (key: string) => {
       return (get().project.analysis as any)[key] || null;
   }
 
 });
-// --- END OF FILE 113 Zeilen ---
+// --- END OF FILE 105 Zeilen ---
