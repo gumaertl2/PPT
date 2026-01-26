@@ -1,6 +1,5 @@
-// 26.01.2026 16:15 - FIX: MERGED User Logic with Research Protocol.
-// Retains full context (Home, Arrival, Countries) and strict PromptBuilder setup.
-// Adds strict 'Live Research' permission for factual chapters.
+// 26.01.2026 17:15 - FIX: InfoAutor Template.
+// Adds strict 'Live Research' permission for factual chapters (Visa, Customs).
 // src/core/prompts/templates/infoAutor.ts
 
 import type { TripProject } from '../../types';
@@ -23,12 +22,12 @@ export const buildInfoAutorPrompt = (
     
     const chunkingInfo = totalChunks > 1 ? ` (Block ${currentChunk}/${totalChunks})` : '';
 
-    // 1. STRATEGIC BRIEFING
+    // 1. STRATEGIC BRIEFING (V40 English Key)
     const strategicBriefing = (analysis.chefPlaner as any)?.strategic_briefing?.sammler_briefing || 
                               (analysis.chefPlaner as any)?.strategisches_briefing?.sammler_briefing || 
                               "";
 
-    // Data Mapping (Context Extraction)
+    // Data Mapping
     let home = 'Unknown';
     if (logistics.mode === 'roundtrip' && logistics.roundtrip.startLocation) {
         home = logistics.roundtrip.startLocation;
@@ -42,14 +41,12 @@ export const buildInfoAutorPrompt = (
 
     // Generate Task Logic
     const taskList = tasksChunk.map(p => {
-        // COMPATIBILITY FIX: Accept both new 'instruction' (from new Preparer) and old 'anweisung'
+        // COMPATIBILITY: Support both new 'instruction' and legacy 'anweisung'
         let instruction = p.instruction || p.anweisung || `Create a general, useful description for '${p.title || p.titel}'.`;
         const title = p.title || p.titel || "Unknown Title";
         const type = p.type || p.typ || "general";
-        
-        // Context Injection (Minimal)
-        // If the preparer set a context (e.g. "Italy" or "Munich"), we enforce focus.
-        // Also map 'context' from new Preparer to 'contextLocation' if needed.
+
+        // Context Injection
         const contextLoc = p.context || p.contextLocation;
         if (contextLoc) {
              instruction += `\n\n**CONTEXT:** Focus exclusively on: ${contextLoc}`;
@@ -81,7 +78,7 @@ Here is the list of IDs and corresponding instructions (AIA).
 ${taskList}
 ---`;
 
-    // FIX: Schema converted to V40 English keys (Preserved from your file)
+    // FIX: Schema converted to V40 English keys
     const outputSchema = {
       "_thought_process": [
         "String (Step 1: Analyze task...)",
@@ -106,4 +103,4 @@ ${taskList}
         .withSelfCheck(['basic', 'research'])
         .build();
 };
-// --- END OF FILE 109 Zeilen ---
+// --- END OF FILE 108 Zeilen ---
