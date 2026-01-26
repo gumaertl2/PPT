@@ -409,7 +409,7 @@
     "save_start": "Save & Start",
     "save_anyway": "Save Anyway"
   },
-"export": {
+  "export": {
     "title": "Google Maps Export",
     "copied_title": "Data copied!",
     "copied_subtitle": "The travel data is already in your clipboard. Now follow these steps:",
@@ -424,7 +424,7 @@
     "subtitle": "Assemble your individual travel report",
     "detail_level": "Detail Level",
     "sections_label": "Select Sections",
-    "footer_tip": "Tip: Save the printout as a PDF to take it with you digitally.",
+    "footer_tip": "Tip: Save the printout as a PDF, to take it with you digitally.",
     "btn_start": "Start Print",
     "sections": {
       "briefing": "Briefing & Strategy",
@@ -433,5 +433,22 @@
       "categories": "Guide (Categories)",
       "infos": "Travel Info A-Z"
     }
+  },
+  "adhoc_food": {
+    "title": "Ad-Hoc Restaurant Search",
+    "subtitle": "Spontaneously search for restaurants nearby without creating a full itinerary.",
+    "label_location": "Where are you looking?",
+    "placeholder_location": "City, place or hotel...",
+    "gps_button": "Current Location (GPS)",
+    "label_radius": "Search Radius",
+    "walk": "Walking dist. (1km)",
+    "drive": "Car (50km)",
+    "label_mode": "Preference",
+    "mode_standard_title": "Good & Authentic",
+    "mode_standard_desc": "Authentic cuisine, Bib Gourmand, Local Heroes. No star prices.",
+    "mode_stars_title": "Top Class",
+    "mode_stars_desc": "Michelin Stars, Toques, Fine Dining. The culinary experience.",
+    "btn_cancel": "Cancel",
+    "btn_search": "Start Search"
   }
 }

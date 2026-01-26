@@ -1,8 +1,10 @@
-// 20.01.2026 16:35 - FIX: Expanded Store to accept ALL V40 Tasks (Ideen, Info, Tour, etc.) dynamically.
+// 27.01.2026 18:45 - FIX: Added triggerAiTask to support Ad-Hoc Modal.
+// Uses correct 'TripOrchestrator' import and 'executeTask' method.
 // src/store/slices/createAnalysisSlice.ts
 
 import type { StateCreator } from 'zustand';
-import type { TripProject, ChefPlanerResult, RouteArchitectResult } from '../../core/types';
+import type { TripProject, ChefPlanerResult, RouteArchitectResult, TaskKey } from '../../core/types'; // FIX: Added TaskKey
+import { TripOrchestrator } from '../../services/orchestrator'; // FIX: Correct Import Name
 
 // Helper Type to avoid circular dependency with TripStore
 type StoreState = {
@@ -19,6 +21,9 @@ export interface AnalysisSlice {
   ) => void;
   
   clearAnalysis: () => void;
+
+  // NEW: Action to trigger AI tasks from UI components
+  triggerAiTask: (task: string, feedback?: string) => Promise<void>;
   
   // Selectors
   getChefPlanerResult: () => ChefPlanerResult | null;
@@ -74,6 +79,14 @@ export const createAnalysisSlice: StateCreator<
     }));
   },
 
+  // NEW: Implementation of triggerAiTask
+  triggerAiTask: async (task, feedback) => {
+      console.log(`[Store] Triggering AI Task: ${task}`, feedback ? `(Feedback: ${feedback})` : '');
+      // Delegate execution to the Orchestrator Service
+      // FIX: Correctly call TripOrchestrator.executeTask
+      await TripOrchestrator.executeTask(task as TaskKey, feedback);
+  },
+
   // --- SELECTORS ---
   
   getChefPlanerResult: () => {
@@ -90,4 +103,4 @@ export const createAnalysisSlice: StateCreator<
   }
 
 });
-// --- END OF FILE 98 Zeilen ---
+// --- END OF FILE 113 Zeilen ---

@@ -1,7 +1,5 @@
+// 27.01.2026 17:30 - FEAT: Added Ad-Hoc Food Modal Trigger.
 // 24.01.2026 14:15 - FIX: Map Button resets selection to trigger 'Overview Mode'.
-// 23.01.2026 23:45 - FEATURE: Enabled Map Button in Header & Refined Guide/Map Toggle Logic.
-// 23.01.2026 14:45 - FIX: Resolved SyntaxError by centralizing PrintConfig import.
-// 23.01.2026 13:45 - FIX: Integrated PrintModal & triggerPrint logic (Step 5 of 5).
 // src/features/Cockpit/Layout/CockpitHeader.tsx
 
 import React, { useState, useRef } from 'react';
@@ -33,13 +31,14 @@ import { useTripStore } from '../../../store/useTripStore';
 import { SettingsModal } from '../SettingsModal';
 import ExportModal from '../ExportModal'; 
 import PrintModal from '../PrintModal'; 
+import { AdHocFoodModal } from '../AdHocFoodModal'; // <-- NEU
 import { ExportService } from '../../../services/ExportService'; 
 import type { CockpitViewMode, PrintConfig } from '../../../core/types'; 
 
 interface CockpitHeaderProps {
   viewMode: CockpitViewMode;
   setViewMode: (mode: CockpitViewMode) => void;
-  onReset: () => void;      
+  onReset: () => void;       
   onLoad: (hasAnalysis: boolean) => void; 
   onOpenHelp: () => void;   
 }
@@ -63,7 +62,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     setWorkflowModalOpen, 
     setView, 
     toggleSightFilter, 
-    isSightFilterOpen,   
+    isSightFilterOpen,    
     uiState, 
     setUIState
   } = useTripStore();
@@ -76,6 +75,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false); 
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false); 
+  const [isAdHocModalOpen, setIsAdHocModalOpen] = useState(false); // <-- NEU
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -171,11 +171,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
       onReset(); 
       setShowActionsMenu(false);
     }
-  };
-
-  const placeholderAction = (name: string) => {
-    alert(`Aktion '${name}' ist noch nicht implementiert.`);
-    setShowActionsMenu(false);
   };
 
   const handlePrintConfirm = (config: PrintConfig) => {
@@ -366,8 +361,8 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                       onClick={() => { if(hasAnalysisResult) { setViewMode('analysis'); setShowActionsMenu(false); }}} 
                       disabled={!hasAnalysisResult}
                       className={`w-full text-left px-4 py-2 hover:bg-blue-50 flex items-center gap-3 text-sm font-medium ${
-                         !hasAnalysisResult ? 'text-slate-300 cursor-not-allowed' : 
-                         viewMode === 'analysis' ? 'text-blue-600 bg-blue-50' : 'text-slate-700'
+                          !hasAnalysisResult ? 'text-slate-300 cursor-not-allowed' : 
+                          viewMode === 'analysis' ? 'text-blue-600 bg-blue-50' : 'text-slate-700'
                       }`}
                     >
                       <Layout className="w-4 h-4" /> {t('wizard.actions_menu.foundation')}
@@ -379,8 +374,8 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                       onClick={handleOpenRoute}
                       disabled={!hasRouteResult}
                       className={`w-full text-left px-4 py-2 hover:bg-blue-50 flex items-center gap-3 text-sm font-medium ${
-                         !hasRouteResult ? 'text-slate-300 cursor-not-allowed' :
-                         viewMode === 'routeArchitect' ? 'text-blue-600 bg-blue-50' : 'text-slate-700'
+                          !hasRouteResult ? 'text-slate-300 cursor-not-allowed' :
+                          viewMode === 'routeArchitect' ? 'text-blue-600 bg-blue-50' : 'text-slate-700'
                       }`}
                     >
                       <MapIcon className="w-4 h-4" /> {t('wizard.actions_menu.route')}
@@ -393,9 +388,14 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                       <Sparkles className="w-4 h-4 text-purple-500" /> AI Workflows
                     </button>
 
-                    <button onClick={() => placeholderAction('Ad-hoc Food')} className="w-full text-left px-4 py-2 hover:bg-blue-50 text-slate-700 flex items-center gap-3 text-sm font-medium">
+                    {/* NEW: Ad-Hoc Trigger */}
+                    <button 
+                      onClick={() => { setShowActionsMenu(false); setIsAdHocModalOpen(true); }}
+                      className="w-full text-left px-4 py-2 hover:bg-blue-50 text-slate-700 flex items-center gap-3 text-sm font-medium"
+                    >
                       <Zap className="w-4 h-4 text-amber-500" /> {t('wizard.actions_menu.adhoc_food')}
                     </button>
+
                     <button 
                       onClick={async () => { 
                         setShowActionsMenu(false); 
@@ -457,8 +457,13 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
         onClose={() => setIsPrintModalOpen(false)}
         onConfirm={handlePrintConfirm}
       />
+
+      {/* NEW: Ad-Hoc Modal */}
+      <AdHocFoodModal 
+        isOpen={isAdHocModalOpen} 
+        onClose={() => setIsAdHocModalOpen(false)} 
+      />
     </>
   );
 };
-
-// --- END OF FILE 450 Zeilen ---
+// --- END OF FILE 485 Zeilen ---

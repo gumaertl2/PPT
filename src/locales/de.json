@@ -409,11 +409,11 @@
     "save_start": "Speichern & Starten",
     "save_anyway": "Trotzdem Speichern"
   },
-"export": {
+  "export": {
     "title": "Google Maps Export",
     "copied_title": "Daten kopiert!",
     "copied_subtitle": "Die Reisedaten befinden sich bereits in deiner Zwischenablage. Folge nun diesen Schritten:",
-    "step1_text": "Öffne ein neues Google Sheet und füge die Daten in Zelle A1 ein (Rechtsklick -> Einfügen).",
+    "step1_text": "Öffne ein neues Google Sheet und füge die Daten in Zelle A1 (Rechtsklick -> Einfügen).",
     "step1_btn": "Neues Google Sheet öffnen",
     "step2_text": "Erstelle in Google My Maps eine neue Karte und klicke auf \"Importieren\".",
     "step2_btn": "Google My Maps öffnen",
@@ -433,5 +433,22 @@
       "categories": "Reiseführer (Kategorien)",
       "infos": "Reise-Infos A-Z"
     }
+  },
+  "adhoc_food": {
+    "title": "Ad-Hoc Restaurant-Suche",
+    "subtitle": "Suchen Sie spontan nach Restaurants in Ihrer Nähe, ohne einen ganzen Reiseplan zu erstellen.",
+    "label_location": "Wo suchen Sie?",
+    "placeholder_location": "Stadt, Ort oder Hotel...",
+    "gps_button": "Aktueller Standort (GPS)",
+    "label_radius": "Suchradius",
+    "walk": "Gehweite (1km)",
+    "drive": "Auto (50km)",
+    "label_mode": "Anspruch",
+    "mode_standard_title": "Gut & Bodenständig",
+    "mode_standard_desc": "Authentische Küche, Bib Gourmand, Local Heroes. Keine Sterne-Preise.",
+    "mode_stars_title": "Spitzenklasse",
+    "mode_stars_desc": "Michelin Sterne, Hauben, Fine Dining. Das kulinarische Erlebnis.",
+    "btn_cancel": "Abbrechen",
+    "btn_search": "Suche starten"
   }
 }
