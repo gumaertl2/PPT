@@ -1,7 +1,6 @@
+// 28.01.2026 18:45 - FIX: Enhanced Google Maps URL generation (Added City Context to Waypoints).
 // 28.01.2026 17:50 - FIX: Implemented functional Google Maps URL generation for Walking Tours (Waypoints).
 // 28.01.2026 00:15 - FIX: Removed default duration (60min). Field is now empty if unknown.
-// 27.01.2026 23:55 - FIX: Website Link Protocol (localhost fix).
-// Added 'ensureAbsoluteUrl' to prevent relative path interpretation.
 // src/features/Cockpit/SightCard.tsx
 
 import React, { useState, useEffect, useRef } from 'react'; 
@@ -199,14 +198,28 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   const renderWalkRoute = () => {
     if (!data.waypoints || !Array.isArray(data.waypoints) || data.waypoints.length < 2) return null;
 
-    // FIX: Use official Google Maps Directions API URL structure
-    const origin = encodeURIComponent(data.waypoints[0].address || data.waypoints[0].name);
-    const destination = encodeURIComponent(data.waypoints[data.waypoints.length - 1].address || data.waypoints[data.waypoints.length - 1].name);
+    // FIX: Extract City Context (Robustness against generic street names)
+    // Try data.city first, then fallback to extracting from address string (e.g. "70173 Stuttgart")
+    const cityContext = data.city || (data.address ? data.address.match(/\d{5}\s+([^,]+)/)?.[1] : '') || '';
+
+    // Helper to append city if missing
+    const formatWp = (wp: any) => {
+        let val = wp.address || wp.name || '';
+        // If we have a city context and it's NOT already in the string, append it.
+        if (cityContext && val && !val.toLowerCase().includes(cityContext.toLowerCase())) {
+            val += `, ${cityContext}`;
+        }
+        return val;
+    };
+
+    // FIX: Use official Google Maps Directions API URL structure (https://www.google.com/maps/dir/...)
+    const origin = encodeURIComponent(formatWp(data.waypoints[0]));
+    const destination = encodeURIComponent(formatWp(data.waypoints[data.waypoints.length - 1]));
     
     let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=walking`;
 
     if (data.waypoints.length > 2) {
-        const intermediates = data.waypoints.slice(1, -1).map((wp: any) => encodeURIComponent(wp.address || wp.name)).join('|');
+        const intermediates = data.waypoints.slice(1, -1).map((wp: any) => encodeURIComponent(formatWp(wp))).join('|');
         url += `&waypoints=${intermediates}`;
     }
 

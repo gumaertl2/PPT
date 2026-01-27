@@ -1,4 +1,5 @@
-// 26.01.2026 19:20 - FIX: Type Safety for Logistics & Unused Var cleanup.
+// 28.01.2026 19:30 - FIX: Renamed 'titel' to 'name' to pass PayloadBuilder validation (sliceData requires 'name').
+// 28.01.2026 19:00 - FIX: Added Fallback Region for IdeenScout if no Hubs are defined.
 // src/core/prompts/preparers/prepareIdeenScoutPayload.ts
 
 import type { TripProject } from '../../types';
@@ -35,6 +36,7 @@ export const prepareIdeenScoutPayload = (project: TripProject): any[] => {
         if (userInputs.logistics.roundtrip.stops) {
             hubs = userInputs.logistics.roundtrip.stops.map(s => s.location);
         }
+        // FIX: Extract from RouteArchitect (using location_name as confirmed in data)
         if (analysis.routeArchitect?.routes?.[0]?.stages) {
             const routeHubs = analysis.routeArchitect.routes[0].stages.map(s => s.location_name);
             if (routeHubs.length > 0) hubs = routeHubs;
@@ -42,11 +44,23 @@ export const prepareIdeenScoutPayload = (project: TripProject): any[] => {
     }
 
     // Filter: Remove empty hubs and Home Location
-    const validHubs = [...new Set(hubs)].filter(hub => 
+    let validHubs = [...new Set(hubs)].filter(hub => 
         hub && 
         hub.length > 2 && 
         !isSameLocation(hub, origin)
     );
+
+    // --- FALLBACK IF NO HUBS FOUND ---
+    // Should typically not be needed if RouteArchitect ran, but prevents empty prompt crashes.
+    if (validHubs.length === 0) {
+        const region = userInputs.logistics.mode === 'stationaer' 
+            ? userInputs.logistics.stationary.region 
+            : userInputs.logistics.roundtrip.region;
+            
+        if (region && region.length > 2) {
+            validHubs.push(region);
+        }
+    }
 
     // 3. GENERATE BLOCKED LIST
     const plannedPlaces = Object.values(data.places || {});
@@ -59,10 +73,12 @@ export const prepareIdeenScoutPayload = (project: TripProject): any[] => {
         return {
             id: `ideen_scout_${index}`,
             typ: 'ideas',
-            titel: `Ideas for ${hub}`,
+            // CRITICAL FIX: PayloadBuilder.sliceData requires 'name' property to be present!
+            // Was 'titel' before, which caused the items to be filtered out silently.
+            name: `Ideas for ${hub}`, 
             location: hub,
             blocked: blockedNames 
         };
     });
 };
-// --- END OF FILE 75 Zeilen ---
+// --- END OF FILE 95 Zeilen ---
