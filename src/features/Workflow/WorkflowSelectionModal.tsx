@@ -1,8 +1,6 @@
+// 28.01.2026 17:00 - FIX: Corrected status checks for 'guide' and 'details' to match V40 data structure.
 // 20.01.2026 20:25 - FIX: Sync with V40 English Types (validated_hotels).
 // src/features/Workflow/WorkflowSelectionModal.tsx
-// 19.01.2026 17:50 - FIX: Updated Hotel check to use German key 'validierte_hotels' (V30 Parity).
-// 13.01.2026 17:55 - FIX: Fixed case-sensitive import (Cockpit) and removed unused useTranslation.
-// 16.01.2026 01:45 - FIX: Added missing status check for 'routeArchitect'.
 
 import React, { useState, useEffect } from 'react';
 import { useTripStore } from '../../store/useTripStore';
@@ -70,14 +68,17 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
 
       case 'guide':
         if (!hasPlaces) return 'locked'; 
-        return Object.keys(project.data.routes).length > 0 ? 'done' : 'available';
+        // FIX: V40 uses analysis.tourGuide, not data.routes
+        return project.analysis.tourGuide ? 'done' : 'available';
 
       case 'details':
         if (!hasPlaces) return 'locked';
-        return Object.keys(project.data.content).length > 0 ? 'done' : 'available';
+        // FIX: V40 stores details directly on the Place object (detailContent), not in data.content
+        const hasDetails = validPlaces.some((p: any) => p.detailContent && p.detailContent.length > 50);
+        return hasDetails ? 'done' : 'available';
 
       case 'dayplan':
-        const hasGuide = Object.keys(project.data.routes).length > 0;
+        const hasGuide = project.analysis.tourGuide; // Also updated dependency check
         if (!hasPlaces || !hasGuide) return 'locked';
         return project.itinerary.days.length > 0 ? 'done' : 'available';
 

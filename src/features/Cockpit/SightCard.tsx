@@ -1,5 +1,6 @@
-// 27.01.2026 23:45 - FIX: UI Update for FoodEnricher V30 Parity (Awards, Phone, Cuisine/Vibe Tags).
-// 25.01.2026 12:45 - FIX: Layout improvements (Parser logic, Spacing, Close-Button) & Added Google Maps Route Link.
+// 28.01.2026 00:15 - FIX: Removed default duration (60min). Field is now empty if unknown.
+// 27.01.2026 23:55 - FIX: Website Link Protocol (localhost fix).
+// Added 'ensureAbsoluteUrl' to prevent relative path interpretation.
 // src/features/Cockpit/SightCard.tsx
 
 import React, { useState, useEffect, useRef } from 'react'; 
@@ -65,7 +66,8 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   const category = data.category || 'Allgemein'; 
   const rating = data.rating || 0; 
   
-  const userRatingsTotal = data.ratingCount || 0; 
+  // FIX: Access the correct field from JSON/Type (Priority: user_ratings_total)
+  const userRatingsTotal = data.user_ratings_total || data.ratingCount || 0; 
   
   // NEW V30 Data Fields (27.01.2026)
   const awards = data.awards || [];
@@ -77,7 +79,8 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   // User Selection State
   const userSelection = data.userSelection || {};
   const priority = userSelection.priority ?? 0; 
-  const customDuration = userSelection.customDuration || data.duration || 60; 
+  // FIX: Removed default '|| 60' to allow empty/unknown duration
+  const customDuration = userSelection.customDuration || data.duration; 
   const customCategory = userSelection.customCategory || category;
   
   const isFixed = priority === 3;
@@ -94,6 +97,15 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
         return (def.label as any)[currentLang] || (def.label as any)['de'] || catId;
     }
     return catId.charAt(0).toUpperCase() + catId.slice(1).replace(/_/g, ' ');
+  };
+
+  // FIX: Ensure absolute URL for external links
+  const ensureAbsoluteUrl = (url: string | undefined): string | undefined => {
+      if (!url) return undefined;
+      if (url.trim().match(/^(http:\/\/|https:\/\/)/i)) {
+          return url.trim();
+      }
+      return `https://${url.trim()}`;
   };
   
   const displayCategory = resolveCategoryLabel(customCategory); 
@@ -343,7 +355,8 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
                <input
                  type="number"
                  step="15"
-                 value={customDuration}
+                 // FIX: Allow empty value if duration is undefined
+                 value={customDuration || ''}
                  onChange={handleDurationChange}
                  className="w-10 bg-transparent border-b border-gray-300 p-0 text-center text-xs focus:border-blue-500 focus:ring-0"
                />
@@ -355,7 +368,7 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
 
             <div className="flex items-center gap-2 ml-auto no-print">
                {data.website && (
-                 <a href={data.website} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-600" title="Homepage">
+                 <a href={ensureAbsoluteUrl(data.website)} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-600" title="Homepage">
                    <Globe className="w-3.5 h-3.5" />
                  </a>
                )}
@@ -565,4 +578,4 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     </>
   );
 };
-// --- END OF FILE 592 Zeilen ---
+// --- END OF FILE 602 Zeilen ---

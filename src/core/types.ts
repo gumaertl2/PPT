@@ -1,3 +1,4 @@
+// 27.01.2026 22:30 - FIX: Added 'user_ratings_total' and 'duration' to Place interface.
 // 27.01.2026 21:45 - FIX: Added 'phone', 'awards' and 'openingHoursHint' to Place interface for FoodEnricher V30 parity.
 // 24.01.2026 13:00 - FEAT: Added 'detailContent' to Place interface (Separation of Concerns: Enricher vs Editor).
 // 23.01.2026 14:20 - FIX: Added PrintConfig & DetailLevel to central types (SSOT).
@@ -391,6 +392,7 @@ export interface Place {
   // User Metadaten
   userPriority?: number; // -1, 0, 1, 2
   rating?: number;
+  user_ratings_total?: number; // FIX: Added explicitly (was missing)
   
   // Content (English V40)
   shortDesc?: string;
@@ -401,6 +403,7 @@ export interface Place {
   reasoning?: string; // FIX: Added reasoning
   logistics?: string; // FIX: Added logistics
   priceLevel?: string; // FIX: Added priceLevel
+  duration?: number; // FIX: Estimated visit duration in minutes
 
   // NEW: Fields for FoodEnricher V30 Parity (27.01.2026)
   phone?: string;
@@ -463,4 +466,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 505 Zeilen ---
+// --- END OF FILE 509 Zeilen ---

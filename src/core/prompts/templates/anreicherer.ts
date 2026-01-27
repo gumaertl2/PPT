@@ -1,4 +1,4 @@
-// 27.01.2026 17:35 - FIX: Added 'user_ratings_total' to Schema.
+// 27.01.2026 22:45 - FIX: Added 'duration' and 'user_ratings_total' to Output Schema.
 // STRICT MAPPING: Instructions now only reference keys existing in INTEREST_DATA.
 // src/core/prompts/templates/anreicherer.ts
 
@@ -74,6 +74,7 @@ Structure:
       "openingHours": "Daily 9-17 (approx)",
       "rating": 4.5,
       "user_ratings_total": 120,
+      "duration": 90,
       "website": "www.example.com"
     }
   ]
@@ -82,4 +83,4 @@ Structure:
 
   return builder.build();
 };
-// --- END OF FILE 75 Zeilen ---
+// --- END OF FILE 76 Zeilen ---

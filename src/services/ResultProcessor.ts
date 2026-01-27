@@ -1,5 +1,5 @@
-// 27.01.2026 23:00 - FIX: Added Data Mapping for FoodEnricher V30 fields (Phone, Awards, etc.).
-// 27.01.2026 21:00 - FIX: foodScout now populates 'rawFoodCandidates' for Enricher Handover.
+// 28.01.2026 17:05 - FIX: Enhanced mapping for 'details' (Chefredakteur) to catch 'text' and 'article' fields.
+// 27.01.2026 23:15 - FIX: Mapping 'user_ratings_total' and 'duration' in Enricher (Gatekeeper Logic).
 // src/services/ResultProcessor.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -86,7 +86,7 @@ const extractItems = (data: any): any[] => {
 
     // Case B: Object
     // 1. Is this a candidate/place itself?
-    const isPlace = (data.name || data.id)
+    const isPlace = (data.name || data.id) 
         && !data.candidates && !data.enriched_places && !data.places && !data.results;
 
     if (isPlace) {
@@ -94,7 +94,7 @@ const extractItems = (data: any): any[] => {
     }
 
     // 2. Scan specific container keys (Priority search)
-    const containerKeys = ['candidates', 'processed_places', 'enriched_places', 'sights', 'items', 'places', 'results', 'data', 'chapters', 'recommendations'];
+    const containerKeys = ['candidates', 'processed_places', 'enriched_places', 'sights', 'items', 'places', 'results', 'data', 'chapters', 'recommendations', 'articles'];
     let foundContainer = false;
 
     for (const key of containerKeys) {
@@ -185,7 +185,11 @@ export const ResultProcessor = {
                      location: item.location,
                      description: item.description,
                      openingHours: item.openingHours,
-                     rating: item.rating
+                     rating: item.rating,
+                     // FIX: Explicitly map the new fields (Gatekeeper Update)
+                     user_ratings_total: item.user_ratings_total,
+                     duration: item.duration,
+                     website: item.website
                    });
                    successCount++;
                 } else {
@@ -210,8 +214,11 @@ export const ResultProcessor = {
              extractedItems.forEach((item: any) => {
                  const targetId = resolvePlaceId(item, existingPlaces, aiSettings.debug);
                  if (targetId) {
+                     // FIX: Catch all possible content keys to prevent data loss
+                     const content = item.text || item.article || item.detailed_description || item.description || item.content;
+                     
                      updatePlace(targetId, {
-                         detailContent: item.detailed_description || item.description || item.content,
+                         detailContent: content,
                          reasoning: item.reasoning
                      });
                      successCount++;
@@ -408,4 +415,4 @@ export const ResultProcessor = {
     }
   }
 };
-// --- END OF FILE 390 Zeilen ---
+// --- END OF FILE 400 Zeilen ---

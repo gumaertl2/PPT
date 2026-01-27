@@ -1,4 +1,5 @@
-// 27.01.2026 17:30 - FIX: Added Filter for Non-Physical Items & Ratings Count.
+// 27.01.2026 22:40 - FIX: Added 'duration' & 'user_ratings_total' to requested fields.
+// Also added 'NON_PHYSICAL_KEYWORDS' filter to prevent meta-info enrichment.
 // src/core/prompts/preparers/prepareAnreichererPayload.ts
 
 import type { TripProject } from '../../types';
@@ -71,7 +72,7 @@ export const prepareAnreichererPayload = (
             };
         });
 
-    // 3. TARGET FIELDS (Updated with user_ratings_total)
+    // 3. TARGET FIELDS (Updated with duration & user_ratings_total)
     const requestedFields = [
         "official_name (Correct spelling)", 
         "address (Street, ZIP, City)",       
@@ -79,7 +80,8 @@ export const prepareAnreichererPayload = (
         "description (Factual short description, max 2 sentences)",   
         "openingHours (String representation)",  
         "rating (Number or null)",
-        "user_ratings_total (Integer count of reviews)", // NEW       
+        "user_ratings_total (Integer count of reviews)", // NEW
+        "duration (Estimated visit duration in minutes)", // NEW
         "category (Inferred category)"       
     ];
 
@@ -100,4 +102,4 @@ export const prepareAnreichererPayload = (
         }
     };
 };
-// --- END OF FILE 108 Zeilen ---
+// --- END OF FILE 109 Zeilen ---
