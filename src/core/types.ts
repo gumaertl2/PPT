@@ -1,3 +1,4 @@
+// 28.01.2026 17:15 - FIX: Added 'waypoints' to Place interface for Walking Tours.
 // 27.01.2026 22:30 - FIX: Added 'user_ratings_total' and 'duration' to Place interface.
 // 27.01.2026 21:45 - FIX: Added 'phone', 'awards' and 'openingHoursHint' to Place interface for FoodEnricher V30 parity.
 // 24.01.2026 13:00 - FEAT: Added 'detailContent' to Place interface (Separation of Concerns: Enricher vs Editor).
@@ -404,6 +405,9 @@ export interface Place {
   logistics?: string; // FIX: Added logistics
   priceLevel?: string; // FIX: Added priceLevel
   duration?: number; // FIX: Estimated visit duration in minutes
+  
+  // NEW: Waypoints for walking tours (28.01.2026)
+  waypoints?: Array<{ name: string; address: string; }>;
 
   // NEW: Fields for FoodEnricher V30 Parity (27.01.2026)
   phone?: string;
@@ -466,4 +470,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 509 Zeilen ---
+// --- END OF FILE 512 Zeilen ---

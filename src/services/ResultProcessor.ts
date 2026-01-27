@@ -1,3 +1,4 @@
+// 28.01.2026 17:40 - FIX: Added 'waypoints' mapping for Chefredakteur (Walking Tours).
 // 28.01.2026 17:05 - FIX: Enhanced mapping for 'details' (Chefredakteur) to catch 'text' and 'article' fields.
 // 27.01.2026 23:15 - FIX: Mapping 'user_ratings_total' and 'duration' in Enricher (Gatekeeper Logic).
 // src/services/ResultProcessor.ts
@@ -219,7 +220,8 @@ export const ResultProcessor = {
                      
                      updatePlace(targetId, {
                          detailContent: content,
-                         reasoning: item.reasoning
+                         reasoning: item.reasoning,
+                         waypoints: item.waypoints // NEW: Map walking tour waypoints
                      });
                      successCount++;
                  }
@@ -415,4 +417,4 @@ export const ResultProcessor = {
     }
   }
 };
-// --- END OF FILE 400 Zeilen ---
+// --- END OF FILE 402 Zeilen ---

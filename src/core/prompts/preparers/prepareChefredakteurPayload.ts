@@ -1,3 +1,4 @@
+// 28.01.2026 17:20 - FIX: Added 'Walking Tour' instruction logic for districts.
 // 26.01.2026 19:40 - FIX: RESTORED Rich Logic (No Simplification).
 // Returns full object { context, instructions } with strict Fact Injection.
 // Fixed only TS6196 (Unused Place import).
@@ -29,6 +30,12 @@ const resolveInterestId = (category: string): string | undefined => {
     return foundId;
 };
 
+// Helper to detect districts/areas
+const isDistrict = (cat: string) => {
+    const c = cat.toLowerCase();
+    return c === 'districts' || c === 'stadtbezirke' || c === 'citydistricts' || c === 'neighborhood';
+};
+
 export const prepareChefredakteurPayload = (
     project: TripProject,
     candidates: any[], 
@@ -53,7 +60,8 @@ export const prepareChefredakteurPayload = (
         let instructions = `Create a general, useful description for '${place.name}'.`;
 
         // 2. Spezifische Anweisung aus Interests suchen
-        const interestId = resolveInterestId(place.category || 'general');
+        const category = place.category || 'general';
+        const interestId = resolveInterestId(category);
         
         if (interestId) {
             const guideline = INTEREST_DATA[interestId]?.writingGuideline;
@@ -68,7 +76,12 @@ export const prepareChefredakteurPayload = (
             instructions += `\n\nUSER OVERRIDE: ${project.userInputs.customWritingGuidelines[interestId]}`;
         }
 
-        // 4. DATEN-INJEKTION (Strict Facts)
+        // 4. NEW: Automatic Walking Tour Instruction for Districts
+        if (isDistrict(category)) {
+            instructions += `\n\n**SPECIAL FORMAT: WALKING TOUR.** This is a district/neighborhood. Do NOT write a static description. Instead, guide the user through the area. Mention 3-5 specific highlights/stops in a logical order (Start -> End).`;
+        }
+
+        // 5. DATEN-INJEKTION (Strict Facts)
         // Wir packen die harten Fakten in ein sauberes Objekt, damit das Template sie nutzen kann.
         return {
             id: place.id,
@@ -98,4 +111,4 @@ export const prepareChefredakteurPayload = (
         }
     };
 };
-// --- END OF FILE 88 Zeilen ---
+// --- END OF FILE 107 Zeilen ---

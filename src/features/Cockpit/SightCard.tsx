@@ -1,3 +1,4 @@
+// 28.01.2026 17:50 - FIX: Implemented functional Google Maps URL generation for Walking Tours (Waypoints).
 // 28.01.2026 00:15 - FIX: Removed default duration (60min). Field is now empty if unknown.
 // 27.01.2026 23:55 - FIX: Website Link Protocol (localhost fix).
 // Added 'ensureAbsoluteUrl' to prevent relative path interpretation.
@@ -198,11 +199,16 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   const renderWalkRoute = () => {
     if (!data.waypoints || !Array.isArray(data.waypoints) || data.waypoints.length < 2) return null;
 
-    const path = data.waypoints
-      .map((wp: any) => encodeURIComponent(wp.address || wp.name))
-      .join('/');
+    // FIX: Use official Google Maps Directions API URL structure
+    const origin = encodeURIComponent(data.waypoints[0].address || data.waypoints[0].name);
+    const destination = encodeURIComponent(data.waypoints[data.waypoints.length - 1].address || data.waypoints[data.waypoints.length - 1].name);
     
-    const url = `https://www.google.com/maps/dir/${path}?travelmode=walking`;
+    let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=walking`;
+
+    if (data.waypoints.length > 2) {
+        const intermediates = data.waypoints.slice(1, -1).map((wp: any) => encodeURIComponent(wp.address || wp.name)).join('|');
+        url += `&waypoints=${intermediates}`;
+    }
 
     return (
       <div className="mt-2 mb-1 p-2 bg-indigo-50 rounded border border-indigo-100 flex items-start gap-2">

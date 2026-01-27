@@ -1,3 +1,4 @@
+// 28.01.2026 18:30 - FIX: Applied 'Thinking Config' correctly when user overrides model to 'Flash+' (thinking).
 // 22.01.2026 22:00 - FIX: Enhanced JSON Extraction to support Arrays [] correctly (fixes "1 item bug").
 // src/services/gemini.ts
 
@@ -217,6 +218,16 @@ export const GeminiService = {
              if (forcedModel === 'pro') {
                  modelEndpoint = 'gemini-2.5-pro:generateContent';
                  selectedModelKey = 'pro';
+             } else if (forcedModel === 'thinking') { // FIX: Explicit handling for 'thinking' override
+                 modelEndpoint = 'gemini-2.5-flash:generateContent';
+                 selectedModelKey = 'flash';
+                 generationConfig = {
+                      responseMimeType: 'application/json',
+                      thinkingConfig: {
+                         includeThoughts: true,
+                         thinkingBudget: -1 
+                      }
+                 };
              } else {
                  modelEndpoint = 'gemini-2.5-flash:generateContent';
                  selectedModelKey = 'flash';

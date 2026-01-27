@@ -1,3 +1,4 @@
+// 28.01.2026 17:30 - FIX: Cleaned up Logic. 'Waypoints' instruction moved to Preparer. Schema enforced here.
 // 26.01.2026 15:00 - FIX: MERGED BEST OF BOTH WORLDS.
 // Retains: Live Research, Waypoints Logic, Narrative Depth Rules.
 // Adds: Strict Fact Anchoring (Safety Net against Hallucinations).
@@ -59,10 +60,8 @@ export const buildChefredakteurPrompt = (
     (Use these facts as absolute truth. Do not contradict them.)`;
         }
 
-        // B. Special Logic for 'Stadtbezirke' (City Districts) -> Waypoints
-        if (p.typ === 'Stadtbezirke' || p.typ === 'CityDistricts' || p.typ === 'districts') {
-            anweisung += `\n\n**EXTRA TASK FOR MAP LINK:** In ADDITION to the \`content\` text, create an array called \`waypoints\`. This array must contain an object for each station mentioned in the walk. Each object must have keys \`name\` and \`address\`. \n**IMPORTANT:** The value for \`name\` must match EXACTLY the bold headline or name used in the text. Provide a Google Maps findable address.`;
-        }
+        // REMOVED: Redundant 'Stadtbezirke' logic. 
+        // This is now handled centrally in 'prepareChefredakteurPayload.ts' (V40 Architecture).
 
         return `- **ID "${p.id}" (Title: ${p.titel}, Type: ${p.typ}):**${factsContext}\n  INSTRUCTION: ${anweisung}`;
     }).join('\n\n----------------\n\n');
@@ -109,7 +108,7 @@ Structure:
       "id": "MUST MATCH ID FROM TASK LIST",
       "type": "MUST MATCH TYPE FROM TASK LIST",
       "content": "Your markdown text here (escape newlines as \\n)...",
-      "waypoints": [ { "name": "Station A", "address": "Address A" } ] // Only for Districts
+      "waypoints": [ { "name": "Station A", "address": "Address A" } ] // Only for Districts/Tours
     }
   ]
 }
@@ -127,4 +126,4 @@ Structure:
     
     return builder.build();
 };
-// --- END OF FILE 135 Zeilen ---
+// --- END OF FILE 134 Zeilen ---
