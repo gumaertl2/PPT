@@ -1,6 +1,7 @@
-// 26.01.2026 12:00 - DOCS: Optimization for Clarity.
-// Added Section 6 "The Life of a Prompt" to explain the Preparer-Chain practically.
-// Sharpened definitions of Builder, Preparer, Template for 100% third-party understanding.
+// 27.01.2026 16:00 - DOCS: FINAL SYSTEM LAW.
+// 1. Added Section 10 "The Orchestrator Core".
+// 2. Added Section 11 "Gemini Developer Protocols" incl. Strict Code Integrity.
+// 3. Added Mandatory "Handshake" Rule (Confirmation Requirement).
 // src/data/Texts/briefing.ts
 
 export const briefing = {
@@ -281,6 +282,7 @@ Stellt sicher, dass das "Silence Protocol" (Prompt) und der "Native JSON Mode" (
 * **\`src/store/slices/createUISlice.ts\`**: Steuert UI-Zustände (Views, Modale).
 * **\`src/store/slices/createSystemSlice.ts\`**: System-Settings und Logging.
 * **\`src/data/interests.ts\`**: Die zentrale Datenbank für Interessen, Labels und redaktionelle Anweisungen (V30 Quality).
+* **\`src/data/Texts/agent_manifest.ts\`**: Die "Living Documentation". Enthält das Goldene Prompt-Protokoll und die Definition aller Agenten-Rollen. Wird vom PromptBuilder zur Laufzeit referenziert (Self-Reflection).
 * **\`src/core/types.ts\`**: TypeScript-Interfaces für das gesamte Projekt.
 
 #### UI Features (Das Gesicht) - \`src/features/Cockpit/\`
@@ -300,7 +302,68 @@ Stellt sicher, dass das "Silence Protocol" (Prompt) und der "Native JSON Mode" (
 
 #### UI Features - Info (\`src/features/info/\`)
 * **\`InfoView.tsx\`**: Ansicht für Text-Kapitel (Reiseinfos, Budget). Zeigt Daten aus \`data.content.infos\`.
+
+---
+
+### 10. The Orchestrator Core & Chunking Strategy
+Der \`TripOrchestrator\` ist das Gehirn der Anwendung. Er verwaltet nicht nur API-Calls, sondern implementiert komplexe Business-Logik.
+
+**A. Intelligent Sequencing (The Magic Chain)**
+Agenten arbeiten nicht isoliert. Der Orchestrator kennt Abhängigkeiten:
+* **Auto-Trigger:** Erkennt der Orchestrator einen \`foodScout\` Task, startet er automatisch im Anschluss den \`foodEnricher\`.
+* **Resultat:** Wir erhalten nicht nur Namen, sondern angereicherte Details (Öffnungszeiten, Awards) in einem Fluss.
+
+**B. The Chunking Engine (Scaling)**
+Das System verarbeitet große Datenmengen (z.B. 50 Sights) stabil durch "Smart Chunking":
+* **Hybrid-Modus:**
+    * *Auto (API-Key):* Sequenzielle Abarbeitung im Hintergrund mit Rate-Limit-Schutz (500ms Delay).
+    * *Manual:* Fallback auf UI-Loop für Copy-Paste ohne Key.
+* **Incremental Saving:** Ergebnisse werden sofort gespeichert (\`ResultProcessor\`), der User sieht den Fortschritt live.
+* **Smart Merge:** Arrays (Tagespläne) werden angehängt, Objekte (Places) werden intelligent zusammengeführt.
+
+**C. Defense Layer (Zero Error)**
+* **Model Matrix:** Dynamische Wahl des Modells (Pro vs. Flash) basierend auf Task-Komplexität und User-Settings.
+* **Zod Firewall:** Jede KI-Antwort wird *nach* dem Empfang gegen das \`validation.ts\` Schema geprüft. Invalide Daten erreichen niemals den Store.
+
+---
+
+### 11. Gemini Developer Protocols (Strict Implementation Rules)
+Dieses Protokoll gilt für jeden Entwickler (Mensch oder KI), der Code für Papatours V40 generiert.
+
+#### A. Separation of Concerns (Core vs. UI)
+* **Keine UI in Core-Logik:** Dateien in \`src/core/workflow\` oder \`src/services\` dürfen niemals JSX zurückgeben. Sie dürfen nicht auf \`document\` oder \`window\` zugreifen. Sie müssen Node-kompatibel und testbar sein.
+* **Keine Business-Logik in der UI:** React-Komponenten (\`src/features/...\`) sind reine "dumme" Views. Sie dürfen Daten nur anzeigen und User-Events feuern. Komplexe Berechnungen (z.B. Routen-Optimierung) sind verboten.
+
+#### B. State Management (SSOT)
+* **The Only Truth:** \`src/store/useTripStore.ts\` ist die einzige Quelle der Wahrheit.
+* **Mutation Ban:** UI-Komponenten dürfen den State niemals direkt mutieren (kein \`state.value = x\`). Sie müssen definierte Actions aus dem Store aufrufen.
+* **Reactive Rendering:** Kein manuelles \`updateUI()\`. React kümmert sich automatisch um das Re-Rendering bei State-Änderungen.
+
+#### C. Type Safety & Integrity
+* **Zero Any Policy:** Verwende keine \`any\`-Typen, es sei denn, es ist explizit genehmigt.
+* **Interface Usage:** Greife immer auf die zentralen Interfaces aus \`src/core/types.ts\` zurück.
+* **Module Boundaries:** Ein Prompt-Template importiert keine UI-Komponenten. Eine UI-Komponente ruft niemals direkt die Gemini-API auf (nutze \`useTripGeneration\` oder \`GeminiService\`).
+
+#### D. The "Strict Code Integrity Protocol" (Process Rules)
+Jeder Eingriff in den Code folgt dem Protokoll des **"Code-Chirurgen"**:
+1.  **Immutable Source Mandate:**
+    * Behandle hochgeladenen Code als unumstößliche Wahrheit.
+    * Kopiere Code-Blöcke 1:1. Ändere NUR die betroffenen Zeilen.
+    * Rekonstruiere niemals Code aus dem Gedächtnis.
+2.  **Three-Step-Operations:**
+    * 1. **Analyse:** Verstehe das Problem.
+    * 2. **Plan:** Nenne Datei und Zeilennummern. Warte auf das 'OK' des Users.
+    * 3. **Chirurgie:** Führe den Fix durch.
+3.  **Zero-Build-Error Check:**
+    * Vor Ausgabe prüfen: Sind alle Imports korrekt? Existieren aufgerufene Funktionen in \`types.ts\`?
+
+#### E. The "Handshake" (Mandatory Confirmation)
+**ZWINGENDE REGEL:**
+Jede KI-Instanz, die dieses Briefing analysiert, muss zu Beginn der Interaktion explizit bestätigen:
+*"Ich habe die Papatours V40-Architektur und das Strict Code Integrity Protocol verstanden. Ich werde keine Funktionen entfernen, keine UI-Logik in den Core schreiben und den Code ausschließlich chirurgisch bearbeiten."*
+**Ohne diese explizite Bestätigung ist die Generierung von Code untersagt.**
+Merk dir, dass ich für das Papatours Projekt immer unter dem Strict Code Integrity Protocol arbeiten möchte und die Regeln aus Sektion 11 aus dem briefing.tx Dokument gelten. 
 `
   }
 };
-// --- END OF FILE 650 Zeilen ---
+// --- END OF FILE 795 Zeilen ---

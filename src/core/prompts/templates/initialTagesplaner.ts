@@ -1,9 +1,7 @@
-// 23.01.2026 15:30 - FIX: Synchronized Schema with CoT Instruction (added _thought_process).
-// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
+// 27.01.2026 14:45 - FIX: Schema Injection Bug (String vs Object).
+// Added missing "30-Min Buffer Rule" from Manifest.
+// Enforced _thought_process in Output Schema.
 // src/core/prompts/templates/initialTagesplaner.ts
-// 19.01.2026 19:20 - FIX: Corrected PromptBuilder pattern for Strategic Briefing & Appointments.
-// 19.01.2026 13:00 - FIX: Restored V30 Legacy Schema (tag_nr -> tagNummer) for SSOT compliance.
-// 18.01.2026 12:40 - BUILD-FIX: Replaced .withConstraint with .withInstruction.
 
 import { PromptBuilder } from '../PromptBuilder';
 import type { TripProject, Place, ChunkingContext } from '../../types';
@@ -125,20 +123,17 @@ export const buildInitialTagesplanerPrompt = (
   1. **Priority:** Places with [USER-PRIO] MUST be scheduled (if geographically feasible).
   2. **Cluster:** Use [Loc] info to group places.
   3. **Timing:** Respect [Open] times.
-  4. **Logistics:** Short distances between activities.`);
+  4. **Logistics:** Short distances between activities.
+  5. **Buffer-Rule (CRITICAL):** Any time gap > 30 minutes MUST be filled with a concrete activity or a specific suggestion. Empty buffers are forbidden.`);
 
   // 9. Output Format (V40 English Keys)
-  // FIX: Added _thought_process to string schema
-  const outputFormat = `
-  Answer EXCLUSIVELY with JSON.
-  Structure must be exactly compatible with the V40 Frontend Renderer:
-
-  {
+  // FIX: Converted String-Schema to Real Object Schema to avoid double-escaping in PromptBuilder
+  const outputSchema = {
     "_thought_process": "String (Strategic planning step: Check constraints, open times & routing)",
     "days": [
       {
-        "day": ${dayOffset + 1},
-        "date": "YYYY-MM-DD" (if known, else null),
+        "day": dayOffset + 1, // Dynamic Value
+        "date": "YYYY-MM-DD (if known, else null)",
         "title": "Day Motto",
         "location": "Main Location",
         "activities": [
@@ -148,16 +143,16 @@ export const buildInitialTagesplanerPrompt = (
             "description": "Inspiring description (2-3 sentences).",
             "duration": "2h",
             "cost": "approx. 15€",
-            "original_sight_id": "ID_FROM_LIST" (IMPORTANT for mapping!),
-            "type": "sight" | "food" | "transfer" | "pause"
+            "original_sight_id": "ID_FROM_LIST (IMPORTANT for mapping!)",
+            "type": "sight | food | transfer | pause"
           }
         ]
       }
     ]
-  }`;
+  };
   
-  builder.withOutputSchema(outputFormat);
+  builder.withOutputSchema(outputSchema);
 
   return builder.build();
 };
-// --- END OF FILE 137 Zeilen ---
+// --- END OF FILE 135 Zeilen ---
