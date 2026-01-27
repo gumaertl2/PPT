@@ -1,17 +1,10 @@
+// 27.01.2026 23:45 - FIX: UI Update for FoodEnricher V30 Parity (Awards, Phone, Cuisine/Vibe Tags).
 // 25.01.2026 12:45 - FIX: Layout improvements (Parser logic, Spacing, Close-Button) & Added Google Maps Route Link.
-// 25.01.2026 11:35 - FEATURE: Added support for 'detailContent' (Chefredakteur Output) in Detail View.
-// 23.01.2026 21:30 - FEATURE: Enabled Map Trigger for bidirectional navigation.
-// 23.01.2026 17:05 - FIX: Emergency correction of ReferenceError (removed phantom 'item' prefix).
-// 23.01.2026 16:30 - FIX: Added no-print classes to interactive elements for clean PDF output.
 // src/features/Cockpit/SightCard.tsx
-// 21.01.2026 09:55 - FIX: Appended structured detail appendix to original standard view with Close & Scroll logic.
-// 21.01.2026 02:15 - FIX: Implemented step-by-step Detail Toggle (+/-) for Compact/Standard/Details.
-// 21.01.2026 01:25 - FIX: Added full text display support for 'details' view level.
 
-import React, { useState, useEffect, useRef } from 'react'; // FIX: useRef added
+import React, { useState, useEffect, useRef } from 'react'; 
 import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
-// FIX: Import für Übersetzung
 import { INTEREST_DATA } from '../../data/interests'; 
 import type { LanguageCode } from '../../core/types';
 import { 
@@ -24,8 +17,13 @@ import {
   Globe, 
   Search, 
   Map as MapIcon,
-  ChevronUp, // FIX: Added for Close Button
-  Footprints // FIX: Added for Walk Icon
+  ChevronUp, 
+  Footprints,
+  // NEW ICONS for V30 Data
+  Trophy,
+  Phone,
+  Utensils,
+  Sparkles
 } from 'lucide-react';
 
 interface SightCardProps {
@@ -40,8 +38,8 @@ const VIEW_LEVELS = ['kompakt', 'standard', 'details'] as const;
 type ViewLevel = typeof VIEW_LEVELS[number];
 
 export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selection', showPriorityControls = true }) => {
-  const { t, i18n } = useTranslation(); // FIX: i18n added
-  const { uiState, updatePlace, deletePlace, setUIState } = useTripStore(); // FIX: added setUIState
+  const { t, i18n } = useTranslation(); 
+  const { uiState, updatePlace, deletePlace, setUIState } = useTripStore(); 
   
   // FIX: Scroll Anchor for "Close & Scroll" Logic
   const cardRef = useRef<HTMLDivElement>(null);
@@ -49,7 +47,7 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   // FIX: Local state initialized with 'kompakt'
   const [viewLevel, setViewLevel] = useState<ViewLevel>('kompakt');
   
-  // SYNC: Update local state when global state changes (but allow local override afterwards)
+  // SYNC: Update local state when global state changes
   useEffect(() => {
     setViewLevel(uiState.detailLevel as ViewLevel);
   }, [uiState.detailLevel]);
@@ -63,16 +61,23 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
 
   // V40 Data Access (English)
   const name = data.name || 'Unbekannter Ort';
-  const description = data.description || data.shortDesc || ''; // V40 Key
-  const category = data.category || 'Allgemein'; // V40 Key
-  const rating = data.rating || 0; // V40 Key
+  const description = data.description || data.shortDesc || ''; 
+  const category = data.category || 'Allgemein'; 
+  const rating = data.rating || 0; 
   
-  const userRatingsTotal = data.ratingCount || 0; // V40 Key
+  const userRatingsTotal = data.ratingCount || 0; 
   
+  // NEW V30 Data Fields (27.01.2026)
+  const awards = data.awards || [];
+  const phone = data.phone;
+  const cuisine = data.cuisine;
+  const vibe = data.vibe || [];
+  const openingHoursHint = data.openingHoursHint || data.openingHours;
+
   // User Selection State
   const userSelection = data.userSelection || {};
   const priority = userSelection.priority ?? 0; 
-  const customDuration = userSelection.customDuration || data.duration || 60; // V40 Key
+  const customDuration = userSelection.customDuration || data.duration || 60; 
   const customCategory = userSelection.customCategory || category;
   
   const isFixed = priority === 3;
@@ -84,16 +89,14 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     if (!catId) return "Allgemein";
     const currentLang = i18n.language.substring(0, 2) as LanguageCode;
     
-    // Versuch 1: Lookup in INTEREST_DATA
     const def = INTEREST_DATA[catId];
     if (def && def.label) {
         return (def.label as any)[currentLang] || (def.label as any)['de'] || catId;
     }
-    // Fallback: Wenn es keine ID ist, sondern schon Text
     return catId.charAt(0).toUpperCase() + catId.slice(1).replace(/_/g, ' ');
   };
   
-  const displayCategory = resolveCategoryLabel(customCategory); // Use localized label
+  const displayCategory = resolveCategoryLabel(customCategory); 
 
   const highlightText = (text: string | undefined | null) => {
     if (!text) return null;
@@ -148,22 +151,20 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     });
   };
 
-  // LOGIC: Step Up / Step Down
   const handleStepUp = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card click
+    e.stopPropagation(); 
     if (currentLevelIndex < VIEW_LEVELS.length - 1) {
         setViewLevel(VIEW_LEVELS[currentLevelIndex + 1]);
     }
   };
 
   const handleStepDown = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card click
+    e.stopPropagation(); 
     if (currentLevelIndex > 0) {
         setViewLevel(VIEW_LEVELS[currentLevelIndex - 1]);
     }
   };
 
-  // FIX: NEW Logic for Close Details (Return to standard level and scroll to top)
   const handleCloseDetails = () => {
     setViewLevel('standard');
     setTimeout(() => {
@@ -182,16 +183,13 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     );
   };
 
-  // FEATURE: Render Route Link if waypoints exist
   const renderWalkRoute = () => {
     if (!data.waypoints || !Array.isArray(data.waypoints) || data.waypoints.length < 2) return null;
 
-    // Construct Google Maps Chain URL
     const path = data.waypoints
       .map((wp: any) => encodeURIComponent(wp.address || wp.name))
       .join('/');
     
-    // travelmode=walking forces walking directions
     const url = `https://www.google.com/maps/dir/${path}?travelmode=walking`;
 
     return (
@@ -236,11 +234,9 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
           }`}
           title={t('sights.less_details', { defaultValue: 'Weniger Details' })}
         >
-          {/* FIX: Removed 'item.' prefix to resolve ReferenceError */}
           <Minus className="w-3 h-3" />
         </button>
         
-        {/* Visual Indicator of Level (Optional, tiny dots) */}
         <div className="flex gap-0.5 px-0.5">
             {VIEW_LEVELS.map((level, idx) => (
                 <div key={level} className={`w-0.5 h-0.5 rounded-full ${idx <= currentLevelIndex ? 'bg-blue-500' : 'bg-slate-200'}`} />
@@ -317,7 +313,6 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
 
   return (
     <>
-      {/* FIX: cardRef applied to outer container */}
       <div ref={cardRef} className={`bg-white rounded-lg shadow-sm border p-3 mb-3 transition-all hover:shadow-md ${borderClass}`}>
         
         {/* ROW 1: HEADER */}
@@ -330,13 +325,12 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
 
         {/* ROW 2: META BAR */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 mb-1">
-            
             <select 
                value={customCategory} 
                onChange={handleCategoryChange}
                className="bg-transparent border-none p-0 pr-4 text-xs font-medium text-gray-700 focus:ring-0 cursor-pointer hover:text-blue-600 py-0.5"
             >
-               <option value={category}>{displayCategory}</option> {/* Show Localized Label */}
+               <option value={category}>{displayCategory}</option>
                <option value="Kultur">Kultur</option>
                <option value="Natur">Natur</option>
                <option value="Entspannung">Entspannung</option>
@@ -406,7 +400,23 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
 
         {isStandardOrHigher && (
           <div className="text-sm text-gray-600 mt-2 pt-2 border-t border-gray-100 animate-in fade-in duration-200">
-            {/* FIX: line-clamp-2 removed if isDetailed is true */}
+            
+            {/* FIX: Cuisine & Vibe Tags (V30 Style) */}
+            {(cuisine || vibe.length > 0) && (
+               <div className="flex flex-wrap gap-1 mb-2 text-[10px]">
+                  {cuisine && (
+                     <span className="inline-flex items-center gap-1 bg-orange-50 text-orange-800 px-2 py-0.5 rounded border border-orange-100">
+                        <Utensils className="w-3 h-3" /> {cuisine}
+                     </span>
+                  )}
+                  {vibe.map((v: string, i: number) => (
+                     <span key={i} className="inline-flex items-center gap-1 bg-purple-50 text-purple-800 px-2 py-0.5 rounded border border-purple-100">
+                        <Sparkles className="w-3 h-3" /> {v}
+                     </span>
+                  ))}
+               </div>
+            )}
+
             <p className={`${isDetailed ? '' : 'line-clamp-2'} leading-snug text-xs mb-2`}>
               {highlightText(description)}
             </p>
@@ -417,53 +427,70 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
                </p>
             )}
 
-            <div className="text-xs text-gray-500 leading-snug">
-               {data.address && ( // V40 Key
-                 <>
-                   <span className="font-semibold text-gray-400">📍</span> {highlightText(data.address)}
-                 </>
-               )}
-               
-               {data.openingHours && ( // V40 Key
-                 <>
-                   <span className="mx-2 text-gray-300">|</span>
-                   <span className="font-semibold text-gray-400">🕒</span> {highlightText(data.openingHours)}
-                 </>
-               )}
+            {/* FIX: Awards Section (V30 Style - Prominent) */}
+            {awards.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2 mt-1">
+                {awards.map((award: string, i: number) => (
+                   <span key={i} className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full shadow-sm">
+                      <Trophy className="w-3 h-3 text-amber-600 fill-amber-100" />
+                      {highlightText(award)}
+                   </span>
+                ))}
+              </div>
+            )}
 
-               {data.priceLevel && ( // V40 Key
-                 <>
-                   <span className="mx-2 text-gray-300">|</span>
-                   <span className="font-semibold text-gray-400">💶</span> {highlightText(data.priceLevel)}
-                 </>
-               )}
+            {/* FIX: Enhanced Info Grid (Phone, Hours, Price) */}
+            <div className="text-xs text-gray-500 leading-snug space-y-1">
+               <div className="flex flex-wrap gap-x-3 gap-y-1">
+                   {data.address && (
+                     <span className="flex items-center gap-1">
+                       <span className="font-semibold text-gray-400">📍</span> {highlightText(data.address)}
+                     </span>
+                   )}
+                   {phone && (
+                      <span className="flex items-center gap-1 text-gray-600">
+                         <Phone className="w-3 h-3 text-gray-400" /> 
+                         <a href={`tel:${phone}`} className="hover:text-blue-600 hover:underline">{phone}</a>
+                      </span>
+                   )}
+               </div>
+               
+               <div className="flex flex-wrap gap-x-3 gap-y-1">
+                   {openingHoursHint && (
+                     <span className="flex items-center gap-1">
+                       <span className="font-semibold text-gray-400">🕒</span> {highlightText(openingHoursHint)}
+                     </span>
+                   )}
+
+                   {data.priceLevel && (
+                     <span className="flex items-center gap-1">
+                       <span className="font-semibold text-gray-400">💶</span> {highlightText(data.priceLevel)}
+                     </span>
+                   )}
+               </div>
             </div>
 
-            {data.logistics && ( // V40 Key
+            {data.logistics && (
                <div className="mt-1.5 bg-slate-50 p-1.5 rounded text-[11px] text-slate-700 border border-slate-100 leading-tight">
                  <span className="font-bold text-slate-500 mr-1">Logistik:</span> 
                  {highlightText(data.logistics)}
                </div>
             )}
             
-            {/* FIX: Render Route Link if waypoints exist */}
             {renderWalkRoute()}
 
-            {/* FIX: APPEND STRUCTURED PDF-STYLE DETAILS ONLY IF ISDETAILED (Stage 3) */}
             {isDetailed && (
               <div className="mt-3 pt-3 border-t-2 border-dashed border-slate-100 space-y-3 animate-in fade-in slide-in-from-top-4 duration-500">
                 
-                {/* STRUCTURED DESCRIPTION PARSER (PDF Redaktionsanweisung) */}
                 <div className="space-y-3 text-[13px] leading-relaxed text-slate-800 px-1">
                    {(data.detailContent || description).split(/\n\n/).map((section: string, idx: number) => {
                       const content = section.trim();
                       if (!content) return null;
 
-                      // FIX: Improved Header Detection (Must be short and specific)
                       const isHeader = content.length < 100 && (
                           content.startsWith('###') || 
                           content.toLowerCase().startsWith('teil') || 
-                          (content.toLowerCase().includes('top 5') && content.length < 50) || // Only trigger Top 5 if really a headline
+                          (content.toLowerCase().includes('top 5') && content.length < 50) || 
                           (content.toLowerCase().includes('fakten') && content.length < 50)
                       );
 
@@ -476,7 +503,6 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
                           );
                       }
 
-                      // FIX: Detect Multi-Line Lists (split by single newline)
                       const lines = content.split('\n');
                       if (lines.length > 1) {
                          return (
@@ -485,7 +511,6 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
                                  const cleanLine = line.trim();
                                  if (!cleanLine) return null;
                                  
-                                 // Check for list markers
                                  const isListItem = /^[-\*•\d\.]/.test(cleanLine);
                                  
                                  if (isListItem) {
@@ -502,12 +527,10 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
                          );
                       }
 
-                      // Normal Paragraph
                       return <p key={idx} className="mb-3 text-xs leading-normal">{highlightText(content)}</p>;
                    })}
                 </div>
 
-                {/* CLOSE BUTTON (Action Anchor) */}
                 <div className="pt-4 flex justify-center pb-2 no-print">
                    <button 
                       onClick={handleCloseDetails}
@@ -542,4 +565,4 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     </>
   );
 };
-// --- END OF FILE 505 Zeilen ---
+// --- END OF FILE 592 Zeilen ---

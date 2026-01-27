@@ -1,5 +1,5 @@
+// 28.01.2026 10:15 - FIX: Removed invalid SelfCheck type 'quality'.
 // 26.01.2026 21:20 - FIX: FoodScout Template (Strict Mode).
-// Consumes Payload with strict List-Only logic.
 // src/core/prompts/templates/foodScout.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -47,7 +47,7 @@ You must ONLY select restaurants that appear in one of these specific guides:
     .withContext(context, "SEARCH CONTEXT")
     .withInstruction(mainInstruction)
     .withOutputSchema(outputSchema)
-    .withSelfCheck(['research', 'quality'])
+    .withSelfCheck(['research'])
     .build();
 };
 // --- END OF FILE 48 Zeilen ---

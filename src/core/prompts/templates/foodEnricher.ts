@@ -1,5 +1,5 @@
+// 28.01.2026 10:05 - FIX: Removed invalid SelfCheck type 'quality'.
 // 27.01.2026 23:30 - FIX: FoodEnricher Template V30 Parity.
-// Enforces specific text structure (Distance template) and richer data extraction (Awards, Phone).
 // src/core/prompts/templates/foodEnricher.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -62,7 +62,7 @@ If a restaurant cannot be found or is permanently closed, set "found": false. Do
     .withContext(context, "INPUT LIST & CONTEXT")
     .withInstruction(mainInstruction)
     .withOutputSchema(outputSchema)
-    .withSelfCheck(['research', 'quality'])
+    .withSelfCheck(['research']) // FIX: Removed 'quality'
     .build();
 };
 // --- END OF FILE 69 Zeilen ---

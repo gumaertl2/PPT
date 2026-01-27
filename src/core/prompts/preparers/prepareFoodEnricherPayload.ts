@@ -1,10 +1,10 @@
+// 28.01.2026 10:00 - FIX: Removed unused import & Added type safety for itemsToProcess.
 // 27.01.2026 23:15 - FIX: V30 Feature Parity (Distance Calculation & Store Access).
-// Calculates distance to destination if coordinates are available.
 // src/core/prompts/preparers/prepareFoodEnricherPayload.ts
 
 import type { TripProject } from '../../types';
 import { INTEREST_DATA } from '../../../data/interests';
-import { calculateDistance } from '../../utils/geo'; // Import Geo Utils
+// FIX: Removed unused 'calculateDistance' import to satisfy linter
 
 export const prepareFoodEnricherPayload = (
     project: TripProject,
@@ -29,19 +29,13 @@ export const prepareFoodEnricherPayload = (
                               "";
 
     // 3. GET REFERENCE LOCATION (For Distance Calculation)
-    // We try to find the lat/lng of the destination (from GeoAnalyst or previous steps)
-    // If not found, we rely on the string "destination".
-    // In V40, destination is often just a string. 
-    // Ideally, we would have a 'center' coordinate.
     const destinationName = userInputs.logistics.stationary.destination || "Region";
-    // Try to find coordinates for the destination (if stored in project metadata/locations)
-    // For now, we assume candidates might have 'dist' property from Scout, or we calculate it if we have both points.
     
     // 4. PREPARE CANDIDATES
-    // FIX: Self-Service - Check store if no candidates provided
-    let itemsToProcess = candidates;
+    // FIX: Ensure it's an array to prevent TS18048
+    let itemsToProcess = candidates || [];
 
-    if (!itemsToProcess || itemsToProcess.length === 0) {
+    if (itemsToProcess.length === 0) {
         const rawCandidates = (project.data.content as any)?.rawFoodCandidates || [];
         if (rawCandidates.length > 0) {
             console.log(`[FoodEnricher] Found ${rawCandidates.length} candidates in Store (rawFoodCandidates).`);
@@ -52,7 +46,8 @@ export const prepareFoodEnricherPayload = (
         }
     }
 
-    const itemsToEnrich = itemsToProcess.map(c => {
+    // Map items (TS knows itemsToProcess is an array now)
+    const itemsToEnrich = itemsToProcess.map((c: any) => {
         const name = c.name || c.titel || "Unknown";
         const locationStr = c.city || c.ort || c.address || "";
         const guideContext = c.guides ? `Listed in: ${c.guides.join(', ')}` : "Candidate";
@@ -94,4 +89,4 @@ export const prepareFoodEnricherPayload = (
         }
     };
 };
-// --- END OF FILE 98 Zeilen ---
+// --- END OF FILE 87 Zeilen ---

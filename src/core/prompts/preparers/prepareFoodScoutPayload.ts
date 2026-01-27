@@ -1,5 +1,5 @@
+// 28.01.2026 10:10 - FIX: Removed 'currentLocation' access (TS Error) & stabilized Ad-Hoc fallback.
 // 27.01.2026 00:15 - FEAT: Added Ad-Hoc Manual Location Support.
-// Parses 'feedback' string for explicit 'LOC:' and 'RAD:' overrides.
 // src/core/prompts/preparers/prepareFoodScoutPayload.ts
 
 import type { TripProject, FoodSearchMode } from '../../types';
@@ -51,16 +51,13 @@ export const prepareFoodScoutPayload = (
             // KI soll Land selbst ableiten oder wir nutzen Fallback
             countryForGuides = manualLoc; 
         } 
-        // CASE B: GPS (Current Location)
-        else if (userInputs.currentLocation) {
-            const { lat, lng } = userInputs.currentLocation;
-            searchContext = `Lat: ${lat}, Lng: ${lng} (Radius: ${manualRad || '20'}km)`;
-            locationName = "Current Surroundings";
-            if (userInputs.logistics.stationary?.region) countryForGuides = userInputs.logistics.stationary.region;
-        } 
-        // CASE C: Fallback to Trip Data
+        // CASE B: GPS (Fallback to Destination if explicit GPS missing in Types)
+        // FIX: 'currentLocation' does not exist on TripUserProfile. Using stationary destination instead.
         else {
-             searchContext = "Unknown Location";
+             const fallbackDest = userInputs.logistics.stationary.destination || "Region";
+             searchContext = `${fallbackDest} (Radius: ${manualRad || '20'}km)`;
+             locationName = fallbackDest;
+             if (userInputs.logistics.stationary?.region) countryForGuides = userInputs.logistics.stationary.region;
         }
     } else {
         // TRIP MODE logic (unchanged)
@@ -112,4 +109,4 @@ export const prepareFoodScoutPayload = (
         }
     };
 };
-// --- END OF FILE 105 Zeilen ---
+// --- END OF FILE 108 Zeilen ---
