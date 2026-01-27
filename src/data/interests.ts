@@ -1,3 +1,4 @@
+// 28.01.2026 20:10 - FEAT: Added 'special' category for 'Sondertage' (preserving full file integrity).
 // 25.01.2026 13:00 - FIX: "Quality Clean Sweep".
 // Restored V30 "Deep Dive" instructions for 9 key categories:
 // Museum, Architecture, Districts, Nature, Parks, CityInfo, TravelInfo, Family, Arrival.
@@ -459,6 +460,13 @@ Write a short conclusion below with your personal recommendation for the most se
       de: 'Falls ein Name vorgegeben ist: Recherchiere Details. SONST: Prüfe das Transportmittel. Bei "Camper"/"Wohnmobil": Suche nach Campingplätzen. Bei PKW/Bahn/Flug: Suche nach Hotels. Liste für jeden Ort zwei passende Vorschläge (passend zum Preisniveau) und gib eine Empfehlung.',
       en: 'If a name is provided: Research details. OTHERWISE: Check transport mode. If "Camper"/"RV": Search for campsites. If Car/Train/Plane: Search for hotels. List two suitable suggestions per location (matching budget) and provide a recommendation.'
     }
+  },
+  // FIX: Added Category for 'IdeenScout'
+  'special': {
+    id: 'special',
+    label: { de: 'Sondertage', en: 'Special Days' },
+    isSystem: true,
+    prompt: { de: 'Finde Ideen für Regen und Sonne.', en: 'Find ideas for rain and sun.' }
   }
 };
-// --- END OF FILE 534 Zeilen ---
+// --- END OF FILE 540 Zeilen ---

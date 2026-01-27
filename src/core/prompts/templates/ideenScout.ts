@@ -1,6 +1,5 @@
+// 28.01.2026 21:50 - FIX: Added 'location' { lat, lng } to schema to enable Map Pins for Ideas.
 // 26.01.2026 17:45 - FEAT: IdeenScout Batch Update.
-// Supports processing multiple locations (Hubs) in one go.
-// Enforces "Home-Filter" and "Duplicate-Protection" via Task-Payload.
 // src/core/prompts/templates/ideenScout.ts
 
 import type { TripProject } from '../../types';
@@ -67,6 +66,8 @@ Return a SINGLE valid JSON object.`;
       "description": "String (Why is this a great idea?)",
       "estimated_duration_minutes": "Integer",
       "address": "String (Google Maps ready)",
+      // FIX: Explicitly request coordinates so pins appear on the map
+      "location": { "lat": "Number", "lng": "Number" },
       "website_url": "String | null",
       "planning_note": "String (Tips, e.g. 'Visit in the morning')"
   };
@@ -93,4 +94,4 @@ Return a SINGLE valid JSON object.`;
     .withSelfCheck(['basic', 'research'])
     .build();
 };
-// --- END OF FILE 92 Zeilen ---
+// --- END OF FILE 94 Zeilen ---

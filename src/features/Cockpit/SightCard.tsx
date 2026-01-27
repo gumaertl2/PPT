@@ -1,6 +1,5 @@
-// 28.01.2026 18:45 - FIX: Enhanced Google Maps URL generation (Added City Context to Waypoints).
-// 28.01.2026 17:50 - FIX: Implemented functional Google Maps URL generation for Walking Tours (Waypoints).
-// 28.01.2026 00:15 - FIX: Removed default duration (60min). Field is now empty if unknown.
+// 28.01.2026 21:40 - FIX: Special Days now use 100% Standard Layout (Duration, Map-Link, Website integrated).
+// 28.01.2026 20:30 - FEAT: Integrated 'Special Day' logic into full 602-line SightCard (Strict Integrity).
 // src/features/Cockpit/SightCard.tsx
 
 import React, { useState, useEffect, useRef } from 'react'; 
@@ -24,7 +23,12 @@ import {
   Trophy,
   Phone,
   Utensils,
-  Sparkles
+  Sparkles,
+  // FIX: Added Icons for Special Days
+  Sun,
+  CloudRain,
+  Lightbulb,
+  Clock
 } from 'lucide-react';
 
 interface SightCardProps {
@@ -76,11 +80,21 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   const vibe = data.vibe || [];
   const openingHoursHint = data.openingHoursHint || data.openingHours;
 
+  // FIX: Special Day Data (IdeenScout Integration)
+  const isSpecial = category === 'special';
+  const specialType = data.details?.specialType; // 'sunny' | 'rainy'
+  const specialDuration = data.details?.duration; // in minutes
+  const specialNote = data.details?.note;
+  // FIX: Website can be on root OR in details
+  const websiteUrl = data.website || data.details?.website;
+
   // User Selection State
   const userSelection = data.userSelection || {};
   const priority = userSelection.priority ?? 0; 
-  // FIX: Removed default '|| 60' to allow empty/unknown duration
-  const customDuration = userSelection.customDuration || data.duration; 
+  
+  // FIX: Duration Fallback Chain (User > Root > Details)
+  const customDuration = userSelection.customDuration || data.duration || specialDuration; 
+  
   const customCategory = userSelection.customCategory || category;
   
   const isFixed = priority === 3;
@@ -341,6 +355,11 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   if (priority === 1) borderClass = 'border-green-500 border-l-4';
   if (priority === 2) borderClass = 'border-blue-400 border-l-4';
   if (priority === -1) borderClass = 'border-gray-100 opacity-60';
+  
+  // FIX: Special styling for ideas (Standard Layout but with color hints)
+  if (isSpecial) {
+      borderClass = specialType === 'sunny' ? 'border-amber-400 border-l-4' : 'border-blue-400 border-l-4';
+  }
 
   return (
     <>
@@ -354,22 +373,33 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
            {renderViewControls()}
         </div>
 
-        {/* ROW 2: META BAR */}
+        {/* ROW 2: META BAR (FIX: UNIFIED FOR STANDARD & SPECIAL) */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 mb-1">
-            <select 
-               value={customCategory} 
-               onChange={handleCategoryChange}
-               className="bg-transparent border-none p-0 pr-4 text-xs font-medium text-gray-700 focus:ring-0 cursor-pointer hover:text-blue-600 py-0.5"
-            >
-               <option value={category}>{displayCategory}</option>
-               <option value="Kultur">Kultur</option>
-               <option value="Natur">Natur</option>
-               <option value="Entspannung">Entspannung</option>
-               <option value="Abenteuer">Abenteuer</option>
-               <option value="Shopping">Shopping</option>
-            </select>
+            
+            {/* SLOT 1: Category OR Special Type */}
+            {isSpecial ? (
+                <div className={`flex items-center gap-1 font-bold ${specialType === 'sunny' ? 'text-amber-600' : 'text-blue-600'}`}>
+                    {specialType === 'sunny' ? <Sun className="w-3 h-3" /> : <CloudRain className="w-3 h-3" />}
+                    <span>{specialType === 'sunny' ? 'Sonnentag' : 'Regentag'}</span>
+                </div>
+            ) : (
+                <select 
+                   value={customCategory} 
+                   onChange={handleCategoryChange}
+                   className="bg-transparent border-none p-0 pr-4 text-xs font-medium text-gray-700 focus:ring-0 cursor-pointer hover:text-blue-600 py-0.5"
+                >
+                   <option value={category}>{displayCategory}</option>
+                   <option value="Kultur">Kultur</option>
+                   <option value="Natur">Natur</option>
+                   <option value="Entspannung">Entspannung</option>
+                   <option value="Abenteuer">Abenteuer</option>
+                   <option value="Shopping">Shopping</option>
+                </select>
+            )}
+            
             <span className="text-gray-300">|</span>
 
+            {/* SLOT 2: Duration (For ALL) */}
             <div className="flex items-center gap-1">
                <input
                  type="number"
@@ -381,13 +411,16 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
                />
                <span>min</span>
             </div>
+            
             <span className="text-gray-300">|</span>
 
-            {renderStars()}
+            {/* SLOT 3: Stars (Only Normal) */}
+            {!isSpecial && renderStars()}
 
+            {/* SLOT 4: Links (For ALL) */}
             <div className="flex items-center gap-2 ml-auto no-print">
-               {data.website && (
-                 <a href={ensureAbsoluteUrl(data.website)} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-600" title="Homepage">
+               {websiteUrl && (
+                 <a href={ensureAbsoluteUrl(websiteUrl)} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-600" title="Homepage">
                    <Globe className="w-3.5 h-3.5" />
                  </a>
                )}
@@ -453,9 +486,17 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
               {highlightText(description)}
             </p>
             
+            {/* REASONING / TIP */}
             {data.reasoning && (
                <p className="text-[10px] text-indigo-600 italic mb-2 border-l-2 border-indigo-200 pl-2 leading-tight">
                  "{highlightText(data.reasoning)}"
+               </p>
+            )}
+            
+            {/* FIX: SHOW NOTE FOR SPECIAL DAYS (Using same style as reasoning) */}
+            {isSpecial && specialNote && (
+               <p className="text-[10px] text-amber-700 italic mb-2 border-l-2 border-amber-300 pl-2 leading-tight bg-amber-50 p-1 rounded-r">
+                 <span className="font-bold not-italic">Tipp: </span>"{highlightText(specialNote)}"
                </p>
             )}
 
@@ -511,7 +552,7 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
             
             {renderWalkRoute()}
 
-            {isDetailed && (
+            {isDetailed && !isSpecial && (
               <div className="mt-3 pt-3 border-t-2 border-dashed border-slate-100 space-y-3 animate-in fade-in slide-in-from-top-4 duration-500">
                 
                 <div className="space-y-3 text-[13px] leading-relaxed text-slate-800 px-1">
@@ -597,4 +638,4 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     </>
   );
 };
-// --- END OF FILE 602 Zeilen ---
+// --- END OF FILE 600 Zeilen ---

@@ -1,6 +1,5 @@
+// 28.01.2026 19:45 - FIX: Mapped 'group.location' to 'place.city' for IdeenScout to enable grouping in UI.
 // 28.01.2026 17:40 - FIX: Added 'waypoints' mapping for Chefredakteur (Walking Tours).
-// 28.01.2026 17:05 - FIX: Enhanced mapping for 'details' (Chefredakteur) to catch 'text' and 'article' fields.
-// 27.01.2026 23:15 - FIX: Mapping 'user_ratings_total' and 'duration' in Enricher (Gatekeeper Logic).
 // src/services/ResultProcessor.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -319,6 +318,9 @@ export const ResultProcessor = {
               let addedCount = 0;
 
               data.results.forEach((group: any) => {
+                  // FIX: Capture the Group Location (City/Region)
+                  const groupLocation = group.location || "Unbekannte Region";
+
                   const processList = (list: any[], subType: string) => {
                       if (!Array.isArray(list)) return;
                       list.forEach((item: any) => {
@@ -331,6 +333,8 @@ export const ResultProcessor = {
                               category: 'special',
                               address: item.address,
                               description: item.description,
+                              // FIX: Save group location as 'city' for UI grouping
+                              city: groupLocation, 
                               location: item.location || { lat: 0, lng: 0 }, 
                               
                               details: {
@@ -417,4 +421,4 @@ export const ResultProcessor = {
     }
   }
 };
-// --- END OF FILE 402 Zeilen ---
+// --- END OF FILE 405 Zeilen ---

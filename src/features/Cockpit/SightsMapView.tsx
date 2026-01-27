@@ -1,5 +1,5 @@
+// 28.01.2026 22:00 - FEAT: Added 'Special Day' markers (Sunny/Rainy colors) to Map View.
 // 24.01.2026 16:30 - FIX: Removed unused imports (TS6133) & maintained High-Contrast/Zoom Logic.
-// 24.01.2026 15:00 - FIX: Added Visual Highlighting (Pulse/Size) for selected marker.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef } from 'react';
@@ -8,43 +8,56 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useTripStore } from '../../store/useTripStore';
 import type { Place } from '../../core/types';
-import { ExternalLink } from 'lucide-react';
+// FIX: Added imports for Special Icons
+import { ExternalLink, Sun, CloudRain } from 'lucide-react';
 
 // FIX: Removed unused 'icon' and 'iconShadow' imports to resolve Vercel build errors.
 
 // --- HIGH CONTRAST PALETTE ---
 
 const CATEGORY_COLORS: Record<string, string> = {
-  'museum': '#dc2626',      
+  'museum': '#dc2626',       
   'architecture': '#db2777', 
-  'sight': '#dc2626',       
-  'districts': '#9333ea',   
-  'city_info': '#7e22ce',   
-  'nature': '#16a34a',      
-  'parks': '#84cc16',       
+  'sight': '#dc2626',        
+  'districts': '#9333ea',    
+  'city_info': '#7e22ce',    
+  'nature': '#16a34a',       
+  'parks': '#84cc16',        
   'view': '#16a34a',
-  'beach': '#2563eb',       
+  'beach': '#2563eb',        
   'lake': '#2563eb',
-  'wellness': '#06b6d4',    
+  'wellness': '#06b6d4',     
   'relaxation': '#06b6d4',
-  'sports': '#ea580c',      
+  'sports': '#ea580c',       
   'hiking': '#ea580c',
   'abenteuer': '#ea580c',
-  'restaurant': '#ca8a04',  
+  'restaurant': '#ca8a04',   
   'food': '#ca8a04',
-  'shopping': '#7c3aed',    
+  'shopping': '#7c3aed',     
   'market': '#7c3aed',
-  'nightlife': '#1e3a8a',   
-  'family': '#0d9488',      
-  'hotel': '#000000',       
-  'arrival': '#4b5563',     
-  'general': '#64748b'      
+  'nightlife': '#1e3a8a',    
+  'family': '#0d9488',       
+  'hotel': '#000000',        
+  'arrival': '#4b5563',      
+  'general': '#64748b',
+  // FIX: Special Day Colors
+  'special': '#f59e0b', // Default Amber
+  'sunny': '#f59e0b',   // Amber
+  'rainy': '#3b82f6'    // Blue
 };
 
 const DEFAULT_COLOR = '#64748b'; 
 
-const getCategoryColor = (cat?: string): string => {
+// FIX: Enhanced to support Special Type logic
+const getCategoryColor = (cat?: string, place?: Place): string => {
   if (!cat) return DEFAULT_COLOR;
+  
+  // Special Handling for 'special' category (Sondertage)
+  if (cat === 'special' && place?.details?.specialType) {
+      if (place.details.specialType === 'sunny') return CATEGORY_COLORS['sunny'];
+      if (place.details.specialType === 'rainy') return CATEGORY_COLORS['rainy'];
+  }
+
   const normalized = cat.toLowerCase().trim();
   if (CATEGORY_COLORS[normalized]) return CATEGORY_COLORS[normalized];
   const match = Object.keys(CATEGORY_COLORS).find(key => normalized.includes(key));
@@ -53,8 +66,8 @@ const getCategoryColor = (cat?: string): string => {
 
 // Custom Icon with 'isSelected' state for Highlighting
 const createCustomIcon = (color: string, isSelected: boolean) => {
-  const size = isSelected ? 24 : 16;       
-  const anchor = isSelected ? 12 : 8;      
+  const size = isSelected ? 24 : 16;        
+  const anchor = isSelected ? 12 : 8;       
   const border = isSelected ? '3px solid #000' : '2px solid white'; 
   const animClass = isSelected ? 'marker-pulse' : '';
 
@@ -98,7 +111,7 @@ const MapStyles = () => (
         transform: scale(1);
       }
     }
-    
+     
     .marker-pulse > div {
       animation: pulse-black 1.5s infinite;
       z-index: 9999 !important;
@@ -173,7 +186,7 @@ const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
           <div key={cat} className="flex items-center gap-2">
             <div 
               className="w-3 h-3 rounded-full border border-white shadow-sm shrink-0" 
-              style={{ backgroundColor: getCategoryColor(cat) }}
+              style={{ backgroundColor: getCategoryColor(cat) }} // Pass place? No, legend is generic
             ></div>
             <span className="text-xs font-medium text-slate-700 capitalize truncate max-w-[120px]" title={cat}>
                {cat.replace(/_/g, ' ')}
@@ -224,12 +237,14 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
 
         {validPlaces.map((place) => {
           const isSelected = uiState.selectedPlaceId === place.id;
+          // FIX: Pass place object to color function to detect special type
+          const markerColor = getCategoryColor(place.category, place);
           
           return (
             <Marker 
               key={place.id} 
               position={[place.location!.lat, place.location!.lng]}
-              icon={createCustomIcon(getCategoryColor(place.category), isSelected)}
+              icon={createCustomIcon(markerColor, isSelected)}
               zIndexOffset={isSelected ? 1000 : 0} 
               ref={(ref) => { markerRefs.current[place.id] = ref; }}
               eventHandlers={{
@@ -241,13 +256,15 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
               <Popup>
                 <div className="min-w-[220px] font-sans p-1">
                   <div className="flex items-center gap-2 mb-1">
-                     <div 
-                       className="w-2 h-2 rounded-full" 
-                       style={{ backgroundColor: getCategoryColor(place.category) }} 
-                     />
-                     <span className="text-[10px] uppercase font-bold text-slate-400">
-                       {place.category || 'Ort'}
-                     </span>
+                      <div 
+                        className="w-2 h-2 rounded-full" 
+                        style={{ backgroundColor: markerColor }} 
+                      />
+                      <span className="text-[10px] uppercase font-bold text-slate-400">
+                        {place.category === 'special' 
+                            ? (place.details?.specialType === 'sunny' ? 'Sonnentag ☀️' : 'Regentag 🌧️') 
+                            : (place.category || 'Ort')}
+                      </span>
                   </div>
                   
                   <h3 className="font-bold text-slate-900 text-sm mb-1">{place.name}</h3>
@@ -277,4 +294,4 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
     </div>
   );
 };
-// --- END OF FILE 255 Zeilen ---
+// --- END OF FILE 270 Zeilen ---

@@ -1,5 +1,5 @@
+// 29.01.2026 00:15 - FIX: Added correct 'done' status check for 'sondertage' (checks project.analysis.ideenScout).
 // 28.01.2026 17:00 - FIX: Corrected status checks for 'guide' and 'details' to match V40 data structure.
-// 20.01.2026 20:25 - FIX: Sync with V40 English Types (validated_hotels).
 // src/features/Workflow/WorkflowSelectionModal.tsx
 
 import React, { useState, useEffect } from 'react';
@@ -56,15 +56,15 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
         return hasPlaces ? 'done' : 'available';
       
       case 'anreicherer':
-         if (!hasPlaces) return 'locked';
-         
-         const isEnriched = validPlaces.some((p: any) => 
-            (p.kurzbeschreibung && p.kurzbeschreibung.length > 20) || 
-            (p.logistics_info && p.logistics_info.length > 10) ||
-            // V40 Check (english keys)
-            (p.description && p.description.length > 20)
-         );
-         return isEnriched ? 'done' : 'available';
+          if (!hasPlaces) return 'locked';
+          
+          const isEnriched = validPlaces.some((p: any) => 
+             (p.kurzbeschreibung && p.kurzbeschreibung.length > 20) || 
+             (p.logistics_info && p.logistics_info.length > 10) ||
+             // V40 Check (english keys)
+             (p.description && p.description.length > 20)
+          );
+          return isEnriched ? 'done' : 'available';
 
       case 'guide':
         if (!hasPlaces) return 'locked'; 
@@ -99,7 +99,10 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
         return (manualHotel || hasValidatedHotels) ? 'done' : 'available';
       
       case 'sondertage':
-          return hasPlaces ? 'available' : 'locked';
+          if (!hasPlaces) return 'locked';
+          // FIX: Check if 'ideenScout' data exists in analysis
+          const hasIdeen = !!(project.analysis as any).ideenScout;
+          return hasIdeen ? 'done' : 'available';
 
       case 'transfers':
         const hasDayPlan = project.itinerary.days.length > 0;
@@ -349,4 +352,4 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
     </>
   );
 };
-// --- END OF FILE 270 Zeilen ---
+// --- END OF FILE 275 Zeilen ---

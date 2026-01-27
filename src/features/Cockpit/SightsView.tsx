@@ -1,9 +1,6 @@
-// 23.01.2026 23:15 - FIX: Corrected 'Place' import to 'import type' to resolve SyntaxError.
-// 23.01.2026 22:00 - FEATURE: Integrated SightsMapView & Auto-Scroll (Surgical Insertion).
-// 21.01.2026 04:00 - FIX: Hardened TypeScript Types for Tours (Explicit 'any[]' casting) to solve build error.
+// 29.01.2026 00:05 - FIX: Added 'Sondertage' as a virtual Tour in 'tourOptions' so it appears in the Filter & Tour-View.
+// 28.01.2026 23:55 - FIX: Added missing 'Tour Mode' rendering for Specials (appended to Candidates list).
 // src/features/Cockpit/SightsView.tsx
-// 21.01.2026 03:45 - FIX: Added missing 'any' type to 'tour' parameter in tourOptions useMemo loop.
-// 21.01.2026 03:00 - FIX: Connected 'Planning Mode' Props to SightFilterModal.
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { useTripStore } from '../../store/useTripStore';
@@ -12,16 +9,18 @@ import { SightFilterModal } from './SightFilterModal';
 import { useTranslation } from 'react-i18next';
 import { INTEREST_DATA } from '../../data/interests'; 
 import { APPENDIX_ONLY_INTERESTS } from '../../data/constants';
-import type { LanguageCode, Place } from '../../core/types'; // FIX: import type { Place }
+import type { LanguageCode, Place } from '../../core/types'; 
 import { SightsMapView } from './SightsMapView';
 
 import { 
   FileText,
   Briefcase, 
-  Sun,
-  CloudRain,
   Layout,
-  Filter
+  Filter,
+  Search,
+  Map as MapIcon,
+  X,
+  Ghost
 } from 'lucide-react';
 
 const TRAVEL_PACE_CONFIG: Record<string, { startHour: number; endHour: number; breakMinutes: number; bufferMinutes: number }> = {
@@ -47,7 +46,7 @@ export const SightsView: React.FC = () => {
 
   const [showPlanningMode, setShowPlanningMode] = useState(false);
 
-  // FIX: AUTO-SCROLL LOGIC (Scroll to card when returning from map)
+  // FIX: AUTO-SCROLL LOGIC
   useEffect(() => {
     if (uiState.viewMode === 'list' && uiState.selectedPlaceId) {
       setTimeout(() => {
@@ -61,17 +60,12 @@ export const SightsView: React.FC = () => {
     }
   }, [uiState.selectedPlaceId, uiState.viewMode]);
   
-  // FIX: Helper to resolve Label (city_info -> Stadt-Infos)
   const resolveCategoryLabel = (catId: string): string => {
     if (!catId) return "";
-    
-    // Versuch 1: Lookup in INTEREST_DATA
     const def = INTEREST_DATA[catId];
     if (def && def.label) {
         return (def.label as any)[currentLang] || (def.label as any)['de'] || catId;
     }
-
-    // Fallback: Wenn es keine ID ist, sondern schon Text (Legacy)
     return catId.charAt(0).toUpperCase() + catId.slice(1).replace(/_/g, ' ');
   };
 
@@ -95,7 +89,6 @@ export const SightsView: React.FC = () => {
     places.forEach((p: any) => {
       const prio = p.userPriority || 0;
       if (prio > 0) {
-         // V40: duration (or check old key fallback)
          const dur = p.duration || p.min_duration_minutes || 60;
          totalMinutes += dur;
       }
@@ -104,13 +97,11 @@ export const SightsView: React.FC = () => {
     return { total: totalBudget, used: totalMinutes, remaining: totalBudget - totalMinutes };
   }, [userInputs, places]);
 
-  // --- 2. DATA PREPARATION (Filters & Counts) ---
+  // --- 2. DATA PREPARATION ---
   
-  // A. Categories
   const categoryOptions = useMemo(() => {
     const counts: Record<string, number> = {};
     const ignoreList = APPENDIX_ONLY_INTERESTS || [];
-    
     places.forEach((p: any) => {
       const cat = p.category || 'Sonstiges';
       if (!ignoreList.includes(cat)) {
@@ -124,28 +115,36 @@ export const SightsView: React.FC = () => {
     }));
   }, [places]);
 
-  // B. Tours
   const tourOptions = useMemo(() => {
       const tourGuide = (analysis as any)?.tourGuide;
-      // TS FIX: Explicitly cast to any[] to avoid implicit any errors in map
       const tours = (tourGuide?.guide?.tours || []) as any[];
       
-      return tours.map((tour: any) => {
-          // Count places in this tour that exist in our main 'places' list
+      const mappedTours = tours.map((tour: any) => {
           const count = (tour.suggested_order_ids || []).filter((id: string) => 
               places.some((p: any) => p.id === id)
           ).length;
-          
           return {
-              id: tour.tour_title || "Tour", // ID is the Title for filtering
+              id: tour.tour_title || "Tour", 
               label: tour.tour_title || "Tour",
               count: count,
               placeIds: tour.suggested_order_ids || []
           };
       }).filter((t: any) => t.count > 0);
+
+      // FIX: Manually add "Sondertage" as a Virtual Tour if items exist
+      const specialPlaces = places.filter((p: any) => p.category === 'special');
+      if (specialPlaces.length > 0) {
+          mappedTours.push({
+              id: 'tour_special', // Unique ID for filter
+              label: 'Tour: Sondertage & Ideen',
+              count: specialPlaces.length,
+              placeIds: specialPlaces.map((p: any) => p.id)
+          });
+      }
+
+      return mappedTours;
   }, [analysis, places]);
 
-  // C. Days
   const dayOptions = useMemo(() => {
       const itineraryDays = project.itinerary?.days || [];
       return itineraryDays.map((day: any, index: number) => {
@@ -157,18 +156,15 @@ export const SightsView: React.FC = () => {
           }
           const label = `${t('sights.day', {defaultValue: 'Tag'})} ${index + 1}`;
           return {
-              id: label, // Use Label as ID for simplicity in filter array
+              id: label,
               label: label,
               count: count,
-              // Store IDs to help filtering later if needed, though we filter by day assignment usually
-              // For now, filtering by 'Tag 1' means checking the itinerary.
               dayIndex: index
           };
       }).filter((d: any) => d.count > 0);
   }, [project.itinerary, places]);
 
   const handleViewModeChange = (mode: string) => {
-      // Clear filters when switching view mode to avoid confusion
       setUIState({ 
           sortMode: mode as any,
           categoryFilter: [] 
@@ -179,10 +175,10 @@ export const SightsView: React.FC = () => {
   const filteredLists = useMemo(() => {
     const mainList: any[] = [];
     const reserveList: any[] = [];
-    const term = uiState.searchTerm.toLowerCase();
-    const activeFilters = uiState.categoryFilter || []; // Generic filters
-    
-    // TS FIX: Cast sortMode to string to allow 'tour' and 'day' values
+    const specialList: any[] = []; 
+
+    const term = (uiState.searchTerm || '').toLowerCase();
+    const activeFilters = uiState.categoryFilter || []; 
     const sortMode = (uiState.sortMode as string) || 'category';
 
     const ignoreList = APPENDIX_ONLY_INTERESTS || [];
@@ -193,23 +189,20 @@ export const SightsView: React.FC = () => {
       const cat = p.category || 'Sonstiges';
       const name = p.name || '';
 
-      if (ignoreList.includes(cat)) {
-          return; // Skip this item in Guide View
+      if (ignoreList.includes(cat)) return;
+
+      if (term && !name.toLowerCase().includes(term) && !cat.toLowerCase().includes(term)) return;
+      
+      if (uiState.selectedCategory && uiState.selectedCategory !== 'all') {
+          const pCat = p.userSelection?.customCategory || p.category;
+          if (pCat !== uiState.selectedCategory) return;
       }
 
-      // 1. Search Filter
-      if (term && !name.toLowerCase().includes(term) && !cat.toLowerCase().includes(term)) {
-        return; 
-      }
-      
-      // 2. Context Filter (Category / Tour / Day)
       if (activeFilters.length > 0) {
           if (sortMode === 'category') {
               if (!activeFilters.includes(cat)) return;
           }
           else if (sortMode === 'tour') {
-              // Check if place is in any selected tour
-              // TS FIX: Explicitly type 'tour' callback parameter as any
               const inSelectedTour = tourOptions.some((tour: any) => 
                   activeFilters.includes(tour.id) && tour.placeIds.includes(p.id)
               );
@@ -227,103 +220,55 @@ export const SightsView: React.FC = () => {
           }
       }
 
-      // V40: rating / duration
       const rating = p.rating || 0;
       const duration = p.duration || p.min_duration_minutes || 0;
-      
       const isReserve = (p.userPriority === -1) || 
                         (duration < minDuration) || 
                         (rating > 0 && rating < minRating);
       
-      if (isReserve) {
-        reserveList.push(p);
+      if (cat === 'special') {
+          specialList.push(p);
+      } else if (isReserve) {
+          reserveList.push(p);
       } else {
-        mainList.push(p);
+          mainList.push(p);
       }
     });
 
     const sortFn = (a: any, b: any) => {
       if (sortMode === 'alphabetical') return a.name.localeCompare(b.name);
+      const pA = a.userSelection?.priority ?? 0;
+      const pB = b.userSelection?.priority ?? 0;
+      if (pA !== pB) return pB - pA;
       return (a.category || '').localeCompare(b.category || '');
     };
 
-    return { main: mainList.sort(sortFn), reserve: reserveList.sort(sortFn) };
-  }, [places, uiState.searchTerm, uiState.categoryFilter, uiState.sortMode, userInputs.searchSettings, tourOptions, project.itinerary]);
+    return { 
+        main: mainList.sort(sortFn), 
+        reserve: reserveList.sort(sortFn),
+        special: specialList.sort(sortFn)
+    };
+  }, [places, uiState.searchTerm, uiState.categoryFilter, uiState.sortMode, uiState.selectedCategory, userInputs.searchSettings, tourOptions, project.itinerary]);
 
 
-  // --- 4. RENDERER: SONDERTAGE (V40 Adapted) ---
-  const renderSondertage = () => {
-    const ideenScout = (analysis as any)?.ideenScout;
-    
-    if (!ideenScout || (!ideenScout.sunny_day_ideas && !ideenScout.rainy_day_ideas)) return null;
+  // --- 4. RENDERER: GROUPED LIST ---
+  const renderGroupedList = (list: any[], groupByOverride?: 'city') => {
+    if (list.length === 0) return null; 
 
-    return (
-      <div className="mb-8 space-y-6 animate-in fade-in">
-         <div className="bg-gradient-to-r from-slate-50 to-white rounded-xl border border-slate-200 p-4 shadow-sm">
-            <h3 className="font-bold text-lg text-slate-700 mb-4 flex items-center gap-2">
-              <Layout className="w-5 h-5 text-slate-400" />
-              Flexible Ideen (Special Days)
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-               {/* SUNNY */}
-               <div className="bg-amber-50/50 rounded-lg p-3 border border-amber-100">
-                  <div className="flex items-center gap-2 mb-3 text-amber-700 font-semibold border-b border-amber-200/50 pb-2">
-                      <Sun className="w-4 h-4" /> Bei Sonnenschein
-                  </div>
-                  <div className="space-y-3">
-                      {(ideenScout.sunny_day_ideas || []).map((idee: any, i: number) => (
-                         <div key={i} className="bg-white p-2.5 rounded border border-amber-100 shadow-sm text-sm">
-                            <div className="font-bold text-slate-800">{idee.name}</div>
-                            <p className="text-xs text-slate-600 mt-1">{idee.description}</p>
-                            {idee.planning_note && (
-                               <div className="mt-2 text-[10px] bg-amber-50 text-amber-800 p-1.5 rounded">
-                                   💡 {idee.planning_note}
-                               </div>
-                            )}
-                         </div>
-                      ))}
-                  </div>
-               </div>
-
-               {/* RAINY */}
-               <div className="bg-slate-100/50 rounded-lg p-3 border border-slate-200">
-                  <div className="flex items-center gap-2 mb-3 text-slate-600 font-semibold border-b border-slate-200 pb-2">
-                      <CloudRain className="w-4 h-4" /> Bei Regen
-                  </div>
-                  <div className="space-y-3">
-                      {(ideenScout.rainy_day_ideas || []).map((idee: any, i: number) => (
-                         <div key={i} className="bg-white p-2.5 rounded border border-slate-200 shadow-sm text-sm">
-                            <div className="font-bold text-slate-800">{idee.name}</div>
-                            <p className="text-xs text-slate-600 mt-1">{idee.description}</p>
-                            {idee.planning_note && (
-                               <div className="mt-2 text-[10px] bg-slate-50 text-slate-600 p-1.5 rounded">
-                                   ☂️ {idee.planning_note}
-                               </div>
-                            )}
-                         </div>
-                      ))}
-                  </div>
-               </div>
-            </div>
-         </div>
-      </div>
-    );
-  };
-
-
-  // --- 5. RENDER GROUPED LIST (V40 Tours) ---
-  const renderGroupedList = (list: any[]) => {
-    if (list.length === 0) return <p className="text-gray-400 italic p-4">{t('sights.no_places', { defaultValue: 'Keine Orte gefunden.' })}</p>;
-
-    // TS FIX: Cast sortMode to string here as well
     const sortMode = (uiState.sortMode as string) || 'category';
     const groups: Record<string, any[]> = {};
     
-    // CASE: TOURS (V40)
-    if (sortMode === 'tour') {
+    // PRIORITY 1: OVERRIDE
+    if (groupByOverride === 'city') {
+        list.forEach(p => {
+            const key = p.city || "Allgemein / Überregional";
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(p);
+        });
+    }
+    // PRIORITY 2: TOURS
+    else if (sortMode === 'tour') {
         const tourGuide = (analysis as any)?.tourGuide;
-        // TS FIX: Explicitly cast to any[]
         const tours = (tourGuide?.guide?.tours || []) as any[];
         const assignedIds = new Set<string>();
 
@@ -342,14 +287,13 @@ export const SightsView: React.FC = () => {
             }
         });
 
-        // 2. Leftovers
+        // 2. Leftovers (Standard)
         const leftovers = list.filter(p => !assignedIds.has(p.id));
         if (leftovers.length > 0) {
             groups['Weitere Orte (Ohne Tour)'] = leftovers;
         }
-
     } 
-    // CASE: DAYS
+    // PRIORITY 3: DAYS
     else if (sortMode === 'day') {
          const days = project.itinerary?.days || [];
          const assignedIds = new Set<string>();
@@ -371,7 +315,7 @@ export const SightsView: React.FC = () => {
             groups['Nicht zugewiesen'] = leftovers;
          }
     }
-    // CASE: STANDARD (Category / Alphabetical)
+    // PRIORITY 4: STANDARD
     else {
         list.forEach(p => {
             let key = 'Allgemein';
@@ -386,15 +330,17 @@ export const SightsView: React.FC = () => {
     return Object.entries(groups).map(([groupKey, items]) => (
       <div key={groupKey} className="mb-6 last:mb-0">
         <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-100 pb-1 ml-1 flex justify-between">
-          <span>{groupKey}</span>
+          <span className="flex items-center gap-2">
+             {groupByOverride === 'city' && <span className="text-lg">📍</span>} 
+             {groupKey}
+          </span>
           <span className="text-xs text-gray-300">{items.length}</span>
         </h3>
         <div className="space-y-3">
           {items.map(place => (
-            // FIX: Added ID anchor for scroll-into-view
             <div key={place.id} id={`card-${place.id}`}>
                 <SightCard 
-                   id={place.id} // SightCard expects 'id' separate prop in legacy
+                   id={place.id} 
                    data={place} 
                    mode="selection" 
                    showPriorityControls={showPlanningMode}
@@ -407,13 +353,13 @@ export const SightsView: React.FC = () => {
   };
 
   // --- MAIN RENDER ---
-  // TS FIX: Cast sortMode to string
   const activeSortMode = (uiState.sortMode as string) || 'category';
+  const isTourMode = activeSortMode === 'tour';
 
   return (
     <div className="pb-24">
       
-      {/* 1. TOP BAR */}
+      {/* 1. TOP BAR (Budget/Planning) */}
       {showPlanningMode && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6 flex flex-col md:flex-row items-center justify-between gap-4 sticky top-20 z-10 animate-in fade-in slide-in-from-top-2">
            <div className="flex items-center gap-6 w-full justify-center md:justify-start">
@@ -444,26 +390,46 @@ export const SightsView: React.FC = () => {
       {/* FIX: Conditional Rendering for Map View */}
       {uiState.viewMode === 'map' ? (
         <div className="mb-8">
-            {/* Show Map View */}
-            <SightsMapView places={[...filteredLists.main, ...filteredLists.reserve] as Place[]} />
+            <SightsMapView places={[...filteredLists.main, ...filteredLists.reserve, ...filteredLists.special] as Place[]} />
         </div>
       ) : (
         <>
-            {/* 2. SONDERTAGE (Only in List Mode) */}
-            {renderSondertage()}
-
-            {/* 3. LISTS (Only in List Mode) */}
-            
-            <div className="bg-white rounded-xl border-2 border-blue-600 shadow-sm p-4 md:p-6 mb-8 relative">
+            {/* LIST 1: CANDIDATES (Main) */}
+            <div className="bg-white rounded-xl border-2 border-blue-600 shadow-sm p-4 md:p-6 mb-8 relative mx-4">
                 <div className="absolute -top-3 left-6 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1">
                     {showPlanningMode ? <Briefcase className="w-3 h-3" /> : <FileText className="w-3 h-3" />}
                     {t('sights.candidates', { defaultValue: 'KANDIDATEN' })} ({filteredLists.main.length})
                 </div>
+                
+                {/* Standard Main List */}
                 <div className="mt-2">{renderGroupedList(filteredLists.main)}</div>
+
+                {/* FIX: IN TOUR MODE, APPEND SPECIALS HERE AS A 'TOUR' */}
+                {isTourMode && filteredLists.special.length > 0 && (
+                    <div className="mt-8 pt-6 border-t border-slate-100">
+                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-100 pb-1 ml-1 flex justify-between">
+                            <span>Tour: Sondertage & Ideen</span>
+                            <span className="text-xs text-gray-300">{filteredLists.special.length}</span>
+                        </h3>
+                        <div className="space-y-3">
+                            {filteredLists.special.map(place => (
+                                <div key={place.id} id={`card-${place.id}`}>
+                                    <SightCard 
+                                        id={place.id} 
+                                        data={place} 
+                                        mode="selection" 
+                                        showPriorityControls={showPlanningMode}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
 
+            {/* LIST 2: RESERVE */}
             {filteredLists.reserve.length > 0 && (
-                <div className="bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 p-4 md:p-6 relative opacity-90 hover:opacity-100 transition-opacity">
+                <div className="bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 p-4 md:p-6 relative opacity-90 hover:opacity-100 transition-opacity mx-4 mb-8">
                     <div className="absolute -top-3 left-6 bg-gray-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1">
                     <Filter className="w-3 h-3" />
                     {t('sights.reserve', { defaultValue: 'RESERVE / WENIGER PASSEND' })} ({filteredLists.reserve.length})
@@ -471,10 +437,22 @@ export const SightsView: React.FC = () => {
                     <div className="mt-2">{renderGroupedList(filteredLists.reserve)}</div>
                 </div>
             )}
+
+            {/* LIST 3: SONDERTAGE (STANDARD MODE ONLY) */}
+            {!isTourMode && filteredLists.special.length > 0 && (
+                <div className="bg-amber-50/50 rounded-xl border-2 border-amber-200 shadow-sm p-4 md:p-6 relative mx-4 mb-8">
+                    <div className="absolute -top-3 left-6 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1">
+                        <Layout className="w-3 h-3" />
+                        SONDERTAGE & IDEEN ({filteredLists.special.length})
+                    </div>
+                    <div className="mt-2">
+                        {renderGroupedList(filteredLists.special, 'city')}
+                    </div>
+                </div>
+            )}
         </>
       )}
 
-      {/* 4. NEW FILTER MODAL OVERLAY */}
       <SightFilterModal 
          isOpen={isSightFilterOpen}
          onClose={toggleSightFilter}
@@ -490,4 +468,4 @@ export const SightsView: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 485 Zeilen ---
+// --- END OF FILE 612 Zeilen ---
