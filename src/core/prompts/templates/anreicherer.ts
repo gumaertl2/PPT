@@ -1,4 +1,4 @@
-// 26.01.2026 13:15 - FIX: Remove invalid category 'culture_history'.
+// 27.01.2026 17:35 - FIX: Added 'user_ratings_total' to Schema.
 // STRICT MAPPING: Instructions now only reference keys existing in INTEREST_DATA.
 // src/core/prompts/templates/anreicherer.ts
 
@@ -73,6 +73,7 @@ Structure:
       "description": "Factual description (max 2 sentences).",
       "openingHours": "Daily 9-17 (approx)",
       "rating": 4.5,
+      "user_ratings_total": 120,
       "website": "www.example.com"
     }
   ]
@@ -81,4 +82,4 @@ Structure:
 
   return builder.build();
 };
-// --- END OF FILE 74 Zeilen ---
+// --- END OF FILE 75 Zeilen ---

@@ -1,7 +1,15 @@
-// 26.01.2026 19:15 - FIX: Linter Cleanups & Requested Fields Injection.
+// 27.01.2026 17:30 - FIX: Added Filter for Non-Physical Items & Ratings Count.
 // src/core/prompts/preparers/prepareAnreichererPayload.ts
 
 import type { TripProject } from '../../types';
+
+// V40: BLACKLIST for Enricher
+// These items should NEVER be enriched as "Places". They belong to InfoAutor.
+const NON_PHYSICAL_KEYWORDS = [
+    'reiseinfos', 'travel info', 'wissenswertes', 'budget', 
+    'anreise', 'arrival', 'stadtinfos', 'city info', 
+    'sicherheit', 'safety', 'klima', 'climate'
+];
 
 export const prepareAnreichererPayload = (
     project: TripProject,
@@ -41,24 +49,37 @@ export const prepareAnreichererPayload = (
 
     if (!globalContext) globalContext = "Destination of the Trip";
 
-    // 2. DATA PREPARATION
-    const itemsToEnrich = candidates.map(c => {
-        if (typeof c === 'string') return { name: c };
-        return { 
-            name: c.name,
-            id: c.id, 
-            context_hint: c.vicinity || c.region || globalContext 
-        };
-    });
+    // 2. DATA PREPARATION (WITH FILTERING)
+    const itemsToEnrich = candidates
+        .filter(c => {
+            // Safety Check
+            if (!c) return false;
+            const nameToCheck = (typeof c === 'string' ? c : c.name || "").toLowerCase();
+            
+            // Filter: Ignore Meta-Infos
+            if (NON_PHYSICAL_KEYWORDS.some(kw => nameToCheck.includes(kw))) {
+                return false;
+            }
+            return true;
+        })
+        .map(c => {
+            if (typeof c === 'string') return { name: c };
+            return { 
+                name: c.name,
+                id: c.id, 
+                context_hint: c.vicinity || c.region || globalContext 
+            };
+        });
 
-    // 3. TARGET FIELDS (Now used in context)
+    // 3. TARGET FIELDS (Updated with user_ratings_total)
     const requestedFields = [
         "official_name (Correct spelling)", 
         "address (Street, ZIP, City)",       
         "location (lat, lng)",      
         "description (Factual short description, max 2 sentences)",   
         "openingHours (String representation)",  
-        "rating (Number or null)",        
+        "rating (Number or null)",
+        "user_ratings_total (Integer count of reviews)", // NEW       
         "category (Inferred category)"       
     ];
 
@@ -68,7 +89,7 @@ export const prepareAnreichererPayload = (
         context: {
             candidates_list: itemsToEnrich,
             search_region: globalContext,
-            required_fields: requestedFields, // <-- Fix: Used here
+            required_fields: requestedFields, 
             chunk_progress: chunkInfo,
             target_language: userInputs.aiOutputLanguage || uiLang
         },
@@ -79,4 +100,4 @@ export const prepareAnreichererPayload = (
         }
     };
 };
-// --- END OF FILE 90 Zeilen ---
+// --- END OF FILE 108 Zeilen ---
