@@ -1,10 +1,7 @@
-// 22.01.2026 14:15 - FIX: Cleanup of non-existent Tasks (Hallucinations) to sync with Templates.
+// 27.01.2026 17:00 - CONFIG: Increased Batch Limits for Collector to 60.
+// Prevents unnecessary chunking for "Sight Collector" (Basis).
 // src/data/config.ts
-// 14.01.2026 13:45 - FIX: Added missing TaskKeys 'basis' and 'anreicherer' to support CockpitWizard workflow.
-// 16.01.2026 04:20 - FIX: Consistently using TaskKey from core/types. Expanded defaults to include workflow steps.
-// 16.01.2026 18:30 - FEAT: Added chunkDefaults to support granular batch processing per agent (V30 Parity).
 
-// FIX: Importing TaskKey as the source of truth
 import type { TaskKey } from '../core/types';
 
 export type ModelType = 'pro' | 'flash';
@@ -92,8 +89,11 @@ export const CONFIG = {
     chunkDefaults: {
         // --- High Volume Data Agents ---
         chefPlaner: { auto: 60, manual: 60 },      // Reine Datenanalyse, wenig Output-Token
-        sightCollector: { auto: 10, manual: 25 },  // Sammler (Namen)
-        basis: { auto: 10, manual: 25 },           // Alias
+        
+        // FIX: Increased to 60 to prevent unnecessary splitting (User Request)
+        sightCollector: { auto: 60, manual: 60 },  // Sammler (Namen)
+        basis: { auto: 60, manual: 60 },           // Alias
+        
         foodCollector: { auto: 20, manual: 40 },   // Restaurants (einfach)
         food: { auto: 20, manual: 40 },            // Alias
         

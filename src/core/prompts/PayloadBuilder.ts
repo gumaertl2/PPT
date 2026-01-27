@@ -1,6 +1,4 @@
-// 26.01.2026 23:45 - FIX: Integrated FoodScout & FoodEnricher Preparers.
-// - foodScout: Uses new Preparer with strict Guide/Strategy logic.
-// - foodEnricher: Consumes candidates from analysis.foodScout (Priority) or Fallback.
+// 27.01.2026 16:50 - FIX: Pass Chunk Options to Basis Preparer (Ratio Logic).
 // src/core/prompts/PayloadBuilder.ts
 
 import { useTripStore } from '../../store/useTripStore';
@@ -129,7 +127,12 @@ export const PayloadBuilder = {
 
       case 'basis':
       case 'sightCollector': {
-        const payload = prepareBasisPayload(project);
+        // V40 FIX: Pass chunking options to enable interest slicing & ratio logic
+        const payload = prepareBasisPayload(
+            project,
+            options?.chunkIndex || chunkingState?.currentChunk || 1,
+            options?.totalChunks || chunkingState?.totalChunks || 1
+        );
         generatedPrompt = buildBasisPrompt(payload);
         break;
       }
@@ -228,7 +231,7 @@ export const PayloadBuilder = {
           generatedPrompt = buildFoodScoutPrompt(payload);
           break;
       }
-       
+        
       case 'foodEnricher': {
           // 1. SOURCE: Try to get candidates from Analysis (Scout Result)
           // Fallback to legacy radius search if analysis is empty
@@ -350,4 +353,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 540 Zeilen ---
+// --- END OF FILE 545 Zeilen ---

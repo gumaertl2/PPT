@@ -1,6 +1,5 @@
-// 26.01.2026 11:30 - FIX: Strict Interest Filtering for Basis (Sammler).
-// Prevents the Collector from searching for Services (Hotels, Food) or Meta-Info (Budget),
-// ensuring it only focuses on physical Sights & Activities for the Itinerary.
+// 27.01.2026 16:55 - FIX: Implemented "Ratio-Slicing" for Basis Preparer.
+// Slices interests per chunk and scales 'target_count' accordingly to avoid duplicates/over-fetching.
 // src/core/prompts/preparers/prepareBasisPayload.ts
 
 import type { TripProject } from '../../types';
@@ -39,17 +38,14 @@ const getMonthName = (dateStr: string, lang: 'de' | 'en'): string => {
 
 /**
  * Generiert das "Kreative Briefing" ODER die "Fallback-Instruktion".
+ * V40 UPDATE: Accepts filtered 'activeInterests' for this chunk.
  */
-const generateCreativeBriefing = (project: TripProject, lang: 'de' | 'en'): string => {
+const generateCreativeBriefing = (project: TripProject, activeInterests: string[], lang: 'de' | 'en'): string => {
   const { userInputs } = project;
-  const rawInterests = userInputs.selectedInterests || [];
-  
-  // FIX: FILTERING
-  // Only pass interests that are NOT on the blacklist.
-  const interests = rawInterests.filter(id => !EXCLUDED_FOR_BASIS.includes(id));
-  
+  // NOTE: Filtering happened in main function
+
   // LOGIC CHANGE: Smart Fallback
-  if (interests.length === 0) {
+  if (activeInterests.length === 0) {
       // CASE 1: Keine Interessen gewählt (oder alle wurden gefiltert). 
       // Wir geben eine harte Anweisung, NICHT zu raten, sondern sich auf Charakter/Vibe zu verlassen.
       if (lang === 'de') {
@@ -62,7 +58,7 @@ const generateCreativeBriefing = (project: TripProject, lang: 'de' | 'en'): stri
   // CASE 2: Interessen gewählt -> Wir bauen das detaillierte Briefing.
   let briefing = "### CREATIVE BRIEFING (Interests & Search Rules)\n";
   
-  interests.forEach(id => {
+  activeInterests.forEach(id => {
     const def = INTEREST_DATA ? INTEREST_DATA[id] : null;
     if (def) {
       const label = (def.label as any)[lang] || id;
@@ -93,8 +89,9 @@ const generateCreativeBriefing = (project: TripProject, lang: 'de' | 'en'): stri
 
 /**
  * Der Preparer für den "Sammler" (Basis).
+ * V40 UPDATE: Supports Chunking Context (Index/Total) for Ratio-Calculation.
  */
-export const prepareBasisPayload = (project: TripProject) => {
+export const prepareBasisPayload = (project: TripProject, chunkIndex: number = 1, totalChunks: number = 1) => {
     const { userInputs, meta, analysis } = project;
     const chefPlaner = analysis.chefPlaner;
     const routeArchitect = analysis.routeArchitect; 
@@ -159,8 +156,37 @@ export const prepareBasisPayload = (project: TripProject) => {
     const userNotes = userInputs.notes ? `USER NOTES: "${userInputs.notes}"` : "";
     const userVibe = userInputs.vibe ? `DESIRED VIBE: ${userInputs.vibe}` : "";
 
-    // 5. Generate the Creative Briefing Block (with new logic)
-    const creativeBriefingBlock = generateCreativeBriefing(project, uiLang);
+    // 5. V40 LOGIC: RATIO SLICING & TARGET COUNT
+    const rawInterests = userInputs.selectedInterests || [];
+    // 5a. Filter Blacklist (Global)
+    const cleanInterests = rawInterests.filter(id => !EXCLUDED_FOR_BASIS.includes(id));
+
+    // 5b. Slice for Current Chunk (Distribution)
+    let activeInterests = cleanInterests;
+    if (totalChunks > 1 && cleanInterests.length > 0) {
+        // Distribute interests evenly across chunks
+        const itemsPerChunk = Math.ceil(cleanInterests.length / totalChunks);
+        const startIndex = (chunkIndex - 1) * itemsPerChunk;
+        const endIndex = startIndex + itemsPerChunk;
+        activeInterests = cleanInterests.slice(startIndex, endIndex);
+    }
+
+    // 5c. Calculate Target Count Ratio
+    const globalTarget = userInputs.searchSettings?.sightsCount || 30;
+    let chunkTarget = globalTarget;
+
+    if (totalChunks > 1 && cleanInterests.length > 0 && activeInterests.length > 0) {
+        // Ratio: How many interests do we cover in this chunk?
+        const ratio = activeInterests.length / cleanInterests.length;
+        // Scale target count, but ensure minimal batch size (5)
+        chunkTarget = Math.max(5, Math.ceil(globalTarget * ratio));
+        
+        // Safety: Check if this is the last chunk and we need to fill up? 
+        // No, proportional distribution is safer to avoid duplicates.
+    }
+
+    // 6. Generate the Creative Briefing Block (using sliced interests)
+    const creativeBriefingBlock = generateCreativeBriefing(project, activeInterests, uiLang);
 
     return {
         context: {
@@ -177,9 +203,9 @@ export const prepareBasisPayload = (project: TripProject) => {
             creative_briefing: creativeBriefingBlock
         },
         constraints: {
-            // Updated to use the value synced from AnalysisReviewView
-            target_count: userInputs.searchSettings?.sightsCount || 30
+            // Updated to use the calculated CHUNK target
+            target_count: chunkTarget
         }
     };
 };
-// --- END OF FILE 168 Zeilen ---
+// --- END OF FILE 195 Zeilen ---
