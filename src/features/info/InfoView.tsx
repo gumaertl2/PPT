@@ -1,278 +1,285 @@
-// 25.01.2026 18:40 - FIX: Final Layout with State-Machine Parser & Removed unused 'chapterTitles' (TS6133).
-// 25.01.2026 14:30 - FIX: Final "Chic Layout" with State-Machine Markdown Parser & exact Category Matching.
-// src/features/info/InfoView.tsx
+// 29.01.2026 11:30 - FIX: Layout Cleanup. Removed Main Header, Always Expanded, Smart Title Extraction from Markdown content.
+// src/features/Cockpit/InfoView.tsx
 
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTripStore } from '../../store/useTripStore';
+import { useTranslation } from 'react-i18next';
 import { 
-  Book, 
-  AlertTriangle,
+  FileText, 
+  Trash2, 
+  Database, 
+  X, 
   Info,
   MapPin
 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 import { INTEREST_DATA } from '../../data/interests';
 
-// Konstanten für Info-Kategorien (Exakt gemäß interests.ts für Info View)
-const INFO_CATEGORIES = [
-    'travel_info',  // Reiseinformationen
-    'city_info',    // StadtInfo
-    'arrival',      // Anreise
-    'budget',       // Budget
-    'hotel',        // Hotel / Camping
-    'ignored_places'// Nicht berücksichtigte Orte
+// Kategorien, die als "Info" gelten, auch wenn sie Places sind
+const INFO_PLACE_CATEGORIES = [
+    'travel_info', 'city_info', 'arrival', 'budget', 'hotel', 'ignored_places'
 ];
 
 export const InfoView: React.FC = () => {
-  const { project } = useTripStore();
   const { t } = useTranslation();
-  const { analysis, data } = project;
+  const { project } = useTripStore();
+  
+  const [debugItem, setDebugItem] = useState<any | null>(null);
+  
+  // 1. DATA GATHERING (Smart Title Extraction)
+  const infoItems = useMemo(() => {
+      const items: any[] = [];
+      const seenIds = new Set<string>();
 
-  // 1. DATA AGGREGATION: Collect info from 'analysis.infoAutor' AND 'content.infos' AND specific places
-  const infoChapters = useMemo(() => {
-    const chapters = new Map<string, any>();
+      // QUELLE A: data.content.infos
+      const contentInfos = project.data.content?.infos || [];
+      if (Array.isArray(contentInfos)) {
+          contentInfos.forEach((item: any) => {
+              if (!seenIds.has(item.id)) {
+                  // TITEL-EXTRAKTION: Versuche, "## Titel" aus dem Content zu holen
+                  let smartTitle = item.title;
+                  const rawContent = item.content || item.description || '';
+                  
+                  // Regex sucht nach "## Text" am Anfang oder nach Newlines
+                  const titleMatch = rawContent.match(/^##\s+(.*?)(?:\\n|\n|$)/);
+                  if (titleMatch && titleMatch[1]) {
+                      smartTitle = titleMatch[1].trim();
+                  } else if (item.title && item.title.startsWith('city info')) {
+                      smartTitle = 'Stadt-Information';
+                  }
 
-    // Source A: V40 Analysis Field (infoAutor)
-    const v40Chapters = (analysis as any)?.infoAutor?.chapters || [];
-    v40Chapters.forEach((c: any) => {
-       if (c.title && !c.title.toLowerCase().includes('kulinarik')) {
-         chapters.set(c.title, c);
-       }
-    });
-
-    // Source B: Legacy/Fallback (content.infos)
-    const legacyInfos = data.content?.infos || [];
-    legacyInfos.forEach((c: any) => {
-       if (c.title && !c.title.toLowerCase().includes('kulinarik')) {
-         chapters.set(c.title, c);
-       }
-    });
-
-    // Source C: Places acting as Info Containers (Category Match + Content Check)
-    Object.values(data.places || {}).forEach((place: any) => {
-        // Check if category belongs to Info View AND has substantial content
-        if (INFO_CATEGORIES.includes(place.category) && place.detailContent && place.detailContent.length > 50) {
-            
-            // Resolve Label from INTEREST_DATA
-            const catLabel = INTEREST_DATA[place.category]?.label?.de || place.category;
-            const title = place.name === place.category ? catLabel : place.name; // Use nice name if available
-
-            chapters.set(title, {
-                title: title,
-                content: place.detailContent,
-                categoryLabel: catLabel
-            });
-        }
-    });
-
-    return Array.from(chapters.values());
-  }, [analysis, data]);
-
-  // 2. APPENDIX: Remaining Places (that are valid Info Categories but small/no content)
-  const infoPlaces = useMemo(() => {
-    const allPlaces = Object.values(data.places || {});
-    // FIX: Removed unused 'chapterTitles' to resolve TS6133
-
-    return allPlaces.filter((p: any) => {
-        const isInfoCat = INFO_CATEGORIES.includes(p.category);
-        // Exclude if it's already a main chapter (based on content length)
-        const isChapter = p.detailContent && p.detailContent.length > 50; 
-        return isInfoCat && !isChapter;
-    });
-  }, [data.places]);
-
-  // --- PROFESSIONAL MARKDOWN RENDERER (State Machine) ---
-  const renderMarkdown = (text: string) => {
-    if (!text) return null;
-
-    const lines = text.split('\n');
-    const elements: React.ReactNode[] = [];
-    let listBuffer: React.ReactNode[] = [];
-    
-    // Helper: Flush the list buffer into a <ul>
-    const flushList = () => {
-      if (listBuffer.length > 0) {
-        elements.push(
-          <ul key={`list-${elements.length}`} className="mb-6 space-y-2 ml-1">
-            {listBuffer}
-          </ul>
-        );
-        listBuffer = [];
+                  items.push({
+                      ...item,
+                      _source: 'content.infos',
+                      displayTitle: smartTitle
+                  });
+                  seenIds.add(item.id);
+              }
+          });
       }
-    };
 
-    // Helper: Parse inline bold (**text**)
-    const parseInline = (line: string) => {
-      const parts = line.split(/(\*\*.*?\*\*)/g);
-      return parts.map((part, i) => {
-        if (part.startsWith('**') && part.endsWith('**')) {
-          return <strong key={i} className="font-bold text-slate-900">{part.slice(2, -2)}</strong>;
-        }
-        return part;
+      // QUELLE B: Places
+      const places = project.data.places || {};
+      Object.values(places).forEach((place: any) => {
+          if (INFO_PLACE_CATEGORIES.includes(place.category) && place.detailContent && place.detailContent.length > 50) {
+              if (!seenIds.has(place.id)) {
+                  items.push({
+                      id: place.id,
+                      title: place.name, 
+                      displayTitle: place.name,
+                      content: place.detailContent,
+                      category: place.category,
+                      _source: 'places',
+                      isPlace: true
+                  });
+                  seenIds.add(place.id);
+              }
+          }
       });
-    };
 
-    lines.forEach((line, index) => {
+      // QUELLE C: Analysis Fallback
+      const analysisInfos = (project.analysis as any)?.infoAutor?.chapters;
+      if (Array.isArray(analysisInfos)) {
+          analysisInfos.forEach((item: any) => {
+              if (!seenIds.has(item.id)) {
+                  let smartTitle = item.title;
+                  const rawContent = item.content || '';
+                  const titleMatch = rawContent.match(/^##\s+(.*?)(?:\\n|\n|$)/);
+                  if (titleMatch && titleMatch[1]) {
+                      smartTitle = titleMatch[1].trim();
+                  }
+
+                  items.push({
+                      ...item,
+                      _source: 'analysis',
+                      displayTitle: smartTitle
+                  });
+                  seenIds.add(item.id);
+              }
+          });
+      }
+
+      return items;
+  }, [project.data.content, project.data.places, project.analysis]);
+
+  // 2. HELPER: MARKDOWN PARSER (Robust & Compact Spacing)
+  const renderMarkdown = (text: string | undefined) => {
+    if (!text) return <span className="text-gray-400 italic">Kein Inhalt verfügbar.</span>;
+
+    let cleanText = (typeof text === 'string' ? text : JSON.stringify(text))
+        .replace(/\\\\n/g, '\n')
+        .replace(/\\n/g, '\n');
+
+    // Entferne den Titel aus dem Text, da er jetzt im Header steht
+    cleanText = cleanText.replace(/^##\s+.*?(?:\n|$)/, ''); 
+
+    return cleanText.split('\n').map((line, index) => {
       const trimmed = line.trim();
-      
-      // Empty lines reset lists
-      if (!trimmed) {
-        flushList();
-        return;
+      if (!trimmed) return <div key={index} className="h-2" />; // Kleinerer Abstand bei Leerzeilen
+
+      // HEADERS (### or **) -> Reduzierter Abstand nach oben (mt-2 statt mt-4)
+      if (trimmed.startsWith('###') || trimmed.startsWith('##')) {
+         const content = trimmed.replace(/^#+\s*/, '');
+         return <h4 key={index} className="font-bold text-slate-800 mt-2 mb-1 text-base border-b border-slate-100 pb-1">{content}</h4>;
       }
 
-      // 1. HEADERS (###)
-      if (trimmed.startsWith('#')) {
-        flushList();
-        const level = trimmed.match(/^#+/)?.[0].length || 0;
-        const content = trimmed.replace(/^#+\s*/, '').replace(/\*\*/g, ''); // Clean bold from headers
-
-        if (level === 1) {
-            elements.push(
-                <h3 key={`h1-${index}`} className="text-xl font-black text-slate-900 mt-12 mb-4 uppercase tracking-tight border-b border-slate-200 pb-2">
-                    {content}
-                </h3>
-            );
-        } else {
-            elements.push(
-                <h4 key={`h2-${index}`} className="text-base font-bold text-slate-800 mt-6 mb-2">
-                    {content}
-                </h4>
-            );
-        }
-        return;
+      // LIST ITEMS
+      if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || /^\d+\./.test(trimmed)) {
+         const parts = trimmed.split(/(\*\*.*?\*\*)/g);
+         return (
+           <div key={index} className="flex gap-2 ml-2 mb-1 text-sm text-slate-700">
+              <span className="text-blue-500 mt-1.5 text-[6px]">●</span>
+              <p className="flex-1">
+                {parts.map((part, i) => 
+                    part.startsWith('**') && part.endsWith('**') 
+                    ? <strong key={i} className="font-semibold text-slate-900">{part.slice(2, -2)}</strong>
+                    : part
+                )}
+              </p>
+           </div>
+         );
       }
 
-      // 2. LIST ITEMS (*, -, 1.)
-      const isList = /^[-\*•]/.test(trimmed) || /^\d+\./.test(trimmed);
-      
-      if (isList) {
-        const cleanContent = trimmed.replace(/^[-\*•\d\.]+\s*/, '');
-        
-        // Structured List Item: "**Label:** Value"
-        const parts = cleanContent.split(':');
-        let itemContent;
-
-        if (parts.length > 1 && parts[0].includes('**')) {
-             const label = parts[0].replace(/\*\*/g, '');
-             const val = parts.slice(1).join(':');
-             itemContent = (
-                 <span>
-                     <span className="font-bold text-slate-900 mr-2">{label}:</span>
-                     <span className="text-slate-700">{parseInline(val)}</span>
-                 </span>
-             );
-        } else {
-             itemContent = <span className="text-slate-700">{parseInline(cleanContent)}</span>;
-        }
-
-        listBuffer.push(
-            <li key={`li-${index}`} className="flex items-start gap-3 text-sm leading-relaxed pl-2">
-                <span className="text-blue-400 font-bold mt-1.5 text-[8px]">●</span>
-                <div className="flex-1">{itemContent}</div>
-            </li>
-        );
-        return;
+      // BOLD PARAGRAPHS ("**Teil 1:** ...")
+      if (trimmed.startsWith('**') && trimmed.includes('**')) {
+          const parts = trimmed.split(/(\*\*.*?\*\*)/g);
+          return (
+            <p key={index} className="mb-2 text-sm text-slate-600 leading-relaxed">
+               {parts.map((part, i) => 
+                  part.startsWith('**') && part.endsWith('**') 
+                  ? <strong key={i} className="font-bold text-slate-800 block mb-1 mt-2">{part.slice(2, -2)}</strong>
+                  : part
+               )}
+            </p>
+          );
       }
 
-      // 3. PARAGRAPHS
-      flushList();
-      elements.push(
-        <p key={`p-${index}`} className="text-sm text-slate-600 leading-relaxed mb-4 text-justify">
-          {parseInline(trimmed)}
+      // NORMAL TEXT
+      return (
+        <p key={index} className="mb-2 text-sm text-slate-600 leading-relaxed">
+           {trimmed}
         </p>
       );
     });
-
-    flushList(); // Final flush
-    return elements;
   };
 
-  const hasData = infoChapters.length > 0 || infoPlaces.length > 0;
+  // 3. ACTION HANDLERS
+  const handleDelete = (id: string, source: string) => {
+      if (!confirm(t('common.delete_confirm', { defaultValue: 'Diesen Eintrag wirklich löschen?' }))) return;
 
-  if (!hasData) {
-    return (
-      <div className="p-12 text-center animate-fade-in text-slate-400">
-        <Book className="w-12 h-12 mx-auto mb-4 opacity-20" />
-        <p>{t('info.no_data', { defaultValue: 'Keine Reiseinformationen vorhanden.' })}</p>
-      </div>
-    );
-  }
+      useTripStore.setState((state) => {
+          const newData = { ...state.project.data };
+          
+          if (source === 'content.infos') {
+              const currentInfos = newData.content?.infos || [];
+              if (Array.isArray(currentInfos)) {
+                  newData.content.infos = currentInfos.filter((i: any) => i.id !== id);
+              }
+          } else if (source === 'places') {
+              if (newData.places && newData.places[id]) {
+                  newData.places[id] = { ...newData.places[id], detailContent: undefined };
+              }
+          }
+
+          return {
+              project: {
+                  ...state.project,
+                  data: newData
+              }
+          };
+      });
+  };
+
+  const getCategoryLabel = (cat: string) => {
+      return INTEREST_DATA[cat]?.label?.de || cat;
+  };
 
   return (
-    <div className="animate-fade-in w-full">
-      {/* FLAT REPORT LAYOUT */}
-      <div className="max-w-3xl mx-auto pt-4 pb-20 px-4 md:px-0">
-        
-        {/* DOCUMENT HEADER */}
-        <div className="border-b-4 border-slate-900 pb-6 mb-12">
-          <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase mb-2 leading-none">
-              {t('info.title', { defaultValue: 'Reise-Dossier' })}
-          </h1>
-          <p className="text-lg text-slate-500 font-medium italic flex items-center gap-2">
-              <Info className="w-5 h-5 text-blue-600" />
-              {t('info.subtitle', { defaultValue: 'Wichtige Informationen & Fakten.' })}
-          </p>
-        </div>
+    <div className="h-full flex flex-col bg-slate-50/50 overflow-y-auto p-4 pb-24">
+      
+      {/* HEADER ENTFERNT - Direkt zur Liste */}
 
-        {/* CONTINUOUS REPORT BODY (Dynamic Chapters) */}
-        <div className="space-y-16">
-          {infoChapters.map((chapter: any) => (
-              <div key={chapter.title} className="bg-white">
-                  {/* Chapter Header (Only if content doesn't start with H1) */}
-                  {!(chapter.content || '').trim().startsWith('#') && (
-                      <div className="flex items-center gap-3 mb-8">
-                          <div className="w-1.5 h-1.5 bg-slate-900 rounded-full" />
-                          <h2 className="text-lg font-black uppercase tracking-widest text-slate-900">
-                              {chapter.title}
-                          </h2>
-                          <div className="h-px flex-1 bg-slate-200" />
+      {/* CONTENT LIST */}
+      {infoItems.length === 0 ? (
+         <div className="flex flex-col items-center justify-center h-64 text-slate-400 border-2 border-dashed border-slate-200 rounded-xl bg-white">
+            <FileText className="w-12 h-12 mb-2 opacity-20" />
+            <p>Keine Informationen gefunden.</p>
+            <p className="text-xs mt-2 text-slate-400">Prüfen Sie, ob der Workflow "Infos A-Z" ausgeführt wurde.</p>
+         </div>
+      ) : (
+         <div className="space-y-6">
+            {infoItems.map((item: any, idx: number) => {
+                const itemId = item.id || `info_${idx}`;
+                const rawContent = item.content || item.description || '';
+
+                return (
+                  <div key={itemId} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all hover:shadow-md">
+                      
+                      {/* CARD HEADER */}
+                      <div className="bg-slate-50/50 p-3 border-b border-slate-100 flex justify-between items-start">
+                          <div className="flex flex-col">
+                              <h3 className="font-bold text-slate-800 flex items-center gap-2 text-lg">
+                                  {item.isPlace ? <MapPin className="w-5 h-5 text-indigo-500" /> : <span className="text-indigo-500 text-xl">ℹ️</span>}
+                                  {item.displayTitle || item.title || "Information"}
+                              </h3>
+                              {item.category && (
+                                  <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mt-0.5 ml-8">
+                                      {getCategoryLabel(item.category)}
+                                  </span>
+                              )}
+                          </div>
+                          
+                          <div className="flex items-center gap-1">
+                              <button 
+                                onClick={() => setDebugItem(item)}
+                                className="p-1.5 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                title="JSON Debug"
+                              >
+                                  <Database className="w-4 h-4" />
+                              </button>
+                              
+                              {/* Only allow deleting confirmed content items */}
+                              {item._source === 'content.infos' && (
+                                <button 
+                                    onClick={() => handleDelete(itemId, item._source)}
+                                    className="p-1.5 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                    title="Löschen"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                          </div>
                       </div>
-                  )}
-                  
-                  {/* Content Renderer */}
-                  <div className="report-content">
-                      {renderMarkdown(chapter.content || chapter.text || '')}
-                  </div>
-              </div>
-          ))}
-        </div>
 
-        {/* APPENDIX (Small Items) */}
-        {infoPlaces.length > 0 && (
-            <div className="mt-24 pt-12 border-t-2 border-slate-100 bg-slate-50/50 p-8 rounded-xl">
-                <div className="flex items-center gap-2 mb-8">
-                    <AlertTriangle className="w-5 h-5 text-slate-400" />
-                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">
-                        {t('info.additional_items', { defaultValue: 'Weitere Hinweise' })}
-                    </span>
-                </div>
-                
-                <div className="grid gap-4 sm:grid-cols-2">
-                    {infoPlaces.map((place: any) => {
-                        const catLabel = INTEREST_DATA[place.category]?.label?.de || place.category;
-                        return (
-                            <div key={place.id} className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col">
-                                <div className="flex justify-between items-start mb-2">
-                                    <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                                        <MapPin className="w-3 h-3 text-slate-400" />
-                                        {place.name}
-                                    </h4>
-                                </div>
-                                <p className="text-xs text-slate-600 leading-relaxed italic mb-3 flex-1">
-                                    {place.description || place.reasoning || place.shortDesc}
-                                </p>
-                                <span className="self-start text-[10px] font-bold text-slate-500 uppercase bg-slate-100 px-2 py-1 rounded">
-                                    {catLabel}
-                                </span>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-        )}
-      </div>
+                      {/* CARD BODY - ALWAYS FULLY EXPANDED */}
+                      <div className="p-5">
+                          <div className="text-sm text-slate-600">
+                              {renderMarkdown(rawContent)}
+                          </div>
+                      </div>
+                  </div>
+                );
+            })}
+         </div>
+      )}
+
+      {/* DEBUG MODAL */}
+      {debugItem && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+           <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+              <div className="flex justify-between items-center p-4 border-b">
+                 <h3 className="font-bold text-lg truncate pr-4">JSON: {debugItem.displayTitle}</h3>
+                 <button onClick={() => setDebugItem(null)} className="text-gray-500 hover:text-black">
+                   <X className="w-6 h-6" />
+                 </button>
+              </div>
+              <div className="p-4 overflow-auto bg-slate-50 font-mono text-xs">
+                 <pre className="whitespace-pre-wrap">{JSON.stringify(debugItem, null, 2)}</pre>
+              </div>
+           </div>
+        </div>
+      )}
+
     </div>
   );
 };
-// --- END OF FILE 223 Zeilen ---
+// --- END OF FILE 235 Zeilen ---
