@@ -1,3 +1,4 @@
+// 29.01.2026 16:30 - FIX: Expanded Handover Data (Phase 1->3) with source_url, address & location.
 // 28.01.2026 19:45 - FIX: Mapped 'group.location' to 'place.city' for IdeenScout to enable grouping in UI.
 // 28.01.2026 17:40 - FIX: Added 'waypoints' mapping for Chefredakteur (Walking Tours).
 // src/services/ResultProcessor.ts
@@ -106,11 +107,11 @@ const extractItems = (data: any): any[] => {
 
     // 3. Fallback: DEEP SEARCH
     if (!foundContainer) {
-         Object.values(data).forEach(value => {
-             if (typeof value === 'object' && value !== null) {
-                 items = items.concat(extractItems(value));
-             }
-         });
+          Object.values(data).forEach(value => {
+              if (typeof value === 'object' && value !== null) {
+                  items = items.concat(extractItems(value));
+              }
+          });
     }
 
     return items;
@@ -178,20 +179,20 @@ export const ResultProcessor = {
 
                 if (targetId) {
                    updatePlace(targetId, {
-                     ...item,
-                     id: targetId,
-                     category: item.category || 'Sight',
-                     address: item.address,
-                     location: item.location,
-                     description: item.description,
-                     openingHours: item.openingHours,
-                     rating: item.rating,
-                     // FIX: Explicitly map the new fields (Gatekeeper Update)
-                     user_ratings_total: item.user_ratings_total,
-                     duration: item.duration,
-                     website: item.website
-                   });
-                   successCount++;
+                      ...item,
+                      id: targetId,
+                      category: item.category || 'Sight',
+                      address: item.address,
+                      location: item.location,
+                      description: item.description,
+                      openingHours: item.openingHours,
+                      rating: item.rating,
+                      // FIX: Explicitly map the new fields (Gatekeeper Update)
+                      user_ratings_total: item.user_ratings_total,
+                      duration: item.duration,
+                      website: item.website
+                    });
+                    successCount++;
                 } else {
                     if (item.name || (typeof item === 'string')) {
                          const n = typeof item === 'string' ? item : item.name;
@@ -208,26 +209,26 @@ export const ResultProcessor = {
 
       case 'chefredakteur':
       case 'details': {
-         const existingPlaces = useTripStore.getState().project.data?.places || {};
-         if (extractedItems.length > 0) {
-             let successCount = 0;
-             extractedItems.forEach((item: any) => {
-                 const targetId = resolvePlaceId(item, existingPlaces, aiSettings.debug);
-                 if (targetId) {
-                     // FIX: Catch all possible content keys to prevent data loss
-                     const content = item.text || item.article || item.detailed_description || item.description || item.content;
-                     
-                     updatePlace(targetId, {
-                         detailContent: content,
-                         reasoning: item.reasoning,
-                         waypoints: item.waypoints // NEW: Map walking tour waypoints
-                     });
-                     successCount++;
-                 }
-             });
-             console.log(`[Details] Updated ${successCount} items.`);
-         }
-         break;
+          const existingPlaces = useTripStore.getState().project.data?.places || {};
+          if (extractedItems.length > 0) {
+              let successCount = 0;
+              extractedItems.forEach((item: any) => {
+                  const targetId = resolvePlaceId(item, existingPlaces, aiSettings.debug);
+                  if (targetId) {
+                      // FIX: Catch all possible content keys to prevent data loss
+                      const content = item.text || item.article || item.detailed_description || item.description || item.content;
+                      
+                      updatePlace(targetId, {
+                          detailContent: content,
+                          reasoning: item.reasoning,
+                          waypoints: item.waypoints // NEW: Map walking tour waypoints
+                      });
+                      successCount++;
+                  }
+              });
+              console.log(`[Details] Updated ${successCount} items.`);
+          }
+          break;
       }
 
       case 'food':
@@ -266,6 +267,7 @@ export const ResultProcessor = {
                         vibe: item.vibe,
                         website: item.website,
                         priceLevel: item.price_level,
+                        source_url: item.source_url, // FIX: Track Source URL from Scout
 
                         ...(isString ? {} : item)
                     });
@@ -276,7 +278,11 @@ export const ResultProcessor = {
                             id,
                             name,
                             city: item.city || item.ort,
-                            guides: item.guides
+                            guides: item.guides,
+                            // FIX: Critical Data for Enricher Phase
+                            source_url: item.source_url,
+                            address: item.address,
+                            location: item.location 
                         });
                     }
                 }
@@ -421,4 +427,4 @@ export const ResultProcessor = {
     }
   }
 };
-// --- END OF FILE 405 Zeilen ---
+// --- END OF FILE 418 Zeilen ---

@@ -1,5 +1,6 @@
-// src/core/utils/geo.ts
+// 29.01.2026 15:00 - FEAT: Added Geocoding & Adaptive Radius Logic for Food Scout Phase 2.
 // 16.01.2026 18:40 - FEAT: Implemented Haversine formula & Radius Filter for V30 parity (Food Logic).
+// src/core/utils/geo.ts
 
 export interface GeoPoint {
   lat: number;
@@ -70,4 +71,87 @@ export function filterByRadius<T>(
     // Sortierung: Das Nächste zuerst
     return results.sort((a, b) => a.distance - b.distance);
 }
-// --- END OF FILE 72 Zeilen ---
+
+/**
+ * PHASE 2: GEO-FILTER & GEOCODING
+ * Ermittelt Koordinaten via OpenStreetMap (Nominatim)
+ */
+export async function geocodeLocation(query: string): Promise<GeoPoint | null> {
+    try {
+        // Nutzung der öffentlichen Nominatim API (Bitte User-Agent beachten!)
+        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
+        const response = await fetch(url, {
+            headers: { 'User-Agent': 'Papatours-AI-Client/4.0' }
+        });
+        
+        if (!response.ok) return null;
+        
+        const data = await response.json();
+        if (Array.isArray(data) && data.length > 0) {
+            return {
+                lat: parseFloat(data[0].lat),
+                lng: parseFloat(data[0].lon)
+            };
+        }
+        return null;
+    } catch (error) {
+        console.warn(`Geocoding failed for "${query}":`, error);
+        return null;
+    }
+}
+
+/**
+ * PHASE 2: ADAPTIVE LOGIK
+ * Filtert Kandidaten basierend auf Kontext (Stadt vs. Region)
+ * Eskaliert Radius wenn zu wenige Treffer.
+ */
+export async function applyAdaptiveGeoFilter(
+    candidates: any[],
+    centerLocationName: string,
+    contextType: 'district' | 'region' | 'adhoc'
+): Promise<any[]> {
+    
+    // 1. Zentrum ermitteln
+    const center = await geocodeLocation(centerLocationName);
+    if (!center) {
+        console.warn("Geo-Filter skipped: Center not found via Geocoding.");
+        return candidates; // Fallback: Alles durchlassen
+    }
+
+    // 2. Kandidaten vervollständigen (Falls Lat/Lng fehlt)
+    const validCandidates = [];
+    for (const cand of candidates) {
+        let loc = cand.location;
+        // Wenn keine Location im Objekt, versuche Geocoding über Adresse/Stadt
+        if (!loc || !loc.lat) {
+            const query = `${cand.name} ${cand.address || ''} ${cand.city || ''}`;
+            const geo = await geocodeLocation(query);
+            if (geo) {
+                cand.location = geo;
+                loc = geo;
+            }
+        }
+        
+        if (loc && loc.lat && loc.lng) {
+            validCandidates.push(cand);
+        }
+    }
+
+    // 3. Adaptiver Radius
+    let radius = 15.0; // Default Region
+    if (contextType === 'district') radius = 2.0; // Strict City limit
+    if (contextType === 'adhoc') radius = 20.0;
+
+    // Filter-Versuch 1
+    let filtered = filterByRadius(validCandidates, center, radius, (c) => c.location);
+
+    // 4. Eskalation (nur bei Region/Adhoc, nicht bei striktem District)
+    if (filtered.length < 2 && contextType !== 'district') {
+        const expandedRadius = 50.0;
+        console.log(`Geo-Filter: Extending radius from ${radius}km to ${expandedRadius}km due to low results.`);
+        filtered = filterByRadius(validCandidates, center, expandedRadius, (c) => c.location);
+    }
+
+    return filtered;
+}
+// --- END OF FILE 135 Zeilen ---

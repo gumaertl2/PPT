@@ -1,3 +1,4 @@
+// 29.01.2026 16:15 - FIX: Added 'source_url' to Place interface for Food Scout link tracking.
 // 29.01.2026 12:40 - FIX: Added 'details' property to Place interface to resolve Vercel TS2339 build error.
 // 28.01.2026 17:15 - FIX: Added 'waypoints' to Place interface for Walking Tours.
 // 27.01.2026 22:30 - FIX: Added 'user_ratings_total' and 'duration' to Place interface.
@@ -6,8 +7,6 @@
 // 23.01.2026 14:20 - FIX: Added PrintConfig & DetailLevel to central types (SSOT).
 // 23.01.2026 11:45 - FIX: Synchronized Place structure and Record type with real JSON data.
 // src/core/types.ts
-// 21.01.2026 11:55 - FIX: Full Restore of types.ts plus InfoAutor & CockpitViewMode (Zero-Build-Error).
-// 21.01.2026 03:30 - FIX: Added missing Type Definitions for TourGuide & IdeenScout (Zero-Build-Error).
 
 // --- GENERAL TYPES ---
 export type LanguageCode = 'de' | 'en' | 'es' | 'fr' | 'it' | 'nl' | 'pl' | 'pt' | 'ru' | 'tr' | 'ja' | 'zh';
@@ -402,6 +401,7 @@ export interface Place {
   detailContent?: string; // NEW: Editorial Content (Separated from Enricher)
   openingHours?: string[] | string; 
   website?: string; // FIX: Added missing field from JSON
+  source_url?: string; // FIX: Added source_url (Guide Link) (29.01.2026)
   reasoning?: string; // FIX: Added reasoning
   logistics?: string; // FIX: Added logistics
   priceLevel?: string; // FIX: Added priceLevel
@@ -480,4 +480,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 520 Zeilen ---
+// --- END OF FILE 523 Zeilen ---

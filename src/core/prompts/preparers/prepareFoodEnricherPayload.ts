@@ -1,14 +1,14 @@
+// 29.01.2026 15:30 - FIX: Harmonized 'distance' property from GeoFilter (Phase 2) and added source_url passthrough.
 // 28.01.2026 10:00 - FIX: Removed unused import & Added type safety for itemsToProcess.
 // 27.01.2026 23:15 - FIX: V30 Feature Parity (Distance Calculation & Store Access).
 // src/core/prompts/preparers/prepareFoodEnricherPayload.ts
 
 import type { TripProject } from '../../types';
 import { INTEREST_DATA } from '../../../data/interests';
-// FIX: Removed unused 'calculateDistance' import to satisfy linter
 
 export const prepareFoodEnricherPayload = (
     project: TripProject,
-    candidates?: any[], // Changed to optional for robustness
+    candidates?: any[], 
     currentChunk: number = 1,
     totalChunks: number = 1
 ) => {
@@ -28,14 +28,14 @@ export const prepareFoodEnricherPayload = (
                               (analysis.chefPlaner as any)?.strategisches_briefing?.sammler_briefing || 
                               "";
 
-    // 3. GET REFERENCE LOCATION (For Distance Calculation)
+    // 3. GET REFERENCE LOCATION
     const destinationName = userInputs.logistics.stationary.destination || "Region";
     
     // 4. PREPARE CANDIDATES
-    // FIX: Ensure it's an array to prevent TS18048
     let itemsToProcess = candidates || [];
 
     if (itemsToProcess.length === 0) {
+        // Fallback: Check store if passed empty (Integration Safety)
         const rawCandidates = (project.data.content as any)?.rawFoodCandidates || [];
         if (rawCandidates.length > 0) {
             console.log(`[FoodEnricher] Found ${rawCandidates.length} candidates in Store (rawFoodCandidates).`);
@@ -50,25 +50,35 @@ export const prepareFoodEnricherPayload = (
     const itemsToEnrich = itemsToProcess.map((c: any) => {
         const name = c.name || c.titel || "Unknown";
         const locationStr = c.city || c.ort || c.address || "";
-        const guideContext = c.guides ? `Listed in: ${c.guides.join(', ')}` : "Candidate";
         
-        // DISTANCE LOGIC (V30 Parity)
+        // Pass through source info from Phase 1
+        const guideContext = c.guides && c.guides.length > 0 
+            ? `Listed in: ${c.guides.join(', ')}` 
+            : "Candidate from Scan";
+        
+        const sourceLink = c.source_url || "";
+
+        // DISTANCE LOGIC (Phase 2 Integration)
+        // Geo-Filter stores distance in 'distance' (number)
+        let distValue = 0;
         let distanceInfo = `Lage: ${locationStr}`;
         
-        // If we have a pre-calculated distance (from Scout V30 logic), use it.
-        if (c.dist !== undefined && c.dist !== null) {
-             distanceInfo = `${c.dist.toFixed(1)} km von ${destinationName}`;
+        if (typeof c.distance === 'number') {
+             distValue = Number(c.distance.toFixed(1));
+             distanceInfo = `${distValue} km`;
         } 
-        // Else, simple location string
-        else if (locationStr) {
-             distanceInfo = `in ${locationStr}`;
+        // Legacy/Fallback check
+        else if (c.dist !== undefined && c.dist !== null) {
+             distValue = Number(c.dist.toFixed(1));
+             distanceInfo = `${distValue} km`;
         }
 
         return {
             name: name,
-            location_hint: distanceInfo, // Passed to Prompt to fill the template
+            location_hint: distanceInfo, // Human readable string
+            distance_val: distValue,     // Numeric for AI to use in strict format
             context_hint: guideContext,
-            // We pass raw address if available so AI can refine it
+            source_url: sourceLink,
             raw_address: c.address || c.location || "" 
         };
     });
@@ -85,8 +95,8 @@ export const prepareFoodEnricherPayload = (
         },
         instructions: {
             editorial_guideline: editorialGuideline,
-            role: "You are a culinary data enricher. Your task is to find details and write engaging descriptions."
+            role: "You are a 'Food-Enricher' & Restaurant Critic. Your job is to verify facts and write a high-quality review in specific format."
         }
     };
 };
-// --- END OF FILE 87 Zeilen ---
+// --- END OF FILE 98 Zeilen ---

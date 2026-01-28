@@ -1,5 +1,5 @@
+// 29.01.2026 16:00 - FEAT: Integrated Geo-Filter Phase 2 (Code Logic) into Food Sequence.
 // 27.01.2026 20:00 - FIX: Centralized Food Sequence Logic in Orchestrator.
-// Ensures consistent behavior for Ad-Hoc Button AND Workflow Step 7.
 // src/services/orchestrator.ts
 
 import { z } from 'zod';
@@ -9,6 +9,7 @@ import { useTripStore } from '../store/useTripStore';
 import { ResultProcessor } from './ResultProcessor'; 
 import { CONFIG } from '../data/config';
 import { APPENDIX_ONLY_INTERESTS } from '../data/constants'; 
+import { applyAdaptiveGeoFilter } from '../core/utils/geo'; // IMPORT NEW LOGIC
 import { 
   dayPlanSchema, 
   geoAnalystSchema,
@@ -222,74 +223,100 @@ export const TripOrchestrator = {
 
      store.resetChunking();
      return mergeResults(collectedResults, task);
-  },
+ },
 
-  // Helper: Executes a single atomic task (Prompt -> API -> Validate -> Save)
-  async _executeSingleStep(task: TaskKey, feedback?: string): Promise<any> {
-      const store = useTripStore.getState();
-      const prompt = PayloadBuilder.buildPrompt(task, feedback);
-      const modelId = resolveModelId(task);
-      
-      if (store.aiSettings.debug) {
-          console.log(`[Orchestrator] Single Step: ${task} -> Model: ${modelId}`);
-      }
+ // Helper: Executes a single atomic task (Prompt -> API -> Validate -> Save)
+ async _executeSingleStep(task: TaskKey, feedback?: string): Promise<any> {
+     const store = useTripStore.getState();
+     const prompt = PayloadBuilder.buildPrompt(task, feedback);
+     const modelId = resolveModelId(task);
+     
+     if (store.aiSettings.debug) {
+         console.log(`[Orchestrator] Single Step: ${task} -> Model: ${modelId}`);
+     }
 
-      // 1. CALL API
-      const rawResult = await GeminiService.call(prompt, task, modelId);
+     // 1. CALL API
+     const rawResult = await GeminiService.call(prompt, task, modelId);
 
-      // 2. VALIDATE
-      const schema = SCHEMA_MAP[task];
-      let validatedData = rawResult;
+     // 2. VALIDATE
+     const schema = SCHEMA_MAP[task];
+     let validatedData = rawResult;
 
-      if (schema) {
+     if (schema) {
         const validation = schema.safeParse(rawResult);
         if (!validation.success) {
-          console.warn(`[Orchestrator] Validation Failed for ${task}.`, JSON.stringify(rawResult, null, 2));
-          console.error(`[Orchestrator] Schema Errors:`, validation.error);
-          throw new Error(`KI-Antwort entspricht nicht dem V40-Schema für ${task}.`);
+           console.warn(`[Orchestrator] Validation Failed for ${task}.`, JSON.stringify(rawResult, null, 2));
+           console.error(`[Orchestrator] Schema Errors:`, validation.error);
+           throw new Error(`KI-Antwort entspricht nicht dem V40-Schema für ${task}.`);
         }
         validatedData = validation.data;
-      }
+     }
 
-      // 3. SAVE
-      ResultProcessor.process(task, validatedData);
-      
-      return validatedData;
-  },
+     // 3. SAVE
+     ResultProcessor.process(task, validatedData);
+     
+     return validatedData;
+ },
 
-  // MAIN ENTRY POINT
-  async executeTask(task: TaskKey, feedback?: string): Promise<any> {
+ // MAIN ENTRY POINT
+ async executeTask(task: TaskKey, feedback?: string): Promise<any> {
     const store = useTripStore.getState();
     const { project, chunkingState, setChunkingState, apiKey } = store;
 
-    // --- A. SEQUENTIAL CHAINING: FOOD SCOUT + ENRICHER (NEW) ---
+    // --- A. SEQUENTIAL CHAINING: FOOD SCOUT + GEO + ENRICHER (ORCHESTRATED) ---
     // If the requested task is 'foodScout' (or legacy 'food'), run the full sequence.
-    // This supports both the Ad-Hoc Button AND the Workflow Step 7.
     if (task === 'foodScout' || task === 'food') {
-        console.log(`[Orchestrator] Detected Food Task. Starting Sequence: Scout -> Enricher`);
+        console.log(`[Orchestrator] Detected Food Task. Starting Sequence: Scout -> Geo-Logic -> Enricher`);
         
         try {
             // 1. UI: Start
-            store.setChunkingState({ isActive: true, currentChunk: 1, totalChunks: 2, results: [] });
+            store.setChunkingState({ isActive: true, currentChunk: 1, totalChunks: 3, results: [] });
             
-            // 2. Step 1: Scout (Finds restaurants)
+            // 2. PHASE 1: SCANNER (Prompt)
+            console.log("[Orchestrator] Phase 1: Scanner (AI)");
             const scoutResult = await this._executeSingleStep('foodScout', feedback);
-            
-            // 3. UI: Update (Prepare for Step 2)
+            const candidates = scoutResult.candidates || [];
+            console.log(`[Orchestrator] Scanner found ${candidates.length} candidates.`);
+
+            // 3. UI: Update
             store.setChunkingState({ currentChunk: 2 });
+
+            // 4. PHASE 2: GEO-FILTER (Code)
+            console.log("[Orchestrator] Phase 2: Geo-Filter (Code Logic)");
             
-            // 4. Step 2: Enricher (Fetches details for found restaurants)
-            // Note: Enricher reads from Store (set by Scout via ResultProcessor)
+            // Determine Context via feedback or Project Store (using simple heuristic here)
+            const isAdHoc = feedback?.toLowerCase().includes('adhoc') || false;
+            // Get center from Context logic inside PayloadBuilder/Store? 
+            // We use the location name provided by the Scanner result or store as fallback
+            const centerName = store.project.userInputs.logistics.stationary.destination || "Region";
+            const contextType = isAdHoc ? 'adhoc' : 'region'; // Simplify for now
+
+            const filteredCandidates = await applyAdaptiveGeoFilter(candidates, centerName, contextType);
+            console.log(`[Orchestrator] Geo-Filter reduced to ${filteredCandidates.length} items.`);
+
+            // 5. SAVE FILTERED LIST FOR ENRICHER
+            // We manually update the 'rawFoodCandidates' used by prepareFoodEnricherPayload
+            const tempStoreData = { ...store.project.data.content, rawFoodCandidates: filteredCandidates };
+            // Hacky but necessary: Force update store before next step
+            useTripStore.setState((state) => ({
+                project: { ...state.project, data: { ...state.project.data, content: tempStoreData } }
+            }));
+
+            // 6. UI: Update
+            store.setChunkingState({ currentChunk: 3 });
+
+            // 7. PHASE 3: ENRICHER (Prompt)
+            console.log("[Orchestrator] Phase 3: Enricher (AI)");
             // We call executeTask recursively so Enricher can use Chunking if needed!
             await this.executeTask('foodEnricher'); 
 
-            return scoutResult; // Return initial scout data (or merged if preferred)
+            return scoutResult; // Return initial scout data (technical requirement)
 
         } catch (err) {
             console.error("[Orchestrator] Food Sequence Failed", err);
             throw err;
         } finally {
-            // 5. Cleanup
+            // 8. Cleanup
             store.resetChunking();
         }
     }
@@ -355,4 +382,4 @@ export const TripOrchestrator = {
     return this._executeSingleStep(task, feedback);
   }
 };
-// --- END OF FILE 300 Zeilen ---
+// --- END OF FILE 338 Zeilen ---
