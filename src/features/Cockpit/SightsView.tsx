@@ -1,3 +1,4 @@
+// 29.01.2026 13:00 - FIX: Removed unused Lucide icons (Search, MapIcon, X, Ghost) to resolve Vercel TS6133 error.
 // 29.01.2026 00:05 - FIX: Added 'Sondertage' as a virtual Tour in 'tourOptions' so it appears in the Filter & Tour-View.
 // 28.01.2026 23:55 - FIX: Added missing 'Tour Mode' rendering for Specials (appended to Candidates list).
 // src/features/Cockpit/SightsView.tsx
@@ -16,11 +17,8 @@ import {
   FileText,
   Briefcase, 
   Layout,
-  Filter,
-  Search,
-  Map as MapIcon,
-  X,
-  Ghost
+  Filter
+  // FIX: Removed unused Search, MapIcon, X, Ghost (29.01.2026)
 } from 'lucide-react';
 
 const TRAVEL_PACE_CONFIG: Record<string, { startHour: number; endHour: number; breakMinutes: number; bufferMinutes: number }> = {
@@ -193,6 +191,7 @@ export const SightsView: React.FC = () => {
 
       if (term && !name.toLowerCase().includes(term) && !cat.toLowerCase().includes(term)) return;
       
+      // FIX: selectedCategory is now part of UIState interface
       if (uiState.selectedCategory && uiState.selectedCategory !== 'all') {
           const pCat = p.userSelection?.customCategory || p.category;
           if (pCat !== uiState.selectedCategory) return;
@@ -468,4 +467,4 @@ export const SightsView: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 612 Zeilen ---
+// --- END OF FILE 608 Zeilen ---

@@ -1,3 +1,4 @@
+// 29.01.2026 12:40 - FIX: Added 'details' property to Place interface to resolve Vercel TS2339 build error.
 // 28.01.2026 17:15 - FIX: Added 'waypoints' to Place interface for Walking Tours.
 // 27.01.2026 22:30 - FIX: Added 'user_ratings_total' and 'duration' to Place interface.
 // 27.01.2026 21:45 - FIX: Added 'phone', 'awards' and 'openingHoursHint' to Place interface for FoodEnricher V30 parity.
@@ -416,6 +417,15 @@ export interface Place {
   cuisine?: string;
   vibe?: string[];
   
+  // FIX: Added details for Special/Ideas (29.01.2026)
+  details?: {
+    specialType?: 'sunny' | 'rainy' | string;
+    duration?: number;
+    note?: string;
+    website?: string;
+    source?: string;
+  };
+
   // Status
   visited?: boolean;
   googlePlaceId?: string; // Legacy / Reference
@@ -470,4 +480,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 512 Zeilen ---
+// --- END OF FILE 520 Zeilen ---

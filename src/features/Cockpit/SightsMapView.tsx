@@ -1,5 +1,5 @@
+// 29.01.2026 12:50 - FIX: Removed unused Lucide icons (Sun, CloudRain) to resolve Vercel TS6133 error.
 // 28.01.2026 22:00 - FEAT: Added 'Special Day' markers (Sunny/Rainy colors) to Map View.
-// 24.01.2026 16:30 - FIX: Removed unused imports (TS6133) & maintained High-Contrast/Zoom Logic.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef } from 'react';
@@ -8,10 +8,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useTripStore } from '../../store/useTripStore';
 import type { Place } from '../../core/types';
-// FIX: Added imports for Special Icons
-import { ExternalLink, Sun, CloudRain } from 'lucide-react';
-
-// FIX: Removed unused 'icon' and 'iconShadow' imports to resolve Vercel build errors.
+// FIX: Removed unused Sun, CloudRain imports (29.01.2026)
+import { ExternalLink } from 'lucide-react';
 
 // --- HIGH CONTRAST PALETTE ---
 
@@ -40,19 +38,16 @@ const CATEGORY_COLORS: Record<string, string> = {
   'hotel': '#000000',        
   'arrival': '#4b5563',      
   'general': '#64748b',
-  // FIX: Special Day Colors
-  'special': '#f59e0b', // Default Amber
-  'sunny': '#f59e0b',   // Amber
-  'rainy': '#3b82f6'    // Blue
+  'special': '#f59e0b', 
+  'sunny': '#f59e0b',   
+  'rainy': '#3b82f6'    
 };
 
 const DEFAULT_COLOR = '#64748b'; 
 
-// FIX: Enhanced to support Special Type logic
 const getCategoryColor = (cat?: string, place?: Place): string => {
   if (!cat) return DEFAULT_COLOR;
   
-  // Special Handling for 'special' category (Sondertage)
   if (cat === 'special' && place?.details?.specialType) {
       if (place.details.specialType === 'sunny') return CATEGORY_COLORS['sunny'];
       if (place.details.specialType === 'rainy') return CATEGORY_COLORS['rainy'];
@@ -64,7 +59,6 @@ const getCategoryColor = (cat?: string, place?: Place): string => {
   return match ? CATEGORY_COLORS[match] : DEFAULT_COLOR;
 };
 
-// Custom Icon with 'isSelected' state for Highlighting
 const createCustomIcon = (color: string, isSelected: boolean) => {
   const size = isSelected ? 24 : 16;        
   const anchor = isSelected ? 12 : 8;       
@@ -94,7 +88,6 @@ interface SightsMapViewProps {
   places: Place[];
 }
 
-// --- STYLES FOR ANIMATION ---
 const MapStyles = () => (
   <style>{`
     @keyframes pulse-black {
@@ -119,9 +112,6 @@ const MapStyles = () => (
   `}</style>
 );
 
-// --- SUB-COMPONENTS ---
-
-// 1. Controller: Intelligent Zoom Logic
 const MapLogic: React.FC<{ places: Place[] }> = ({ places }) => {
   const map = useMap();
   const { uiState } = useTripStore(); 
@@ -136,26 +126,20 @@ const MapLogic: React.FC<{ places: Place[] }> = ({ places }) => {
     const currentId = uiState.selectedPlaceId;
     const currentPlace = currentId ? validPlaces.find(p => p.id === currentId) : null;
 
-    // SCENARIO A: INITIAL MOUNT (List -> Map)
     if (!isInitialized.current) {
         if (currentPlace && currentPlace.location) {
-            // Focus on Selection (Level 12 for Overview Context)
             map.setView([currentPlace.location.lat, currentPlace.location.lng], 12, { animate: false });
         } else {
-            // Overview
             const bounds = L.latLngBounds(validPlaces.map(p => [p.location!.lat, p.location!.lng]));
             if (bounds.isValid()) map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
         }
         isInitialized.current = true;
     } 
-    // SCENARIO B: RUNTIME UPDATE
     else {
-        // Case: Selection CLEARED (Header "Map" Button clicked) -> Go to Overview
         if (lastSelectedId.current && !currentId) {
             const bounds = L.latLngBounds(validPlaces.map(p => [p.location!.lat, p.location!.lng]));
             if (bounds.isValid()) map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
         }
-        // Case: Selection CHANGED (Marker Clicked) -> DO NOTHING (User explores map)
     }
 
     lastSelectedId.current = currentId;
@@ -165,7 +149,6 @@ const MapLogic: React.FC<{ places: Place[] }> = ({ places }) => {
   return null;
 };
 
-// 2. Legend
 const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
   const categories = useMemo(() => {
     const cats = new Set<string>();
@@ -186,7 +169,7 @@ const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
           <div key={cat} className="flex items-center gap-2">
             <div 
               className="w-3 h-3 rounded-full border border-white shadow-sm shrink-0" 
-              style={{ backgroundColor: getCategoryColor(cat) }} // Pass place? No, legend is generic
+              style={{ backgroundColor: getCategoryColor(cat) }}
             ></div>
             <span className="text-xs font-medium text-slate-700 capitalize truncate max-w-[120px]" title={cat}>
                {cat.replace(/_/g, ' ')}
@@ -198,16 +181,11 @@ const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
   );
 };
 
-// --- MAIN COMPONENT ---
-
 export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
-  
   const defaultCenter: [number, number] = [48.1351, 11.5820]; 
   const { uiState, setUIState } = useTripStore();
-  
   const markerRefs = useRef<Record<string, L.Marker | null>>({});
 
-  // EFFECT: Auto-Open Popup when selectedPlaceId changes
   useEffect(() => {
     if (uiState.selectedPlaceId && markerRefs.current[uiState.selectedPlaceId]) {
       const marker = markerRefs.current[uiState.selectedPlaceId];
@@ -237,7 +215,6 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
 
         {validPlaces.map((place) => {
           const isSelected = uiState.selectedPlaceId === place.id;
-          // FIX: Pass place object to color function to detect special type
           const markerColor = getCategoryColor(place.category, place);
           
           return (
@@ -294,4 +271,4 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
     </div>
   );
 };
-// --- END OF FILE 270 Zeilen ---
+// --- END OF FILE 264 Zeilen ---

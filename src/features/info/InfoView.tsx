@@ -1,4 +1,4 @@
-// 29.01.2026 11:30 - FIX: Layout Cleanup. Removed Main Header, Always Expanded, Smart Title Extraction from Markdown content.
+// 29.01.2026 12:30 - FIX: InfoView Layout Optimization. Always full text, Smart Titles, Reduced Spacing, Removed Main Header.
 // src/features/Cockpit/InfoView.tsx
 
 import React, { useState, useMemo } from 'react';
@@ -9,7 +9,6 @@ import {
   Trash2, 
   Database, 
   X, 
-  Info,
   MapPin
 } from 'lucide-react';
 import { INTEREST_DATA } from '../../data/interests';
@@ -44,6 +43,7 @@ export const InfoView: React.FC = () => {
                   if (titleMatch && titleMatch[1]) {
                       smartTitle = titleMatch[1].trim();
                   } else if (item.title && item.title.startsWith('city info')) {
+                      // Fallback, falls kein Markdown Header gefunden wurde aber der technische Titel hässlich ist
                       smartTitle = 'Stadt-Information';
                   }
 
@@ -101,7 +101,7 @@ export const InfoView: React.FC = () => {
       return items;
   }, [project.data.content, project.data.places, project.analysis]);
 
-  // 2. HELPER: MARKDOWN PARSER (Robust & Compact Spacing)
+  // 2. HELPER: MARKDOWN PARSER (Compact Spacing)
   const renderMarkdown = (text: string | undefined) => {
     if (!text) return <span className="text-gray-400 italic">Kein Inhalt verfügbar.</span>;
 
@@ -114,12 +114,13 @@ export const InfoView: React.FC = () => {
 
     return cleanText.split('\n').map((line, index) => {
       const trimmed = line.trim();
-      if (!trimmed) return <div key={index} className="h-2" />; // Kleinerer Abstand bei Leerzeilen
+      if (!trimmed) return <div key={index} className="h-1" />; // Minimaler Abstand bei Leerzeilen
 
-      // HEADERS (### or **) -> Reduzierter Abstand nach oben (mt-2 statt mt-4)
+      // HEADERS (### or **)
       if (trimmed.startsWith('###') || trimmed.startsWith('##')) {
          const content = trimmed.replace(/^#+\s*/, '');
-         return <h4 key={index} className="font-bold text-slate-800 mt-2 mb-1 text-base border-b border-slate-100 pb-1">{content}</h4>;
+         // mt-3 statt mt-4 für kompakteres Layout
+         return <h4 key={index} className="font-bold text-slate-800 mt-3 mb-1 text-base border-b border-slate-100 pb-1">{content}</h4>;
       }
 
       // LIST ITEMS
@@ -143,10 +144,11 @@ export const InfoView: React.FC = () => {
       if (trimmed.startsWith('**') && trimmed.includes('**')) {
           const parts = trimmed.split(/(\*\*.*?\*\*)/g);
           return (
-            <p key={index} className="mb-2 text-sm text-slate-600 leading-relaxed">
+            // mt-2 sorgt für Abstand zum vorherigen Block, aber nicht zu viel
+            <p key={index} className="mb-1 text-sm text-slate-600 leading-relaxed mt-2">
                {parts.map((part, i) => 
                   part.startsWith('**') && part.endsWith('**') 
-                  ? <strong key={i} className="font-bold text-slate-800 block mb-1 mt-2">{part.slice(2, -2)}</strong>
+                  ? <strong key={i} className="font-bold text-slate-800 block mb-0.5">{part.slice(2, -2)}</strong>
                   : part
                )}
             </p>
@@ -212,7 +214,7 @@ export const InfoView: React.FC = () => {
                 const rawContent = item.content || item.description || '';
 
                 return (
-                  <div key={itemId} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all hover:shadow-md">
+                  <div key={itemId} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
                       
                       {/* CARD HEADER */}
                       <div className="bg-slate-50/50 p-3 border-b border-slate-100 flex justify-between items-start">
@@ -251,7 +253,7 @@ export const InfoView: React.FC = () => {
                       </div>
 
                       {/* CARD BODY - ALWAYS FULLY EXPANDED */}
-                      <div className="p-5">
+                      <div className="p-5 pt-2"> {/* pt-2 reduziert den Abstand zur Überschrift */}
                           <div className="text-sm text-slate-600">
                               {renderMarkdown(rawContent)}
                           </div>
@@ -265,7 +267,7 @@ export const InfoView: React.FC = () => {
       {/* DEBUG MODAL */}
       {debugItem && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
-           <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+           <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col">
               <div className="flex justify-between items-center p-4 border-b">
                  <h3 className="font-bold text-lg truncate pr-4">JSON: {debugItem.displayTitle}</h3>
                  <button onClick={() => setDebugItem(null)} className="text-gray-500 hover:text-black">
@@ -282,4 +284,4 @@ export const InfoView: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 235 Zeilen ---
+// --- END OF FILE 228 Zeilen ---

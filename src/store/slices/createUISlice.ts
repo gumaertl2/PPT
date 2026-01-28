@@ -1,7 +1,6 @@
+// 29.01.2026 12:45 - FIX: Added 'selectedCategory' and 'selectedPrio' to UIState to resolve Vercel TS2339 build error.
 // 23.01.2026 18:45 - FIX: Moved print states to UIState for setUIState compatibility (192 lines).
 // src/store/slices/createUISlice.ts
-// 19.01.2026 16:00 - FEATURE: Added InfoView Modal State.
-// 12.01.2026 21:30 - ADDED: deletePlace action for SightCard trash function
 
 import type { StateCreator } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
@@ -28,6 +27,9 @@ export interface AppNotification {
 export interface UIState {
   searchTerm: string;
   categoryFilter: string[];
+  // FIX: Added missing fields for filtering (29.01.2026)
+  selectedCategory: string;
+  selectedPrio: number | null;
   detailLevel: 'kompakt' | 'standard' | 'details';
   viewMode: 'list' | 'map';
   sortMode: 'category' | 'tour' | 'alphabetical';
@@ -86,6 +88,9 @@ export interface UISlice {
 const initialUIState: UIState = {
   searchTerm: '',
   categoryFilter: [],
+  // FIX: Initialized new fields (29.01.2026)
+  selectedCategory: 'all',
+  selectedPrio: null,
   detailLevel: 'standard',
   viewMode: 'list',
   sortMode: 'category',
@@ -197,4 +202,4 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
     notifications: state.notifications.map((n: AppNotification) => n.id === id ? { ...n, ...updates } : n)
   }))
 });
-// --- END OF FILE 192 Zeilen ---
+// --- END OF FILE 196 Zeilen ---

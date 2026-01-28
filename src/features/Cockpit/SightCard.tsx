@@ -1,5 +1,5 @@
+// 29.01.2026 12:00 - FIX: Removed unused imports (Lightbulb, Clock) to fix Vercel TS6133 error.
 // 28.01.2026 21:40 - FIX: Special Days now use 100% Standard Layout (Duration, Map-Link, Website integrated).
-// 28.01.2026 20:30 - FEAT: Integrated 'Special Day' logic into full 602-line SightCard (Strict Integrity).
 // src/features/Cockpit/SightCard.tsx
 
 import React, { useState, useEffect, useRef } from 'react'; 
@@ -24,11 +24,9 @@ import {
   Phone,
   Utensils,
   Sparkles,
-  // FIX: Added Icons for Special Days
+  // FIX: Removed unused Lightbulb, Clock
   Sun,
-  CloudRain,
-  Lightbulb,
-  Clock
+  CloudRain
 } from 'lucide-react';
 
 interface SightCardProps {
@@ -638,4 +636,4 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     </>
   );
 };
-// --- END OF FILE 600 Zeilen ---
+// --- END OF FILE 598 Zeilen ---
