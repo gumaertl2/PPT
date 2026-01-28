@@ -1,10 +1,7 @@
+// 29.01.2026 17:30 - FEAT: Refactored GeoAnalyst to "Location Strategist" (Cluster Analysis).
 // 23.01.2026 15:50 - FIX: Synchronized Schema with CoT Instruction (added _thought_process).
 // 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
 // src/core/prompts/templates/geoAnalyst.ts
-// 19.01.2026 19:35 - FIX: Corrected PromptBuilder pattern for Strategic Briefing injection.
-// 19.01.2026 13:35 - FIX: Restored V30 Legacy Schema (German Keys) for GeoAnalyst.
-// 17.01.2026 15:00 - UPDATE: Added 'Hub Identification' Logic.
-// 18.01.2026 00:40 - REFACTOR: Migrated to class-based PromptBuilder.
 
 import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
@@ -13,58 +10,60 @@ export const buildGeoAnalystPrompt = (project: TripProject): string => {
   const { userInputs, analysis } = project;
   const { logistics } = userInputs;
 
-  // 1. STRATEGIC BRIEFING (V40 English Key)
+  // 1. STRATEGIC BRIEFING
   const strategicBriefing = (analysis.chefPlaner as any)?.strategic_briefing?.sammler_briefing || 
                             (analysis.chefPlaner as any)?.strategisches_briefing?.sammler_briefing || 
                             "";
 
-  // Context Preparation
+  // 2. DETERMINE MODE & CONTEXT
   let geoMode = "";
-  let routing = "";
-
+  let taskDescription = "";
+  
   if (logistics.mode === 'stationaer') {
-    geoMode = "STATIONARY (Hub & Spoke)";
-    routing = `Base Location: ${logistics.stationary.destination}.
-    Task: Validate if this base is suitable for day trips in the region: ${logistics.stationary.region || 'Region'}.`;
+    geoMode = "STATIONARY (District Finder)";
+    const dest = logistics.stationary.destination || 'Destination';
+    taskDescription = `Target: ${dest}.
+    Task: Analyze the provided 'SIGHTS_CLUSTER' (if available). Determine the **optimal district/neighborhood** in ${dest} to use as a base.
+    Goal: Minimize travel times to the sights.`;
   } else {
-    geoMode = "ROUNDTRIP";
-    routing = `Route: ${logistics.roundtrip.stops.map(s => s.location).join(' -> ')}.
+    geoMode = "ROUNDTRIP (Hub Finder)";
+    const stops = logistics.roundtrip.stops.map(s => s.location).join(' -> ');
+    taskDescription = `Route: ${stops}.
     Region: ${logistics.roundtrip.region}.
-    Task: Identify the best overnight stops (Hubs) along this route.`;
+    Task: Identify the best strategic overnight stops (Hubs) along this route to minimize driving daily.`;
   }
 
   const contextData = {
     mode: geoMode,
     arrival_type: (userInputs.dates.arrival as any).type,
-    routing_info: routing
+    travel_season: userInputs.dates.start // Relevant for traffic/weather
   };
 
-  const role = `You are the "Geo Analyst". Your task is the strategic evaluation of locations (Hubs).
-  You are NOT looking for specific hotels, but for the best *locations* to stay overnight.`;
+  const role = `You are the "Geo Analyst" and "Location Strategist". 
+  You do not look for hotels yet. You define the **Search Area** for the Hotel Scout.
+  Your goal is Logistical Efficiency.`;
 
   const instructions = `# TASK
-${routing}
+${taskDescription}
 
-# GOAL
-1.  Identify strategic "Hubs" (Cities/Villages) suitable as a base.
-2.  Evaluate the location regarding:
-    * Accessibility (Transport connections)
-    * Infrastructure (Restaurants, Supermarkets)
-    * Tourist Appeal (Vibe)
+# ANALYSIS LOGIC
+1.  **Center of Gravity:** Look at the distribution of sights/activities. Where is the center?
+2.  **Logistics Check:** * If Car: Suggest areas with parking / outskirts.
+    * If Train/Flight: Suggest Central Station or City Center proximity.
+3.  **Vibe Match:** Match the user's vibe (${userInputs.vibe}) with the district (e.g. "Hipster" -> Arts District, "Quiet" -> Suburbs).
 
 # OUTPUT
-Create a list of recommended hubs with reasoning.`;
+Recommend 1-2 specific areas/hubs that are strategically perfect.`;
 
-  // FIX: Schema converted to V40 English keys & CoT added
   const outputSchema = {
-    "_thought_process": "String (Geo-Strategic evaluation of locations)",
+    "_thought_process": "String (Analyze Sights Distribution & Logistics)",
     "recommended_hubs": [
       {
-        "hub_name": "String (Name of City/Town)",
+        "hub_name": "String (Name of City OR Specific District, e.g. 'Berlin - Mitte')",
         "suitability_score": "Integer (1-10)",
-        "pros": ["String"],
+        "pros": ["String (Logistics)", "String (Vibe)"],
         "cons": ["String"],
-        "suitable_for": "String (e.g. 'Families', 'Nightlife', 'Quiet')"
+        "suitable_for": "String (e.g. 'Short Walking Distances', 'Car Travelers')"
       }
     ]
   };
@@ -72,11 +71,11 @@ Create a list of recommended hubs with reasoning.`;
   return new PromptBuilder()
     .withOS()
     .withRole(role)
-    .withContext(contextData, "GEO DATA")
+    .withContext(contextData, "GEO PARAMETERS")
     .withContext(strategicBriefing, "STRATEGIC GUIDELINE")
     .withInstruction(instructions)
     .withOutputSchema(outputSchema)
     .withSelfCheck(['planning'])
     .build();
 };
-// --- END OF FILE 71 Zeilen ---
+// --- END OF FILE 84 Zeilen ---

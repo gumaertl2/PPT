@@ -1,11 +1,6 @@
+// 29.01.2026 18:30 - FIX: Added Hotel-specific fields (locationMatch, priceEstimate, bookingUrl).
 // 29.01.2026 16:15 - FIX: Added 'source_url' to Place interface for Food Scout link tracking.
 // 29.01.2026 12:40 - FIX: Added 'details' property to Place interface to resolve Vercel TS2339 build error.
-// 28.01.2026 17:15 - FIX: Added 'waypoints' to Place interface for Walking Tours.
-// 27.01.2026 22:30 - FIX: Added 'user_ratings_total' and 'duration' to Place interface.
-// 27.01.2026 21:45 - FIX: Added 'phone', 'awards' and 'openingHoursHint' to Place interface for FoodEnricher V30 parity.
-// 24.01.2026 13:00 - FEAT: Added 'detailContent' to Place interface (Separation of Concerns: Enricher vs Editor).
-// 23.01.2026 14:20 - FIX: Added PrintConfig & DetailLevel to central types (SSOT).
-// 23.01.2026 11:45 - FIX: Synchronized Place structure and Record type with real JSON data.
 // src/core/types.ts
 
 // --- GENERAL TYPES ---
@@ -87,7 +82,6 @@ export type WorkflowStepId =
   | 'countryScout'         // Länderinfos
   | 'ideenScout'           // Extras
   
-  // FIX: Added missing Task Keys for V40 Orchestration
   | 'tourGuide'            // Tourenplanung
 
   // --- Compatibility / Legacy Keys ---
@@ -95,7 +89,6 @@ export type WorkflowStepId =
   | 'modificationTagesplaner' // Modifikation
   | 'transferUpdater';        // Legacy
 
-// Export TaskKey as alias for WorkflowStepId
 export type TaskKey = WorkflowStepId;
 
 export interface WorkflowStepDef {
@@ -108,14 +101,12 @@ export interface WorkflowStepDef {
 }
 
 // --- SYSTEM SETTINGS & CHUNKING (SSOT) ---
-
 export type AiStrategy = 'optimal' | 'pro' | 'fast';
-
 export type ModelType = 'pro' | 'flash' | string;
 
 export interface ChunkLimits {
-    auto: number;   // Für API-Modus
-    manual: number; // Für Copy-Paste
+    auto: number;   
+    manual: number; 
 }
 
 export interface AiSettings {
@@ -130,8 +121,8 @@ export interface ChunkingState {
     isActive: boolean;
     currentChunk: number;
     totalChunks: number;
-    dataChunks: any[]; // Die geschnittenen Häppchen
-    results: any[];    // Die gesammelten Ergebnisse
+    dataChunks: any[]; 
+    results: any[];    
 }
 
 // --- FLUGSCHREIBER (DEBUG LOGS) ---
@@ -166,17 +157,17 @@ export interface AppError {
 export interface RouteStop {
   id: string;
   location: string;
-  duration: number; // Nächte
-  hotel?: string;   // Optional für Rundreise
+  duration: number; 
+  hotel?: string;   
 }
 
 export interface CalendarEvent {
   id: string;
-  date: string; // YYYY-MM-DD
+  date: string; 
   title: string;
   name?: string;
   description?: string;
-  duration?: string; // z.B. "2h"
+  duration?: string; 
 }
 
 export interface DepartureDetails {
@@ -253,15 +244,14 @@ export interface TripUserProfile {
   vibe: string;
   selectedInterests: string[]; 
   customPreferences: Record<string, string>; 
-  customSearchStrategies?: Record<string, string>;   // NEU
-  customWritingGuidelines?: Record<string, string>;  // NEU
+  customSearchStrategies?: Record<string, string>;   
+  customWritingGuidelines?: Record<string, string>;  
   notes: string; 
   
   aiOutputLanguage: string; 
 }
 
-// --- ANALYSIS RESULTS (STRICT V40 ENGLISH) ---
-
+// --- ANALYSIS RESULTS ---
 export interface InfoChapter {
   title: string;
   content?: string;
@@ -278,8 +268,7 @@ export interface ChefPlanerResult {
     model: string;
   };
   
-  // V40 English Keys
-  _thought_process?: string[]; // former: gedankenschritte
+  _thought_process?: string[]; 
   plausibility_check?: string | null;
   
   corrections: {
@@ -315,31 +304,30 @@ export interface ChefPlanerResult {
 
 export interface RouteProposal {
   id?: string;
-  title: string;           // former: routenName
-  description?: string;    // former: charakter
+  title: string;           
+  description?: string;    
   
-  // Computed values
   total_km?: number;       
   total_drive_time?: number; 
   
-  stages?: Array<{          // former: uebernachtungsorte
+  stages?: Array<{          
       location_name: string;
       nights: number | string;
       reasoning?: string;
   }>;
   
-  waypoints?: Array<{      // former: ankerpunkte
+  waypoints?: Array<{      
     location: string;
     address?: string;
   }>;
 }
 
 export interface RouteArchitectResult {
-  routes: RouteProposal[]; // former: routenVorschlaege
+  routes: RouteProposal[]; 
 }
 
 export interface GeoAnalystResult {
-  recommended_hubs: Array<{ // former: empfohlene_hubs
+  recommended_hubs: Array<{ 
     hub_name: string;
     suitability_score: number;
     pros: string[];
@@ -347,8 +335,6 @@ export interface GeoAnalystResult {
     suitable_for: string;
   }>;
 }
-
-// FIX: New Interfaces for TourGuide & IdeenScout
 
 export interface TourGuideResult {
     guide: {
@@ -377,7 +363,6 @@ export interface IdeenScoutResult {
 export type FoodSearchMode = 'standard' | 'stars';
 
 // --- DATA OBJECTS (PLACES & CONTENT) ---
-
 export type PlaceCategory = 'sight' | 'food' | 'accommodation' | 'hidden-gem' | string;
 
 export interface Place {
@@ -391,33 +376,40 @@ export interface Place {
   location?: { lat: number; lng: number };
   
   // User Metadaten
-  userPriority?: number; // -1, 0, 1, 2
+  userPriority?: number; 
   rating?: number;
-  user_ratings_total?: number; // FIX: Added explicitly (was missing)
+  user_ratings_total?: number; 
   
-  // Content (English V40)
+  // Content
   shortDesc?: string;
   description?: string; 
-  detailContent?: string; // NEW: Editorial Content (Separated from Enricher)
+  detailContent?: string; 
   openingHours?: string[] | string; 
-  website?: string; // FIX: Added missing field from JSON
-  source_url?: string; // FIX: Added source_url (Guide Link) (29.01.2026)
-  reasoning?: string; // FIX: Added reasoning
-  logistics?: string; // FIX: Added logistics
-  priceLevel?: string; // FIX: Added priceLevel
-  duration?: number; // FIX: Estimated visit duration in minutes
+  website?: string; 
+  source_url?: string; 
+  reasoning?: string; 
+  logistics?: string; 
+  priceLevel?: string; 
+  duration?: number; 
   
-  // NEW: Waypoints for walking tours (28.01.2026)
+  // Waypoints for walking tours
   waypoints?: Array<{ name: string; address: string; }>;
 
-  // NEW: Fields for FoodEnricher V30 Parity (27.01.2026)
+  // Fields for FoodEnricher V30 Parity
   phone?: string;
   awards?: string[];
   openingHoursHint?: string;
   cuisine?: string;
   vibe?: string[];
+  signature_dish?: string; // NEW: Added Signature Dish for Food
   
-  // FIX: Added details for Special/Ideas (29.01.2026)
+  // NEW: Hotel Scout Fields (29.01.2026)
+  location_match?: string;  // Reasoning why location fits logistics
+  price_estimate?: string;  // e.g. "120€/Night"
+  bookingUrl?: string;      // Direct Link
+  pros?: string[];          // List of Hotel pros
+
+  // Details for Special/Ideas
   details?: {
     specialType?: 'sunny' | 'rainy' | string;
     duration?: number;
@@ -428,7 +420,7 @@ export interface Place {
 
   // Status
   visited?: boolean;
-  googlePlaceId?: string; // Legacy / Reference
+  googlePlaceId?: string; 
 }
 
 export interface ChunkingContext {
@@ -437,7 +429,7 @@ export interface ChunkingContext {
   stations: string[];  
 }
 
-// NEW: Print & Report Types
+// Print & Report Types
 export type DetailLevel = 'compact' | 'standard' | 'details';
 
 export interface PrintConfig {
@@ -466,13 +458,12 @@ export interface TripProject {
     chefPlaner: ChefPlanerResult | null;
     routeArchitect?: RouteArchitectResult | null;
     geoAnalyst?: GeoAnalystResult | null; 
-    // FIX: Added new analysis results
     tourGuide?: TourGuideResult | null;
     ideenScout?: IdeenScoutResult | null;
-    infoAutor?: InfoAutorResult | null; // NEW: Wired up InfoAutor
+    infoAutor?: InfoAutorResult | null; 
   };
   data: {
-    places: Record<string, Place>; // FIX: Changed from Place[] to Record<string, Place> for SSOT compliance
+    places: Record<string, Place>; 
     content: Record<string, any>; 
     routes: Record<string, any>;
   };
@@ -480,4 +471,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 523 Zeilen ---
+// --- END OF FILE 528 Zeilen ---

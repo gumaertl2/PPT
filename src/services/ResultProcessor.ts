@@ -88,7 +88,7 @@ const extractItems = (data: any): any[] => {
     // Case B: Object
     // 1. Is this a candidate/place itself?
     const isPlace = (data.name || data.id) 
-        && !data.candidates && !data.enriched_places && !data.places && !data.results;
+        && !data.candidates && !data.enriched_places && !data.places && !data.results && !data.recommended_hubs;
 
     if (isPlace) {
         items.push(data);
@@ -106,7 +106,7 @@ const extractItems = (data: any): any[] => {
     }
 
     // 3. Fallback: DEEP SEARCH
-    if (!foundContainer) {
+    if (!foundContainer && !data.recommended_hubs) {
           Object.values(data).forEach(value => {
               if (typeof value === 'object' && value !== null) {
                   items = items.concat(extractItems(value));
@@ -129,6 +129,15 @@ export const ResultProcessor = {
         content: `Processing Result for ${step}`,
         meta: { dataKeys: Object.keys(data || {}) }
       });
+    }
+
+    // --- GEO ANALYST (HUB STRATEGY) ---
+    if (step === 'geoAnalyst') {
+        if (data && data.recommended_hubs) {
+            setAnalysisResult('geoAnalyst', data);
+            console.log(`[GeoAnalyst] Stored ${data.recommended_hubs.length} recommended hubs.`);
+        }
+        return; // Exit early, no places to extract
     }
 
     // --- UNIVERSAL EXTRACTION ---
@@ -268,6 +277,15 @@ export const ResultProcessor = {
                         website: item.website,
                         priceLevel: item.price_level,
                         source_url: item.source_url, // FIX: Track Source URL from Scout
+                        
+                        // FIX: Hotel Scout Fields
+                        location_match: item.location_match,
+                        price_estimate: item.price_estimate,
+                        bookingUrl: item.bookingUrl,
+                        pros: item.pros,
+
+                        // FIX: Food Signature Dish
+                        signature_dish: item.signature_dish,
 
                         ...(isString ? {} : item)
                     });
@@ -427,4 +445,4 @@ export const ResultProcessor = {
     }
   }
 };
-// --- END OF FILE 418 Zeilen ---
+// --- END OF FILE 429 Zeilen ---
