@@ -1,8 +1,9 @@
 // src/core/Workflow/steps.ts
+// 31.01.2026 19:30 - REFACTOR: Strict Template Naming (hotelScout/foodScout etc).
 // 10.01.2026 17:40
 // UPDATE: Added 'chefPlaner' and 'anreicherer' while preserving existing steps.
 // 15.01.2026 16:15 - FIX: Added 'routeArchitect' step for Roundtrips (V30 Workflow Parity).
-// CHAIN: chefPlaner -> routeArchitect (optional) -> basis -> anreicherer -> guide -> ...
+// CHAIN: chefPlaner -> routeArchitect (optional) -> basis -> anreicherer -> tourGuide -> ...
 
 import type { WorkflowStepDef } from '../types';
 
@@ -36,7 +37,7 @@ export const WORKFLOW_STEPS: WorkflowStepDef[] = [
     }
   },
   {
-    id: 'basis', // Bestehend (angepasst auf Requirement)
+    id: 'basis', // Bestehend (Template Name)
     isMandatory: true,
     requires: ['chefPlaner'], // Braucht das Briefing (und ggf. die Route vom Architekten)
     label: {
@@ -62,7 +63,7 @@ export const WORKFLOW_STEPS: WorkflowStepDef[] = [
     }
   },
   {
-    id: 'guide', // Bestehend (angepasst auf Requirement)
+    id: 'tourGuide', // Renamed from guide
     isMandatory: false,
     requires: ['anreicherer'], // Braucht die Fakten
     label: {
@@ -75,9 +76,9 @@ export const WORKFLOW_STEPS: WorkflowStepDef[] = [
     }
   },
   {
-    id: 'details',
+    id: 'chefredakteur', // Renamed from details
     isMandatory: false,
-    requires: ['guide'], // Logische Folge
+    requires: ['tourGuide'], // Logische Folge
     label: {
       de: '4. Detail-Texte (Content)',
       en: '4. Detail Content'
@@ -88,9 +89,9 @@ export const WORKFLOW_STEPS: WorkflowStepDef[] = [
     }
   },
   {
-    id: 'dayplan',
+    id: 'initialTagesplaner', // Renamed from dayplan
     isMandatory: false,
-    requires: ['guide'], // Guide hilft beim Clustern für Tage
+    requires: ['tourGuide'], // Guide hilft beim Clustern für Tage
     requiresUserInteraction: true, // Human in the loop!
     label: {
       de: '5. Tagesplan erstellen',
@@ -102,7 +103,7 @@ export const WORKFLOW_STEPS: WorkflowStepDef[] = [
     }
   },
   {
-    id: 'infos',
+    id: 'infoAutor', // Renamed from infos
     isMandatory: false,
     label: {
       de: '6. Reise-Infos (A-Z)',
@@ -114,7 +115,7 @@ export const WORKFLOW_STEPS: WorkflowStepDef[] = [
     }
   },
   {
-    id: 'food',
+    id: 'foodScout', // Renamed from food
     isMandatory: false,
     requires: ['anreicherer'], // Geo-Kontext nötig (Basis oder Anreicherer)
     label: {
@@ -127,7 +128,7 @@ export const WORKFLOW_STEPS: WorkflowStepDef[] = [
     }
   },
   {
-    id: 'accommodation',
+    id: 'hotelScout', // Renamed from accommodation
     isMandatory: false,
     requires: ['chefPlaner'], // Braucht Logistik-Infos
     label: {
@@ -140,9 +141,9 @@ export const WORKFLOW_STEPS: WorkflowStepDef[] = [
     }
   },
   {
-    id: 'sondertage',
+    id: 'ideenScout', // Renamed from sondertage
     isMandatory: false,
-    requires: ['guide'],
+    requires: ['tourGuide'],
     label: {
       de: '9. Flexibilität (Wetter)',
       en: '9. Flexibility (Weather)'
@@ -153,9 +154,9 @@ export const WORKFLOW_STEPS: WorkflowStepDef[] = [
     }
   },
   {
-    id: 'transfers',
+    id: 'transferPlanner', // Renamed from transfers
     isMandatory: false,
-    requires: ['dayplan'], // Braucht den Plan für Wege
+    requires: ['initialTagesplaner'], // Braucht den Plan für Wege
     label: {
       de: '10. Transfers optimieren',
       en: '10. Optimize Transfers'

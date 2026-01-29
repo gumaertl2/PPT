@@ -1,48 +1,71 @@
-// 31.01.2026 14:30 - FIX: Resolved TypeScript Access Error (Logistics vs Dates) & Linter unused var.
-// 29.01.2026 18:05 - FEAT: Created HotelScout Preparer (Logistics Handover).
+// 31.01.2026 17:30 - FEAT: Roundtrip Logic & Camper Detection (Fixed).
 // src/core/prompts/preparers/prepareHotelScoutPayload.ts
 
 import type { TripProject } from '../../types';
 
 export const prepareHotelScoutPayload = (
   project: TripProject, 
-  _feedback?: string
+  chunkIndex: number = 1
 ) => {
   const { userInputs, analysis } = project;
+  const { logistics, dates, travelers, budget } = userInputs;
   
-  // 1. DETERMINE SEARCH HUB (The "Golden Location")
-  // Priority A: Result from GeoAnalyst (The Strategy)
-  const geoRecommendation = analysis.geoAnalyst?.recommended_hubs?.[0];
+  let searchLocation = "";
+  let locationReasoning = "";
+  let stayDuration = "2-3 nights"; 
+
+  // 1. DETERMINE SEARCH TARGET (Roundtrip vs. Stationary)
+  if (logistics.mode === 'roundtrip') {
+      const stops = logistics.roundtrip.stops || [];
+      const stopIndex = chunkIndex - 1; // 1-based to 0-based
+      
+      if (stops[stopIndex]) {
+          searchLocation = stops[stopIndex].location;
+          locationReasoning = `Stop ${chunkIndex} of Roundtrip: ${searchLocation}`;
+          if (stops[stopIndex].duration) {
+              stayDuration = `${stops[stopIndex].duration} nights`;
+          }
+      } else {
+          searchLocation = stops[0]?.location || "Unknown Stop";
+          locationReasoning = "Fallback Stop";
+      }
+
+      // Geo-Analyst Refinement (z.B. Stadtteil)
+      if (analysis.geoAnalyst?.recommended_hubs) {
+          const refinedHub = analysis.geoAnalyst.recommended_hubs.find((h: any) => 
+              h.hub_name.toLowerCase().includes(searchLocation.toLowerCase())
+          );
+          if (refinedHub) {
+              searchLocation = refinedHub.hub_name; 
+              locationReasoning += ` (Refined: ${refinedHub.suitable_for})`;
+          }
+      }
+
+  } else {
+      // STATIONARY
+      const geoRecommendation = analysis.geoAnalyst?.recommended_hubs?.[0];
+      searchLocation = geoRecommendation ? geoRecommendation.hub_name : (logistics.stationary.destination || "Destination");
+      locationReasoning = geoRecommendation ? `Strategic Base: ${geoRecommendation.suitable_for}` : "User Preference";
+      stayDuration = `${dates.duration} nights`;
+  }
+
+  // 2. LOGISTICS MODE (Camper Check!)
+  // Wir prüfen hier explizit auf 'camper', 'rv' oder 'mobil' im Arrival-Type
+  const arrivalType = dates.arrival?.type || 'car';
   
-  // Priority B: User Input (Fallback)
-  const userDestination = userInputs.logistics.stationary.destination || 
-                          userInputs.logistics.roundtrip.stops?.[0]?.location || 
-                          "Destination";
-
-  // LOGIC: Use the specific recommended district if available, otherwise city level.
-  const searchLocation = geoRecommendation ? geoRecommendation.hub_name : userDestination;
-  const locationReasoning = geoRecommendation ? `Strategic Recommendation: ${geoRecommendation.suitable_for}` : "User Preference";
-
-  // 2. DATES
-  const checkIn = userInputs.dates.start;
-  const checkOut = userInputs.dates.end; // Simplified for stationary. For roundtrip, orchestrator needs loop logic.
-
-  // FIX: Access 'arrival' via 'dates', not 'logistics' (Type Error Fix)
-  const arrivalType = userInputs.dates.arrival?.type || 'car';
-
   return {
     context: {
-      location_name: searchLocation,
+      search_hub: searchLocation,
       location_reasoning: locationReasoning,
-      check_in: checkIn,
-      check_out: checkOut,
-      travelers: userInputs.travelers,
-      budget: userInputs.budget,
-      logistics_type: arrivalType
+      stay_duration: stayDuration,
+      travelers: travelers,
+      budget: budget,
+      logistics_type: arrivalType,
+      is_roundtrip: logistics.mode === 'roundtrip'
     },
     instructions: {
-      role: "You are the Logistics Optimizer. Find hotels strictly in the defined area."
+      role: "Logistics Optimizer"
     }
   };
 };
-// --- END OF FILE 45 Zeilen ---
+// --- END OF FILE 68 Zeilen ---

@@ -1,72 +1,57 @@
-// 31.01.2026 14:35 - FIX: Resolved Runtime Crash (undefined 'logistics.arrival'). Switched to 'dates.arrival'.
-// 29.01.2026 17:45 - FEAT: HotelScout Refactor (Logistics Optimizer & Strict Budget).
-// 23.01.2026 15:25 - FIX: Synchronized Schema with CoT Instruction (added _thought_process).
-// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
+// 31.01.2026 17:30 - FEAT: Camper Awareness. Switches to Campsites if logistics_type is camper.
 // src/core/prompts/templates/hotelScout.ts
 
-import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
 
-export const buildHotelScoutPrompt = (
-    project: TripProject,
-    locationName: string, // This is now the specific HUB/DISTRICT from GeoAnalyst
-    checkInDate: string,
-    checkOutDate: string
-): string => {
-  const { userInputs, analysis } = project;
-  // FIX: Destructure 'dates' to access arrival info correctly
-  const { travelers, budget, logistics, dates } = userInputs;
-
-  // 1. CHEF PLANER DATA
-  const chefPlaner = analysis.chefPlaner;
-  const strategicBriefing = (chefPlaner as any)?.strategic_briefing?.sammler_briefing || "";
+export const buildHotelScoutPrompt = (payload: any): string => {
+  const { context } = payload;
   
-  // 2. CONTEXT
+  // 1. CAMPER DETECTION
+  const isCamper = ['camper', 'rv', 'wohnmobil', 'mobile_home'].includes(context.logistics_type?.toLowerCase());
+  
+  const accommodationTerm = isCamper ? "Campsites / RV Parks (Stellplätze)" : "Hotels / Apartments";
+  const parkingRule = isCamper ? "MUST be suitable for large vehicles (Camper)." : "MUST have parking.";
+
   const contextData = {
-    search_hub: locationName,
-    dates: { check_in: checkInDate, check_out: checkOutDate },
-    travelers: {
-        adults: travelers.adults,
-        children: travelers.children,
-        pets: travelers.pets 
-    },
-    budget_level: budget, 
-    // FIX: Access arrival type via dates.arrival
-    logistics_mode: dates.arrival?.type === 'car' ? 'Car (Parking Mandatory)' : 'Public Transport (Walking Distance Mandatory)'
+    search_hub: context.search_hub,
+    duration: context.stay_duration,
+    travelers: context.travelers,
+    budget_level: context.budget, 
+    vehicle: isCamper ? "Camper / RV" : "Car",
+    trip_type: context.is_roundtrip ? "Roundtrip Stop" : "Stationary Base"
   };
 
-  const role = `You are the "Hotel Scout", a Logistics Optimizer and Accommodation Expert.
-  Your goal is NOT just finding a bed, but minimizing travel stress and maximizing value.`;
+  const role = `You are the "Accommodation Scout". 
+  Your User travels by **${isCamper ? "CAMPER (Wohnmobil)" : "Car"}**.
+  Find the best ${accommodationTerm} in the area.`;
 
   const instructions = `# TASK
-Find 2-3 concrete accommodation options in **"${locationName}"**.
+Find 2-3 concrete **${accommodationTerm}** in or near **"${context.search_hub}"**.
+Context: ${context.location_reasoning}
 
-# STRICT RULES (GATEKEEPER)
-1.  **Logistics Priority:** The hotel MUST be in the requested hub/district to ensure short travel times.
-2.  **Budget Compliance:** Strictly adhere to "${budget}". Do not suggest luxury if budget is low.
-    * Low: Hostel/Budget Hotel
-    * Medium: 3-4 Star Standard
-    * High/Luxury: 5 Star / Boutique
-3.  **Mandatory Filters:**
-    * **Pets:** ${travelers.pets ? "MUST allow pets." : "Irrelevant."}
-    * **Car:** ${dates.arrival?.type === 'car' ? "MUST have parking (verify availability)." : "Near public transport."}
-4.  **Rating:** Google Rating > 4.0 is mandatory.
+# STRICT RULES
+1.  **Location:** Must be convenient for "${context.search_hub}".
+2.  **Budget:** Adhere to "${context.budget}".
+3.  **Requirements:**
+    * **Pets:** ${context.travelers.pets ? "MUST allow pets." : "Irrelevant."}
+    * **Vehicle:** ${parkingRule}
+4.  **Rating:** Google Rating > 4.0 preferred.
 
 # OUTPUT REQUIREMENTS
-For each option, explain the **"Location Match"**: Why is this specific location perfect for the user's plan? (e.g. "Only 5 min walk to the main sight").`;
+Explain the **"Location Match"**: Why is this ${isCamper ? "campsite" : "hotel"} perfect for the user's plan?`;
 
   const outputSchema = {
-    "_thought_process": "String (Filter check: Budget, Pets, Parking, Location)",
+    "_thought_process": "String (Filter check: Budget, Pets, Vehicle, Location)",
     "candidates": [
       {
         "name": "String (Official Name)",
         "address": "String (Address)",
-        "location_match": "String (Logistics reasoning: 'Perfect because...')",
-        "description": "String (Vibe & Room description)",
-        "price_estimate": "String (e.g. 'ca. 120€/Night')",
-        "bookingUrl": "String (Real Booking Link)",
+        "location_match": "String (Why good for this stop?)",
+        "description": "String (Facilities & Vibe)",
+        "price_estimate": "String",
+        "bookingUrl": "String",
         "pros": ["String"],
-        "rating": "Number (Google Rating)"
+        "rating": "Number"
       }
     ]
   };
@@ -75,10 +60,9 @@ For each option, explain the **"Location Match"**: Why is this specific location
     .withOS()
     .withRole(role)
     .withContext(contextData, "SEARCH PARAMETERS")
-    .withContext(strategicBriefing, "STRATEGIC GUIDELINE")
     .withInstruction(instructions)
     .withOutputSchema(outputSchema)
     .withSelfCheck(['research'])
     .build();
 };
-// --- END OF FILE 86 Zeilen ---
+// --- END OF FILE 66 Zeilen ---

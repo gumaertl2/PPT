@@ -1,5 +1,4 @@
-// 29.01.2026 00:15 - FIX: Added correct 'done' status check for 'sondertage' (checks project.analysis.ideenScout).
-// 28.01.2026 17:00 - FIX: Corrected status checks for 'guide' and 'details' to match V40 data structure.
+// 31.01.2026 19:45 - FIX: Corrected Case Names to match Templates.
 // src/features/Workflow/WorkflowSelectionModal.tsx
 
 import React, { useState, useEffect } from 'react';
@@ -66,45 +65,44 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
           );
           return isEnriched ? 'done' : 'available';
 
-      case 'guide':
+      case 'tourGuide': // Renamed from guide
         if (!hasPlaces) return 'locked'; 
-        // FIX: V40 uses analysis.tourGuide, not data.routes
         return project.analysis.tourGuide ? 'done' : 'available';
 
-      case 'details':
+      case 'chefredakteur': // Renamed from details
         if (!hasPlaces) return 'locked';
         // FIX: V40 stores details directly on the Place object (detailContent), not in data.content
         const hasDetails = validPlaces.some((p: any) => p.detailContent && p.detailContent.length > 50);
         return hasDetails ? 'done' : 'available';
 
-      case 'dayplan':
-        const hasGuide = project.analysis.tourGuide; // Also updated dependency check
+      case 'initialTagesplaner': // Renamed from dayplan
+        const hasGuide = project.analysis.tourGuide; 
         if (!hasPlaces || !hasGuide) return 'locked';
         return project.itinerary.days.length > 0 ? 'done' : 'available';
 
-      case 'infos':
+      case 'infoAutor': // Renamed from infos
         const hasInfos = Object.values(project.data.content).some((c: any) => c.type === 'info' || c.type === 'Information');
         return hasInfos ? 'done' : 'available';
 
-      case 'food':
+      case 'foodScout': // Renamed from food
         if (!hasPlaces) return 'locked';
         const hasRestaurants = validPlaces.some((p: any) => p.category === 'restaurant' || p.category === 'Restaurant');
         return hasRestaurants ? 'done' : 'available';
 
-      case 'accommodation':
+      case 'hotelScout': // Renamed from accommodation
         if (!hasPlaces) return 'locked';
         const manualHotel = project.userInputs.logistics?.stationary?.hotel;
         // FIX: Using V40 English Key 'validated_hotels'
         const hasValidatedHotels = (project.analysis.chefPlaner?.validated_hotels?.length || 0) > 0;
         return (manualHotel || hasValidatedHotels) ? 'done' : 'available';
       
-      case 'sondertage':
+      case 'ideenScout': // Renamed from sondertage
           if (!hasPlaces) return 'locked';
           // FIX: Check if 'ideenScout' data exists in analysis
           const hasIdeen = !!(project.analysis as any).ideenScout;
           return hasIdeen ? 'done' : 'available';
 
-      case 'transfers':
+      case 'transferPlanner': // Renamed from transfers
         const hasDayPlan = project.itinerary.days.length > 0;
         return hasDayPlan ? 'available' : 'locked';
         
@@ -120,8 +118,8 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
       WORKFLOW_STEPS.forEach(step => {
         const status = getStepStatus(step.id);
         
-        // EXCEPTION: 'infos' step shall NOT be selected by default
-        if (step.id === 'infos') return;
+        // EXCEPTION: 'infoAutor' step shall NOT be selected by default
+        if (step.id === 'infoAutor') return;
         
         // EXCEPTION: Don't select 'done' steps by default (Safety)
         if (status === 'done') return;

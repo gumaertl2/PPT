@@ -1,7 +1,5 @@
-// 22.01.2026 14:30 - FIX: Cleanup of non-existent Tasks (Hallucinations) from Settings Matrix.
+// 31.01.2026 19:45 - FIX: Corrected Task Names & Removed DurationEstimator. Full UI Preserved.
 // src/features/Cockpit/SettingsModal.tsx
-// 21.01.2026 18:15 - FIX: Removed unused 'ModelType' and 'activeManual' to resolve TS6133.
-// 21.01.2026 17:45 - UI: Implemented 3-Way Matrix (Pro, Fast, Thinking) with Smart Defaults.
 
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -29,7 +27,6 @@ import { InfoModal } from '../Welcome/InfoModal';
 import { getInfoText } from '../../data/Texts';
 import type { LanguageCode, TaskKey } from '../../core/types';
 import { CONFIG } from '../../data/config';
-// FIX: Removed unused 'ModelType' import
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -107,23 +104,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   const modelStats = Object.entries(usageStats.byModel || {});
 
+  // UPDATE: Strict Names, Removed DurationEstimator
   const v40WorkflowTasks: TaskKey[] = [
     'chefPlaner',
     'routeArchitect',
     'basis',
     'anreicherer',
-    'dayplan',
-    'transfers',
-    'accommodation',
-    'food',
-    'guide',
-    'details',
-    'infos',
-    'sondertage',
+    'initialTagesplaner',
+    'transferPlanner',
+    'hotelScout',
+    'foodScout',
+    'tourGuide',
+    'chefredakteur',
+    'infoAutor',
+    'ideenScout',
     'geoAnalyst',
-    'durationEstimator',
-    // FIX: Removed 'countryScout' (No Template)
-    // FIX: Removed 'foodCollector' (Redundant to 'food')
     'foodEnricher'
   ];
 
@@ -300,30 +295,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                     const defaultModel = CONFIG.taskRouting.defaults[taskKey];
                                     const currentOverride = aiSettings.modelOverrides?.[taskKey];
                                     
-                                    // LOGIC: What is effectively active?
-                                    // If no override -> Check Config Default.
-                                    // If Default is 'pro' -> Pro is active.
-                                    // If Default is 'flash' -> Thinking (Flash+) is active (Optimal Mode Upgrade).
-                                    
                                     let effectiveMode = currentOverride;
                                     if (!effectiveMode) {
                                         if (defaultModel === 'pro') effectiveMode = 'pro';
-                                        else effectiveMode = 'thinking'; // Upgrade Flash to Thinking
+                                        else effectiveMode = 'thinking'; 
                                     }
 
                                     const isPro = effectiveMode === 'pro';
                                     const isFlash = effectiveMode === 'flash';
                                     const isThinking = effectiveMode === 'thinking';
-
-                                    // Is this the default (no override)?
                                     const isDefault = !currentOverride;
                                     
                                     const chunkDefaults = CONFIG.taskRouting.chunkDefaults?.[taskKey] || { auto: 10, manual: 20 };
                                     const chunkOverrides = aiSettings.chunkOverrides?.[taskKey] || {};
-                                    
                                     const activeAuto = chunkOverrides.auto;
-                                    // FIX: Removed unused 'activeManual'
-
                                     const label = taskKey.charAt(0).toUpperCase() + taskKey.slice(1);
 
                                     return (

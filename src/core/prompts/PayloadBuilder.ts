@@ -1,5 +1,6 @@
-// 31.01.2026 13:00 - FIX: Removed "Deadly Fallback" in Food Candidate Selection. Added RAM-Pipeline support (options.candidates).
-// 27.01.2026 16:50 - FIX: Pass Chunk Options to Basis Preparer (Ratio Logic).
+// 31.01.2026 19:45 - FIX: Corrected Task Names, Removed DurationEstimator. Logic Preserved.
+// 31.01.2026 17:35 - FIX: Added HotelScout Preparer & Roundtrip Logic (Crucial for Camping/Roundtrips).
+// 31.01.2026 13:00 - FIX: Removed "Deadly Fallback" in Food Candidate Selection.
 // src/core/prompts/PayloadBuilder.ts
 
 import { useTripStore } from '../../store/useTripStore';
@@ -11,10 +12,11 @@ import { buildChefPlanerPrompt } from './templates/chefPlaner';
 import { buildBasisPrompt } from './templates/basis';
 import { buildAnreichererPrompt } from './templates/anreicherer';
 import { buildRouteArchitectPrompt } from './templates/routeArchitect';
-import { buildDurationEstimatorPrompt } from './templates/durationEstimator';
+// REMOVED: import { buildDurationEstimatorPrompt } from './templates/durationEstimator';
 import { buildInitialTagesplanerPrompt } from './templates/initialTagesplaner';
 import { buildTransferPlannerPrompt } from './templates/transferPlanner';
 import { buildGeoAnalystPrompt } from './templates/geoAnalyst';
+// NEW: Hotel Scout V40
 import { buildHotelScoutPrompt } from './templates/hotelScout';
 import { buildFoodScoutPrompt } from './templates/foodScout';
 import { buildFoodEnricherPrompt } from './templates/foodEnricher';
@@ -31,9 +33,10 @@ import { prepareChefPlanerPayload } from './preparers/prepareChefPlanerPayload';
 import { prepareInfoAutorPayload } from './preparers/prepareInfoAutorPayload';
 import { prepareTourGuidePayload } from './preparers/prepareTourGuidePayload';
 import { prepareIdeenScoutPayload } from './preparers/prepareIdeenScoutPayload';
-// NEW: Food Preparers
+// NEW: Food & Hotel Preparers
 import { prepareFoodScoutPayload } from './preparers/prepareFoodScoutPayload';
 import { prepareFoodEnricherPayload } from './preparers/prepareFoodEnricherPayload';
+import { prepareHotelScoutPayload } from './preparers/prepareHotelScoutPayload';
 
 import type { LocalizedContent, TaskKey, ChunkingState, TripProject, FoodSearchMode } from '../types';
 import { filterByRadius } from '../utils/geo';
@@ -155,8 +158,7 @@ export const PayloadBuilder = {
         break;
       }
 
-      case 'details':
-      case 'chefredakteur' as any: {
+      case 'chefredakteur': { // Renamed from details
           // V40: FIX - Slice FIRST, then call Preparer
           const allPlacesForEditor = Object.values(project.data.places || {}).flat();
           const slicedCandidatesForEditor = sliceData(allPlacesForEditor, 'chefredakteur' as TaskKey);
@@ -178,8 +180,7 @@ export const PayloadBuilder = {
           break;
       }
 
-      case 'infos':
-      case 'infoAutor': {
+      case 'infoAutor': { // Renamed from infos
           const allInfoTasks = prepareInfoAutorPayload(project);
           const slicedTasks = sliceData(allInfoTasks, 'infoAutor');
           generatedPrompt = buildInfoAutorPrompt(
@@ -192,8 +193,7 @@ export const PayloadBuilder = {
           break;
       }
 
-      case 'sondertage':
-      case 'ideenScout': {
+      case 'ideenScout': { // Renamed from sondertage
           const allIdeenTasks = prepareIdeenScoutPayload(project);
           const slicedIdeenTasks = sliceData(allIdeenTasks, 'ideenScout');
           generatedPrompt = buildIdeenScoutPrompt(
@@ -205,9 +205,7 @@ export const PayloadBuilder = {
           break;
       }
 
-      case 'guide':
-      case 'reisefuehrer':
-      case 'tourGuide': {
+      case 'tourGuide': { // Renamed from guide
            const payload = prepareTourGuidePayload(project);
            generatedPrompt = buildTourGuidePrompt(payload);
            break;
@@ -221,9 +219,7 @@ export const PayloadBuilder = {
 
       // --- FOOD SECTION (V40 UPGRADE) ---
 
-      case 'food':
-      case 'foodScout':
-      case 'foodCollector': {
+      case 'foodScout': { // Renamed from food
           let mode: FoodSearchMode = 'standard';
           if ((feedback && feedback.toLowerCase().includes('sterne')) || 
               project.userInputs.customPreferences?.foodMode === 'stars') {
@@ -273,6 +269,23 @@ export const PayloadBuilder = {
           break;
       }
 
+      // --- ACCOMMODATION / HOTEL SCOUT (V40 UPGRADE) ---
+      case 'hotelScout': { // Renamed from accommodation
+          // ROUNDTRIP LOGIC: Calculate Stops
+          const isRoundtrip = project.userInputs.logistics.mode === 'roundtrip';
+          const totalStops = isRoundtrip ? (project.userInputs.logistics.roundtrip.stops?.length || 1) : 1;
+          
+          // Determine Chunk (Default 1)
+          const currentChunk = options?.chunkIndex || chunkingState?.currentChunk || 1;
+
+          // 1. PREPARE (Select Stop based on Chunk)
+          const payload = prepareHotelScoutPayload(project, currentChunk);
+          
+          // 2. BUILD PROMPT (Pass Payload)
+          generatedPrompt = buildHotelScoutPrompt(payload);
+          break;
+      }
+
       // --- 2. LEGACY HANDLERS ---
       
       case 'routeArchitect':
@@ -280,16 +293,13 @@ export const PayloadBuilder = {
         generatedPrompt = buildRouteArchitectPrompt(project);
         break;
 
-      case 'durationEstimator':
-        generatedPrompt = buildDurationEstimatorPrompt(project, "", "");
-        break;
+      // REMOVED: DurationEstimator
 
-      case 'dayplan':
-      case 'initialTagesplaner': {
+      case 'initialTagesplaner': { // Renamed from dayplan
         let contextData: any = undefined;
         const isActive = options ? true : chunkingState?.isActive;
         if (isActive) {
-            const limit = options?.limit || getTaskChunkLimit('dayplan');
+            const limit = options?.limit || getTaskChunkLimit('initialTagesplaner');
             const currentChunk = options?.chunkIndex || chunkingState.currentChunk;
             const dayOffset = (currentChunk - 1) * limit;
             const totalChunks = options?.totalChunks || chunkingState.totalChunks;
@@ -308,8 +318,7 @@ export const PayloadBuilder = {
         break;
       }
 
-      case 'transfers':
-      case 'transferPlanner': {
+      case 'transferPlanner': { // Renamed from transfers
         const lastLoc = getLastChunkEndLocation() || '';
         generatedPrompt = buildTransferPlannerPrompt(project, lastLoc);
         break;
@@ -318,11 +327,6 @@ export const PayloadBuilder = {
       case 'geoAnalyst':
         generatedPrompt = buildGeoAnalystPrompt(project);
         break;
-
-      case 'accommodation':
-      case 'hotelScout':
-          generatedPrompt = buildHotelScoutPrompt(project, "", feedback || "", "");
-          break;
 
       default:
         throw new Error(`PayloadBuilder: Unknown task '${task}'`);
@@ -361,4 +365,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 547 Zeilen ---
+// --- END OF FILE 565 Zeilen ---
