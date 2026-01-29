@@ -1,6 +1,6 @@
+// 30.01.2026 02:00 - FIX: "Military Drill" - Added Self-Control Loop (Input vs Output Count) to prevent ID loss.
+// 29.01.2026 23:45 - FIX: Added 'id' pass-through to prevent duplicates. Renamed rating_count to user_ratings_total for consistency.
 // 29.01.2026 15:45 - FEAT: Expanded FoodEnricher Schema (Ratings, Signature Dish, Logistics) & Critic Persona.
-// 28.01.2026 10:05 - FIX: Removed invalid SelfCheck type 'quality'.
-// 27.01.2026 23:30 - FIX: FoodEnricher Template V30 Parity.
 // src/core/prompts/templates/foodEnricher.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -30,19 +30,28 @@ For the "description" field, you MUST start exactly like this:
 - If distance is 0 or unknown, use "Im Ort: ..." or "Direkt hier: ...".
 
 # DATA REQUIREMENTS (ORCHESTRATED INTELLIGENCE)
-1. **Awards:** Explicitly check for Michelin (Stars, Bib), Gault&Millau, Feinschmecker.
-2. **Signature Dish:** Identify one specific dish or specialty the place is famous for.
-3. **Ratings:** Provide Google Rating (e.g. 4.6) and Count.
-4. **Logistics:** Add a short tip (e.g. "Reservation essential", "Cash only").
+1. **Identity:** You MUST return the exact 'id' provided in the input. Do NOT generate a new ID.
+2. **Awards:** Explicitly check for Michelin (Stars, Bib), Gault&Millau, Feinschmecker.
+3. **Signature Dish:** Identify one specific dish or specialty the place is famous for.
+4. **Ratings:** Provide Google Rating (e.g. 4.6) and total count.
+5. **Logistics:** Add a short tip (e.g. "Reservation essential", "Cash only").
 
 # FALLBACK RULE
-If a restaurant cannot be found or is permanently closed, set "found": false.`;
+If a restaurant cannot be found or is permanently closed, set "found": false.
+
+# FINAL INTEGRITY CHECK (SELF-CONTROL)
+Before outputting JSON, you MUST verify:
+1. **Input Count:** I received X candidates.
+2. **Output Count:** I am returning exactly X candidates.
+3. **ID Match:** Every 'id' in output matches an 'id' from input.
+⛔️ **CRITICAL:** If counts do not match, STOP and fix the list. Do NOT drop items because they are closed/unfound (set found:false instead).`;
 
   // 3. Schema
   const outputSchema = {
-    "_thought_process": "String (Research verification & strategy)",
+    "_thought_process": "String (Step 1: Count input items. Step 2: Research. Step 3: Verify Output Count == Input Count. CONFIRM MATCH!)",
     "enriched_candidates": [
       {
+        "id": "String (CRITICAL: Copy exactly from input! Do NOT change!)",
         "original_name": "String",
         "found": "Boolean",
         "name_official": "String (Correct spelling)",
@@ -55,7 +64,7 @@ If a restaurant cannot be found or is permanently closed, set "found": false.`;
         "signature_dish": "String (e.g. 'Bouillabaisse')",
         "price_level": "String (€/€€/€€€)",
         "rating": "Number (e.g. 4.5)",
-        "rating_count": "Number (approximate)",
+        "user_ratings_total": "Number (Total count of ratings)",
         "logistics_tip": "String (Short practical advice)",
         "opening_hours_hint": "String (Brief text e.g. 'Daily from 18:00' or null)",
         "description": "String (Must follow the '[Distance] entfernt: ...' template!)"
@@ -72,4 +81,4 @@ If a restaurant cannot be found or is permanently closed, set "found": false.`;
     .withSelfCheck(['research']) 
     .build();
 };
-// --- END OF FILE 79 Zeilen ---
+// --- END OF FILE 90 Zeilen ---

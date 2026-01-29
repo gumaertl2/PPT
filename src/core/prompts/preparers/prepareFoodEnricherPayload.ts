@@ -1,3 +1,4 @@
+// 30.01.2026 02:45 - FIX: Pass 'id' to FoodEnricher to enable "Input=Output" Integrity Check (Prevent Duplicates).
 // 29.01.2026 15:30 - FIX: Harmonized 'distance' property from GeoFilter (Phase 2) and added source_url passthrough.
 // 28.01.2026 10:00 - FIX: Removed unused import & Added type safety for itemsToProcess.
 // 27.01.2026 23:15 - FIX: V30 Feature Parity (Distance Calculation & Store Access).
@@ -74,6 +75,7 @@ export const prepareFoodEnricherPayload = (
         }
 
         return {
+            id: c.id, // <--- CRITICAL FIX: Pass ID to AI so it can return it!
             name: name,
             location_hint: distanceInfo, // Human readable string
             distance_val: distValue,     // Numeric for AI to use in strict format
@@ -99,4 +101,4 @@ export const prepareFoodEnricherPayload = (
         }
     };
 };
-// --- END OF FILE 98 Zeilen ---
+// --- END OF FILE 99 Zeilen ---

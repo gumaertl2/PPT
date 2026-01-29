@@ -1,51 +1,62 @@
-// 29.01.2026 14:30 - FIX: FoodScout Template update for Phase 1 (Scanner Mode). Added source_url to schema.
-// 28.01.2026 10:15 - FIX: Removed invalid SelfCheck type 'quality'.
-// 26.01.2026 21:20 - FIX: FoodScout Template (Strict Mode).
+// 31.01.2026 00:00 - FEAT: "Exhaustive Search" (Gierig). No limits. Find ALL valid candidates. 50km Radius.
 // src/core/prompts/templates/foodScout.ts
 
 import { PromptBuilder } from '../PromptBuilder';
 
 export const buildFoodScoutPrompt = (payload: any): string => {
-  const { context, instructions } = payload;
+  const { context, userInputs } = payload;
   
-  const role = instructions?.role || `You are the "Food-Collector", a specialized scanning agent in an orchestrated intelligence system.`;
-  const strategy = instructions?.strategy || "Find the best rated restaurants.";
-  
-  // Robust check for guides list to prevent crashes
-  const allowedSources = Array.isArray(context.guides_list) 
+  const locationName = context.location_name || "Target Region";
+  // Radius: Wir lassen den Geo-Filter die Arbeit machen. Der Scout soll weit werfen.
+  const searchRadius = "50km"; 
+
+  const foodInterests = (userInputs?.selectedInterests || [])
+    .filter((id: string) => ['food', 'restaurants', 'wine', 'fine_dining', 'local_food'].includes(id));
+    
+  const specificCuisines = foodInterests.length > 0 
+    ? `Focus specifically on these vibes: ${foodInterests.join(', ')}` 
+    : "Search broadly for high-quality local cuisine.";
+
+  const allowedSources = Array.isArray(context.guides_list) && context.guides_list.length > 0
       ? context.guides_list.join(', ') 
-      : "Michelin, Gault&Millau, Local Premium Guides";
+      : "Internationally recognized premium restaurant guides";
+
+  const role = `Du bist der "Food-Scout". Deine Aufgabe ist eine **VOLLSTÄNDIGE** Erfassung der Gastronomie.
+  NICHT filtern. NICHT limitieren. Wir brauchen Masse für den späteren Geo-Filter.`;
 
   const mainInstruction = `# TASK
-Scan for restaurant candidates in the area of **${context.location_name}**.
-Search Radius/Area: ${context.search_area}
+List **ALL** restaurant candidates you can find in the area of **${locationName}** (Radius: ~${searchRadius}).
 
-# STRATEGY & PROFILE
-${strategy}
+# STRATEGY (EXHAUSTIVE / VOLLSTÄNDIGKEIT)
+1. **NO LIMITS:** Do NOT stop at 8 or 10. If there are 50 valid restaurants, list 50.
+2. **NO PRE-FILTERING:** If a restaurant is in one of the allowed guides, TAKE IT.
+3. **REGIONAL COVERAGE:** Do not just look at the city center. Look at the surrounding villages and the whole region.
 
-# ALLOWED SOURCES (WHITELIST)
-You act as a strict filter. You must ONLY select restaurants that are explicitly listed in one of these guides:
-**${allowedSources}**
+# ALLOWED SOURCES (SSOT)
+Strictly stick to these guides:
+👉 **${allowedSources}**
 
-# MANDATORY RULES
-1. **Source Verification:** If a restaurant is not listed in one of the allowed guides, IGNORE it.
-2. **Coordinates:** You MUST provide Lat/Lng coordinates.
-3. **Accuracy:** No hallucinations. Verify that the place exists.
-4. **Source Link:** If available, provide a direct link to the guide entry or the restaurant website.`;
+# INPUT-LOCATIONS (ANCHORS)
+Start your search around these points:
+${(context.search_locations || []).join(', ')}
+
+# CRITICAL VALIDATION
+1. **Real Names Only:** No guide names as restaurant names.
+2. **Coordinates:** Essential for the Geo-Filter later.
+
+${specificCuisines}`;
 
   const outputSchema = {
-    "_thought_process": "String (Verify guide listing & criteria match)",
+    "_thought_process": "String (Strategy: List scanned locations. Confirming I am listing ALL findings without artificial limits.)",
+    "resolved_search_locations": ["String (List of REAL city names found)"],
     "candidates": [
       {
         "name": "String",
         "city": "String",
         "address": "String",
-        "description": "String (Short summary of why it fits the profile, e.g. 'Listed in Michelin')",
         "location": { "lat": "Number", "lng": "Number" },
-        "guides": ["String (The specific guide names found)"],
-        "source_url": "String (Link to the guide entry or website)",
-        "cuisine": "String",
-        "priceLevel": "String"
+        "guides": ["String"],
+        "source_url": "String"
       }
     ]
   };
@@ -56,7 +67,7 @@ You act as a strict filter. You must ONLY select restaurants that are explicitly
     .withContext(context, "SCANNER CONTEXT")
     .withInstruction(mainInstruction)
     .withOutputSchema(outputSchema)
-    .withSelfCheck(['research'])
+    .withSelfCheck(['basic'])
     .build();
 };
-// --- END OF FILE 57 Zeilen ---
+// --- END OF FILE 69 Zeilen ---

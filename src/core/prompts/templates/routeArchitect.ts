@@ -1,3 +1,4 @@
+// 30.01.2026 01:00 - FIX: Added strict Location Integrity Rules to prevent vague "Region" outputs.
 // 22.01.2026 23:25 - FIX: Explicitly added _thought_process to Schema to sync with CoT Instruction.
 // 20.01.2026 23:45 - FIX: Restored ALL missing legacy fields (map_waypoints, hotel_changes) in V40 Schema.
 // src/core/prompts/templates/routeArchitect.ts
@@ -46,6 +47,12 @@ Die Optionen sollen sich im "Vibe" unterscheiden (z.B. "Der Klassiker", "Natur p
 5.  **Stationen:** Wähle strategisch kluge Übernachtungsorte (Hubs), von denen aus man die Umgebung erkunden kann.
 6.  **Kalkulation (PFLICHT):** Schätze die Gesamtkilometer (total_km) und die reine Gesamtfahrzeit (total_drive_time) für die gesamte Route realistisch ein.
 
+# CRITICAL DATA INTEGRITY (LOCATION NAMES)
+The field \`location_name\` in \`stages\` is CRITICAL for downstream systems (Geocoding, Hotel Search).
+1. **Concrete Cities Only:** You MUST output a specific city, town, or village name (e.g. "Heidelberg", "Freiburg im Breisgau", "Meersburg").
+2. ⛔️ **FORBIDDEN:** Do NOT use vague regional terms like "Region Stuttgart", "Schwarzwald Mitte", "Bodenseekreis", "Kaiserstuhl Region".
+3. **Resolution:** If the strategy suggests a region, pick the most strategic *Hub City* within that region as the \`location_name\`.
+
 # OUTPUT-SCHEMA (V40 Standard)
 Erstelle ein JSON mit dem Schlüssel "routes".
 Jeder Vorschlag benötigt:
@@ -73,7 +80,7 @@ Jeder Vorschlag benötigt:
         "map_waypoints": ["München", "Garmisch", "Berchtesgaden"],
         "stages": [
           {
-            "location_name": "München",
+            "location_name": "München (NOT 'Region München'!)",
             "nights": 2,
             "reasoning": "Start point & Culture"
           },
@@ -102,4 +109,4 @@ Jeder Vorschlag benötigt:
     .withSelfCheck(['basic', 'planning'])
     .build();
 };
-// --- END OF FILE 117 Zeilen ---
+// --- END OF FILE 126 Zeilen ---

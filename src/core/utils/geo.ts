@@ -1,3 +1,4 @@
+// 30.01.2026 01:15 - FIX: Serial Geocoding (Throttle) to prevent API blocks. Added 'cleanLocationName'.
 // 29.01.2026 15:00 - FEAT: Added Geocoding & Adaptive Radius Logic for Food Scout Phase 2.
 // 16.01.2026 18:40 - FEAT: Implemented Haversine formula & Radius Filter for V30 parity (Food Logic).
 // src/core/utils/geo.ts
@@ -73,13 +74,36 @@ export function filterByRadius<T>(
 }
 
 /**
+ * FIX: Cleans location names for better Geocoding success.
+ * "Region Stuttgart" -> "Stuttgart"
+ * "Region Freiburg / Südschwarzwald" -> "Freiburg"
+ */
+function cleanLocationName(rawName: string): string {
+    if (!rawName) return "";
+    let clean = rawName;
+    
+    // Remove "Region " prefix
+    clean = clean.replace(/^Region\s+/i, '');
+    
+    // Remove everything after "/" or "("
+    clean = clean.split('/')[0];
+    clean = clean.split('(')[0];
+    
+    return clean.trim();
+}
+
+/**
  * PHASE 2: GEO-FILTER & GEOCODING
  * Ermittelt Koordinaten via OpenStreetMap (Nominatim)
  */
 export async function geocodeLocation(query: string): Promise<GeoPoint | null> {
     try {
+        // FIX: Clean the name before asking OSM
+        const cleanQuery = cleanLocationName(query);
+        if (!cleanQuery) return null;
+
         // Nutzung der öffentlichen Nominatim API (Bitte User-Agent beachten!)
-        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
+        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cleanQuery)}&limit=1`;
         const response = await fetch(url, {
             headers: { 'User-Agent': 'Papatours-AI-Client/4.0' }
         });
@@ -104,19 +128,40 @@ export async function geocodeLocation(query: string): Promise<GeoPoint | null> {
  * PHASE 2: ADAPTIVE LOGIK
  * Filtert Kandidaten basierend auf Kontext (Stadt vs. Region)
  * Eskaliert Radius wenn zu wenige Treffer.
+ * UPGRADE: Supports Array of Centers (Multi-Stop) & Serial Execution.
  */
 export async function applyAdaptiveGeoFilter(
     candidates: any[],
-    centerLocationName: string,
+    centerLocation: string | string[], 
     contextType: 'district' | 'region' | 'adhoc'
 ): Promise<any[]> {
     
-    // 1. Zentrum ermitteln
-    const center = await geocodeLocation(centerLocationName);
-    if (!center) {
-        console.warn("Geo-Filter skipped: Center not found via Geocoding.");
+    // 1. Zentren ermitteln (SERIALISIERT für API-Schutz)
+    const locationsToCode = Array.isArray(centerLocation) ? centerLocation : [centerLocation];
+    const validCenters: Array<{ name: string, pt: GeoPoint }> = [];
+
+    for (const locName of locationsToCode) {
+        if (!locName || locName === "Unknown") continue;
+        
+        const geo = await geocodeLocation(locName);
+        if (geo) {
+            validCenters.push({ name: locName, pt: geo });
+        } else {
+            console.warn(`Geo-Filter: Could not resolve coordinates for "${locName}" (cleaned: "${cleanLocationName(locName)}")`);
+        }
+
+        // THROTTLE: 1 Sekunde Pause zwischen Requests, wenn mehr als 1 Ort
+        if (locationsToCode.length > 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+    }
+
+    if (validCenters.length === 0) {
+        console.warn("Geo-Filter skipped: No valid centers found via Geocoding.");
         return candidates; // Fallback: Alles durchlassen
     }
+
+    console.log(`Geo-Filter active with ${validCenters.length} centers: ${validCenters.map(c => c.name).join(', ')}`);
 
     // 2. Kandidaten vervollständigen (Falls Lat/Lng fehlt)
     const validCandidates = [];
@@ -126,6 +171,9 @@ export async function applyAdaptiveGeoFilter(
         if (!loc || !loc.lat) {
             const query = `${cand.name} ${cand.address || ''} ${cand.city || ''}`;
             const geo = await geocodeLocation(query);
+            // Auch hier: Kurze Pause, falls wir viele Kandidaten geocodieren müssen? 
+            // Kandidaten-Geocoding ist riskant in der Masse. 
+            // Vorerst ohne Throttle hier, da meistens Lat/Lng vom Scout kommt.
             if (geo) {
                 cand.location = geo;
                 loc = geo;
@@ -142,16 +190,47 @@ export async function applyAdaptiveGeoFilter(
     if (contextType === 'district') radius = 2.0; // Strict City limit
     if (contextType === 'adhoc') radius = 20.0;
 
-    // Filter-Versuch 1
-    let filtered = filterByRadius(validCandidates, center, radius, (c) => c.location);
+    // 4. Multi-Center Filter Logic
+    // Ein Kandidat bleibt, wenn er nah an IRGENDEINEM Zentrum ist.
+    let filtered = validCandidates.map(cand => {
+        const candLoc = cand.location;
+        let bestDist = Infinity;
+        let bestCenter = "";
 
-    // 4. Eskalation (nur bei Region/Adhoc, nicht bei striktem District)
+        // Finde das nächstgelegene Zentrum
+        for (const center of validCenters) {
+            const dist = calculateDistance(center.pt.lat, center.pt.lng, candLoc.lat, candLoc.lng);
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestCenter = center.name;
+            }
+        }
+
+        if (bestDist <= radius) {
+            return { ...cand, distance: bestDist, nearest_hub: bestCenter };
+        }
+        return null;
+    }).filter((item): item is any => item !== null);
+
+    // 5. Eskalation (nur bei Region/Adhoc, nicht bei striktem District)
     if (filtered.length < 2 && contextType !== 'district') {
         const expandedRadius = 50.0;
         console.log(`Geo-Filter: Extending radius from ${radius}km to ${expandedRadius}km due to low results.`);
-        filtered = filterByRadius(validCandidates, center, expandedRadius, (c) => c.location);
+        
+        filtered = validCandidates.map(cand => {
+            const candLoc = cand.location;
+            let bestDist = Infinity;
+            for (const center of validCenters) {
+                const dist = calculateDistance(center.pt.lat, center.pt.lng, candLoc.lat, candLoc.lng);
+                if (dist < bestDist) bestDist = dist;
+            }
+            if (bestDist <= expandedRadius) {
+                return { ...cand, distance: bestDist };
+            }
+            return null;
+        }).filter((item): item is any => item !== null);
     }
 
-    return filtered;
+    return filtered.sort((a, b) => (a?.distance || 0) - (b?.distance || 0));
 }
-// --- END OF FILE 135 Zeilen ---
+// --- END OF FILE 190 Zeilen ---

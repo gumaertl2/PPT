@@ -1,3 +1,4 @@
+// 29.01.2026 19:15 - FIX: Added Hotel View (Location Match, Price, Booking) to SightCard (Full Restore).
 // 29.01.2026 17:00 - FEAT: Added support for Food-Enricher fields (Signature Dish, Logistics Tip, Source URL).
 // 29.01.2026 14:00 - FIX: Optimized Waypoint Layout (inline stations) and subtle link styling for walks/districts.
 // 29.01.2026 12:00 - FIX: Removed unused imports (Lightbulb, Clock) to fix Vercel TS6133 error.
@@ -19,15 +20,18 @@ import {
   Search, 
   Map as MapIcon,
   ChevronUp, 
-  Footprints,
-  Trophy,
-  Phone,
-  Utensils,
-  Sparkles,
-  Sun,
+  Footprints, 
+  Trophy, 
+  Phone, 
+  Utensils, 
+  Sparkles, 
+  Sun, 
   CloudRain,
   ChefHat, // NEW: For Signature Dish
-  BookOpen // NEW: For Source/Guide Link
+  BookOpen, // NEW: For Source/Guide Link
+  BedDouble, // NEW: Hotel Icon
+  CheckCircle2, // NEW: Location Match Icon
+  CreditCard // NEW: Price Icon
 } from 'lucide-react';
 
 interface SightCardProps {
@@ -67,6 +71,13 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   const openingHoursHint = data.openingHoursHint || data.openingHours || data.opening_hours_hint;
   const signatureDish = data.signature_dish; // NEW: Signature Dish
   const logistics = data.logistics || data.logistics_tip; // NEW: Mapping for Enricher Tip
+
+  // Hotel Specifics
+  const isHotel = category === 'Hotel' || category === 'accommodation';
+  const locationMatch = data.location_match;
+  const priceEstimate = data.price_estimate;
+  const bookingUrl = data.bookingUrl;
+  const pros = data.pros || [];
 
   const isSpecial = category === 'special';
   const specialType = data.details?.specialType; 
@@ -312,16 +323,20 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   if (priority === 2) borderClass = 'border-blue-400 border-l-4';
   if (priority === -1) borderClass = 'border-gray-100 opacity-60';
   if (isSpecial) borderClass = specialType === 'sunny' ? 'border-amber-400 border-l-4' : 'border-blue-400 border-l-4';
+  if (isHotel) borderClass = 'border-emerald-500 border-l-4';
 
   return (
     <>
       <div ref={cardRef} className={`bg-white rounded-lg shadow-sm border p-3 mb-3 transition-all hover:shadow-md ${borderClass}`}>
         <div className="flex justify-between items-start mb-1">
-           <h3 className="font-bold text-gray-900 text-base leading-tight">
+           <h3 className="font-bold text-gray-900 text-base leading-tight flex items-center gap-2">
+             {isHotel && <BedDouble className="w-4 h-4 text-emerald-600" />}
              {highlightText(name)}
            </h3>
            {renderViewControls()}
         </div>
+        
+        {/* TOP META ROW */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 mb-1">
             {isSpecial ? (
                 <div className={`flex items-center gap-1 font-bold ${specialType === 'sunny' ? 'text-amber-600' : 'text-blue-600'}`}>
@@ -341,6 +356,7 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
                    <option value="Abenteuer">Abenteuer</option>
                    <option value="Shopping">Shopping</option>
                    <option value="Restaurant">Restaurant</option>
+                   <option value="Hotel">Hotel</option>
                 </select>
             )}
             <span className="text-gray-300">|</span>
@@ -356,8 +372,23 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
             </div>
             <span className="text-gray-300">|</span>
             {!isSpecial && renderStars()}
+            
+            {/* PRICE & BOOKING (HOTEL ONLY) */}
+            {isHotel && priceEstimate && (
+                <>
+                    <span className="text-gray-300">|</span>
+                    <span className="flex items-center gap-1 text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
+                        <CreditCard className="w-3 h-3" />
+                        {priceEstimate}
+                    </span>
+                </>
+            )}
+
             <div className="flex items-center gap-2 ml-auto no-print">
-               {sourceUrl && (
+               {isHotel && bookingUrl && (
+                 <a href={ensureAbsoluteUrl(bookingUrl)} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-800 font-bold text-[10px] uppercase tracking-wide border border-emerald-200 px-2 py-0.5 rounded hover:bg-emerald-50 transition-colors">Buchen</a>
+               )}
+               {sourceUrl && !isHotel && (
                  <a href={ensureAbsoluteUrl(sourceUrl)} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:text-indigo-700" title="Zum Guide Eintrag"><BookOpen className="w-3.5 h-3.5" /></a>
                )}
                {websiteUrl && (
@@ -377,7 +408,19 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
         {renderPriorityControls()}
         {isStandardOrHigher && (
           <div className="text-sm text-gray-600 mt-2 pt-2 border-t border-gray-100 animate-in fade-in duration-200">
-            {/* FIX: Signature Dish Display */}
+            
+            {/* HOTEL: LOCATION MATCH (THE STRATEGY) */}
+            {isHotel && locationMatch && (
+                 <div className="flex items-start gap-2 mb-2 text-[11px] text-emerald-800 bg-emerald-50/50 p-2 rounded border border-emerald-100">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
+                    <div className="leading-snug">
+                        <span className="font-bold block text-emerald-700 text-[10px] uppercase">Strategische Lage:</span>
+                        <span className="italic">"{highlightText(locationMatch)}"</span>
+                    </div>
+                </div>
+            )}
+
+            {/* FOOD: SIGNATURE DISH */}
             {signatureDish && (
                 <div className="flex items-start gap-1.5 mb-2 text-[11px] text-amber-800 bg-amber-50 p-1.5 rounded border border-amber-100">
                     <ChefHat className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
@@ -417,6 +460,17 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
                 </div>
             )}
             
+            {/* PROS LIST (HOTEL) */}
+            {isHotel && pros && pros.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                    {pros.map((p: string, idx: number) => (
+                        <span key={idx} className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">
+                            + {p}
+                        </span>
+                    ))}
+                </div>
+            )}
+
             {renderWalkRoute()}
             {isDetailed && !isSpecial && (
               <div className="mt-3 pt-3 border-t-2 border-dashed border-slate-100 space-y-3 animate-in fade-in slide-in-from-top-4 duration-500">

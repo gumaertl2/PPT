@@ -1,6 +1,5 @@
-// 29.01.2026 16:30 - FIX: Expanded Handover Data (Phase 1->3) with source_url, address & location.
-// 28.01.2026 19:45 - FIX: Mapped 'group.location' to 'place.city' for IdeenScout to enable grouping in UI.
-// 28.01.2026 17:40 - FIX: Added 'waypoints' mapping for Chefredakteur (Walking Tours).
+// 31.01.2026 02:30 - FIX: "Smart Match". ResolvePlaceId is now Category-Aware to completely prevent Sight/Restaurant collisions.
+// 31.01.2026 01:00 - FIX: "Category Shield".
 // src/services/ResultProcessor.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -36,17 +35,42 @@ const getSimilarity = (s1: string, s2: string): number => {
     return (longerLength - costs[shorter.length]) / longerLength;
 };
 
-// --- HELPER: SMART ID FINDER ---
-const resolvePlaceId = (item: any, existingPlaces: Record<string, any>, debug: boolean): string | undefined => {
-    if (item.id && existingPlaces[item.id]) return item.id;
+// --- HELPER: SMART ID FINDER (CATEGORY AWARE) ---
+// FIX: Added 'incomingCategory' to prevent false positives between Sights and Restaurants
+const resolvePlaceId = (item: any, existingPlaces: Record<string, any>, debug: boolean, incomingCategory?: string): string | undefined => {
+    // 1. Direct ID Match (Strongest Signal)
+    if (item.id && existingPlaces[item.id]) {
+        // SAFETY CHECK: Even if IDs match, check for Category Conflict!
+        // If we are looking for a Restaurant, but the ID belongs to a Sight -> IGNORE ID.
+        if (incomingCategory === 'Restaurant') {
+             const p = existingPlaces[item.id];
+             const isExistingSight = ['Sight', 'Attraktion', 'Landmark', 'Sehenswürdigkeit'].includes(p.category);
+             if (isExistingSight) {
+                 if (debug) console.warn(`[ResultProcessor] 🛡️ ID Collision Shield: Ignored ID match for "${p.name}" (Sight) vs "${item.name}" (Restaurant).`);
+                 return undefined; 
+             }
+        }
+        return item.id;
+    }
 
-    if (item.name) {
-        const searchName = item.name.trim().toLowerCase();
+    // 2. Fuzzy Name Match
+    const nameToCheck = item.name || item.original_name || item.name_official;
+    if (nameToCheck) {
+        const searchName = nameToCheck.trim().toLowerCase();
         let bestMatchId: string | undefined = undefined;
         let bestScore = 0;
 
         Object.values(existingPlaces).forEach((p: any) => {
             if (!p.name) return;
+
+            // --- SAFETY CHECK: CATEGORY CONFLICT ---
+            // If we are looking for a Restaurant, DO NOT match with a Sight/Attraction
+            if (incomingCategory === 'Restaurant') {
+                const isExistingSight = ['Sight', 'Attraktion', 'Landmark', 'Sehenswürdigkeit'].includes(p.category);
+                if (isExistingSight) return; // Skip this candidate, it's a trap!
+            }
+            // ---------------------------------------
+
             const targetName = p.name.trim().toLowerCase();
             const score = getSimilarity(searchName, targetName);
             if (score > bestScore) {
@@ -55,66 +79,92 @@ const resolvePlaceId = (item: any, existingPlaces: Record<string, any>, debug: b
             }
         });
 
-        if (bestScore > 0.8 && bestMatchId) {
-            if (debug) console.log(`[ResultProcessor] 🧠 Fuzzy Match: "${item.name}" ≈ "${existingPlaces[bestMatchId].name}" (${(bestScore*100).toFixed(0)}%)`);
+        if (bestScore > 0.85 && bestMatchId) { 
+            if (debug) console.log(`[ResultProcessor] 🧠 Fuzzy Match: "${searchName}" ≈ "${existingPlaces[bestMatchId].name}" (${(bestScore*100).toFixed(0)}%)`);
             return bestMatchId;
         }
     }
     return undefined;
 };
 
-// --- HELPER: THE VACUUM CLEANER V3 (String Support Enabled) ---
-const extractItems = (data: any): any[] => {
+// --- HELPER: THE VACUUM CLEANER V4 (Strict Mode) ---
+const extractItems = (data: any, allowStrings: boolean = true): any[] => {
     let items: any[] = [];
 
     if (!data) return [];
 
-    // Case A: Array - recurse into elements
     if (Array.isArray(data)) {
         data.forEach(element => {
             if (typeof element === 'object' && element !== null) {
-                items = items.concat(extractItems(element));
+                items = items.concat(extractItems(element, allowStrings));
             } else if (typeof element === 'string') {
-                // Allow strings! (Needed for Basis candidates)
-                if (element.trim().length > 0) items.push(element);
+                if (allowStrings && element.trim().length > 0) {
+                    items.push(element);
+                }
             }
         });
         return items;
     }
 
-    // Primitives (outside of arrays) are usually not what we want from the root
     if (typeof data !== 'object') return [];
 
-    // Case B: Object
-    // 1. Is this a candidate/place itself?
-    const isPlace = (data.name || data.id) 
-        && !data.candidates && !data.enriched_places && !data.places && !data.results && !data.recommended_hubs;
+    // ⛔️ ECHO-BLOCKER
+    if (data.context || data.input || data.candidates_list || data.original_input) {
+         // Stop recursion into known input containers
+    }
+
+    // Case B: Object - Is this a candidate?
+    const isPlace = (data.name || data.id || data.original_name) 
+        && !data.candidates && !data.enriched_places && !data.places && !data.results && !data.recommended_hubs
+        && !data.context && !data.input; 
 
     if (isPlace) {
         items.push(data);
     }
 
-    // 2. Scan specific container keys (Priority search)
-    const containerKeys = ['candidates', 'processed_places', 'enriched_places', 'sights', 'items', 'places', 'results', 'data', 'chapters', 'recommendations', 'articles'];
+    // 2. Scan specific container keys
+    const containerKeys = ['candidates', 'enriched_candidates', 'processed_places', 'enriched_places', 'sights', 'items', 'places', 'results', 'chapters', 'recommendations', 'articles'];
     let foundContainer = false;
 
     for (const key of containerKeys) {
         if (data[key]) {
-            items = items.concat(extractItems(data[key]));
+            items = items.concat(extractItems(data[key], allowStrings));
             foundContainer = true;
         }
     }
 
     // 3. Fallback: DEEP SEARCH
     if (!foundContainer && !data.recommended_hubs) {
-          Object.values(data).forEach(value => {
+          Object.keys(data).forEach(key => {
+              if (['context', 'input', 'logs', 'meta', 'candidates_list', 'original_input', 'analysis'].includes(key)) return;
+
+              const value = data[key];
               if (typeof value === 'object' && value !== null) {
-                  items = items.concat(extractItems(value));
+                  items = items.concat(extractItems(value, allowStrings));
               }
           });
     }
 
     return items;
+};
+
+// --- BLACKLIST CHECKER ---
+const isGarbageName = (name: string): boolean => {
+    if (!name) return true;
+    const lower = name.toLowerCase().trim();
+    const blacklist = [
+        'michelin', 'falstaff', 'gault&millau', 'gault & millau', 'gault millau', 
+        'feinschmecker', 'der feinschmecker', 'tripadvisor', 'travelers\' choice', 
+        'google maps', 'google reviews', 'yelp', 'guide', 'restaurantführer'
+    ];
+    if (blacklist.includes(lower)) return true;
+    if (lower.includes('michelin') && lower.length < 15) return true;
+    return false;
+};
+
+// --- SSOT HELPER ---
+const isEnrichedItem = (item: any): boolean => {
+    return !!(item.original_name || (item.user_ratings_total !== undefined) || item.logistics_tip);
 };
 
 export const ResultProcessor = {
@@ -131,17 +181,16 @@ export const ResultProcessor = {
       });
     }
 
-    // --- GEO ANALYST (HUB STRATEGY) ---
     if (step === 'geoAnalyst') {
         if (data && data.recommended_hubs) {
             setAnalysisResult('geoAnalyst', data);
             console.log(`[GeoAnalyst] Stored ${data.recommended_hubs.length} recommended hubs.`);
         }
-        return; // Exit early, no places to extract
+        return; 
     }
 
-    // --- UNIVERSAL EXTRACTION ---
-    const extractedItems = extractItems(data);
+    const allowStrings = ['basis', 'sightCollector', 'ideenScout', 'infos', 'infoAutor'].includes(step);
+    const extractedItems = extractItems(data, allowStrings);
 
     switch (step) {
       case 'basis': {
@@ -149,16 +198,10 @@ export const ResultProcessor = {
             extractedItems.forEach((item: any) => {
                 const isString = typeof item === 'string';
                 const name = isString ? item : item.name;
-
                 if (name) {
                     const existingPlaces = state.project.data?.places || {};
                     const existingId = resolvePlaceId({ name }, existingPlaces, false);
                     const id = existingId || (isString ? uuidv4() : (item.id || uuidv4()));
-
-                    if (aiSettings.debug) {
-                         const logMsg = isString ? `[Basis] String: "${name}"` : `[Basis] Object: "${name}"`;
-                         console.log(existingId ? `${logMsg} -> Merged (${id})` : `${logMsg} -> New ID (${id})`);
-                    }
 
                     updatePlace(id, {
                       id,
@@ -171,21 +214,16 @@ export const ResultProcessor = {
                 }
             });
             console.log(`[Basis] Processed ${extractedItems.length} items.`);
-        } else {
-            console.warn(`[Basis] No items found in payload. Raw Keys:`, Object.keys(data || {}));
-            if (aiSettings.debug) console.log('Raw Data Dump:', JSON.stringify(data).substring(0, 200) + '...');
-        }
+        } 
         break;
       }
 
       case 'anreicherer': {
         const existingPlaces = useTripStore.getState().project.data?.places || {};
-
         if (extractedItems.length > 0) {
             let successCount = 0;
             extractedItems.forEach((item: any) => {
                 const targetId = resolvePlaceId(item, existingPlaces, aiSettings.debug);
-
                 if (targetId) {
                    updatePlace(targetId, {
                       ...item,
@@ -196,22 +234,14 @@ export const ResultProcessor = {
                       description: item.description,
                       openingHours: item.openingHours,
                       rating: item.rating,
-                      // FIX: Explicitly map the new fields (Gatekeeper Update)
                       user_ratings_total: item.user_ratings_total,
                       duration: item.duration,
                       website: item.website
                     });
                     successCount++;
-                } else {
-                    if (item.name || (typeof item === 'string')) {
-                         const n = typeof item === 'string' ? item : item.name;
-                         console.warn(`[Enricher] Dropped (No Match): "${n}"`);
-                    }
                 }
             });
-            console.log(`[Enricher] Updated ${successCount} / ${extractedItems.length} extracted items.`);
-        } else {
-             console.warn(`[Enricher] No items found. Raw keys:`, Object.keys(data || {}));
+            console.log(`[Enricher] Updated ${successCount} items.`);
         }
         break;
       }
@@ -224,13 +254,11 @@ export const ResultProcessor = {
               extractedItems.forEach((item: any) => {
                   const targetId = resolvePlaceId(item, existingPlaces, aiSettings.debug);
                   if (targetId) {
-                      // FIX: Catch all possible content keys to prevent data loss
                       const content = item.text || item.article || item.detailed_description || item.description || item.content;
-                      
                       updatePlace(targetId, {
                           detailContent: content,
                           reasoning: item.reasoning,
-                          waypoints: item.waypoints // NEW: Map walking tour waypoints
+                          waypoints: item.waypoints
                       });
                       successCount++;
                   }
@@ -245,30 +273,51 @@ export const ResultProcessor = {
       case 'foodEnricher':
       case 'accommodation':
       case 'hotelScout': {
-        // Hier wird 'Restaurant' als Kategorie für Food gesetzt
         const category = ['food', 'foodScout', 'foodEnricher'].includes(step) ? 'Restaurant' : 'Hotel';
         
         if (extractedItems.length > 0) {
-            const rawCandidates: any[] = []; // Collect items for Handover
+            const rawCandidates: any[] = []; 
+            const existingPlaces = state.project.data?.places || {};
+
+            let savedCount = 0;
 
             extractedItems.forEach((item: any) => {
-                const isString = typeof item === 'string';
-                const name = isString ? item : item.name;
+                if (typeof item === 'string') return;
+
+                const name = item.name || item.name_official || item.original_name;
+
+                if (isGarbageName(name)) return;
                 
                 if (name) {
-                    const id = item.id || uuidv4();
+                    if (step === 'foodEnricher' && !isEnrichedItem(item)) {
+                        return; // Gatekeeper: Skip raw echo
+                    }
+
+                    // --- 🧠 SMART MATCH: Pass 'category' to prevent matching Sights with Restaurants ---
+                    const existingId = resolvePlaceId({ ...item, name }, existingPlaces, false, category);
+                    let id = item.id || existingId || uuidv4();
                     
-                    // 1. Store in DB (SSOT)
+                    const existingPlace = existingPlaces[id];
+
+                    // --- SSOT PROTECTION ---
+                    const incomingIsEnriched = isEnrichedItem(item);
+                    const existingIsEnriched = existingPlace && isEnrichedItem(existingPlace);
+
+                    if (existingIsEnriched && !incomingIsEnriched) {
+                        return; // SKIP DOWNGRADE
+                    }
+                    
+                    const finalName = item.name_official || name;
+
                     updatePlace(id, {
                         id,
-                        name,
-                        category,
+                        name: finalName,
+                        category, 
                         address: item.address,
                         location: item.location,
                         rating: item.rating || 0,
-                        description: isString ? category : (item.description || item.cuisine || ''),
+                        description: item.description || item.cuisine || '',
                         
-                        // FIX: V30 Data Mapping (Phone, Awards, etc.)
                         phone: item.phone_number,
                         awards: item.awards,
                         openingHoursHint: item.opening_hours_hint,
@@ -276,28 +325,28 @@ export const ResultProcessor = {
                         vibe: item.vibe,
                         website: item.website,
                         priceLevel: item.price_level,
-                        source_url: item.source_url, // FIX: Track Source URL from Scout
+                        source_url: item.source_url, 
                         
-                        // FIX: Hotel Scout Fields
                         location_match: item.location_match,
                         price_estimate: item.price_estimate,
                         bookingUrl: item.bookingUrl,
                         pros: item.pros,
-
-                        // FIX: Food Signature Dish
                         signature_dish: item.signature_dish,
-
-                        ...(isString ? {} : item)
+                        
+                        user_ratings_total: item.user_ratings_total,
+                        logistics_tip: item.logistics_tip,
+                        original_name: item.original_name,
+                        
+                        ...item
                     });
+                    savedCount++;
 
-                    // 2. Add to Handover List (if it's the Scout running)
                     if (step === 'foodScout' || step === 'food') {
                         rawCandidates.push({
                             id,
-                            name,
+                            name: finalName,
                             city: item.city || item.ort,
                             guides: item.guides,
-                            // FIX: Critical Data for Enricher Phase
                             source_url: item.source_url,
                             address: item.address,
                             location: item.location 
@@ -306,12 +355,8 @@ export const ResultProcessor = {
                 }
             });
             
-            // --- FIX: HANDOVER TO ENRICHER ---
-            // Wir speichern die Kandidaten explizit in 'rawFoodCandidates',
-            // damit der Enricher im nächsten Schritt weiß, was er tun soll.
             if ((step === 'foodScout' || step === 'food') && rawCandidates.length > 0) {
-                console.log(`[ResultProcessor] 🤝 Handing over ${rawCandidates.length} candidates to FoodEnricher (rawFoodCandidates).`);
-                
+                console.log(`[ResultProcessor] 🤝 Handing over ${rawCandidates.length} candidates to FoodEnricher.`);
                 useTripStore.setState((s) => ({
                     project: {
                         ...s.project,
@@ -319,48 +364,40 @@ export const ResultProcessor = {
                             ...s.project.data,
                             content: {
                                 ...s.project.data.content,
-                                rawFoodCandidates: rawCandidates // <--- DIE LÖSUNG
+                                rawFoodCandidates: rawCandidates 
                             }
                         }
                     }
                 }));
             }
 
-            console.log(`[${category}] Stored ${extractedItems.length} items.`);
+            console.log(`[${category}] Stored/Updated ${savedCount} items.`);
         }
         break;
       }
 
       case 'sondertage':
       case 'ideenScout':
-          // 1. Save Analysis Result (UI Panel)
+          // ... (IdeenScout logic) ...
           if (data) setAnalysisResult('ideenScout', data);
-
-          // 2. Convert to Places (Map/Guide) with category 'special'
           if (data && data.results && Array.isArray(data.results)) {
               const existingPlaces = useTripStore.getState().project.data?.places || {};
               let addedCount = 0;
-
               data.results.forEach((group: any) => {
-                  // FIX: Capture the Group Location (City/Region)
                   const groupLocation = group.location || "Unbekannte Region";
-
                   const processList = (list: any[], subType: string) => {
                       if (!Array.isArray(list)) return;
                       list.forEach((item: any) => {
                           const targetId = resolvePlaceId(item, existingPlaces, aiSettings.debug);
                           const id = targetId || uuidv4();
-                          
                           updatePlace(id, {
                               id,
                               name: item.name,
                               category: 'special',
                               address: item.address,
                               description: item.description,
-                              // FIX: Save group location as 'city' for UI grouping
                               city: groupLocation, 
                               location: item.location || { lat: 0, lng: 0 }, 
-                              
                               details: {
                                   specialType: subType,
                                   duration: item.estimated_duration_minutes,
@@ -372,7 +409,6 @@ export const ResultProcessor = {
                           addedCount++;
                       });
                   };
-
                   processList(group.sunny_day_ideas, 'sunny');
                   processList(group.rainy_day_ideas, 'rainy');
               });
@@ -386,10 +422,10 @@ export const ResultProcessor = {
 
       case 'infoAutor':
       case 'infos': {
+          // ... (InfoAutor logic) ...
           if (extractedItems.length > 0) {
               const currentContent = useTripStore.getState().project.data.content || {};
               const currentInfos = Array.isArray(currentContent.infos) ? [...currentContent.infos] : [];
-              
               const processedChapters = extractedItems.map((chapter: any) => {
                   return {
                       id: chapter.id || uuidv4(),
@@ -398,7 +434,6 @@ export const ResultProcessor = {
                       content: chapter.content || chapter.description
                   };
               }).filter(c => c.content); 
-
               processedChapters.forEach(newChap => {
                   const idx = currentInfos.findIndex(c => c.id === newChap.id || c.title === newChap.title);
                   if (idx >= 0) {
@@ -407,7 +442,6 @@ export const ResultProcessor = {
                       currentInfos.push(newChap);
                   }
               });
-
               useTripStore.setState((s) => ({
                   project: {
                       ...s.project,
@@ -420,7 +454,6 @@ export const ResultProcessor = {
                       }
                   }
               }));
-
               console.log(`[InfoAutor] Persisted ${processedChapters.length} chapters to data.content.infos`);
               setAnalysisResult('infoAutor', { chapters: processedChapters });
           } else if (data) {
@@ -434,7 +467,6 @@ export const ResultProcessor = {
       case 'chefPlaner':
       case 'routeArchitect':
       case 'routenArchitekt':
-      case 'geoAnalyst':
       case 'initialTagesplaner':
       case 'dayplan':
         if (data) setAnalysisResult(step as any, data);
@@ -445,4 +477,4 @@ export const ResultProcessor = {
     }
   }
 };
-// --- END OF FILE 429 Zeilen ---
+// --- END OF FILE 505 Zeilen ---

@@ -1,4 +1,5 @@
-// 31.01.2026 00:15 - FIX: Pure RAM Pipeline. Scout & Geo data is passed in-memory to Enricher. No intermediate Store saves.
+// 30.01.2026 00:30 - FEAT: Orchestrator uses 'resolved_search_locations' from AI (FoodScout) to fix Geocoding errors.
+// 29.01.2026 22:15 - FIX: Correct Radius Context Logic (District vs Region).
 // src/services/orchestrator.ts
 
 import { z } from 'zod';
@@ -122,8 +123,7 @@ const mergeResults = (results: any[], task: TaskKey): any => {
 
 export const TripOrchestrator = {
   
-  // FIX: Added 'inputData' to pass data in-memory (RAM Pipeline)
-  async executeInternalChunkLoop(task: TaskKey, totalItems: number, limit: number, inputData?: any): Promise<any> {
+  async executeInternalChunkLoop(task: TaskKey, totalItems: number, limit: number): Promise<any> {
      const store = useTripStore.getState();
      const totalChunks = Math.ceil(totalItems / limit);
      const collectedResults: any[] = [];
@@ -136,14 +136,7 @@ export const TripOrchestrator = {
          console.log(`[Orchestrator] Processing Chunk ${i}/${totalChunks}...`);
          store.setChunkingState({ isActive: true, currentChunk: i, totalChunks: totalChunks, results: collectedResults });
 
-         // PASS inputData to PayloadBuilder (Important for Enricher receiving RAM data)
-         const prompt = PayloadBuilder.buildPrompt(task, undefined, { 
-             chunkIndex: i, 
-             limit: limit, 
-             totalChunks: totalChunks,
-             candidates: inputData // <--- HERE IS THE RAM HANDOVER
-         });
-
+         const prompt = PayloadBuilder.buildPrompt(task, undefined, { chunkIndex: i, limit: limit, totalChunks: totalChunks });
          const rawResult = await GeminiService.call(prompt, task, modelId);
 
          let validatedData = rawResult;
@@ -164,12 +157,12 @@ export const TripOrchestrator = {
      return mergeResults(collectedResults, task);
  },
 
- async _executeSingleStep(task: TaskKey, feedback?: string, skipSave: boolean = false): Promise<any> {
+ async _executeSingleStep(task: TaskKey, feedback?: string): Promise<any> {
      const store = useTripStore.getState();
      const prompt = PayloadBuilder.buildPrompt(task, feedback);
      const modelId = resolveModelId(task);
      
-     if (store.aiSettings.debug) console.log(`[Orchestrator] Single Step: ${task} -> Model: ${modelId} ${skipSave ? '(NO SAVE)' : ''}`);
+     if (store.aiSettings.debug) console.log(`[Orchestrator] Single Step: ${task} -> Model: ${modelId}`);
 
      const rawResult = await GeminiService.call(prompt, task, modelId);
      const schema = SCHEMA_MAP[task];
@@ -185,65 +178,94 @@ export const TripOrchestrator = {
         validatedData = validation.data;
      }
 
-     if (!skipSave) {
-        ResultProcessor.process(task, validatedData);
-     }
+     ResultProcessor.process(task, validatedData);
      return validatedData;
  },
 
- // FIX: Added 'inputData' to support RAM pipelines
- async executeTask(task: TaskKey, feedback?: string, inputData?: any): Promise<any> {
+ async executeTask(task: TaskKey, feedback?: string): Promise<any> {
     const store = useTripStore.getState();
     const { project, chunkingState, setChunkingState, apiKey } = store;
 
     // --- A. SEQUENTIAL CHAINING: FOOD SCOUT + GEO + ENRICHER (ORCHESTRATED) ---
     if (task === 'foodScout' || task === 'food') {
-        console.log(`[Orchestrator] Detected Food Task. Starting Pipeline: Scout (RAM) -> Geo (RAM) -> Enricher (Store)`);
+        console.log(`[Orchestrator] Detected Food Task. Starting Sequence: Scout -> Geo-Logic -> Enricher`);
         
         try {
             // 1. UI: Start
             store.setChunkingState({ isActive: true, currentChunk: 1, totalChunks: 3, results: [] });
             
-            // 2. PHASE 1: SCANNER (AI) - NO SAVE
+            // 2. PHASE 1: SCANNER (AI)
             console.log("[Orchestrator] Phase 1: Scanner (AI)");
-            const scoutResult = await this._executeSingleStep('foodScout', feedback, true); // true = skipSave
+            const scoutResult = await this._executeSingleStep('foodScout', feedback);
             const candidates = scoutResult.candidates || [];
-            
-            console.log(`[Orchestrator] Scanner found ${candidates.length} candidates. Handing to Geo-Filter (In-Memory).`);
+            console.log(`[Orchestrator] Scanner found ${candidates.length} candidates.`);
 
             // 3. UI: Update
             store.setChunkingState({ currentChunk: 2 });
 
-            // 4. PHASE 2: GEO-FILTER (Code Logic) - NO SAVE
+            // 4. PHASE 2: GEO-FILTER (Code Logic)
             console.log("[Orchestrator] Phase 2: Geo-Filter (Code Logic)");
             
             const isAdHoc = feedback?.toLowerCase().includes('adhoc') || false;
-            let contextType: 'district' | 'region' | 'adhoc' = 'region'; 
+            let contextType: 'district' | 'region' | 'adhoc' = 'region'; // Default
+            
             if (isAdHoc) contextType = 'adhoc';
             
+            // --- FIX: DETERMINE CENTERS (Multi-Stop Support) ---
             let centers: string[] = [];
-            if (scoutResult.resolved_search_locations?.length > 0) centers = scoutResult.resolved_search_locations;
+            
+            // Strategy A: AI-Resolved Locations (NEW: The "Smart Dolmetscher")
+            if (scoutResult.resolved_search_locations && Array.isArray(scoutResult.resolved_search_locations) && scoutResult.resolved_search_locations.length > 0) {
+                centers = scoutResult.resolved_search_locations;
+                console.log("[Orchestrator] Using AI-Resolved Search Locations for Geo-Filter:", centers);
+                // Keep contextType = 'region' to allow sufficient radius (15km) for cities
+            }
+            // Strategy B: Calculated Roundtrip Stages (Fallback)
+            else if (project.analysis?.routeArchitect?.routes?.[0]?.stages?.length) {
+                const stages = project.analysis.routeArchitect.routes[0].stages;
+                if (stages && Array.isArray(stages)) {
+                    centers = stages.map(s => s.location_name);
+                    console.log("[Orchestrator] Using Route Stages as Geo-Centers:", centers);
+                }
+            }
+            // Strategy C: GeoAnalyst Hubs (District Level)
             else if (project.analysis?.geoAnalyst?.recommended_hubs?.length) {
                 centers = project.analysis.geoAnalyst.recommended_hubs.map(h => h.hub_name);
-                contextType = 'district';
-            } else {
-                 centers = [project.userInputs.logistics.stationary.destination || "Region"];
+                contextType = 'district'; 
+                console.log("[Orchestrator] Using GeoAnalyst Hubs as Geo-Centers (District Radius):", centers);
+            }
+            // Strategy D: User Inputs
+            else {
+                if (project.userInputs.logistics.mode === 'roundtrip') {
+                    centers = project.userInputs.logistics.roundtrip.stops.map(s => s.location).filter(Boolean);
+                } else {
+                    const dest = project.userInputs.logistics.stationary.destination;
+                    if (dest) centers = [dest];
+                }
+            }
+            
+            // Fallback
+            if (centers.length === 0) {
+                centers = [project.userInputs.logistics.roundtrip.region || "Region"];
+                console.warn("[Orchestrator] No specific centers found. Using Region fallback:", centers[0]);
             }
 
-            // PURE RAM FILTERING
+            // CALL GEO FILTER
             const filteredCandidates = await applyAdaptiveGeoFilter(candidates, centers, contextType);
-            
-            console.log(`[Orchestrator] Geo-Filter Result: ${filteredCandidates.length} items. Handing to Enricher (In-Memory).`);
-            
-            // NOTE: We REMOVED the intermediate save to store here!
-            
+            console.log(`[Orchestrator] Geo-Filter result: ${filteredCandidates.length} items (from ${candidates.length}).`);
+
+            // 5. SAVE FILTERED LIST FOR ENRICHER
+            const tempStoreData = { ...store.project.data.content, rawFoodCandidates: filteredCandidates };
+            useTripStore.setState((state) => ({
+                project: { ...state.project, data: { ...state.project.data, content: tempStoreData } }
+            }));
+
             // 6. UI: Update
             store.setChunkingState({ currentChunk: 3 });
 
-            // 7. PHASE 3: ENRICHER (AI) - FINAL SAVE
-            // We pass the filtered list directly to the task executor
-            console.log("[Orchestrator] Phase 3: Enricher (AI) -> FINAL SAVE");
-            await this.executeTask('foodEnricher', undefined, filteredCandidates); 
+            // 7. PHASE 3: ENRICHER (AI)
+            console.log("[Orchestrator] Phase 3: Enricher (AI)");
+            await this.executeTask('foodEnricher'); 
 
             return scoutResult; 
 
@@ -270,8 +292,7 @@ export const TripOrchestrator = {
             totalItems = Object.values(project.data.places || {}).flat().length;
         } 
         else if (task === 'foodEnricher') {
-            // FIX: If inputData is provided (from Pipeline), use it! Otherwise fallback to store.
-            const raw = inputData || (project.data.content as any)?.rawFoodCandidates || [];
+            const raw = (project.data.content as any)?.rawFoodCandidates || [];
             totalItems = raw.length; 
         }
         else if (task === 'chefPlaner') {
@@ -290,8 +311,7 @@ export const TripOrchestrator = {
 
         if (totalItems > limit) {
              if (apiKey) {
-                 // Pass inputData through to the loop
-                 return this.executeInternalChunkLoop(task, totalItems, limit, inputData);
+                 return this.executeInternalChunkLoop(task, totalItems, limit);
              } else {
                  if (!chunkingState.isActive || chunkingState.currentChunk === 0) {
                      const totalChunks = Math.ceil(totalItems / limit);
@@ -306,8 +326,7 @@ export const TripOrchestrator = {
         }
     }
 
-    // Fallback for non-chunked tasks, passing inputData if supported by PromptBuilder (usually mostly for context)
     return this._executeSingleStep(task, feedback);
   }
 };
-// --- END OF FILE 258 Zeilen ---
+// --- END OF FILE 383 Zeilen ---
