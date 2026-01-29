@@ -1,3 +1,4 @@
+// 31.01.2026 22:00 - FIX: Added missing categories (Camping, Gastronomy) to Color Palette.
 // 29.01.2026 12:50 - FIX: Removed unused Lucide icons (Sun, CloudRain) to resolve Vercel TS6133 error.
 // 28.01.2026 22:00 - FEAT: Added 'Special Day' markers (Sunny/Rainy colors) to Map View.
 // src/features/Cockpit/SightsMapView.tsx
@@ -8,7 +9,6 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useTripStore } from '../../store/useTripStore';
 import type { Place } from '../../core/types';
-// FIX: Removed unused Sun, CloudRain imports (29.01.2026)
 import { ExternalLink } from 'lucide-react';
 
 // --- HIGH CONTRAST PALETTE ---
@@ -29,13 +29,26 @@ const CATEGORY_COLORS: Record<string, string> = {
   'sports': '#ea580c',       
   'hiking': '#ea580c',
   'abenteuer': '#ea580c',
+  
+  // GASTRONOMY (Expanded)
   'restaurant': '#ca8a04',   
   'food': '#ca8a04',
+  'gastronomy': '#ca8a04',   
+  'dinner': '#ca8a04',
+  'lunch': '#ca8a04',
+
   'shopping': '#7c3aed',     
   'market': '#7c3aed',
   'nightlife': '#1e3a8a',    
   'family': '#0d9488',       
+  
+  // ACCOMMODATION (Expanded for Camper/Mobil)
   'hotel': '#000000',        
+  'accommodation': '#000000',
+  'camping': '#000000',
+  'campsite': '#000000',
+  'stellplatz': '#000000',
+  
   'arrival': '#4b5563',      
   'general': '#64748b',
   'special': '#f59e0b', 
@@ -55,6 +68,8 @@ const getCategoryColor = (cat?: string, place?: Place): string => {
 
   const normalized = cat.toLowerCase().trim();
   if (CATEGORY_COLORS[normalized]) return CATEGORY_COLORS[normalized];
+  
+  // Fuzzy Match: Check if any key is part of the category string (e.g. "luxury hotel" matches "hotel")
   const match = Object.keys(CATEGORY_COLORS).find(key => normalized.includes(key));
   return match ? CATEGORY_COLORS[match] : DEFAULT_COLOR;
 };
@@ -271,4 +286,4 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
     </div>
   );
 };
-// --- END OF FILE 264 Zeilen ---
+// --- END OF FILE 270 Zeilen ---

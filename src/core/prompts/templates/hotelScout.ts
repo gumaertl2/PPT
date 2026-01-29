@@ -1,3 +1,4 @@
+// 31.01.2026 23:15 - FEAT: Added Geo-Coordinates to Schema to fix Map View.
 // 31.01.2026 17:30 - FEAT: Camper Awareness. Switches to Campsites if logistics_type is camper.
 // src/core/prompts/templates/hotelScout.ts
 
@@ -36,6 +37,7 @@ Context: ${context.location_reasoning}
     * **Pets:** ${context.travelers.pets ? "MUST allow pets." : "Irrelevant."}
     * **Vehicle:** ${parkingRule}
 4.  **Rating:** Google Rating > 4.0 preferred.
+5.  **Coordinates:** You MUST provide accurate Latitude/Longitude for the Map View.
 
 # OUTPUT REQUIREMENTS
 Explain the **"Location Match"**: Why is this ${isCamper ? "campsite" : "hotel"} perfect for the user's plan?`;
@@ -46,6 +48,10 @@ Explain the **"Location Match"**: Why is this ${isCamper ? "campsite" : "hotel"}
       {
         "name": "String (Official Name)",
         "address": "String (Address)",
+        "geo": {
+            "lat": "Number (e.g. 48.1351)",
+            "lng": "Number (e.g. 11.5820)"
+        },
         "location_match": "String (Why good for this stop?)",
         "description": "String (Facilities & Vibe)",
         "price_estimate": "String",
@@ -59,10 +65,9 @@ Explain the **"Location Match"**: Why is this ${isCamper ? "campsite" : "hotel"}
   return new PromptBuilder()
     .withOS()
     .withRole(role)
-    .withContext(contextData, "SEARCH PARAMETERS")
-    .withInstruction(instructions)
-    .withOutputSchema(outputSchema)
-    .withSelfCheck(['research'])
+    .withContext(contextData)
+    .withInstructions(instructions)
+    .withSchema(outputSchema)
     .build();
 };
-// --- END OF FILE 66 Zeilen ---
+// Lines: 69

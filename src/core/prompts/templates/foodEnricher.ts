@@ -1,3 +1,4 @@
+// 31.01.2026 23:40 - FIX: Added Geo-Coordinates (Map Fix) to Military Drill Version.
 // 30.01.2026 02:00 - FIX: "Military Drill" - Added Self-Control Loop (Input vs Output Count) to prevent ID loss.
 // 29.01.2026 23:45 - FIX: Added 'id' pass-through to prevent duplicates. Renamed rating_count to user_ratings_total for consistency.
 // 29.01.2026 15:45 - FEAT: Expanded FoodEnricher Schema (Ratings, Signature Dish, Logistics) & Critic Persona.
@@ -8,14 +9,14 @@ import { PromptBuilder } from '../PromptBuilder';
 export const buildFoodEnricherPrompt = (payload: any): string => {
   // 1. Unpack Payload
   const { context, instructions } = payload;
-  
+   
   const role = instructions?.role || `You are the "Food-Enricher", a hybrid intelligence agent acting as a premium Restaurant Critic.`;
   const editorialGuideline = instructions?.editorial_guideline || "";
 
   // 2. Build Instructions
   const mainInstruction = `# TASK
 Perform a "Hybrid Knowledge" enrichment for the provided restaurant candidates.
-1. **Live Research:** Find current Hard Facts (Address, Phone, Website, Opening Hours, Current Menu).
+1. **Live Research:** Find current Hard Facts (Address, Phone, Website, Opening Hours, Current Menu, **Coordinates**).
 2. **LLM Knowledge:** Use your internal culinary knowledge to describe the Vibe, Cuisine Style, and Reputation.
 
 # EDITORIAL STYLE (BINDING)
@@ -35,6 +36,7 @@ For the "description" field, you MUST start exactly like this:
 3. **Signature Dish:** Identify one specific dish or specialty the place is famous for.
 4. **Ratings:** Provide Google Rating (e.g. 4.6) and total count.
 5. **Logistics:** Add a short tip (e.g. "Reservation essential", "Cash only").
+6. **Coordinates:** You MUST provide accurate Latitude/Longitude for the Map View.
 
 # FALLBACK RULE
 If a restaurant cannot be found or is permanently closed, set "found": false.
@@ -56,6 +58,10 @@ Before outputting JSON, you MUST verify:
         "found": "Boolean",
         "name_official": "String (Correct spelling)",
         "address": "String (Full Address with Zip/City)",
+        "geo": {
+            "lat": "Number (e.g. 48.1351)",
+            "lng": "Number (e.g. 11.5820)"
+        },
         "phone_number": "String (e.g. +49 ... or null)",
         "website": "String | null",
         "awards": ["String (e.g. 'Michelin 1 Star', 'Bib Gourmand', 'Gault&Millau 3 Hauben')"],
@@ -81,4 +87,4 @@ Before outputting JSON, you MUST verify:
     .withSelfCheck(['research']) 
     .build();
 };
-// --- END OF FILE 90 Zeilen ---
+// --- END OF FILE 97 Zeilen ---
