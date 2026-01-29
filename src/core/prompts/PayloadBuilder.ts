@@ -269,11 +269,15 @@ export const PayloadBuilder = {
           break;
       }
 
-      // --- ACCOMMODATION / HOTEL SCOUT (V40 UPGRADE) ---
+     // --- ACCOMMODATION / HOTEL SCOUT (V40 UPGRADE) ---
       case 'hotelScout': { // Renamed from accommodation
-          // ROUNDTRIP LOGIC: Calculate Stops
-          const isRoundtrip = project.userInputs.logistics.mode === 'roundtrip';
-          const totalStops = isRoundtrip ? (project.userInputs.logistics.roundtrip.stops?.length || 1) : 1;
+          // FIX: Include 'mobil' as a valid roundtrip mode for loops
+          const mode = project.userInputs.logistics.mode;
+          const isRoundtrip = mode === 'roundtrip' || mode === 'mobil'; // <-- CRITICAL FIX
+          
+          // Count stops safely (handle nulls)
+          const stops = project.userInputs.logistics.roundtrip?.stops || [];
+          const totalStops = isRoundtrip ? (stops.length || 1) : 1;
           
           // Determine Chunk (Default 1)
           const currentChunk = options?.chunkIndex || chunkingState?.currentChunk || 1;

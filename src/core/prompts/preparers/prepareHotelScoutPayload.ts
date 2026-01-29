@@ -1,4 +1,4 @@
-// 31.01.2026 17:30 - FEAT: Roundtrip Logic & Camper Detection (Fixed).
+// 31.01.2026 20:30 - FIX: Added 'mobil' mode support (Camper Roundtrip).
 // src/core/prompts/preparers/prepareHotelScoutPayload.ts
 
 import type { TripProject } from '../../types';
@@ -14,9 +14,12 @@ export const prepareHotelScoutPayload = (
   let locationReasoning = "";
   let stayDuration = "2-3 nights"; 
 
-  // 1. DETERMINE SEARCH TARGET (Roundtrip vs. Stationary)
-  if (logistics.mode === 'roundtrip') {
-      const stops = logistics.roundtrip.stops || [];
+  // 1. DETERMINE SEARCH TARGET (Roundtrip OR Mobil/Camper)
+  // FIX: Treat 'mobil' as a roundtrip if stops are defined
+  const isRoundtripMode = logistics.mode === 'roundtrip' || logistics.mode === 'mobil';
+
+  if (isRoundtripMode) {
+      const stops = logistics.roundtrip?.stops || [];
       const stopIndex = chunkIndex - 1; // 1-based to 0-based
       
       if (stops[stopIndex]) {
@@ -26,23 +29,25 @@ export const prepareHotelScoutPayload = (
               stayDuration = `${stops[stopIndex].duration} nights`;
           }
       } else {
-          searchLocation = stops[0]?.location || "Unknown Stop";
-          locationReasoning = "Fallback Stop";
+          // Fallback if index out of bounds (Safety)
+          searchLocation = stops[0]?.location || (logistics.roundtrip?.startLocation ?? "Unknown Stop");
+          locationReasoning = "Fallback Stop (Index Error)";
       }
 
-      // Geo-Analyst Refinement (z.B. Stadtteil)
+      // GEO-ANALYST OVERRIDE (Granularity)
       if (analysis.geoAnalyst?.recommended_hubs) {
+          // Try to find a hub recommendation that matches the current stop city
           const refinedHub = analysis.geoAnalyst.recommended_hubs.find((h: any) => 
               h.hub_name.toLowerCase().includes(searchLocation.toLowerCase())
           );
           if (refinedHub) {
               searchLocation = refinedHub.hub_name; 
-              locationReasoning += ` (Refined: ${refinedHub.suitable_for})`;
+              locationReasoning += ` (Refined by Strategist: ${refinedHub.suitable_for})`;
           }
       }
 
   } else {
-      // STATIONARY
+      // STATIONARY LOGIC
       const geoRecommendation = analysis.geoAnalyst?.recommended_hubs?.[0];
       searchLocation = geoRecommendation ? geoRecommendation.hub_name : (logistics.stationary.destination || "Destination");
       locationReasoning = geoRecommendation ? `Strategic Base: ${geoRecommendation.suitable_for}` : "User Preference";
@@ -50,9 +55,10 @@ export const prepareHotelScoutPayload = (
   }
 
   // 2. LOGISTICS MODE (Camper Check!)
-  // Wir prüfen hier explizit auf 'camper', 'rv' oder 'mobil' im Arrival-Type
+  // Wir prüfen hier explizit auf 'camper', 'rv', 'mobil' oder ob der Modus selbst 'mobil' ist
   const arrivalType = dates.arrival?.type || 'car';
-  
+  const isCamper = arrivalType.toLowerCase().includes('camper') || logistics.mode === 'mobil';
+
   return {
     context: {
       search_hub: searchLocation,
@@ -60,12 +66,12 @@ export const prepareHotelScoutPayload = (
       stay_duration: stayDuration,
       travelers: travelers,
       budget: budget,
-      logistics_type: arrivalType,
-      is_roundtrip: logistics.mode === 'roundtrip'
+      logistics_type: isCamper ? 'camper' : 'car', // Explicitly set camper type
+      is_roundtrip: isRoundtripMode
     },
     instructions: {
       role: "Logistics Optimizer"
     }
   };
 };
-// --- END OF FILE 68 Zeilen ---
+// Lines: 75
