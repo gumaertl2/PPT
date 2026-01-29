@@ -1,4 +1,4 @@
-// 31.01.2026 23:15 - FEAT: Added Geo-Coordinates to Schema to fix Map View.
+// 31.01.2026 23:55 - FIX: Corrected method name (withInstruction) & added Geo-Coordinates.
 // 31.01.2026 17:30 - FEAT: Camper Awareness. Switches to Campsites if logistics_type is camper.
 // src/core/prompts/templates/hotelScout.ts
 
@@ -65,9 +65,10 @@ Explain the **"Location Match"**: Why is this ${isCamper ? "campsite" : "hotel"}
   return new PromptBuilder()
     .withOS()
     .withRole(role)
-    .withContext(contextData)
-    .withInstructions(instructions)
-    .withSchema(outputSchema)
+    .withContext(contextData, "SEARCH PARAMETERS")
+    .withInstruction(instructions) // FIX: Corrected method name (Singular)
+    .withOutputSchema(outputSchema)
+    .withSelfCheck(['research'])
     .build();
 };
-// Lines: 69
+// --- END OF FILE 72 Zeilen ---

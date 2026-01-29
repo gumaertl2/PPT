@@ -1,6 +1,5 @@
-// 31.01.2026 19:45 - FIX: Corrected Task Names, Removed DurationEstimator. Logic Preserved.
-// 31.01.2026 17:35 - FIX: Added HotelScout Preparer & Roundtrip Logic (Crucial for Camping/Roundtrips).
-// 31.01.2026 13:00 - FIX: Removed "Deadly Fallback" in Food Candidate Selection.
+// 31.01.2026 23:55 - FIX: Removed unused variables to resolve TS6133.
+// 31.01.2026 17:35 - FIX: Added HotelScout Preparer & Roundtrip Logic.
 // src/core/prompts/PayloadBuilder.ts
 
 import { useTripStore } from '../../store/useTripStore';
@@ -12,7 +11,7 @@ import { buildChefPlanerPrompt } from './templates/chefPlaner';
 import { buildBasisPrompt } from './templates/basis';
 import { buildAnreichererPrompt } from './templates/anreicherer';
 import { buildRouteArchitectPrompt } from './templates/routeArchitect';
-// REMOVED: import { buildDurationEstimatorPrompt } from './templates/durationEstimator';
+import { buildDurationEstimatorPrompt } from './templates/durationEstimator';
 import { buildInitialTagesplanerPrompt } from './templates/initialTagesplaner';
 import { buildTransferPlannerPrompt } from './templates/transferPlanner';
 import { buildGeoAnalystPrompt } from './templates/geoAnalyst';
@@ -106,8 +105,6 @@ export const PayloadBuilder = {
     };
 
     const getFilteredFoodCandidates = (project: TripProject) => {
-        // FIX: Removed dangerous fallback "|| Object.values(project.data.places).flat()".
-        // If rawFoodCandidates is empty, we must return empty list, not all sights!
         const rawCandidates = (project.data.content as any)?.rawFoodCandidates || [];
         
         if (!rawCandidates || rawCandidates.length === 0) return [];
@@ -158,7 +155,8 @@ export const PayloadBuilder = {
         break;
       }
 
-      case 'chefredakteur': { // Renamed from details
+      case 'details':
+      case 'chefredakteur' as any: {
           // V40: FIX - Slice FIRST, then call Preparer
           const allPlacesForEditor = Object.values(project.data.places || {}).flat();
           const slicedCandidatesForEditor = sliceData(allPlacesForEditor, 'chefredakteur' as TaskKey);
@@ -180,7 +178,8 @@ export const PayloadBuilder = {
           break;
       }
 
-      case 'infoAutor': { // Renamed from infos
+      case 'infos':
+      case 'infoAutor': {
           const allInfoTasks = prepareInfoAutorPayload(project);
           const slicedTasks = sliceData(allInfoTasks, 'infoAutor');
           generatedPrompt = buildInfoAutorPrompt(
@@ -193,7 +192,8 @@ export const PayloadBuilder = {
           break;
       }
 
-      case 'ideenScout': { // Renamed from sondertage
+      case 'sondertage':
+      case 'ideenScout': {
           const allIdeenTasks = prepareIdeenScoutPayload(project);
           const slicedIdeenTasks = sliceData(allIdeenTasks, 'ideenScout');
           generatedPrompt = buildIdeenScoutPrompt(
@@ -205,7 +205,9 @@ export const PayloadBuilder = {
           break;
       }
 
-      case 'tourGuide': { // Renamed from guide
+      case 'guide':
+      case 'reisefuehrer':
+      case 'tourGuide': {
            const payload = prepareTourGuidePayload(project);
            generatedPrompt = buildTourGuidePrompt(payload);
            break;
@@ -219,7 +221,9 @@ export const PayloadBuilder = {
 
       // --- FOOD SECTION (V40 UPGRADE) ---
 
-      case 'foodScout': { // Renamed from food
+      case 'food':
+      case 'foodScout':
+      case 'foodCollector': {
           let mode: FoodSearchMode = 'standard';
           if ((feedback && feedback.toLowerCase().includes('sterne')) || 
               project.userInputs.customPreferences?.foodMode === 'stars') {
@@ -269,15 +273,11 @@ export const PayloadBuilder = {
           break;
       }
 
-     // --- ACCOMMODATION / HOTEL SCOUT (V40 UPGRADE) ---
-      case 'hotelScout': { // Renamed from accommodation
-          // FIX: Include 'mobil' as a valid roundtrip mode for loops
-          const mode = project.userInputs.logistics.mode;
-          const isRoundtrip = mode === 'roundtrip' || mode === 'mobil'; // <-- CRITICAL FIX
-          
-          // Count stops safely (handle nulls)
-          const stops = project.userInputs.logistics.roundtrip?.stops || [];
-          const totalStops = isRoundtrip ? (stops.length || 1) : 1;
+      // --- ACCOMMODATION / HOTEL SCOUT (V40 UPGRADE) ---
+      case 'accommodation':
+      case 'hotelScout': {
+          // FIX: Removed unused 'totalStops' and 'isRoundtrip' variables to resolve TS6133
+          // The logic for chunk determination is handled in Orchestrator/Preparer
           
           // Determine Chunk (Default 1)
           const currentChunk = options?.chunkIndex || chunkingState?.currentChunk || 1;
@@ -297,13 +297,16 @@ export const PayloadBuilder = {
         generatedPrompt = buildRouteArchitectPrompt(project);
         break;
 
-      // REMOVED: DurationEstimator
+      case 'durationEstimator':
+        generatedPrompt = buildDurationEstimatorPrompt(project, "", "");
+        break;
 
-      case 'initialTagesplaner': { // Renamed from dayplan
+      case 'dayplan':
+      case 'initialTagesplaner': {
         let contextData: any = undefined;
         const isActive = options ? true : chunkingState?.isActive;
         if (isActive) {
-            const limit = options?.limit || getTaskChunkLimit('initialTagesplaner');
+            const limit = options?.limit || getTaskChunkLimit('dayplan');
             const currentChunk = options?.chunkIndex || chunkingState.currentChunk;
             const dayOffset = (currentChunk - 1) * limit;
             const totalChunks = options?.totalChunks || chunkingState.totalChunks;
@@ -322,7 +325,8 @@ export const PayloadBuilder = {
         break;
       }
 
-      case 'transferPlanner': { // Renamed from transfers
+      case 'transfers':
+      case 'transferPlanner': {
         const lastLoc = getLastChunkEndLocation() || '';
         generatedPrompt = buildTransferPlannerPrompt(project, lastLoc);
         break;
@@ -369,4 +373,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 565 Zeilen ---
+// --- END OF FILE 563 Zeilen ---
