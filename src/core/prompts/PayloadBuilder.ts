@@ -1,3 +1,4 @@
+// 31.01.2026 13:00 - FIX: Removed "Deadly Fallback" in Food Candidate Selection. Added RAM-Pipeline support (options.candidates).
 // 27.01.2026 16:50 - FIX: Pass Chunk Options to Basis Preparer (Ratio Logic).
 // src/core/prompts/PayloadBuilder.ts
 
@@ -39,7 +40,8 @@ import { filterByRadius } from '../utils/geo';
 import type { GeoPoint } from '../utils/geo';
 
 export const PayloadBuilder = {
-  buildPrompt: (task: TaskKey, feedback?: string, options?: { chunkIndex?: number, limit?: number, totalChunks?: number }): string => {
+  // FIX: Added 'candidates' to options type definition to support RAM Pipeline
+  buildPrompt: (task: TaskKey, feedback?: string, options?: { chunkIndex?: number, limit?: number, totalChunks?: number, candidates?: any[] }): string => {
     const state = useTripStore.getState();
     const { project, aiSettings, apiKey } = state; 
     const chunkingState = (state as any).chunkingState as ChunkingState;
@@ -101,8 +103,9 @@ export const PayloadBuilder = {
     };
 
     const getFilteredFoodCandidates = (project: TripProject) => {
-        const rawCandidates = (project.data.content as any)?.rawFoodCandidates || 
-                              Object.values(project.data.places || {}).flat(); 
+        // FIX: Removed dangerous fallback "|| Object.values(project.data.places).flat()".
+        // If rawFoodCandidates is empty, we must return empty list, not all sights!
+        const rawCandidates = (project.data.content as any)?.rawFoodCandidates || [];
         
         if (!rawCandidates || rawCandidates.length === 0) return [];
 
@@ -233,10 +236,15 @@ export const PayloadBuilder = {
       }
         
       case 'foodEnricher': {
-          // 1. SOURCE: Try to get candidates from Analysis (Scout Result)
-          // Fallback to legacy radius search if analysis is empty
-          let candidates = (project.analysis as any).foodScout?.candidates || [];
-          
+          // 1. SOURCE: Try to get candidates from RAM Pipeline (options.candidates) FIRST.
+          let candidates = options?.candidates || [];
+
+          // If not in RAM, try Store (Analysis/Legacy)
+          if (!candidates || candidates.length === 0) {
+             candidates = (project.analysis as any).foodScout?.candidates || [];
+          }
+
+          // If still empty, try fallback filter (but only on rawFoodCandidates!)
           if (!candidates || candidates.length === 0) {
              candidates = getFilteredFoodCandidates(project);
           }
@@ -353,4 +361,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 545 Zeilen ---
+// --- END OF FILE 547 Zeilen ---

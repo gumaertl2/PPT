@@ -1,6 +1,9 @@
+// 31.01.2026 14:00 - FIX: Return Enriched Result instead of Raw Scout Result to prevent Data Overwrite in Hook.
+// 31.01.2026 13:30 - FIX: Injected "RAM-ID-Assigner" in Food Pipeline. Ensures candidates have safe IDs before reaching GeoFilter/PayloadBuilder.
 // 31.01.2026 00:15 - FIX: Pure RAM Pipeline. Scout & Geo data is passed in-memory to Enricher. No intermediate Store saves.
 // src/services/orchestrator.ts
 
+import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 import { GeminiService } from './gemini';
 import { PayloadBuilder } from '../core/prompts/PayloadBuilder';
@@ -207,8 +210,28 @@ export const TripOrchestrator = {
             // 2. PHASE 1: SCANNER (AI) - NO SAVE
             console.log("[Orchestrator] Phase 1: Scanner (AI)");
             const scoutResult = await this._executeSingleStep('foodScout', feedback, true); // true = skipSave
-            const candidates = scoutResult.candidates || [];
+            let candidates = scoutResult.candidates || [];
             
+            // FIX: RAM-Pipeline ID Injection & Category Shield
+            // We must ensure every candidate has a safe unique ID before passing to RAM-Filter/Enricher.
+            // Otherwise PayloadBuilder drops them.
+            const existingPlaces = project.data?.places || {};
+            candidates = candidates.map((c: any) => {
+                let safeId = c.id;
+                // Collision Check: If ID exists but is a Sight -> Force new ID
+                if (safeId && existingPlaces[safeId]) {
+                    const existing = existingPlaces[safeId];
+                    if (['Sight', 'Attraktion', 'Landmark', 'Sehenswürdigkeit'].includes(existing.category)) {
+                        safeId = undefined;
+                    }
+                }
+                if (!safeId) safeId = uuidv4();
+                return { ...c, id: safeId };
+            });
+            
+            // FIX: Persist the ID-injected candidates back to the result object
+            scoutResult.candidates = candidates;
+
             console.log(`[Orchestrator] Scanner found ${candidates.length} candidates. Handing to Geo-Filter (In-Memory).`);
 
             // 3. UI: Update
@@ -243,9 +266,11 @@ export const TripOrchestrator = {
             // 7. PHASE 3: ENRICHER (AI) - FINAL SAVE
             // We pass the filtered list directly to the task executor
             console.log("[Orchestrator] Phase 3: Enricher (AI) -> FINAL SAVE");
-            await this.executeTask('foodEnricher', undefined, filteredCandidates); 
+            
+            // FIX: Capture and return the ENRICHED result, not the raw scout result!
+            const enricherResult = await this.executeTask('foodEnricher', undefined, filteredCandidates); 
 
-            return scoutResult; 
+            return enricherResult; 
 
         } catch (err) {
             console.error("[Orchestrator] Food Sequence Failed", err);
@@ -310,4 +335,4 @@ export const TripOrchestrator = {
     return this._executeSingleStep(task, feedback);
   }
 };
-// --- END OF FILE 258 Zeilen ---
+// --- END OF FILE 283 Zeilen ---

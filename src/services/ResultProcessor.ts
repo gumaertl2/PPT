@@ -1,3 +1,4 @@
+// 31.01.2026 13:10 - FIX: Enforced "Category Shield" in ID assignment logic to prevent overwriting Sights with Restaurants.
 // 31.01.2026 02:30 - FIX: "Smart Match". ResolvePlaceId is now Category-Aware to completely prevent Sight/Restaurant collisions.
 // 31.01.2026 01:00 - FIX: "Category Shield".
 // src/services/ResultProcessor.ts
@@ -294,8 +295,21 @@ export const ResultProcessor = {
                     }
 
                     // --- 🧠 SMART MATCH: Pass 'category' to prevent matching Sights with Restaurants ---
-                    const existingId = resolvePlaceId({ ...item, name }, existingPlaces, false, category);
-                    let id = item.id || existingId || uuidv4();
+                    const resolvedId = resolvePlaceId({ ...item, name }, existingPlaces, false, category);
+                    
+                    // FIX: Strict ID Usage. If resolvePlaceId rejected the ID (due to Shield), we MUST NOT use item.id!
+                    let id: string;
+                    if (resolvedId) {
+                        id = resolvedId;
+                    } else {
+                        // Collision Check: If item.id exists but was rejected by resolvePlaceId (returned undefined),
+                        // it means it's a dangerous ID (e.g. Sight vs Restaurant). Force new ID.
+                        if (item.id && existingPlaces[item.id]) {
+                             id = uuidv4();
+                        } else {
+                             id = item.id || uuidv4();
+                        }
+                    }
                     
                     const existingPlace = existingPlaces[id];
 
@@ -477,4 +491,4 @@ export const ResultProcessor = {
     }
   }
 };
-// --- END OF FILE 505 Zeilen ---
+// --- END OF FILE 520 Zeilen ---
