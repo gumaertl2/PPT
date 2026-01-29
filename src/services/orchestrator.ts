@@ -1,3 +1,4 @@
+// 31.01.2026 21:30 - FIX: Added 'hotelScout' & 'ideenScout' to Loop-Logic. Added 'mobil' mode support. Enforced limit=1 for loops.
 // 31.01.2026 14:00 - FIX: Return Enriched Result instead of Raw Scout Result to prevent Data Overwrite in Hook.
 // 31.01.2026 13:30 - FIX: Injected "RAM-ID-Assigner" in Food Pipeline. Ensures candidates have safe IDs before reaching GeoFilter/PayloadBuilder.
 // 31.01.2026 00:15 - FIX: Pure RAM Pipeline. Scout & Geo data is passed in-memory to Enricher. No intermediate Store saves.
@@ -281,15 +282,18 @@ export const TripOrchestrator = {
     }
 
     // --- B. CHUNKING CHECK (Standard Logic) ---
+    // FIX: Added 'hotelScout' and 'ideenScout' to enable loop logic for them
     const chunkableTasks: TaskKey[] = [
         'anreicherer', 'chefredakteur', 'infoAutor', 'foodEnricher', 'chefPlaner',
-        'dayplan', 'initialTagesplaner', 'infos', 'details', 'basis'
+        'dayplan', 'initialTagesplaner', 'infos', 'details', 'basis',
+        'hotelScout', 'ideenScout'
     ];
     
     if (chunkableTasks.includes(task)) {
         let totalItems = 0;
         const isManual = !apiKey;
-        const limit = getTaskLimit(task, isManual);
+        // FIX: Changed to 'let' to allow override for Roundtrip logic
+        let limit = getTaskLimit(task, isManual);
 
         if (['anreicherer', 'chefredakteur', 'details'].includes(task)) {
             totalItems = Object.values(project.data.places || {}).flat().length;
@@ -311,6 +315,21 @@ export const TripOrchestrator = {
         else if (['infos', 'infoAutor'].includes(task)) {
             const appendixInterests = project.userInputs.selectedInterests.filter(id => APPENDIX_ONLY_INTERESTS.includes(id));
             totalItems = appendixInterests.length > 0 ? appendixInterests.length : 1;
+        }
+        // FIX: Special Logic for Location-Based Scouts (Hotel & Ideen)
+        else if (['hotelScout', 'ideenScout'].includes(task)) {
+            const logistics = project.userInputs.logistics;
+            // FIX: Treat 'mobil' as Roundtrip to trigger loop
+            const isRoundtrip = logistics.mode === 'roundtrip' || logistics.mode === 'mobil';
+            if (isRoundtrip) {
+                const stops = logistics.roundtrip?.stops || [];
+                totalItems = stops.length > 0 ? stops.length : 1;
+                // FIX: Enforce 1 Chunk per Stop for loops. 
+                // This ensures PayloadBuilder (which uses chunkIndex) works for each stop.
+                limit = 1; 
+            } else {
+                totalItems = 1;
+            }
         }
 
         if (totalItems > limit) {
@@ -335,4 +354,4 @@ export const TripOrchestrator = {
     return this._executeSingleStep(task, feedback);
   }
 };
-// --- END OF FILE 283 Zeilen ---
+// --- END OF FILE 310 Zeilen ---
