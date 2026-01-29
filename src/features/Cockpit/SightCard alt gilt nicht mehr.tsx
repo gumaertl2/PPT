@@ -1,3 +1,4 @@
+// 01.02.2026 13:00 - FEAT: Added Hotel Selection Logic (Single-Select per City) & improved Rating display.
 // 29.01.2026 19:15 - FIX: Added Hotel View (Location Match, Price, Booking) to SightCard (Full Restore).
 // 29.01.2026 17:00 - FEAT: Added support for Food-Enricher fields (Signature Dish, Logistics Tip, Source URL).
 // 29.01.2026 14:00 - FIX: Optimized Waypoint Layout (inline stations) and subtle link styling for walks/districts.
@@ -31,7 +32,9 @@ import {
   BookOpen, // NEW: For Source/Guide Link
   BedDouble, // NEW: Hotel Icon
   CheckCircle2, // NEW: Location Match Icon
-  CreditCard // NEW: Price Icon
+  CreditCard, // NEW: Price Icon
+  Check, // NEW: Selection Icon
+  ExternalLink // NEW: Link Icon
 } from 'lucide-react';
 
 interface SightCardProps {
@@ -46,7 +49,7 @@ type ViewLevel = typeof VIEW_LEVELS[number];
 
 export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selection', showPriorityControls = true }) => {
   const { t, i18n } = useTranslation(); 
-  const { uiState, updatePlace, deletePlace, setUIState } = useTripStore(); 
+  const { uiState, updatePlace, deletePlace, setUIState, project } = useTripStore(); 
   const cardRef = useRef<HTMLDivElement>(null);
   const [viewLevel, setViewLevel] = useState<ViewLevel>('kompakt');
   
@@ -63,7 +66,7 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   const description = data.description || data.shortDesc || ''; 
   const category = data.category || 'Allgemein'; 
   const rating = data.rating || 0; 
-  const userRatingsTotal = data.user_ratings_total || data.rating_count || 0; // FIX: Added rating_count mapping
+  const userRatingsTotal = data.user_ratings_total || data.rating_count || 0; // FIX: Reading rating count
   const awards = data.awards || [];
   const phone = data.phone || data.phone_number;
   const cuisine = data.cuisine;
@@ -75,7 +78,7 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   // Hotel Specifics
   const isHotel = category === 'Hotel' || category === 'accommodation';
   const locationMatch = data.location_match;
-  const priceEstimate = data.price_estimate;
+  const priceEstimate = data.price_estimate || (data.cost ? `${data.cost} ${data.currency || '€'}` : null);
   const bookingUrl = data.bookingUrl;
   const pros = data.pros || [];
 
@@ -93,6 +96,7 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   const isFixed = priority === 3;
   const fixedDate = userSelection.fixedDate || '';
   const fixedTime = userSelection.fixedTime || '';
+  const isSelected = userSelection.isSelected === true; // NEW: Explicit selection state
 
   const resolveCategoryLabel = (catId: string): string => {
     if (!catId) return "Allgemein";
@@ -138,6 +142,38 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     const targetPrio = (priority === newPrio) ? 0 : newPrio;
     updatePlace(id, {
       userSelection: { ...userSelection, priority: targetPrio }
+    });
+  };
+
+  // NEW: Handle Hotel Selection (Single Select per City)
+  const handleHotelSelect = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newStatus = !isSelected;
+
+    // Logic: If selecting, deselect other hotels in the same "City" (based on address)
+    if (newStatus && isHotel && project?.data?.places) {
+       const currentCity = data.address ? data.address.match(/\d{5}\s+([^,]+)/)?.[1] : null;
+       
+       if (currentCity) {
+           Object.values(project.data.places).forEach((p: any) => {
+               if (p.id === id) return;
+               const isAcc = p.category === 'accommodation' || p.category === 'Hotel';
+               if (!isAcc) return;
+               
+               const otherCity = p.address ? p.address.match(/\d{5}\s+([^,]+)/)?.[1] : null;
+               
+               // If cities match (fuzzy check via ZIP/Name), deselect the others
+               if (otherCity && otherCity === currentCity && p.userSelection?.isSelected) {
+                   updatePlace(p.id, {
+                       userSelection: { ...p.userSelection, isSelected: false }
+                   });
+               }
+           });
+       }
+    }
+
+    updatePlace(id, {
+        userSelection: { ...userSelection, isSelected: newStatus }
     });
   };
 
@@ -193,7 +229,8 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
       <div className="flex items-center gap-1 text-amber-500 text-xs font-medium whitespace-nowrap" title={`Google Rating: ${rating} (${userRatingsTotal})`}>
         <Star className="w-3 h-3 fill-amber-500" />
         <span>{rating}</span>
-        <span className="text-gray-400 font-normal">({userRatingsTotal})</span>
+        {/* FIX: Ensure rating count is visible */}
+        {userRatingsTotal > 0 && <span className="text-gray-400 font-normal">({userRatingsTotal})</span>}
       </div>
     );
   };
@@ -323,7 +360,14 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   if (priority === 2) borderClass = 'border-blue-400 border-l-4';
   if (priority === -1) borderClass = 'border-gray-100 opacity-60';
   if (isSpecial) borderClass = specialType === 'sunny' ? 'border-amber-400 border-l-4' : 'border-blue-400 border-l-4';
-  if (isHotel) borderClass = 'border-emerald-500 border-l-4';
+  if (isHotel) {
+      // NEW: Strong Visual Feedback for Selection
+      if (isSelected) {
+          borderClass = 'border-emerald-600 border-l-[6px] ring-1 ring-emerald-500 bg-emerald-50/30';
+      } else {
+          borderClass = 'border-emerald-500 border-l-4';
+      }
+  }
 
   return (
     <>
@@ -332,6 +376,7 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
            <h3 className="font-bold text-gray-900 text-base leading-tight flex items-center gap-2">
              {isHotel && <BedDouble className="w-4 h-4 text-emerald-600" />}
              {highlightText(name)}
+             {isSelected && isHotel && <CheckCircle2 className="w-4 h-4 text-emerald-600 fill-emerald-100" />}
            </h3>
            {renderViewControls()}
         </div>
@@ -385,9 +430,32 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
             )}
 
             <div className="flex items-center gap-2 ml-auto no-print">
-               {isHotel && bookingUrl && (
-                 <a href={ensureAbsoluteUrl(bookingUrl)} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-800 font-bold text-[10px] uppercase tracking-wide border border-emerald-200 px-2 py-0.5 rounded hover:bg-emerald-50 transition-colors">Buchen</a>
+               {/* MODIFIED: HOTEL SELECTION BUTTONS */}
+               {isHotel && (
+                 <div className="flex items-center gap-1 mr-2">
+                     {bookingUrl && (
+                        <a href={ensureAbsoluteUrl(bookingUrl)} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-800 p-1 hover:bg-emerald-50 rounded" title="Zum Angebot">
+                            <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                     )}
+                     <button 
+                        onClick={handleHotelSelect}
+                        className={`
+                            flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border transition-all
+                            ${isSelected 
+                                ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700 shadow-sm' 
+                                : 'bg-white text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300'}
+                        `}
+                     >
+                        {isSelected ? (
+                            <><Check className="w-3 h-3" /> Ausgewählt</>
+                        ) : (
+                            'Wählen'
+                        )}
+                     </button>
+                 </div>
                )}
+               
                {sourceUrl && !isHotel && (
                  <a href={ensureAbsoluteUrl(sourceUrl)} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:text-indigo-700" title="Zum Guide Eintrag"><BookOpen className="w-3.5 h-3.5" /></a>
                )}
@@ -515,4 +583,4 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     </>
   );
 };
-// --- END OF FILE 650 Zeilen ---
+// --- END OF FILE 715 Zeilen ---

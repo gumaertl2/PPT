@@ -1,3 +1,5 @@
+// 01.02.2026 12:15 - FIX: Added 'user_ratings_total' to schema.
+// 31.01.2026 23:55 - FIX: Schema harmonization with Place interface (geo -> location).
 // 31.01.2026 23:55 - FIX: Corrected method name (withInstruction) & added Geo-Coordinates.
 // 31.01.2026 17:30 - FEAT: Camper Awareness. Switches to Campsites if logistics_type is camper.
 // src/core/prompts/templates/hotelScout.ts
@@ -48,7 +50,7 @@ Explain the **"Location Match"**: Why is this ${isCamper ? "campsite" : "hotel"}
       {
         "name": "String (Official Name)",
         "address": "String (Address)",
-        "geo": {
+        "location": {
             "lat": "Number (e.g. 48.1351)",
             "lng": "Number (e.g. 11.5820)"
         },
@@ -57,7 +59,8 @@ Explain the **"Location Match"**: Why is this ${isCamper ? "campsite" : "hotel"}
         "price_estimate": "String",
         "bookingUrl": "String",
         "pros": ["String"],
-        "rating": "Number"
+        "rating": "Number",
+        "user_ratings_total": "Number (Total count of reviews)"
       }
     ]
   };
@@ -71,4 +74,4 @@ Explain the **"Location Match"**: Why is this ${isCamper ? "campsite" : "hotel"}
     .withSelfCheck(['research'])
     .build();
 };
-// --- END OF FILE 72 Zeilen ---
+// --- END OF FILE 74 Zeilen ---

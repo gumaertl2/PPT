@@ -1,3 +1,4 @@
+// 29.01.2026 19:55 - FEAT: Added 'assignHotelToLogistics' with auto-stop-matching logic.
 // 20.01.2026 22:15 - FIX: "Operation Clean Sweep" - Surgical Update of Defaults to English Keys.
 // src/store/slices/createProjectSlice.ts
 
@@ -64,6 +65,9 @@ export interface ProjectSlice {
   toggleInterest: (id: string) => void;
   setCustomPreference: (interestId: string, text: string) => void;
   setAiOutputLanguage: (lang: string) => void;
+
+  // NEW: Logic Linker
+  assignHotelToLogistics: (placeId: string) => void;
 }
 
 // Helper für Initial State
@@ -542,6 +546,90 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
       ...state.project,
       userInputs: { ...state.project.userInputs, aiOutputLanguage: lang }
     }
-  }))
+  })),
+
+  // --- NEW: LOGISTICS HOTEL ASSIGNMENT ---
+  assignHotelToLogistics: (placeId) => set((state: any) => {
+      const place = state.project.data.places[placeId];
+      if (!place) return state;
+
+      const logistics = state.project.userInputs.logistics;
+      const mode = logistics.mode;
+
+      // CASE 1: STATIONARY (Simple)
+      if (mode === 'stationaer') {
+          return {
+              project: {
+                  ...state.project,
+                  userInputs: {
+                      ...state.project.userInputs,
+                      logistics: {
+                          ...logistics,
+                          stationary: { ...logistics.stationary, hotel: placeId }
+                      }
+                  }
+              }
+          };
+      } 
+      
+      // CASE 2: ROUNDTRIP (Smart Matching)
+      else if (mode === 'roundtrip' || mode === 'mobil') {
+          const stops = logistics.roundtrip.stops || [];
+          
+          // Heuristic: Find stop where stop.location is part of place.address or reasoning
+          // We normalize strings to improve matching (e.g. "Region Freiburg" matches "Freiburg")
+          const matchedStopIndex = stops.findIndex((s: RouteStop) => {
+              if (!s.location) return false;
+              const cleanLoc = s.location.replace(/Region\s+/i, '').trim().toLowerCase();
+              if (cleanLoc.length < 3) return false; // Avoid matching short strings
+
+              const address = (place.address || '').toLowerCase();
+              const reasoning = (place.location_match || '').toLowerCase();
+              const city = (place.city || '').toLowerCase();
+
+              return address.includes(cleanLoc) || reasoning.includes(cleanLoc) || city.includes(cleanLoc);
+          });
+
+          // If found, update THAT stop
+          if (matchedStopIndex !== -1) {
+              const newStops = [...stops];
+              // Overwrite with current hotel choice
+              newStops[matchedStopIndex] = { ...newStops[matchedStopIndex], hotel: placeId };
+              
+              return {
+                  project: {
+                      ...state.project,
+                      userInputs: {
+                          ...state.project.userInputs,
+                          logistics: {
+                              ...logistics,
+                              roundtrip: { ...logistics.roundtrip, stops: newStops }
+                          }
+                      }
+                  }
+              };
+          } else {
+              // FALLBACK: Assign to first empty stop if no match found
+              const firstEmptyIndex = stops.findIndex((s: RouteStop) => !s.hotel);
+              if (firstEmptyIndex !== -1) {
+                   const newStops = [...stops];
+                   newStops[firstEmptyIndex] = { ...newStops[firstEmptyIndex], hotel: placeId };
+                   return {
+                        project: {
+                            ...state.project,
+                            userInputs: {
+                                ...state.project.userInputs,
+                                logistics: {
+                                    ...logistics,
+                                    roundtrip: { ...logistics.roundtrip, stops: newStops }
+                                }
+                            }
+                        }
+                   };
+              }
+          }
+      }
+      return state;
+  })
 });
-// --- END OF FILE 436 Zeilen ---
+// --- END OF FILE 513 Zeilen ---

@@ -58,21 +58,21 @@ Before outputting JSON, you MUST verify:
         "found": "Boolean",
         "name_official": "String (Correct spelling)",
         "address": "String (Full Address with Zip/City)",
-        "geo": {
+        "location": {
             "lat": "Number (e.g. 48.1351)",
             "lng": "Number (e.g. 11.5820)"
         },
-        "phone_number": "String (e.g. +49 ... or null)",
+        "phone": "String (e.g. +49 ... or null)",
         "website": "String | null",
         "awards": ["String (e.g. 'Michelin 1 Star', 'Bib Gourmand', 'Gault&Millau 3 Hauben')"],
         "cuisine": "String (e.g. 'French Modern')",
         "vibe": ["String (e.g. 'Romantic', 'Stylish')"],
         "signature_dish": "String (e.g. 'Bouillabaisse')",
-        "price_level": "String (€/€€/€€€)",
+        "priceLevel": "String (€/€€/€€€)",
         "rating": "Number (e.g. 4.5)",
         "user_ratings_total": "Number (Total count of ratings)",
-        "logistics_tip": "String (Short practical advice)",
-        "opening_hours_hint": "String (Brief text e.g. 'Daily from 18:00' or null)",
+        "logistics": "String (Short practical advice)",
+        "openingHoursHint": "String (Brief text e.g. 'Daily from 18:00' or null)",
         "description": "String (Must follow the '[Distance] entfernt: ...' template!)"
       }
     ]
