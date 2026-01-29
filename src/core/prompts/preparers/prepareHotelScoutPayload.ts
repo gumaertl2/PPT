@@ -1,3 +1,4 @@
+// 31.01.2026 14:30 - FIX: Resolved TypeScript Access Error (Logistics vs Dates) & Linter unused var.
 // 29.01.2026 18:05 - FEAT: Created HotelScout Preparer (Logistics Handover).
 // src/core/prompts/preparers/prepareHotelScoutPayload.ts
 
@@ -5,7 +6,7 @@ import type { TripProject } from '../../types';
 
 export const prepareHotelScoutPayload = (
   project: TripProject, 
-  feedback?: string
+  _feedback?: string
 ) => {
   const { userInputs, analysis } = project;
   
@@ -26,6 +27,9 @@ export const prepareHotelScoutPayload = (
   const checkIn = userInputs.dates.start;
   const checkOut = userInputs.dates.end; // Simplified for stationary. For roundtrip, orchestrator needs loop logic.
 
+  // FIX: Access 'arrival' via 'dates', not 'logistics' (Type Error Fix)
+  const arrivalType = userInputs.dates.arrival?.type || 'car';
+
   return {
     context: {
       location_name: searchLocation,
@@ -34,11 +38,11 @@ export const prepareHotelScoutPayload = (
       check_out: checkOut,
       travelers: userInputs.travelers,
       budget: userInputs.budget,
-      logistics_type: userInputs.logistics.arrival.type || 'flight' // car vs flight
+      logistics_type: arrivalType
     },
     instructions: {
       role: "You are the Logistics Optimizer. Find hotels strictly in the defined area."
     }
   };
 };
-// --- END OF FILE 42 Zeilen ---
+// --- END OF FILE 45 Zeilen ---

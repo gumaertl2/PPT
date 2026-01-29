@@ -1,3 +1,4 @@
+// 31.01.2026 15:10 - FEAT: Enforced District-Level Precision for Major Cities (Roundtrip & Stationary).
 // 29.01.2026 17:30 - FEAT: Refactored GeoAnalyst to "Location Strategist" (Cluster Analysis).
 // 23.01.2026 15:50 - FIX: Synchronized Schema with CoT Instruction (added _thought_process).
 // 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
@@ -23,14 +24,15 @@ export const buildGeoAnalystPrompt = (project: TripProject): string => {
     geoMode = "STATIONARY (District Finder)";
     const dest = logistics.stationary.destination || 'Destination';
     taskDescription = `Target: ${dest}.
-    Task: Analyze the provided 'SIGHTS_CLUSTER' (if available). Determine the **optimal district/neighborhood** in ${dest} to use as a base.
-    Goal: Minimize travel times to the sights.`;
+    Task: Analyze the provided 'SIGHTS_CLUSTER'. Determine the **optimal district/neighborhood** in ${dest} to use as a base.
+    Goal: Minimize travel times to the sights while respecting the vibe.`;
   } else {
     geoMode = "ROUNDTRIP (Hub Finder)";
     const stops = logistics.roundtrip.stops.map(s => s.location).join(' -> ');
     taskDescription = `Route: ${stops}.
     Region: ${logistics.roundtrip.region}.
-    Task: Identify the best strategic overnight stops (Hubs) along this route to minimize driving daily.`;
+    Task: Identify the best strategic overnight stops (Hubs) along this route.
+    **CRITICAL:** For major cities (e.g. Munich, Hamburg), you **MUST specify the District/Neighborhood** (e.g. 'Munich - Schwabing') that is closest to the active sights/activities. Do not just output the city name.`;
   }
 
   const contextData = {
@@ -48,18 +50,19 @@ ${taskDescription}
 
 # ANALYSIS LOGIC
 1.  **Center of Gravity:** Look at the distribution of sights/activities. Where is the center?
-2.  **Logistics Check:** * If Car: Suggest areas with parking / outskirts.
+2.  **Granularity Rule:** If a target is a large city (>100k inhabitants), providing a generic city name is a FAILURE. You must pinpoint the optimal district.
+3.  **Logistics Check:** * If Car: Suggest areas with parking / outskirts or specific districts with good connections. Avoid pedestrian zones.
     * If Train/Flight: Suggest Central Station or City Center proximity.
-3.  **Vibe Match:** Match the user's vibe (${userInputs.vibe}) with the district (e.g. "Hipster" -> Arts District, "Quiet" -> Suburbs).
+4.  **Vibe Match:** Match the user's vibe (${userInputs.vibe}) with the district (e.g. "Hipster" -> Arts District, "Quiet" -> Suburbs).
 
 # OUTPUT
 Recommend 1-2 specific areas/hubs that are strategically perfect.`;
 
   const outputSchema = {
-    "_thought_process": "String (Analyze Sights Distribution & Logistics)",
+    "_thought_process": "String (Analyze Sights Distribution & Logistics. Explain why this District?)",
     "recommended_hubs": [
       {
-        "hub_name": "String (Name of City OR Specific District, e.g. 'Berlin - Mitte')",
+        "hub_name": "String (Name of City OR Specific District, e.g. 'Berlin - Mitte' - MANDATORY for cities)",
         "suitability_score": "Integer (1-10)",
         "pros": ["String (Logistics)", "String (Vibe)"],
         "cons": ["String"],
@@ -78,4 +81,4 @@ Recommend 1-2 specific areas/hubs that are strategically perfect.`;
     .withSelfCheck(['planning'])
     .build();
 };
-// --- END OF FILE 84 Zeilen ---
+// --- END OF FILE 87 Zeilen ---

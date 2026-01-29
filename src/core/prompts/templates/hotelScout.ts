@@ -1,3 +1,4 @@
+// 31.01.2026 14:35 - FIX: Resolved Runtime Crash (undefined 'logistics.arrival'). Switched to 'dates.arrival'.
 // 29.01.2026 17:45 - FEAT: HotelScout Refactor (Logistics Optimizer & Strict Budget).
 // 23.01.2026 15:25 - FIX: Synchronized Schema with CoT Instruction (added _thought_process).
 // 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
@@ -13,7 +14,8 @@ export const buildHotelScoutPrompt = (
     checkOutDate: string
 ): string => {
   const { userInputs, analysis } = project;
-  const { travelers, budget, logistics } = userInputs;
+  // FIX: Destructure 'dates' to access arrival info correctly
+  const { travelers, budget, logistics, dates } = userInputs;
 
   // 1. CHEF PLANER DATA
   const chefPlaner = analysis.chefPlaner;
@@ -29,7 +31,8 @@ export const buildHotelScoutPrompt = (
         pets: travelers.pets 
     },
     budget_level: budget, 
-    logistics_mode: (logistics as any).arrivalType === 'car' ? 'Car (Parking Mandatory)' : 'Public Transport (Walking Distance Mandatory)'
+    // FIX: Access arrival type via dates.arrival
+    logistics_mode: dates.arrival?.type === 'car' ? 'Car (Parking Mandatory)' : 'Public Transport (Walking Distance Mandatory)'
   };
 
   const role = `You are the "Hotel Scout", a Logistics Optimizer and Accommodation Expert.
@@ -46,7 +49,7 @@ Find 2-3 concrete accommodation options in **"${locationName}"**.
     * High/Luxury: 5 Star / Boutique
 3.  **Mandatory Filters:**
     * **Pets:** ${travelers.pets ? "MUST allow pets." : "Irrelevant."}
-    * **Car:** ${logistics.logistics.arrival.type === 'car' ? "MUST have parking (verify availability)." : "Near public transport."}
+    * **Car:** ${dates.arrival?.type === 'car' ? "MUST have parking (verify availability)." : "Near public transport."}
 4.  **Rating:** Google Rating > 4.0 is mandatory.
 
 # OUTPUT REQUIREMENTS
