@@ -1,71 +1,59 @@
-// 01.02.2026 23:05 - FIX: Replaced invalid SelfCheck type 'logic' with 'planning'.
+// 02.02.2026 11:00 - FIX: RESTORED ORIGINAL LOGIC (Spatial Clustering).
+// Reverted from "Calendar Schedule" back to "Geo-Tours" (suggested_order_ids).
+// Essential for Roundtrips to group sights by City/Hub.
 // src/core/prompts/templates/tourGuide.ts
 
 import { PromptBuilder } from '../PromptBuilder';
 
 export const buildTourGuidePrompt = (payload: any): string => {
+  // 1. Unpack Payload (Standard V40 Pattern)
   const { context, instructions } = payload;
   
-  // 1. DATA PREPARATION
-  const sightsData = Array.isArray(context.sights_list) 
-    ? context.sights_list.map((s: any) => `- [ID: ${s.id}] ${s.name} (${s.category || 'General'}) @ ${s.location?.lat || '?'},${s.location?.lng || '?'}`).join('\n')
+  // Data Preparation: Handle both 'sights' (Old) and 'sights_list' (New Preparer) keys
+  const rawSights = context.sights || context.sights_list || [];
+  
+  const sightsData = Array.isArray(rawSights) 
+    ? rawSights.map((s: any) => `- [ID: ${s.id}] ${s.name} (${s.category || 'General'}) @ ${s.location?.lat || '?'},${s.location?.lng || '?'}`).join('\n')
     : "No sights provided.";
 
-  const constraintsText = `
-  - Duration: ${context.duration_days} Days
-  - Pace: ${context.preferences?.pace || 'Moderate'}
-  - Fixed Appointments: ${JSON.stringify(context.constraints?.fixed_appointments || [])}
-  `;
-
-  // 2. ROLE
-  const role = instructions.role || `You are the **Chief Itinerary Architect** ("The Tour Guide").
-  Your task is to organize a chaotic list of sights into a logical, flow-optimized day-by-day itinerary.
-  You maximize experience quality and minimize travel stress.`;
+  // 2. ROLE (Restored from your working version)
+  const role = instructions?.role || `You are an experienced Travel Guide Author and Geographic Analyst. 
+  Your strength is transforming a loose collection of places into compelling and logical "Exploration Tours".
+  You create **NO** time schedule, but a purely spatial structure (Clusters).`;
 
   // 3. INSTRUCTIONS
-  const promptInstructions = `# INPUT SIGHTS (POOL)
+  const promptInstructions = `# DATA BASIS (SIGHTS POOL)
 ${sightsData}
 
-# LOGISTICS & PREFERENCES
-${constraintsText}
+# WORK STEPS
+1. **Geo-Analysis:** Analyze the Latitude/Longitude of all places.
+2. **Clustering (CRITICAL for Roundtrips):** - Group places that are geographically close (e.g. same city or neighborhood).
+   - If this is a Roundtrip, create ONE Tour per City/Stop (e.g. "Tour Colombo", "Tour Galle").
+3. **Sequencing:** Arrange the sights **within each cluster** in a logical walking/driving order to minimize zigzagging.
+4. **Naming:** Give each cluster a creative title (e.g. "Tour 1: The Historic Fort").
 
-# MISSION
-1. **Clustering:** Group nearby sights into the same day to minimize travel time.
-2. **Logic & Flow:** Arrange the daily order logically (e.g. Start at the castle on the hill, walk down to the old town).
-3. **Pacing:** Respect the user's pace. 
-   - Relaxed: Max 2-3 major sights/day.
-   - Intense: Pack as much as possible.
-4. **Mandatory:** Include ALL fixed appointments at their specific times.
+# MANDATORY RULES
+- **Rule 1 (Completeness):** EVERY sight from the input list MUST appear in exactly ONE tour.
+- **Rule 2 (No Timing):** Do NOT add times. We need a spatial sequence.
+- **Rule 3 (ID Integrity):** Use the exact \`id\` values from the input list for the \`suggested_order_ids\`.
 
-# CRITICAL PROTOCOL: ID INTEGRITY
-You are working with database objects.
-1. **Pass-through:** When scheduling a sight, you **MUST** return its exact \`sight_id\` from the Input list.
-2. **No Hallucinations:** Do not invent new sights. Only use what is in the pool.
-3. **Leftovers:** If a sight strictly does not fit the timeline, list its ID in \`unassigned_sight_ids\`.
+# OUTPUT SCHEMA
+Return a SINGLE valid JSON object.`;
 
-# OUTPUT FORMAT
-Return a strictly valid JSON object.`;
-
-  // 4. SCHEMA
+  // 4. SCHEMA (Restored exactly to match ResultProcessor expectation)
   const outputSchema = {
-    "_thought_process": "String (Step 1: Geo-Clustering. Step 2: Assign days. Step 3: Optimize daily flow...)",
-    "itinerary_days": [
-      {
-        "day_index": "Number (1-based)",
-        "title": "String (Thematic Title of the day)",
-        "summary": "String (Brief explanation of the flow)",
-        "activities": [
-          {
-            "sight_id": "String (MUST MATCH INPUT ID EXACTLY)",
-            "time_slot": "String (e.g. '09:00 - 11:00')",
-            "duration_min": "Number (Estimate)",
-            "travel_time_after_min": "Number (Estimate to next stop)",
-            "reasoning": "String (Why this order?)"
-          }
-        ]
-      }
-    ],
-    "unassigned_sight_ids": ["String (IDs of sights that could not be scheduled)"]
+    "_thought_process": "String (Geo-Analysis & Clustering Strategy)",
+    "guide": {
+      "title": "String (e.g. 'Sri Lanka Explorer Guide')",
+      "intro": "String (Short, inviting introduction)",
+      "tours": [
+        {
+          "tour_title": "String (e.g. 'Colombo: Colonial Charms')",
+          "tour_description": "String (2-3 sentences about this specific area/city)",
+          "suggested_order_ids": ["String (CRITICAL: The exact ID of the sight from input)"]
+        }
+      ]
+    }
   };
 
   return new PromptBuilder()
@@ -74,7 +62,7 @@ Return a strictly valid JSON object.`;
     .withContext(context, "TRIP CONTEXT")
     .withInstruction(promptInstructions)
     .withOutputSchema(outputSchema)
-    .withSelfCheck(['planning']) // FIX: Valid type
+    .withSelfCheck(['planning'])
     .build();
 };
-// --- END OF FILE 88 Zeilen ---
+// --- END OF FILE 65 Zeilen ---

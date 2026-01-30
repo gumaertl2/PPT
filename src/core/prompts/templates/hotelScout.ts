@@ -1,4 +1,5 @@
-// 01.02.2026 23:05 - FIX: Replaced invalid SelfCheck type 'safety' with 'research'.
+// 02.02.2026 09:30 - FIX: Enforced explicit research for 'user_ratings_total'.
+// Added DATA ACCURACY section to prevent estimated review counts.
 // src/core/prompts/templates/hotelScout.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -45,13 +46,14 @@ Context: ${context.location_reasoning}
 3. **Vibe:** Match the traveler group (e.g. playground for kids, quiet for couples).
 4. **Pets:** ${context.travelers.pets ? "MUST allow pets (Dog friendly)." : "Pet policy is irrelevant."}
 
-# PHASE 3: OUTPUT GENERATION
+# PHASE 3: DATA ACCURACY & OUTPUT
 - Provide 2-3 top candidates.
 - **Coordinates:** You MUST provide accurate Latitude/Longitude for the Map View.
+- **Reviews (MANDATORY):** You MUST find the **exact number** of Google Reviews (e.g. 1342, not "1000+").
 - **Reasoning:** In 'location_match', explain specifically WHY this fits the strategy.`;
 
   const outputSchema = {
-    "_thought_process": "String (Step 1: Analyze constraints. Step 2: Check proximity & ratings...)",
+    "_thought_process": "String (Step 1: Analyze constraints. Step 2: Research exact ratings count...)",
     "candidates": [
       {
         "name": "String (Official Name)",
@@ -66,7 +68,7 @@ Context: ${context.location_reasoning}
         "bookingUrl": "String | null",
         "pros": ["String (Highlight 1)", "String (Highlight 2)"],
         "rating": "Number (4.0 - 5.0)",
-        "user_ratings_total": "Number (Count of reviews, e.g. 1250)" 
+        "user_ratings_total": "Number (EXACT count of reviews, e.g. 1250)" 
       }
     ]
   };
@@ -77,7 +79,7 @@ Context: ${context.location_reasoning}
     .withContext(contextData, "LOGISTICS DATA")
     .withInstruction(instructions)
     .withOutputSchema(outputSchema)
-    .withSelfCheck(['research']) // FIX: 'safety' -> 'research'
+    .withSelfCheck(['research']) 
     .build();
 };
-// --- END OF FILE 87 Zeilen ---
+// --- END OF FILE 90 Zeilen ---

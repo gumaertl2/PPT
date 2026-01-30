@@ -1,5 +1,5 @@
-// 01.02.2026 19:15 - PROMPT OPTIMIZATION: English System Language & Logic Hardening.
-// Preserved ALL legacy fields (map_waypoints, stages) & Integrity Rules.
+// 02.02.2026 10:15 - PROMPT UPDATE: Implemented "Strict vs. Smart" Logic.
+// Route 1 obeys strict user constraints, Routes 2&3 offer optimized alternatives.
 // src/core/prompts/templates/routeArchitect.ts
 
 import type { TripProject } from '../../types';
@@ -40,9 +40,13 @@ The options must differ in "Vibe" (e.g., "The Classic", "Nature Pure", "Culture 
 
 # LOGISTICS RULES (THE GOLDEN LAWS)
 1. **Start & End:** Strictly observe fixed start/end points if defined in constraints.
-2. **User Waypoints:** If "user_waypoints" are present:
-   - If "is_strict_route" = true: You MUST include them (Mandatory).
-   - If "is_strict_route" = false: Try to integrate them logically if they fit the flow.
+2. **User Waypoints (STRICT VS SMART):** If "user_waypoints" are present:
+   - If "is_strict_route" = true:
+     * **Route Option 1:** You MUST execute the user's waypoints EXACTLY as requested (Compliance Check). Do not optimize away stops.
+     * **Route Option 2 & 3:** You MAY suggest a better flow (e.g. reordering stops, swapping a stop for a better nearby hub) to demonstrate optimization potential.
+   - If "is_strict_route" = false:
+     * Treat waypoints as a "Wishlist". Integrate them logically but prioritize flow for all routes.
+
 3. **Pace & Flow:** Plan realistic driving distances. Max 4 hours pure driving time per leg/transfer.
 4. **Duration Match:** The sum of 'nights' across all stages MUST exactly match 'total_duration_days'.
 5. **Strategic Hubs:** Choose strategic overnight locations (Base Camps) from which to explore the area.
@@ -111,4 +115,4 @@ Each option needs:
     .withSelfCheck(['basic', 'planning'])
     .build();
 };
-// --- END OF FILE 126 Zeilen ---
+// --- END OF FILE 131 Zeilen ---

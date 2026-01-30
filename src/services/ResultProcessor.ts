@@ -1,6 +1,5 @@
-// 31.01.2026 13:10 - FIX: Enforced "Category Shield" in ID assignment logic to prevent overwriting Sights with Restaurants.
-// 31.01.2026 02:30 - FIX: "Smart Match". ResolvePlaceId is now Category-Aware to completely prevent Sight/Restaurant collisions.
-// 31.01.2026 01:00 - FIX: "Category Shield".
+// 02.02.2026 12:00 - FIX: Added 'wildcard_ideas' processing for IdeenScout.
+// 02.02.2026 12:00 - FIX: Robust 'tourGuide' handling to ensure persistence.
 // src/services/ResultProcessor.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -37,12 +36,10 @@ const getSimilarity = (s1: string, s2: string): number => {
 };
 
 // --- HELPER: SMART ID FINDER (CATEGORY AWARE) ---
-// FIX: Added 'incomingCategory' to prevent false positives between Sights and Restaurants
 const resolvePlaceId = (item: any, existingPlaces: Record<string, any>, debug: boolean, incomingCategory?: string): string | undefined => {
     // 1. Direct ID Match (Strongest Signal)
     if (item.id && existingPlaces[item.id]) {
         // SAFETY CHECK: Even if IDs match, check for Category Conflict!
-        // If we are looking for a Restaurant, but the ID belongs to a Sight -> IGNORE ID.
         if (incomingCategory === 'Restaurant') {
              const p = existingPlaces[item.id];
              const isExistingSight = ['Sight', 'Attraktion', 'Landmark', 'Sehenswürdigkeit'].includes(p.category);
@@ -65,10 +62,9 @@ const resolvePlaceId = (item: any, existingPlaces: Record<string, any>, debug: b
             if (!p.name) return;
 
             // --- SAFETY CHECK: CATEGORY CONFLICT ---
-            // If we are looking for a Restaurant, DO NOT match with a Sight/Attraction
             if (incomingCategory === 'Restaurant') {
                 const isExistingSight = ['Sight', 'Attraktion', 'Landmark', 'Sehenswürdigkeit'].includes(p.category);
-                if (isExistingSight) return; // Skip this candidate, it's a trap!
+                if (isExistingSight) return;
             }
             // ---------------------------------------
 
@@ -136,14 +132,14 @@ const extractItems = (data: any, allowStrings: boolean = true): any[] => {
 
     // 3. Fallback: DEEP SEARCH
     if (!foundContainer && !data.recommended_hubs) {
-          Object.keys(data).forEach(key => {
-              if (['context', 'input', 'logs', 'meta', 'candidates_list', 'original_input', 'analysis'].includes(key)) return;
+         Object.keys(data).forEach(key => {
+             if (['context', 'input', 'logs', 'meta', 'candidates_list', 'original_input', 'analysis'].includes(key)) return;
 
-              const value = data[key];
-              if (typeof value === 'object' && value !== null) {
-                  items = items.concat(extractItems(value, allowStrings));
-              }
-          });
+             const value = data[key];
+             if (typeof value === 'object' && value !== null) {
+                 items = items.concat(extractItems(value, allowStrings));
+             }
+         });
     }
 
     return items;
@@ -294,16 +290,13 @@ export const ResultProcessor = {
                         return; // Gatekeeper: Skip raw echo
                     }
 
-                    // --- 🧠 SMART MATCH: Pass 'category' to prevent matching Sights with Restaurants ---
+                    // --- 🧠 SMART MATCH ---
                     const resolvedId = resolvePlaceId({ ...item, name }, existingPlaces, false, category);
                     
-                    // FIX: Strict ID Usage. If resolvePlaceId rejected the ID (due to Shield), we MUST NOT use item.id!
                     let id: string;
                     if (resolvedId) {
                         id = resolvedId;
                     } else {
-                        // Collision Check: If item.id exists but was rejected by resolvePlaceId (returned undefined),
-                        // it means it's a dangerous ID (e.g. Sight vs Restaurant). Force new ID.
                         if (item.id && existingPlaces[item.id]) {
                              id = uuidv4();
                         } else {
@@ -392,7 +385,7 @@ export const ResultProcessor = {
 
       case 'sondertage':
       case 'ideenScout':
-          // ... (IdeenScout logic) ...
+          // FIX: Add 'wildcard_ideas' to processing
           if (data) setAnalysisResult('ideenScout', data);
           if (data && data.results && Array.isArray(data.results)) {
               const existingPlaces = useTripStore.getState().project.data?.places || {};
@@ -413,7 +406,7 @@ export const ResultProcessor = {
                               city: groupLocation, 
                               location: item.location || { lat: 0, lng: 0 }, 
                               details: {
-                                  specialType: subType,
+                                  specialType: subType, // 'sunny', 'rainy', 'wildcard'
                                   duration: item.estimated_duration_minutes,
                                   note: item.planning_note,
                                   website: item.website_url,
@@ -425,18 +418,35 @@ export const ResultProcessor = {
                   };
                   processList(group.sunny_day_ideas, 'sunny');
                   processList(group.rainy_day_ideas, 'rainy');
+                  // NEW: Added Wildcard processing
+                  processList(group.wildcard_ideas, 'wildcard');
               });
-              console.log(`[IdeenScout] Added ${addedCount} special places.`);
+              console.log(`[IdeenScout] Added ${addedCount} special places (inc. Wildcards).`);
           }
           break;
 
-      case 'guide':
-          if (data) setAnalysisResult('tourGuide', data);
+      case 'tourGuide':
+          // FIX: Robust handling for TourGuide
+          if (data) {
+              setAnalysisResult('tourGuide', data);
+              // If the data contains specific tour definitions, log it
+              if (data.guide && data.guide.tours) {
+                  console.log(`[TourGuide] Persisted ${data.guide.tours.length} tours to analysis.tourGuide`);
+              }
+          }
           break;
 
+      case 'transferPlanner':
+      case 'chefPlaner':
+      case 'routeArchitect':
+      case 'routenArchitekt':
+      case 'initialTagesplaner':
+      case 'dayplan':
+        if (data) setAnalysisResult(step as any, data);
+        break;
+      
       case 'infoAutor':
       case 'infos': {
-          // ... (InfoAutor logic) ...
           if (extractedItems.length > 0) {
               const currentContent = useTripStore.getState().project.data.content || {};
               const currentInfos = Array.isArray(currentContent.infos) ? [...currentContent.infos] : [];
@@ -476,19 +486,9 @@ export const ResultProcessor = {
           break;
       }
 
-      case 'tourGuide':
-      case 'transferPlanner':
-      case 'chefPlaner':
-      case 'routeArchitect':
-      case 'routenArchitekt':
-      case 'initialTagesplaner':
-      case 'dayplan':
-        if (data) setAnalysisResult(step as any, data);
-        break;
-
       default:
         console.log(`Processor: No specific handler for ${step}`, data);
     }
   }
 };
-// --- END OF FILE 520 Zeilen ---
+// --- END OF FILE 528 Zeilen ---
