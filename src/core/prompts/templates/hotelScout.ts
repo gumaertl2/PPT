@@ -1,7 +1,5 @@
-// 01.02.2026 12:15 - FIX: Added 'user_ratings_total' to schema.
-// 31.01.2026 23:55 - FIX: Schema harmonization with Place interface (geo -> location).
-// 31.01.2026 23:55 - FIX: Corrected method name (withInstruction) & added Geo-Coordinates.
-// 31.01.2026 17:30 - FEAT: Camper Awareness. Switches to Campsites if logistics_type is camper.
+// 01.02.2026 18:05 - PROMPT FIX: Added 'user_ratings_total' to Schema.
+// Ensures Social Proof is captured (Review Count).
 // src/core/prompts/templates/hotelScout.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -12,55 +10,64 @@ export const buildHotelScoutPrompt = (payload: any): string => {
   // 1. CAMPER DETECTION
   const isCamper = ['camper', 'rv', 'wohnmobil', 'mobile_home'].includes(context.logistics_type?.toLowerCase());
   
-  const accommodationTerm = isCamper ? "Campsites / RV Parks (Stellplätze)" : "Hotels / Apartments";
-  const parkingRule = isCamper ? "MUST be suitable for large vehicles (Camper)." : "MUST have parking.";
+  // Dynamic Terminology
+  const accommodationTerm = isCamper ? "CAMPSITES / RV PARKS (Stellplätze)" : "HOTELS / APARTMENTS";
+  const strategyContext = context.is_roundtrip 
+    ? "STRATEGY: ROUNDTRIP STOP. Find a convenient rest stop near the route." 
+    : "STRATEGY: STATIONARY BASE. Find a central 'Base Camp' for day-trips.";
 
   const contextData = {
     search_hub: context.search_hub,
     duration: context.stay_duration,
     travelers: context.travelers,
     budget_level: context.budget, 
-    vehicle: isCamper ? "Camper / RV" : "Car",
-    trip_type: context.is_roundtrip ? "Roundtrip Stop" : "Stationary Base"
+    vehicle: isCamper ? "Large Vehicle (Camper/RV)" : "Car",
+    trip_mode: strategyContext
   };
 
-  const role = `You are the "Accommodation Scout". 
-  Your User travels by **${isCamper ? "CAMPER (Wohnmobil)" : "Car"}**.
-  Find the best ${accommodationTerm} in the area.`;
+  const role = `You are the **Strategic Accommodation Scout**. 
+  Your mission is not just to find a bed, but to find the perfect **Logistical Base** for the user's trip type.
+  You are searching for: **${accommodationTerm}**.`;
 
-  const instructions = `# TASK
-Find 2-3 concrete **${accommodationTerm}** in or near **"${context.search_hub}"**.
+  const instructions = `# PHASE 1: CONSTRAINT ANALYSIS
+Check the "Vehicle" and "Budget" constraints immediately.
+1. **VEHICLE CHECK:** User drives a **${isCamper ? "CAMPER" : "CAR"}**.
+   - ${isCamper ? "CRITICAL: You MUST ONLY suggest legal Campsites or RV Parks. ABSOLUTELY NO HOTELS." : "Ensure parking is available."}
+2. **BUDGET CHECK:** User budget is **"${context.budget}"**.
+   - Do not suggest luxury resorts if budget is 'low'. Do not suggest hostels if budget is 'high'.
+
+# PHASE 2: SOURCING STRATEGY
+Target Location: **"${context.search_hub}"**.
 Context: ${context.location_reasoning}
 
-# STRICT RULES
-1.  **Location:** Must be convenient for "${context.search_hub}".
-2.  **Budget:** Adhere to "${context.budget}".
-3.  **Requirements:**
-    * **Pets:** ${context.travelers.pets ? "MUST allow pets." : "Irrelevant."}
-    * **Vehicle:** ${parkingRule}
-4.  **Rating:** Google Rating > 4.0 preferred.
-5.  **Coordinates:** You MUST provide accurate Latitude/Longitude for the Map View.
+**Your Selection Criteria:**
+1. **Proximity:** The place must be logically close to the target hub to minimize driving.
+2. **Social Proof:** Look for high rating counts (>100 reviews) to ensure reliability.
+3. **Vibe:** Match the traveler group (e.g. playground for kids, quiet for couples).
+4. **Pets:** ${context.travelers.pets ? "MUST allow pets (Dog friendly)." : "Pet policy is irrelevant."}
 
-# OUTPUT REQUIREMENTS
-Explain the **"Location Match"**: Why is this ${isCamper ? "campsite" : "hotel"} perfect for the user's plan?`;
+# PHASE 3: OUTPUT GENERATION
+- Provide 2-3 top candidates.
+- **Coordinates:** You MUST provide accurate Latitude/Longitude for the Map View.
+- **Reasoning:** In 'location_match', explain specifically WHY this fits the strategy.`;
 
   const outputSchema = {
-    "_thought_process": "String (Filter check: Budget, Pets, Vehicle, Location)",
+    "_thought_process": "String (Step 1: Analyze constraints. Step 2: Check proximity & ratings...)",
     "candidates": [
       {
         "name": "String (Official Name)",
-        "address": "String (Address)",
+        "address": "String (Full Address)",
         "location": {
             "lat": "Number (e.g. 48.1351)",
             "lng": "Number (e.g. 11.5820)"
         },
-        "location_match": "String (Why good for this stop?)",
-        "description": "String (Facilities & Vibe)",
-        "price_estimate": "String",
-        "bookingUrl": "String",
-        "pros": ["String"],
-        "rating": "Number",
-        "user_ratings_total": "Number (Total count of reviews)"
+        "location_match": "String (Strategic reasoning: Why here?)",
+        "description": "String (Facilities & Vibe, max 2 sentences)",
+        "price_estimate": "String (e.g. '€€' or 'approx 50€/night')",
+        "bookingUrl": "String | null",
+        "pros": ["String (Highlight 1)", "String (Highlight 2)"],
+        "rating": "Number (4.0 - 5.0)",
+        "user_ratings_total": "Number (Count of reviews, e.g. 1250)" 
       }
     ]
   };
@@ -68,10 +75,10 @@ Explain the **"Location Match"**: Why is this ${isCamper ? "campsite" : "hotel"}
   return new PromptBuilder()
     .withOS()
     .withRole(role)
-    .withContext(contextData, "SEARCH PARAMETERS")
-    .withInstruction(instructions) // FIX: Corrected method name (Singular)
+    .withContext(contextData, "LOGISTICS DATA")
+    .withInstruction(instructions)
     .withOutputSchema(outputSchema)
-    .withSelfCheck(['research'])
+    .withSelfCheck(['research', 'safety'])
     .build();
 };
-// --- END OF FILE 74 Zeilen ---
+// --- END OF FILE 87 Zeilen ---

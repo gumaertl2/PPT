@@ -1,4 +1,5 @@
-// 31.01.2026 00:00 - FEAT: "Exhaustive Search" (Gierig). No limits. Find ALL valid candidates. 50km Radius.
+// 01.02.2026 18:20 - PROMPT UPGRADE: Golden Rules & "Deep Scan" Mode.
+// Preserves "Exhaustive Search" logic (No Limits) for RAM-processing chain.
 // src/core/prompts/templates/foodScout.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -14,49 +15,47 @@ export const buildFoodScoutPrompt = (payload: any): string => {
     .filter((id: string) => ['food', 'restaurants', 'wine', 'fine_dining', 'local_food'].includes(id));
     
   const specificCuisines = foodInterests.length > 0 
-    ? `Focus specifically on these vibes: ${foodInterests.join(', ')}` 
+    ? `Focus on these vibes: ${foodInterests.join(', ')}` 
     : "Search broadly for high-quality local cuisine.";
 
   const allowedSources = Array.isArray(context.guides_list) && context.guides_list.length > 0
       ? context.guides_list.join(', ') 
       : "Internationally recognized premium restaurant guides";
 
-  const role = `Du bist der "Food-Scout". Deine Aufgabe ist eine **VOLLSTÄNDIGE** Erfassung der Gastronomie.
-  NICHT filtern. NICHT limitieren. Wir brauchen Masse für den späteren Geo-Filter.`;
+  // 1. ROLE: Strategic Scanner (High Volume)
+  const role = `You are the **Strategic Culinary Sourcing Agent** ("The Food-Scanner").
+  Your operation mode is **EXHAUSTIVE / DEEP SCAN**.
+  Your goal is to create a massive "Longlist" of candidates for the downstream geometric filter.
+  **NEVER FILTER RESULTS YOURSELF.** We need quantity AND quality.`;
 
-  const mainInstruction = `# TASK
-List **ALL** restaurant candidates you can find in the area of **${locationName}** (Radius: ~${searchRadius}).
-
-# STRATEGY (EXHAUSTIVE / VOLLSTÄNDIGKEIT)
-1. **NO LIMITS:** Do NOT stop at 8 or 10. If there are 50 valid restaurants, list 50.
-2. **NO PRE-FILTERING:** If a restaurant is in one of the allowed guides, TAKE IT.
-3. **REGIONAL COVERAGE:** Do not just look at the city center. Look at the surrounding villages and the whole region.
-
-# ALLOWED SOURCES (SSOT)
-Strictly stick to these guides:
+  const mainInstruction = `# PHASE 1: SOURCE CONFIGURATION (SSOT)
+You are restricted to these official guides:
 👉 **${allowedSources}**
 
-# INPUT-LOCATIONS (ANCHORS)
-Start your search around these points:
-${(context.search_locations || []).join(', ')}
+# PHASE 2: EXHAUSTIVE SCANNING PROTOCOL (NO LIMITS)
+Target: **${locationName}** (Radius: ~${searchRadius})
+1. **NO ARTIFICIAL LIMITS:** Do NOT stop at 10 results. If the guides list 50 places, RETURN 50 PLACES.
+2. **NO PRE-FILTERING:** Do not check opening hours or prices yet. Just capture valid guide entries.
+3. **REGIONAL SCOPE:** Scan the city center AND the surrounding villages/region.
 
-# CRITICAL VALIDATION
-1. **Real Names Only:** No guide names as restaurant names.
-2. **Coordinates:** Essential for the Geo-Filter later.
+# PHASE 3: DATA INTEGRITY
+1. **Real Names Only:** Verify the name. Do not invent places.
+2. **Coordinates (CRITICAL):** You MUST provide Lat/Lng. The system calculates distances based on your coordinates.
+3. **Source Tracking:** Note which guide recommended the place.
 
 ${specificCuisines}`;
 
   const outputSchema = {
-    "_thought_process": "String (Strategy: List scanned locations. Confirming I am listing ALL findings without artificial limits.)",
-    "resolved_search_locations": ["String (List of REAL city names found)"],
+    "_thought_process": "String (Confirming strategy: 'Scanning [Guides] for [Location]. I will list ALL valid findings without limiting count...')",
+    "resolved_search_locations": ["String (List of REAL city names you are scanning)"],
     "candidates": [
       {
-        "name": "String",
+        "name": "String (Official Name)",
         "city": "String",
-        "address": "String",
+        "address": "String (Full Address)",
         "location": { "lat": "Number", "lng": "Number" },
-        "guides": ["String"],
-        "source_url": "String"
+        "guides": ["String (Name of the Guide, e.g. Michelin)"],
+        "source_url": "String | null"
       }
     ]
   };
@@ -67,7 +66,7 @@ ${specificCuisines}`;
     .withContext(context, "SCANNER CONTEXT")
     .withInstruction(mainInstruction)
     .withOutputSchema(outputSchema)
-    .withSelfCheck(['basic'])
+    .withSelfCheck(['research'])
     .build();
 };
-// --- END OF FILE 69 Zeilen ---
+// --- END OF FILE 74 Zeilen ---
