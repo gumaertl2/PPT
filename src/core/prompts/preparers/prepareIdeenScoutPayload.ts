@@ -1,5 +1,5 @@
-// 28.01.2026 19:30 - FIX: Renamed 'titel' to 'name' to pass PayloadBuilder validation (sliceData requires 'name').
-// 28.01.2026 19:00 - FIX: Added Fallback Region for IdeenScout if no Hubs are defined.
+// 01.02.2026 21:00 - FEAT: Added User Profile (Interests/Vibe) to Task Payload.
+// Preserves strict Hub-Detection & Blocked-List logic.
 // src/core/prompts/preparers/prepareIdeenScoutPayload.ts
 
 import type { TripProject } from '../../types';
@@ -16,7 +16,7 @@ const isSameLocation = (locA: string, locB: string): boolean => {
 };
 
 export const prepareIdeenScoutPayload = (project: TripProject): any[] => {
-    const { userInputs, analysis, data } = project; // Removed meta
+    const { userInputs, analysis, data } = project;
     
     // 1. IDENTIFY HOME (Origin) - Safe Access
     const log = userInputs.logistics as any;
@@ -51,7 +51,6 @@ export const prepareIdeenScoutPayload = (project: TripProject): any[] => {
     );
 
     // --- FALLBACK IF NO HUBS FOUND ---
-    // Should typically not be needed if RouteArchitect ran, but prevents empty prompt crashes.
     if (validHubs.length === 0) {
         const region = userInputs.logistics.mode === 'stationaer' 
             ? userInputs.logistics.stationary.region 
@@ -62,23 +61,30 @@ export const prepareIdeenScoutPayload = (project: TripProject): any[] => {
         }
     }
 
-    // 3. GENERATE BLOCKED LIST
+    // 3. GENERATE BLOCKED LIST (Context for Deduplication)
     const plannedPlaces = Object.values(data.places || {});
     const blockedNames = plannedPlaces
         .map(p => p.name)
         .filter(n => n && n.length > 2);
 
-    // 4. GENERATE TASKS
+    // 4. PREPARE PROFILING DATA (For Wildcard Logic)
+    const userInterests = userInputs.selectedInterests || [];
+    const userVibe = userInputs.vibe || "General";
+
+    // 5. GENERATE TASKS
     return validHubs.map((hub, index) => {
         return {
             id: `ideen_scout_${index}`,
             typ: 'ideas',
-            // CRITICAL FIX: PayloadBuilder.sliceData requires 'name' property to be present!
-            // Was 'titel' before, which caused the items to be filtered out silently.
             name: `Ideas for ${hub}`, 
             location: hub,
-            blocked: blockedNames 
+            blocked: blockedNames,
+            // NEW: Inject Profile Context directly into the task for atomic processing
+            user_profile: {
+                interests: userInterests,
+                vibe: userVibe
+            }
         };
     });
 };
-// --- END OF FILE 95 Zeilen ---
+// --- END OF FILE 105 Zeilen ---

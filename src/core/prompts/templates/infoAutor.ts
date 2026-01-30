@@ -1,46 +1,64 @@
-// 26.01.2026 17:15 - FIX: InfoAutor Template.
-// Adds strict 'Live Research' permission for factual chapters (Visa, Customs).
+// 01.02.2026 22:15 - PROMPT HYBRID: Merged V40 Payload Pattern with Legacy Arguments.
+// Focused on "Appendix/Meta-Info" tasks (Visa, Toll, Safety).
 // src/core/prompts/templates/infoAutor.ts
 
 import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
 
 export const buildInfoAutorPrompt = (
-    project: TripProject,
-    tasksChunk: any[], 
-    currentChunk: number = 1, 
-    totalChunks: number = 1, 
+    projectOrPayload: TripProject | any,
+    tasksChunk?: any[],
+    currentChunk: number = 1,
+    totalChunks: number = 1,
     detectedCountries: string[] = []
 ): string | null => {
-    
-    if (!tasksChunk || tasksChunk.length === 0) {
-        return null;
-    }
 
-    const { userInputs, analysis } = project;
-    const { logistics } = userInputs;
-    
-    const chunkingInfo = totalChunks > 1 ? ` (Block ${currentChunk}/${totalChunks})` : '';
-
-    // 1. STRATEGIC BRIEFING (V40 English Key)
-    const strategicBriefing = (analysis.chefPlaner as any)?.strategic_briefing?.sammler_briefing || 
-                              (analysis.chefPlaner as any)?.strategisches_briefing?.sammler_briefing || 
-                              "";
-
-    // Data Mapping
+    // 1. RESOLVE INPUT (Hybrid Support)
+    let tasks = tasksChunk;
+    let strategicBriefing = "";
+    let chunkInfo = "";
     let home = 'Unknown';
-    if (logistics.mode === 'roundtrip' && logistics.roundtrip.startLocation) {
-        home = logistics.roundtrip.startLocation;
-    } else if (logistics.mode === 'stationaer' && (logistics.stationary as any).origin) {
-        home = (logistics.stationary as any).origin;
+    let arrivalType = 'Plane/Car';
+    let countriesListString = "";
+
+    if (projectOrPayload.context && projectOrPayload.instructions) {
+        // V40 Payload Mode
+        const payload = projectOrPayload;
+        tasks = payload.context.tasks_chunk || [];
+        strategicBriefing = payload.context.strategic_guideline || "";
+        chunkInfo = payload.context.chunk_info || "";
+        home = payload.context.home_location || "Unknown";
+        arrivalType = payload.context.arrival_type || "Unknown";
+        countriesListString = payload.context.target_countries || "Unknown";
+    } else {
+        // Legacy Project Mode
+        const project = projectOrPayload as TripProject;
+        if (!tasks || tasks.length === 0) return null;
+        
+        const { userInputs, analysis } = project;
+        const { logistics } = userInputs;
+
+        chunkInfo = totalChunks > 1 ? ` (Block ${currentChunk}/${totalChunks})` : '';
+        strategicBriefing = (analysis.chefPlaner as any)?.strategic_briefing?.sammler_briefing || "";
+
+        // Data Mapping
+        if (logistics.mode === 'roundtrip' && logistics.roundtrip.startLocation) {
+            home = logistics.roundtrip.startLocation;
+        } else if (logistics.mode === 'stationaer' && (logistics.stationary as any).origin) {
+            home = (logistics.stationary as any).origin;
+        }
+        arrivalType = (logistics as any).arrivalType || 'Plane/Car';
+        const uniqueCountries = [...new Set(detectedCountries)].filter(Boolean);
+        countriesListString = uniqueCountries.length > 0 ? uniqueCountries.join(', ') : 'Unknown (please determine)';
     }
 
-    const arrivalType = (logistics as any).arrivalType || 'Plane/Car';
-    const uniqueCountries = [...new Set(detectedCountries)].filter(Boolean);
-    const countriesListString = uniqueCountries.length > 0 ? uniqueCountries.join(', ') : 'Unknown (please determine)';
+    // Safety Check
+    if (!tasks || tasks.length === 0) {
+        return "ERROR: No tasks provided for Info Autor.";
+    }
 
-    // Generate Task Logic
-    const taskList = tasksChunk.map(p => {
+    // 2. GENERATE TASK LIST
+    const taskList = tasks.map((p: any) => {
         // COMPATIBILITY: Support both new 'instruction' and legacy 'anweisung'
         let instruction = p.instruction || p.anweisung || `Create a general, useful description for '${p.title || p.titel}'.`;
         const title = p.title || p.titel || "Unknown Title";
@@ -55,8 +73,10 @@ export const buildInfoAutorPrompt = (
         return `- **ID "${p.id}" (Title: ${title}, Type: ${type}):**\n  ${instruction}`;
     }).join('\n\n');
 
-    const role = `You are an experienced Editor-in-Chief for travel guides, specializing in logistics and legal advice. Your task is to fill text placeholders with precise, researched facts.`;
+    // 3. ROLE
+    const role = `You are an experienced Editor-in-Chief for travel guides, specializing in logistics and legal advice. Your task is to fill text placeholders with precise, researched facts (Visa, Tolls, Safety).`;
 
+    // 4. INSTRUCTIONS
     const instructions = `# EDITORIAL STYLE
 - **Focus:** Utility value, safety, and avoiding tourist traps.
 - **Style:** Factual, direct, warning where necessary.
@@ -67,18 +87,17 @@ export const buildInfoAutorPrompt = (
 3. **Validation:** If you find conflicting info, use the most recent official source (e.g. embassy websites).
 
 # QUALITY REQUIREMENTS
-1.  **Explain instead of listing:** Write at least one full sentence for each point.
-2.  **The W-Questions:** Do not just say "There is a toll", but: WHAT does it cost? WHERE do you buy it?
-3.  **Length:** Respect the specific length instructions in each task (e.g. "half a page").
+1. **Explain instead of listing:** Write at least one full sentence for each point.
+2. **The W-Questions:** Do not just say "There is a toll", but: WHAT does it cost? WHERE do you buy it?
+3. **Length:** Respect the specific length instructions in each task (e.g. "half a page").
 
-# TASKS TO PROCESS${chunkingInfo}
+# TASKS TO PROCESS${chunkInfo}
 Here is the list of IDs and corresponding instructions (AIA).
 
 ---
 ${taskList}
 ---`;
 
-    // FIX: Schema converted to V40 English keys
     const outputSchema = {
       "_thought_process": [
         "String (Step 1: Analyze task...)",
@@ -103,4 +122,4 @@ ${taskList}
         .withSelfCheck(['basic', 'research'])
         .build();
 };
-// --- END OF FILE 108 Zeilen ---
+// --- END OF FILE 128 Zeilen ---

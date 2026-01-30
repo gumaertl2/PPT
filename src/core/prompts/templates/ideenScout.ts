@@ -1,86 +1,82 @@
-// 28.01.2026 21:50 - FIX: Added 'location' { lat, lng } to schema to enable Map Pins for Ideas.
-// 26.01.2026 17:45 - FEAT: IdeenScout Batch Update.
+// 01.02.2026 21:10 - PROMPT REWRITE: Batch-Mode with Wildcard Feature.
+// Processes multiple locations (Hubs) and generates Sun/Rain/Surprise ideas.
 // src/core/prompts/templates/ideenScout.ts
 
-import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
 
-export const buildIdeenScoutPrompt = (
-    project: TripProject, 
-    tasksChunk: any[], // List of hubs to process
-    currentChunk: number = 1,
-    totalChunks: number = 1
-): string | null => {
+export const buildIdeenScoutPrompt = (payload: any): string => {
+  const { context, instructions } = payload;
+  
+  // Batch Context: The 'PayloadBuilder' usually puts the sliced items into 'tasks_chunk'
+  // Fallback: If 'context' IS the array (legacy behavior), handle it.
+  const tasksChunk = Array.isArray(context) ? context : (context.tasks_chunk || []);
 
   // Safety Check
   if (!tasksChunk || tasksChunk.length === 0) {
-      return null;
+      return "ERROR: No tasks provided for Idea Scout.";
   }
 
-  const { userInputs, analysis } = project;
-  const { selectedInterests } = userInputs;
-  const interestsString = selectedInterests.join(', ');
-
-  const chunkingInfo = totalChunks > 1 ? ` (Block ${currentChunk}/${totalChunks})` : '';
-
-  // 1. STRATEGIC BRIEFING
-  const strategicBriefing = (analysis.chefPlaner as any)?.strategic_briefing?.sammler_briefing || 
-                            (analysis.chefPlaner as any)?.strategisches_briefing?.sammler_briefing || 
-                            "";
-
-  // 2. BUILD TASK LIST
-  const taskInstructions = tasksChunk.map(task => {
+  // 1. BUILD TASK LIST (Batch Instruction)
+  const taskInstructions = tasksChunk.map((task: any) => {
       const blockedList = task.blocked && task.blocked.length > 0 
           ? `\n   - **ALREADY PLANNED (DO NOT REPEAT):** ${JSON.stringify(task.blocked)}` 
           : "";
+      
+      const interests = task.user_profile?.interests?.join(', ') || "General";
+      const vibe = task.user_profile?.vibe || "Standard";
 
       return `
 ### LOCATION: "${task.location}" (ID: ${task.id})
-1. **Scenario Sunny:** Find 2-3 outdoor ideas (relaxing, parks, views).
-2. **Scenario Rainy:** Find 2-3 indoor ideas (museums, cozy cafes).
-3. **Constraints:** ${blockedList}
-4. **Fallback:** If "${task.location}" is too small, search in the surrounding region (20-30min drive).`;
+**Profile:** Interests [${interests}], Vibe [${vibe}]
+1. **Scenario Sunny:** Find 2-3 outdoor ideas (Parks, Views, Activity). Must match Profile.
+2. **Scenario Rainy:** Find 2-3 indoor ideas (Museums, Cafes, Wellness). Must match Profile.
+3. **Scenario Wildcard:** Find 1 "Local Secret" (Surprise). **IGNORE PROFILE!** Search for something unique/weird/cult for this region.
+4. **Constraints:** ${blockedList}
+5. **Fallback:** If "${task.location}" is too small, search in the surrounding region (20-30min drive).`;
   }).join('\n\n----------------\n\n');
 
-  const role = `You are a creative and local "Idea Scout". Your task is to find unique and suitable activities for special days for a LIST of locations. You create **NO** schedule, but a flexible, detailed pool of ideas.`;
+  // 2. ROLE
+  const role = instructions?.role || `You are the **Inspiration Agent** and **Local Insider**.
+  Your task is to find unique activities for a LIST of locations.
+  You create **NO** schedule, but a flexible pool of ideas (Sun, Rain, Surprise).`;
 
-  const instructions = `# YOUR MISSION${chunkingInfo}
-Process the following locations and find alternative ideas for "Sunny" and "Rainy" days.
+  // 3. INSTRUCTIONS
+  const promptInstructions = `# YOUR MISSION
+Process the following locations and find alternative ideas.
 Research **live on the internet** for every idea.
 
 # TASK LIST
 ${taskInstructions}
 
-# MANDATORY RULES (APPLY TO ALL)
+# MANDATORY RULES
 - **Rule 1 (No Duplicates):** Strictly respect the "ALREADY PLANNED" list for each location.
-- **Rule 2 (Inspiration):** Be guided by the user interests: ${interestsString}.
-- **Rule 3 (Fact Depth):** An address is mandatory. Unknown is \`null\`.
-- **Rule 4 (Regional Fallback):** If a place has no indoor options, expand search radius immediately and note it.
+- **Rule 2 (Geo-Data):** You MUST provide Lat/Lng coordinates for every idea (Critical for Map Pins).
+- **Rule 3 (Wildcard):** The Wildcard MUST be a contrast to the user's usual interests.
 
 # OUTPUT SCHEMA
 Return a SINGLE valid JSON object.`;
 
-  // FIX: Schema converted to V40 English keys & Batch Structure
+  // 4. SCHEMA (V40 Batch + Wildcard)
   const ideaSchema = {
       "name": "String",
       "description": "String (Why is this a great idea?)",
+      "category": "String (e.g. Nature, Culture, Secret)",
       "estimated_duration_minutes": "Integer",
       "address": "String (Google Maps ready)",
-      // FIX: Explicitly request coordinates so pins appear on the map
-      "location": { "lat": "Number", "lng": "Number" },
+      "location": { "lat": "Number", "lng": "Number" }, // CRITICAL for Map Pins
       "website_url": "String | null",
       "planning_note": "String (Tips, e.g. 'Visit in the morning')"
   };
 
-  // NEW: Results Array for Batch Processing
   const outputSchema = {
-    "_thought_process": "String (Analyze locations & identify creative gaps)",
+    "_thought_process": "String (Analyze locations, check blocked items, find gaps...)",
     "results": [
         {
-            "id": "String (Must match Task ID)",
+            "id": "String (MUST MATCH INPUT TASK ID)",
             "location": "String (City Name)",
             "sunny_day_ideas": [ideaSchema],
-            "rainy_day_ideas": [ideaSchema]
+            "rainy_day_ideas": [ideaSchema],
+            "wildcard_ideas": [ideaSchema] // New Wildcard Array
         }
     ]
   };
@@ -88,10 +84,10 @@ Return a SINGLE valid JSON object.`;
   return new PromptBuilder()
     .withOS()
     .withRole(role)
-    .withContext(strategicBriefing, "STRATEGIC GUIDELINE")
-    .withInstruction(instructions)
+    .withContext(context.strategic_briefing || "", "STRATEGIC GUIDELINE")
+    .withInstruction(promptInstructions)
     .withOutputSchema(outputSchema)
-    .withSelfCheck(['basic', 'research'])
+    .withSelfCheck(['creative', 'research'])
     .build();
 };
-// --- END OF FILE 94 Zeilen ---
+// --- END OF FILE 98 Zeilen ---

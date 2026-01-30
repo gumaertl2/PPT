@@ -1,56 +1,83 @@
-// 26.01.2026 18:15 - FIX: TourGuide Template Update.
-// Consumes pre-processed payload from 'prepareTourGuidePayload'.
-// Now utilizes GEO-COORDINATES provided in context for better clustering.
+// 01.02.2026 20:00 - PROMPT REWRITE: "Chief Itinerary Architect".
+// Implements strict ID Pass-through to ensure ResultProcessor linkage.
+// Focus on Geo-Clustering and Logical Flow.
 // src/core/prompts/templates/tourGuide.ts
 
 import { PromptBuilder } from '../PromptBuilder';
 
 export const buildTourGuidePrompt = (payload: any): string => {
-  // 1. Unpack Payload (from Preparer)
   const { context, instructions } = payload;
-  const sightsForPrompt = context.sights;
+  
+  // 1. DATA PREPARATION (Format for AI visibility)
+  // The Preparer must provide 'sights_list' with { id, name, location, category }
+  const sightsData = Array.isArray(context.sights_list) 
+    ? context.sights_list.map((s: any) => `- [ID: ${s.id}] ${s.name} (${s.category || 'General'}) @ ${s.location?.lat || '?'},${s.location?.lng || '?'}`).join('\n')
+    : "No sights provided.";
 
-  // 2. Setup Builder
-  // We use the Role defined in the Preparer (or fallback if missing)
-  const role = instructions?.role || `You are an experienced Travel Guide Author and Geographic Analyst. Your strength is transforming a loose collection of places into a compelling and logical narrative that a traveler can use for self-guided exploration.
+  const constraintsText = `
+  - Duration: ${context.duration_days} Days
+  - Pace: ${context.preferences?.pace || 'Moderate'}
+  - Fixed Appointments: ${JSON.stringify(context.constraints?.fixed_appointments || [])}
+  `;
 
-Your task is to take the **entire list** of sights and organize them into geographically coherent "Exploration Tours". You create **NO** time schedule, but a purely spatial structure.`;
+  // 2. ROLE
+  const role = instructions.role || `You are the **Chief Itinerary Architect** ("The Tour Guide").
+  Your task is to organize a chaotic list of sights into a logical, flow-optimized day-by-day itinerary.
+  You maximize experience quality and minimize travel stress.`;
 
-  const promptInstructions = `# WORK STEPS
-1.  **Analysis:** Analyze the geographic location (Lat/Lng) of all places in the provided list.
-2.  **Clustering:** Group the places into meaningful, dense clusters (e.g., by neighborhood). Aim for 2-5 clusters.
-3.  **Naming:** Give each cluster a creative title (e.g., "Tour 1: The Historic Heart").
-4.  **Sequencing:** Arrange the sights **within each cluster** in a logical order for a walk.
-5.  **JSON Creation:** Create the final JSON object.
+  // 3. INSTRUCTIONS
+  const promptInstructions = `# INPUT SIGHTS (POOL)
+${sightsData}
 
-# MANDATORY RULES
-- **Rule 1 (Completeness):** EVERY sight from the input list MUST appear in exactly ONE tour.
-- **Rule 2 (No Timing):** Do NOT add times or time slots.
-- **Rule 3 (ID Integrity):** Use the exact \`id\` values from the input list.`;
+# LOGISTICS & PREFERENCES
+${constraintsText}
 
-  // FIX: Schema converted to V40 English keys & CoT added (Preserved from original)
+# MISSION
+1. **Clustering:** Group nearby sights into the same day to minimize travel time.
+2. **Logic & Flow:** Arrange the daily order logically (e.g. Start at the castle on the hill, walk down to the old town).
+3. **Pacing:** Respect the user's pace. 
+   - Relaxed: Max 2-3 major sights/day.
+   - Intense: Pack as much as possible.
+4. **Mandatory:** Include ALL fixed appointments at their specific times.
+
+# CRITICAL PROTOCOL: ID INTEGRITY
+You are working with database objects.
+1. **Pass-through:** When scheduling a sight, you **MUST** return its exact \`sight_id\` from the Input list.
+2. **No Hallucinations:** Do not invent new sights. Only use what is in the pool.
+3. **Leftovers:** If a sight strictly does not fit the timeline, list its ID in \`unassigned_sight_ids\`.
+
+# OUTPUT FORMAT
+Return a strictly valid JSON object.`;
+
+  // 4. SCHEMA
   const outputSchema = {
-    "_thought_process": "String (Geo-Analysis & Clustering Strategy)",
-    "guide": {
-      "title": "String (e.g. 'Your personal guide to Paris')",
-      "intro": "String (Short, inviting introduction)",
-      "tours": [
-        {
-          "tour_title": "String",
-          "tour_description": "String (2-3 sentences about the area)",
-          "suggested_order_ids": ["String (ID of the sight)"]
-        }
-      ]
-    }
+    "_thought_process": "String (Step 1: Geo-Clustering. Step 2: Assign days. Step 3: Optimize daily flow...)",
+    "itinerary_days": [
+      {
+        "day_index": "Number (1-based)",
+        "title": "String (Thematic Title of the day)",
+        "summary": "String (Brief explanation of the flow)",
+        "activities": [
+          {
+            "sight_id": "String (MUST MATCH INPUT ID EXACTLY)",
+            "time_slot": "String (e.g. '09:00 - 11:00')",
+            "duration_min": "Number (Estimate)",
+            "travel_time_after_min": "Number (Estimate to next stop)",
+            "reasoning": "String (Why this order?)"
+          }
+        ]
+      }
+    ],
+    "unassigned_sight_ids": ["String (IDs of sights that could not be scheduled)"]
   };
 
   return new PromptBuilder()
     .withOS()
     .withRole(role)
-    .withContext(sightsForPrompt, "DATA BASIS (Complete list of all ideas with Geo-Coords)")
+    .withContext(context, "TRIP CONTEXT")
     .withInstruction(promptInstructions)
     .withOutputSchema(outputSchema)
-    .withSelfCheck(['basic', 'planning'])
+    .withSelfCheck(['logic', 'planning'])
     .build();
 };
-// --- END OF FILE 62 Zeilen ---
+// --- END OF FILE 88 Zeilen ---

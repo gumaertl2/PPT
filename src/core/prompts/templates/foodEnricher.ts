@@ -1,15 +1,13 @@
-// 31.01.2026 23:40 - FIX: Added Geo-Coordinates (Map Fix) to Military Drill Version.
-// 30.01.2026 02:00 - FIX: "Military Drill" - Added Self-Control Loop (Input vs Output Count) to prevent ID loss.
-// 29.01.2026 23:45 - FIX: Added 'id' pass-through to prevent duplicates. Renamed rating_count to user_ratings_total for consistency.
-// 29.01.2026 15:45 - FEAT: Expanded FoodEnricher Schema (Ratings, Signature Dish, Logistics) & Critic Persona.
+// 01.02.2026 21:30 - PROMPT FINAL: "The Military Drill Enricher".
+// Features: ID Pass-through Loop, Award Detection, Strict Text Template.
 // src/core/prompts/templates/foodEnricher.ts
 
 import { PromptBuilder } from '../PromptBuilder';
 
 export const buildFoodEnricherPrompt = (payload: any): string => {
-  // 1. Unpack Payload
+  // 1. Unpack Payload (Standard V40 Pattern)
   const { context, instructions } = payload;
-   
+  
   const role = instructions?.role || `You are the "Food-Enricher", a hybrid intelligence agent acting as a premium Restaurant Critic.`;
   const editorialGuideline = instructions?.editorial_guideline || "";
 
@@ -50,7 +48,7 @@ Before outputting JSON, you MUST verify:
 
   // 3. Schema
   const outputSchema = {
-    "_thought_process": "String (Step 1: Count input items. Step 2: Research. Step 3: Verify Output Count == Input Count. CONFIRM MATCH!)",
+    "_thought_process": "String (Step 1: Count input items. Step 2: Research Awards & Coordinates. Step 3: Verify Output Count matches Input Count. CONFIRM!)",
     "enriched_candidates": [
       {
         "id": "String (CRITICAL: Copy exactly from input! Do NOT change!)",
@@ -87,4 +85,4 @@ Before outputting JSON, you MUST verify:
     .withSelfCheck(['research']) 
     .build();
 };
-// --- END OF FILE 97 Zeilen ---
+// --- END OF FILE 99 Zeilen ---

@@ -1,71 +1,58 @@
-// 31.01.2026 15:10 - FEAT: Enforced District-Level Precision for Major Cities (Roundtrip & Stationary).
-// 29.01.2026 17:30 - FEAT: Refactored GeoAnalyst to "Location Strategist" (Cluster Analysis).
-// 23.01.2026 15:50 - FIX: Synchronized Schema with CoT Instruction (added _thought_process).
-// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
+// 01.02.2026 19:50 - MERGE: Combined V40 Payload Pattern with User's Detailed Logic.
+// Restored strict 'Granularity Rules' and 'Logistics Checks'.
+// Fixed: Consumes 'sights_cluster' from Preparer to enable true Center-of-Gravity analysis.
 // src/core/prompts/templates/geoAnalyst.ts
 
-import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
 
-export const buildGeoAnalystPrompt = (project: TripProject): string => {
-  const { userInputs, analysis } = project;
-  const { logistics } = userInputs;
+export const buildGeoAnalystPrompt = (payload: any): string => {
+  const { context, instructions } = payload;
 
-  // 1. STRATEGIC BRIEFING
-  const strategicBriefing = (analysis.chefPlaner as any)?.strategic_briefing?.sammler_briefing || 
-                            (analysis.chefPlaner as any)?.strategisches_briefing?.sammler_briefing || 
-                            "";
+  // 1. DATA PREPARATION (The "Missing Link" Fix)
+  // We format the cluster so the AI actually sees the locations.
+  const clusterData = Array.isArray(context.sights_cluster) && context.sights_cluster.length > 0
+    ? context.sights_cluster.map((s: any) => `- ${s.name} (${s.category}) @ ${s.location?.lat},${s.location?.lng}`).join('\n')
+    : "No specific sights pre-selected. Rely on general destination knowledge.";
 
-  // 2. DETERMINE MODE & CONTEXT
-  let geoMode = "";
-  let taskDescription = "";
-  
-  if (logistics.mode === 'stationaer') {
-    geoMode = "STATIONARY (District Finder)";
-    const dest = logistics.stationary.destination || 'Destination';
-    taskDescription = `Target: ${dest}.
-    Task: Analyze the provided 'SIGHTS_CLUSTER'. Determine the **optimal district/neighborhood** in ${dest} to use as a base.
-    Goal: Minimize travel times to the sights while respecting the vibe.`;
-  } else {
-    geoMode = "ROUNDTRIP (Hub Finder)";
-    const stops = logistics.roundtrip.stops.map(s => s.location).join(' -> ');
-    taskDescription = `Route: ${stops}.
-    Region: ${logistics.roundtrip.region}.
-    Task: Identify the best strategic overnight stops (Hubs) along this route.
-    **CRITICAL:** For major cities (e.g. Munich, Hamburg), you **MUST specify the District/Neighborhood** (e.g. 'Munich - Schwabing') that is closest to the active sights/activities. Do not just output the city name.`;
-  }
+  // 2. ROLE DEFINITION
+  const role = instructions.role || `You are the **Chief Location Strategist** ("The Geo Analyst"). 
+  Your job is NOT to find hotels yet. Your job is to define the optimal **Geographic Search Area** (District or Hub) for the Hotel Scout.
+  You think in terms of "Logistical Efficiency" and "Vibe Match".`;
 
-  const contextData = {
-    mode: geoMode,
-    arrival_type: (userInputs.dates.arrival as any).type,
-    travel_season: userInputs.dates.start // Relevant for traffic/weather
-  };
+  // 3. INSTRUCTIONS (Restored User's Detailed Logic)
+  const promptInstructions = `# DATA BASIS: SIGHTS CLUSTER
+The user wants to visit these locations:
+${clusterData}
 
-  const role = `You are the "Geo Analyst" and "Location Strategist". 
-  You do not look for hotels yet. You define the **Search Area** for the Hotel Scout.
-  Your goal is Logistical Efficiency.`;
+# MISSION
+${instructions.task_override}
 
-  const instructions = `# TASK
-${taskDescription}
+# ANALYSIS LOGIC (CHAIN OF THOUGHT)
+1. **Center of Gravity:** - Look at the 'SIGHTS CLUSTER' above. Where is the geometric center of the activities?
+   - Do not just pick the center of the city if all sights are in the south!
 
-# ANALYSIS LOGIC
-1.  **Center of Gravity:** Look at the distribution of sights/activities. Where is the center?
-2.  **Granularity Rule:** If a target is a large city (>100k inhabitants), providing a generic city name is a FAILURE. You must pinpoint the optimal district.
-3.  **Logistics Check:** * If Car: Suggest areas with parking / outskirts or specific districts with good connections. Avoid pedestrian zones.
-    * If Train/Flight: Suggest Central Station or City Center proximity.
-4.  **Vibe Match:** Match the user's vibe (${userInputs.vibe}) with the district (e.g. "Hipster" -> Arts District, "Quiet" -> Suburbs).
+2. **Granularity Rule (CRITICAL):** - **Small Town:** The City Name is sufficient.
+   - **Metropolis (>100k):** Providing a generic city name (e.g., "London", "Berlin") is a **FAILURE**. 
+   - You MUST pinpoint the optimal **District / Neighborhood** (e.g., "Berlin-Mitte", "London-Soho", "Munich-Schwabing").
+
+3. **Logistics Check:** - **User Mode:** ${context.mode} (Arrival: ${context.arrival?.type || 'unknown'})
+   - **Car:** Suggest areas with parking, outskirts, or districts with good highway access. Avoid pure pedestrian zones.
+   - **Train/Flight:** Suggest areas near Central Station or with excellent public transport links to the center.
+
+4. **Vibe Match:** - Ensure the district matches the general travel vibe.
+   - (e.g. "Hipster" -> Arts District, "Quiet" -> Green Suburbs, "Luxury" -> City Center).
 
 # OUTPUT
 Recommend 1-2 specific areas/hubs that are strategically perfect.`;
 
   const outputSchema = {
-    "_thought_process": "String (Analyze Sights Distribution & Logistics. Explain why this District?)",
+    "_thought_process": "String (Step 1: Map the sights. Step 2: Identify the geometric center. Step 3: Select District based on Transport Mode & Vibe...)",
     "recommended_hubs": [
       {
-        "hub_name": "String (Name of City OR Specific District, e.g. 'Berlin - Mitte' - MANDATORY for cities)",
+        "hub_name": "String (Name of City OR Specific District, e.g. 'Berlin - Mitte' - MANDATORY for major cities)",
         "suitability_score": "Integer (1-10)",
         "pros": ["String (Logistics)", "String (Vibe)"],
-        "cons": ["String"],
+        "cons": ["String (e.g. 'Expensive parking', 'Far from center')"],
         "suitable_for": "String (e.g. 'Short Walking Distances', 'Car Travelers')"
       }
     ]
@@ -74,11 +61,11 @@ Recommend 1-2 specific areas/hubs that are strategically perfect.`;
   return new PromptBuilder()
     .withOS()
     .withRole(role)
-    .withContext(contextData, "GEO PARAMETERS")
-    .withContext(strategicBriefing, "STRATEGIC GUIDELINE")
-    .withInstruction(instructions)
+    .withContext(context, "GEO PARAMETERS")
+    // Note: Strategic Briefing should ideally be in context, but logic holds without it for pure Geo-Analysis
+    .withInstruction(promptInstructions)
     .withOutputSchema(outputSchema)
-    .withSelfCheck(['planning'])
+    .withSelfCheck(['planning', 'logic'])
     .build();
 };
-// --- END OF FILE 87 Zeilen ---
+// --- END OF FILE 82 Zeilen ---
