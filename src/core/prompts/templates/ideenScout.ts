@@ -1,5 +1,5 @@
-// 01.02.2026 23:00 - FIX: Restored Hybrid Signature for PayloadBuilder compatibility.
-// Changed 'creative' check to 'planning' to satisfy TS Types.
+// 01.02.2026 23:45 - FIX: Resolved TS6133 (Unused Variables).
+// Restored 'chunkInfo' logic to utilize currentChunk/totalChunks parameters correctly.
 // src/core/prompts/templates/ideenScout.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -15,20 +15,28 @@ export const buildIdeenScoutPrompt = (
   // 1. RESOLVE INPUT (Hybrid Support)
   let tasks = tasksChunk;
   let strategicBriefing = "";
-  let contextData: any = {};
+  let chunkInfo = "";
 
   if (projectOrPayload.context && projectOrPayload.instructions) {
       // V40 Payload Mode
       const payload = projectOrPayload;
       tasks = payload.context.tasks_chunk || [];
       strategicBriefing = payload.context.strategic_briefing || "";
-      contextData = payload.context;
+      // Try to get chunk info from payload context first
+      if (payload.context.chunk_info) {
+         chunkInfo = payload.context.chunk_info;
+      }
   } else {
       // Legacy Project Mode
       const project = projectOrPayload as TripProject;
       tasks = tasksChunk || [];
       strategicBriefing = (project.analysis.chefPlaner as any)?.strategic_briefing?.sammler_briefing || "";
-      // Construct minimal context from project if needed, primarily relying on tasks
+  }
+
+  // Fallback: Use function parameters for chunk info if not present in payload
+  // This satisfies the TS usage check for currentChunk & totalChunks
+  if (!chunkInfo && totalChunks > 1) {
+      chunkInfo = ` (Block ${currentChunk}/${totalChunks})`;
   }
 
   // Safety Check
@@ -61,7 +69,7 @@ export const buildIdeenScoutPrompt = (
   You create **NO** schedule, but a flexible pool of ideas (Sun, Rain, Surprise).`;
 
   // 4. INSTRUCTIONS
-  const promptInstructions = `# YOUR MISSION
+  const promptInstructions = `# YOUR MISSION${chunkInfo}
 Process the following locations and find alternative ideas.
 Research **live on the internet** for every idea.
 
@@ -107,7 +115,7 @@ Return a SINGLE valid JSON object.`;
     .withContext(strategicBriefing, "STRATEGIC GUIDELINE")
     .withInstruction(promptInstructions)
     .withOutputSchema(outputSchema)
-    .withSelfCheck(['research', 'planning']) // FIX: Replaced 'creative' with 'planning'
+    .withSelfCheck(['research', 'planning'])
     .build();
 };
-// --- END OF FILE 108 Zeilen ---
+// --- END OF FILE 105 Zeilen ---
