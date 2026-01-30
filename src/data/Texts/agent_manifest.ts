@@ -1,6 +1,4 @@
-// 01.02.2026 16:15 - FIX: Full Sync with prompt_architecture.ts (SSOT).
-// Added all missing agents (TourGuide, RouteArchitect, InfoAutor, Chefredakteur).
-// Updated FoodScout logic (Sources).
+// 01.02.2026 16:50 - FIX: SSOT Sync with Code. Output Keys aligned with templates/types.ts.
 // src/data/Texts/agent_manifest.ts
 
 export const agentManifest = {
@@ -75,7 +73,7 @@ export const agentManifest = {
           role: "Der Stratege.",
           tasks: ["Fundamentalanalyse", "Machbarkeits-Check"],
           input: ["Komplettes Profil (Travelers, Dates, Logistics, Interests)"],
-          output: ["strategy_analysis", "parameters (Empfehlungen)"]
+          output: ["strategic_briefing", "smart_limit_recommendation", "plausibility_check", "corrections"] // CODE SYNC
         },
         routeArchitect: {
           file: "routeArchitect.ts",
@@ -101,7 +99,7 @@ export const agentManifest = {
           role: "Der Aktivitäten-Scout.",
           tasks: ["Findet POIs passend zu Interessen"],
           input: ["destination", "interests (OHNE Services!)"],
-          output: ["candidates (Name, Category)"]
+          output: ["candidates (String List)"] // CODE SYNC
         },
         hotelScout: {
           file: "hotelScout.ts",
@@ -134,7 +132,7 @@ export const agentManifest = {
           role: "Der Fakten-Checker.",
           tasks: ["Sucht harte Fakten zu Namen"],
           input: ["candidates (Batch 5-10)", "ID Pass-through"],
-          output: ["Place (Geo, Address, Hours)"]
+          output: ["results (Array with id, official_name, location...)"] // CODE SYNC
         },
         foodEnricher: {
           file: "foodEnricher.ts",

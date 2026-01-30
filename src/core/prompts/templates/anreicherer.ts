@@ -1,5 +1,5 @@
-// 27.01.2026 22:45 - FIX: Added 'duration' and 'user_ratings_total' to Output Schema.
-// STRICT MAPPING: Instructions now only reference keys existing in INTEREST_DATA.
+// 01.02.2026 17:40 - REFACTOR: Migrated Schema to Object-Pattern.
+// Hardened "ID Pass-through" Protocol to prevent ResultProcessor mismatch.
 // src/core/prompts/templates/anreicherer.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -12,75 +12,73 @@ export const buildAnreichererPrompt = (payload: any): string => {
   // 1. Generate Whitelist from System Data (SSOT)
   const validCategories = Object.keys(INTEREST_DATA).join(', ');
 
-  builder.withRole(instructions.role || "You are a high-precision Data Enricher.");
+  builder.withRole(instructions.role || "You are the **Data Precision Expert** ('The Enricher'). Your job is to validate and enrich raw candidates with high-precision geo-data.");
 
   // 2. Context Injection
-  builder.withContext(`
-# GEO-CONTEXT (SEARCH REGION)
-${context.search_region}
+  const contextData = {
+    region_context: context.search_region,
+    target_language: context.target_language,
+    progress: context.chunk_progress,
+    input_candidates: context.candidates_list // The raw list to process
+  };
+  
+  builder.withContext(contextData, "DATA CONTEXT");
 
-# TARGET LANGUAGE
-${context.target_language}
-
-# TASK PROGRESS
-${context.chunk_progress}
-  `, "CONTEXT");
-
-  // 3. Candidates
-  const candidatesList = JSON.stringify(context.candidates_list, null, 2);
-
+  // 3. Instructions
   builder.withInstruction(`
-# INPUT CANDIDATES
-${candidatesList}
-
 # MISSION
 ${instructions.task}
 
-# RULES & PROTOCOLS
-1. **ID Integrity:** You MUST use the exact \`id\` from the input list.
-2. **Geo-Precision:** Find exact Geo-Coordinates (lat/lng).
-3. **Address:** Must be a navigable address.
-4. **Validation:** If a place implies a specific region but is found elsewhere, mark valid: false.
-5. **Neutrality:** Write factual descriptions.
+# PROTOCOL A: THE ID PASS-THROUGH (CRITICAL)
+You receive a list of candidates, each with a unique 'id'.
+1. **IMMUTABLE ID:** You MUST return the EXACT 'id' from the input in your result.
+2. **NO NEW IDs:** Do NOT generate new UUIDs. If you break the ID link, the data is lost.
 
-# CATEGORY PROTOCOL (STRICT)
-You MUST assign one of the following system IDs to the "category" field.
-**VALID CATEGORIES:** [${validCategories}]
+# PROTOCOL B: GEO-PRECISION & VALIDATION
+1. **Coordinates:** Find exact Lat/Lng. Do not estimate.
+2. **Address:** Must be navigable (Street, Number, Zip, City).
+3. **Region Check:** If the place is not in "${context.search_region}", set "valid": false.
+4. **Hallucination Check:** If you cannot find the place with 99% certainty, set "valid": false.
 
-*Mapping Logic (Fallbacks):*
-- Castles, Monuments, Churches, Ruins -> 'architecture'
-- History, Art, Exhibitions -> 'museum'
-- Squares, Streets, Areas -> 'districts'
-- Walking, Hiking, Views -> 'nature' (or 'parks' if urban)
-- Swimming, Lakes -> 'beach' (or 'nature')
-- Concerts, Clubs -> 'nightlife'
-- If it is a specific venue/store -> check if 'shopping' fits.
+# PROTOCOL C: CATEGORY MAPPING (STRICT)
+Map the place to one of these SYSTEM IDs:
+[${validCategories}]
 
-# OUTPUT SCHEMA
-Return a SINGLE valid JSON object.
+*Fallback Logic:*
+- Castles, Ruins -> 'architecture'
+- Art, History -> 'museum'
+- Squares, Parks -> 'nature' (or 'districts')
+- Swimming -> 'beach'
+- Concerts -> 'nightlife'
 
-Structure:
-{
-  "_thought_process": "Verify location. Map category (e.g. Cathedral -> architecture)...",
-  "results": [
-    {
-      "id": "MATCHING_INPUT_ID",
-      "valid": true,
-      "category": "VALID_CATEGORY_ID",
-      "official_name": "Corrected Name",
-      "location": { "lat": 0.0, "lng": 0.0 },
-      "address": "Street 1, 12345 City",
-      "description": "Factual description (max 2 sentences).",
-      "openingHours": "Daily 9-17 (approx)",
-      "rating": 4.5,
-      "user_ratings_total": 120,
-      "duration": 90,
-      "website": "www.example.com"
-    }
-  ]
-}
-  `);
+# PROTOCOL D: CONTENT
+- **Description:** Factual, 2 sentences. No marketing fluff.
+- **Duration:** Estimate realistic visit duration in minutes.
+`);
+
+  // 4. Output Schema (Object-based for PromptBuilder optimization)
+  const outputSchema = {
+    "_thought_process": "String (Verify ID match, check region validity...)",
+    "results": [
+      {
+        "id": "String (MUST MATCH INPUT ID EXACTLY)",
+        "valid": "Boolean",
+        "category": "String (One of the Valid Categories)",
+        "official_name": "String (Corrected official name)",
+        "location": { "lat": "Number", "lng": "Number" },
+        "address": "String (Full Address)",
+        "description": "String (Short factual text)",
+        "openingHours": "String (e.g. 'Daily 9-17')",
+        "rating": "Number (Google Rating 1-5)",
+        "user_ratings_total": "Number (Count)",
+        "duration": "Number (Minutes)",
+        "website": "String | null"
+      }
+    ]
+  };
+
+  builder.withOutputSchema(outputSchema);
 
   return builder.build();
 };
-// --- END OF FILE 76 Zeilen ---
+// --- END OF FILE 79 Zeilen ---

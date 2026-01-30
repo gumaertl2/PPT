@@ -1,5 +1,6 @@
-// 24.01.2026 18:50 - FIX: Restored Strict Protocols & Preparer Integration.
-// Merges dynamic data from 'prepareBasisPayload' with hard-coded EXCLUSION rules.
+// 01.02.2026 17:30 - PROMPT HARDENING: "Anti-Service Firewall".
+// Removed loopholes for Gastronomy/Hotels to prevent "Double Bind" duplicates.
+// Strict instructions to ignore 'Foodie' vibes for this specific agent.
 // src/core/prompts/templates/basis.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -10,14 +11,15 @@ export const buildBasisPrompt = (payload: any): string => {
   const builder = new PromptBuilder();
 
   // 1. Role Definition
-  const role = `You are a "Chief Curator" for a premium travel guide (The "Collector"). Your reputation depends on the excellence and relevance of your selection. 
-  Your **sole task** is to create a qualitatively outstanding and suitable list of **NAMES** for sights and activities based on the user's interests.
-  You do NOT write descriptions. You ONLY collect the best candidates.`;
+  // Refined: Explicitly exclude Services from the Role description
+  const role = `You are a "Chief Curator" for a premium travel guide (The "Collector"). 
+  Your **sole task** is to create a qualitatively outstanding list of **SIGHTS & ACTIVITIES** (Points of Interest).
+  You are STRICTLY FORBIDDEN from suggesting logistics (Hotels) or services (Restaurants).
+  Your reputation depends on the relevance and exclusivity of your selection.`;
 
   builder.withRole(role);
 
   // 2. Context Injection (From Payload)
-  // We use the data prepared by 'prepareBasisPayload.ts'
   const contextData = {
       travel_season: context.travel_season,
       transport_mode_context: context.transport_mode_context,
@@ -51,11 +53,14 @@ For each Topic above:
 # MISSION 3: FILL THE REST
 - If the curated selection doesn't reach the target count, fill the rest with absolute "Must-Sees" for the region.
 
-# EXCLUSION PROTOCOL (STRICT)
-You are purely a SIGHTSEEING & ACTIVITY Scout.
-1. **NO ACCOMMODATION:** Do NOT suggest Hotels, Camping Sites, or Resorts. (Handled by HotelScout).
-2. **NO GASTRONOMY:** Do NOT suggest Restaurants, Cafés, or Bars unless they are historic landmarks (e.g., "Hofbräuhaus"). (Handled by FoodScout).
-3. **NO GENERIC INFRASTRUCTURE:** Avoid supermarkets, gas stations, or generic playgrounds.
+# EXCLUSION PROTOCOL (THE "DOUBLE BIND" FIREWALL)
+You are purely a SIGHTSEEING & ACTIVITY Scout. The user has other agents for Food and Sleep.
+1. **NO ACCOMMODATION (ABSOLUTE):** - Do NOT suggest Hotels, Camping Sites, Resorts, or Hostels.
+   - REASON: The 'HotelScout' agent handles these.
+2. **NO GASTRONOMY (ABSOLUTE):** - Do NOT suggest Restaurants, Cafés, Bars, Breweries, or Vineyards.
+   - **NO EXCEPTIONS:** Even if it is a historic landmark (like "Hofbräuhaus"), DO NOT LIST IT HERE.
+   - REASON: The 'FoodScout' agent handles these.
+3. **NO GENERIC INFRASTRUCTURE:** - Avoid supermarkets, gas stations, or generic playgrounds.
 
 # RULES
 1. **Deduplication:** NO names from "already_known_places_block".
@@ -74,7 +79,7 @@ You are purely a SIGHTSEEING & ACTIVITY Scout.
 
   // 4. Output Schema (Thinking-Safe)
   const outputSchema = {
-      "_thought_process": "String (Briefly analyze strategy, seasonality, and exclusion rules...)",
+      "_thought_process": "String (Briefly analyze strategy, check for forbidden services (Food/Hotel) and filter them out...)",
       "candidates": [
           "String (Name of Candidate 1)",
           "String (Name of Candidate 2)",
@@ -82,13 +87,9 @@ You are purely a SIGHTSEEING & ACTIVITY Scout.
       ]
   };
 
-  // We do NOT call .withOutputSchema() here because we want to enforce the specific structure via JSON object,
-  // but since we are using PromptBuilder, let's use the method to ensure consistency.
-  // Wait, previous instructions said to put schema in instruction text for maximum safety with Flash.
-  // However, PromptBuilder handles this. Let's use the explicit method for clarity.
   builder.withOutputSchema(outputSchema);
 
   // 5. Build
   return builder.build();
 };
-// --- END OF FILE 90 Zeilen ---
+// --- END OF FILE 98 Zeilen ---

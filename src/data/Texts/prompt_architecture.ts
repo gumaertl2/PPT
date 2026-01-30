@@ -1,13 +1,14 @@
-// 01.02.2026 15:30 - DOCS: Full Prompt Architecture & Agent Specification (V40).
-// Converted from "Die Prompts sind das Kernstück der Anwendung.docx" + Updates.
+// 01.02.2026 16:45 - DOCS: SSOT SYNC. Aligned Specs with actual Code (Templates & Types).
+// ChefPlaner: strategy_analysis -> strategic_briefing.
+// Basis: candidates (String List).
 // src/data/Texts/prompt_architecture.ts
 
 export const promptArchitecture = {
   de: {
     title: "Prompt Architektur & Agenten V40",
-    content: `# Papatours V40: Die Prompt-Architektur & Agenten-Spezifikation (Full Detail Edition)
+    content: `# Papatours V40: Die Prompt-Architektur & Agenten-Spezifikation (Real-World Edition)
 
-Dieses Dokument ist die technische "Single Source of Truth" für die Interaktion mit der Google Gemini API. Es beschreibt die Pipeline, die Datenquellen und die exakte Arbeitsweise jedes Agenten.
+Dieses Dokument ist die technische "Single Source of Truth" für die Interaktion mit der Google Gemini API. Es beschreibt die Pipeline, die Datenquellen und die exakte Arbeitsweise jedes Agenten, synchronisiert mit der Code-Basis.
 
 ---
 
@@ -56,7 +57,9 @@ Das Herzstück der Datenverarbeitung (\`src/services/ResultProcessor.ts\`).
     * \`destination\`: Zielregion oder Stadt.
     * \`interests\`: Liste der aktiven Interessen-IDs (z.B. \`history\`, \`nature\`).
     * **CRITICAL FILTER:** Der Preparer filtert hier aktiv alle Service-Interessen (Restaurants, Hotels) *heraus*. Grund: Der Prompt enthält die strikte Regel "NO HOTELS/RESTAURANTS", um Halluzinationen zu vermeiden.
-* **Output:** Liste von Kandidaten (\`name\`, \`category\`). Noch keine Details.
+* **Output (Code-Sync):**
+    * \`candidates\`: Liste von Strings (Namen).
+    * \`_thought_process\`: String (Analyse).
 
 ### B. Der "Anreicherer" (Der Veredler)
 **Aufgabe:** Sucht zu einer Liste von Namen die harten Fakten.
@@ -67,12 +70,12 @@ Das Herzstück der Datenverarbeitung (\`src/services/ResultProcessor.ts\`).
 * **Prompt-Logik:**
     * "Finde Adresse, Koordinaten, Öffnungszeiten."
     * **ID-Regel:** "Du musst die \`id\` aus dem Input 1:1 in den Output kopieren." (Ermöglicht das Matching im Processor).
-* **Output:** Vollständiges \`Place\`-Objekt.
+* **Output (Code-Sync):**
+    * \`results\`: Array von Objekten (\`id\`, \`valid\`, \`category\`, \`official_name\`, \`location\`, \`address\`, \`description\`, \`openingHours\`, \`rating\`, \`user_ratings_total\`, \`duration\`).
 
 ### C. Der "Hotel Scout" (Der Logistiker)
 **Aufgabe:** Findet die optimale Unterkunft passend zur Logistik-Strategie.
 * **Template:** \`hotelScout.ts\`
-
 * **Input (Via \`prepareHotelScoutPayload\`):**
     * \`logistics_mode\`: "stationaer" vs. "mobil" (Rundreise).
     * \`vehicle_type\`: "car", "camper" (Trigger für Campingplätze), "train".
@@ -135,9 +138,11 @@ Das Herzstück der Datenverarbeitung (\`src/services/ResultProcessor.ts\`).
 * **Template:** \`chefPlaner.ts\`
 * **Input (Via \`prepareChefPlanerPayload\`):**
     * Komplettes Profil: \`travelers\` (Alter, Gruppe), \`dates\` (Saison, Dauer), \`logistics\` (Modus), \`interests\`.
-* **Output:**
-    * \`strategy_analysis\`: Textliche Einschätzung (Machbarkeit, Wetter-Risiko, Pace-Check).
-    * \`parameters\`: Empfehlungen für interne Variablen (z.B. "Reduziere Radius wegen Kinder").
+* **Output (Code-Sync):**
+    * \`strategic_briefing\`: Objekt mit \`search_radius_instruction\`, \`sammler_briefing\`, \`itinerary_rules\`.
+    * \`smart_limit_recommendation\`: Objekt mit \`value\` (Anzahl) und \`reasoning\`.
+    * \`plausibility_check\`: Text.
+    * \`corrections\`: Objekt (Typos, Validierung).
 
 ### F. Der "Route Architect" (Der Logistik-Meister)
 **Aufgabe:** Berechnet die optimale Route für Rundreisen oder die Verteilung von Stationen.
