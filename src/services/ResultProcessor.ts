@@ -1,10 +1,12 @@
-// 02.02.2026 12:00 - FIX: Added 'wildcard_ideas' processing for IdeenScout.
-// 02.02.2026 12:00 - FIX: Robust 'tourGuide' handling to ensure persistence.
+// 03.02.2026 10:15 - FIX: Integrated Guide Harvester (Self-Healing).
+// Preserved ALL existing logic (Wildcards, TourGuide, RawCandidates).
+// Added 'triggerCountriesDownload' and active User-Prompt for new guides.
 // src/services/ResultProcessor.ts
 
 import { v4 as uuidv4 } from 'uuid';
 import { useTripStore } from '../store/useTripStore';
 import type { WorkflowStepId, TaskKey } from '../core/types';
+import { globalGuideMatrix } from '../data/countries'; // NEW IMPORT
 
 // --- HELPER: LEVENSHTEIN DISTANCE ---
 const getSimilarity = (s1: string, s2: string): number => {
@@ -164,6 +166,51 @@ const isEnrichedItem = (item: any): boolean => {
     return !!(item.original_name || (item.user_ratings_total !== undefined) || item.logistics_tip);
 };
 
+// --- NEW HELPER: DOWNLOAD GENERATOR ---
+const triggerCountriesDownload = (updatedMatrix: Record<string, string[]>) => {
+    const fileContent = `// src/data/countries.ts
+// UPDATED AUTOMATICALLY BY FOODSCOUT HARVESTER
+// ${new Date().toISOString()}
+
+export const metadata = {
+    lastUpdated: "${new Date().toISOString()}"
+};
+
+export const globalGuideMatrix: Record<string, string[]> = ${JSON.stringify(updatedMatrix, null, 4)};
+
+export function getGuidesForCountry(countryName: string | undefined): string[] {
+    if (!countryName) return globalGuideMatrix["Welt"];
+    
+    // 1. Direkter Treffer
+    if (globalGuideMatrix[countryName]) return globalGuideMatrix[countryName];
+    
+    const normalized = countryName.toLowerCase();
+    
+    // 2. Fuzzy Suche
+    const foundKey = Object.keys(globalGuideMatrix).find(k => 
+        k.toLowerCase() === normalized || 
+        normalized.includes(k.toLowerCase()) || 
+        k.toLowerCase().includes(normalized)
+    );
+    
+    if (foundKey) return globalGuideMatrix[foundKey];
+
+    // 3. Fallback (Safe)
+    return globalGuideMatrix["Welt"];
+}
+`;
+    const blob = new Blob([fileContent], { type: 'application/typescript' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'countries.ts';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
+
+
 export const ResultProcessor = {
   process: (step: WorkflowStepId | TaskKey, data: any) => {
     const state = useTripStore.getState();
@@ -186,7 +233,7 @@ export const ResultProcessor = {
         return; 
     }
 
-    const allowStrings = ['basis', 'sightCollector', 'ideenScout', 'infos', 'infoAutor'].includes(step);
+    const allowStrings = ['basis', 'sightCollector', 'ideenScout', 'infos', 'infoAutor', 'countryScout'].includes(step);
     const extractedItems = extractItems(data, allowStrings);
 
     switch (step) {
@@ -376,6 +423,46 @@ export const ResultProcessor = {
                         }
                     }
                 }));
+
+                // --- NEW: GUIDE HARVESTER LOGIC ---
+                const foundGuides = new Set<string>();
+                extractedItems.forEach((item: any) => {
+                    if (Array.isArray(item.guides)) {
+                        item.guides.forEach((g: string) => {
+                            if (g && g.length > 3 && !g.includes("Google") && !g.includes("Unknown")) {
+                                foundGuides.add(g);
+                            }
+                        });
+                    }
+                });
+
+                if (foundGuides.size > 0) {
+                    const projectData = useTripStore.getState().project;
+                    const targetCountry = projectData.userInputs?.logistics?.target_countries?.[0] || 
+                                          projectData.userInputs?.logistics?.stationary?.destination || 
+                                          "Unknown";
+                    
+                    const existingGuides = globalGuideMatrix[targetCountry] || [];
+                    const newGuides = Array.from(foundGuides).filter(g => !existingGuides.includes(g));
+
+                    if (newGuides.length > 0) {
+                        const guideList = newGuides.join("\n- ");
+                        
+                        // USER INTERACTION
+                        const userConfirmed = window.confirm(
+                            `📍 UPDATE FÜR ${targetCountry.toUpperCase()}\n\n` +
+                            `Der FoodScout hat neue Quellen gefunden:\n- ${guideList}\n\n` +
+                            `Soll die Datei "countries.ts" aktualisiert heruntergeladen werden?`
+                        );
+
+                        if (userConfirmed) {
+                            const newMatrix = { ...globalGuideMatrix };
+                            newMatrix[targetCountry] = Array.from(new Set([...existingGuides, ...newGuides]));
+                            triggerCountriesDownload(newMatrix);
+                        }
+                    }
+                }
+                // --- END GUIDE HARVESTER ---
             }
 
             console.log(`[${category}] Stored/Updated ${savedCount} items.`);
@@ -436,6 +523,21 @@ export const ResultProcessor = {
           }
           break;
 
+      case 'countryScout': {
+          // Logic for explicit CountryScout result
+           if (data.recommended_guides && data.country_profile?.official_name) {
+               const country = data.country_profile.official_name;
+               const newGuides = data.recommended_guides;
+               const userConfirmed = window.confirm(`Länder-Scout erfolgreich!\n\nGuides für ${country}:\n${newGuides.join(', ')}\n\nDatei aktualisieren?`);
+               if (userConfirmed) {
+                   const newMatrix = { ...globalGuideMatrix };
+                   newMatrix[country] = newGuides;
+                   triggerCountriesDownload(newMatrix);
+               }
+           }
+           break;
+      }
+
       case 'transferPlanner':
       case 'chefPlaner':
       case 'routeArchitect':
@@ -491,4 +593,4 @@ export const ResultProcessor = {
     }
   }
 };
-// --- END OF FILE 528 Zeilen ---
+// --- END OF FILE 620 Zeilen ---

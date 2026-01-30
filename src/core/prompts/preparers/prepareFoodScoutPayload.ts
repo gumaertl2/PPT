@@ -1,4 +1,5 @@
-// 29.01.2026 21:15 - FIX: Precise Data Extraction from Analysis (RouteArchitect & GeoAnalyst).
+// 02.02.2026 23:00 - FEAT: Added Self-Healing (Dynamic Research) to existing V40 Logic.
+// Base: User's 115-line "Precise Data Extraction" file.
 // src/core/prompts/preparers/prepareFoodScoutPayload.ts
 
 import type { TripProject, FoodSearchMode } from '../../types';
@@ -66,15 +67,26 @@ export const prepareFoodScoutPayload = (
         console.warn("[FoodScout] No locations found in Analysis or Inputs.");
     }
 
-    // --- 3. DETERMINE GUIDES ---
+    // --- 3. DETERMINE GUIDES (ENHANCED SELF-HEALING) ---
     // We use the 'regionHint' to find the right country matrix. 
     // Do NOT use the comma-list 'searchLocation' here, it would break the lookup.
-    const guideLookupKey = regionHint || "Welt";
+    
+    // NEW: Robust Country Detection for Guide Lookup
+    let countryForLookup = regionHint;
+    if (!countryForLookup && logistics?.target_countries) {
+        countryForLookup = logistics.target_countries[0];
+    }
+    const guideLookupKey = countryForLookup || "Welt";
+    
     let relevantGuides = getGuidesForCountry(guideLookupKey);
+
+    // FIX: Detect if we fell back to generic "Welt" list (Self-Healing Trigger)
+    const isGenericFallback = relevantGuides.some(g => g.includes("Local Recommendations") || g.includes("TripAdvisor (Travelers' Choice)"));
+    const dynamicGuideMode = isGenericFallback; // Enable research mode if no specific guides found
 
     // DACH Fix (if region name like "Baden-Württemberg" fails lookup but language is DE)
     const isGerman = userInputs?.aiOutputLanguage === 'de' || !userInputs?.aiOutputLanguage;
-    if (isGerman && relevantGuides.includes("World's 50 Best Restaurants") && relevantGuides.length <= 4) {
+    if (isGerman && relevantGuides.includes("World's 50 Best Restaurants") && relevantGuides.length <= 4 && !dynamicGuideMode) {
          // Assume DACH context if fallback happened
          relevantGuides = ["Michelin", "Gault&Millau", "Feinschmecker", "Falstaff", ...relevantGuides];
     }
@@ -114,16 +126,23 @@ export const prepareFoodScoutPayload = (
         context: {
             location_name: searchLocation, // Contains "Stuttgart, Freiburg, ..."
             search_area: searchArea,
-            guides_list: relevantGuides,
+            // If dynamic mode is active, pass EMPTY list to force prompt research.
+            guides_list: dynamicGuideMode ? [] : relevantGuides,
             mode: isAdHoc ? 'adhoc' : 'guide',
             target_language: userInputs?.aiOutputLanguage || 'de',
+            target_country: countryForLookup || "Unknown Region",
+            dynamic_guide_mode: dynamicGuideMode, // Explicit Flag
             _debug_source: contextDescription // Vital for debugging
         },
         instructions: {
             strategy: strategyText,
             role: `You are the 'Food-Collector'. You have a LIST of locations: "${searchLocation}". 
             TASK: Scan the allowed guides for EACH of these locations. Return candidates for ALL listed places.`
+        },
+        userInputs: { // Passed for Prompt Usage
+             selectedInterests: userInputs?.interests || [],
+             pace: userInputs?.pace || 'balanced'
         }
     };
 };
-// --- END OF FILE 115 Zeilen ---
+// --- END OF FILE 136 Zeilen ---
