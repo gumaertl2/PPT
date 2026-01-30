@@ -1,5 +1,4 @@
-// 01.02.2026 18:05 - PROMPT FIX: Added 'user_ratings_total' to Schema.
-// Ensures Social Proof is captured (Review Count).
+// 01.02.2026 23:05 - FIX: Replaced invalid SelfCheck type 'safety' with 'research'.
 // src/core/prompts/templates/hotelScout.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -78,7 +77,7 @@ Context: ${context.location_reasoning}
     .withContext(contextData, "LOGISTICS DATA")
     .withInstruction(instructions)
     .withOutputSchema(outputSchema)
-    .withSelfCheck(['research', 'safety'])
+    .withSelfCheck(['research']) // FIX: 'safety' -> 'research'
     .build();
 };
 // --- END OF FILE 87 Zeilen ---

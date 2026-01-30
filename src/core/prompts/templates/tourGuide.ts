@@ -1,6 +1,4 @@
-// 01.02.2026 20:00 - PROMPT REWRITE: "Chief Itinerary Architect".
-// Implements strict ID Pass-through to ensure ResultProcessor linkage.
-// Focus on Geo-Clustering and Logical Flow.
+// 01.02.2026 23:05 - FIX: Replaced invalid SelfCheck type 'logic' with 'planning'.
 // src/core/prompts/templates/tourGuide.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -8,8 +6,7 @@ import { PromptBuilder } from '../PromptBuilder';
 export const buildTourGuidePrompt = (payload: any): string => {
   const { context, instructions } = payload;
   
-  // 1. DATA PREPARATION (Format for AI visibility)
-  // The Preparer must provide 'sights_list' with { id, name, location, category }
+  // 1. DATA PREPARATION
   const sightsData = Array.isArray(context.sights_list) 
     ? context.sights_list.map((s: any) => `- [ID: ${s.id}] ${s.name} (${s.category || 'General'}) @ ${s.location?.lat || '?'},${s.location?.lng || '?'}`).join('\n')
     : "No sights provided.";
@@ -77,7 +74,7 @@ Return a strictly valid JSON object.`;
     .withContext(context, "TRIP CONTEXT")
     .withInstruction(promptInstructions)
     .withOutputSchema(outputSchema)
-    .withSelfCheck(['logic', 'planning'])
+    .withSelfCheck(['planning']) // FIX: Valid type
     .build();
 };
 // --- END OF FILE 88 Zeilen ---

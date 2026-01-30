@@ -1,23 +1,43 @@
-// 01.02.2026 21:10 - PROMPT REWRITE: Batch-Mode with Wildcard Feature.
-// Processes multiple locations (Hubs) and generates Sun/Rain/Surprise ideas.
+// 01.02.2026 23:00 - FIX: Restored Hybrid Signature for PayloadBuilder compatibility.
+// Changed 'creative' check to 'planning' to satisfy TS Types.
 // src/core/prompts/templates/ideenScout.ts
 
 import { PromptBuilder } from '../PromptBuilder';
+import type { TripProject } from '../../types';
 
-export const buildIdeenScoutPrompt = (payload: any): string => {
-  const { context, instructions } = payload;
+export const buildIdeenScoutPrompt = (
+    projectOrPayload: any,
+    tasksChunk?: any[],
+    currentChunk: number = 1,
+    totalChunks: number = 1
+): string => {
   
-  // Batch Context: The 'PayloadBuilder' usually puts the sliced items into 'tasks_chunk'
-  // Fallback: If 'context' IS the array (legacy behavior), handle it.
-  const tasksChunk = Array.isArray(context) ? context : (context.tasks_chunk || []);
+  // 1. RESOLVE INPUT (Hybrid Support)
+  let tasks = tasksChunk;
+  let strategicBriefing = "";
+  let contextData: any = {};
+
+  if (projectOrPayload.context && projectOrPayload.instructions) {
+      // V40 Payload Mode
+      const payload = projectOrPayload;
+      tasks = payload.context.tasks_chunk || [];
+      strategicBriefing = payload.context.strategic_briefing || "";
+      contextData = payload.context;
+  } else {
+      // Legacy Project Mode
+      const project = projectOrPayload as TripProject;
+      tasks = tasksChunk || [];
+      strategicBriefing = (project.analysis.chefPlaner as any)?.strategic_briefing?.sammler_briefing || "";
+      // Construct minimal context from project if needed, primarily relying on tasks
+  }
 
   // Safety Check
-  if (!tasksChunk || tasksChunk.length === 0) {
+  if (!tasks || tasks.length === 0) {
       return "ERROR: No tasks provided for Idea Scout.";
   }
 
-  // 1. BUILD TASK LIST (Batch Instruction)
-  const taskInstructions = tasksChunk.map((task: any) => {
+  // 2. BUILD TASK LIST (Batch Instruction)
+  const taskInstructions = tasks.map((task: any) => {
       const blockedList = task.blocked && task.blocked.length > 0 
           ? `\n   - **ALREADY PLANNED (DO NOT REPEAT):** ${JSON.stringify(task.blocked)}` 
           : "";
@@ -35,12 +55,12 @@ export const buildIdeenScoutPrompt = (payload: any): string => {
 5. **Fallback:** If "${task.location}" is too small, search in the surrounding region (20-30min drive).`;
   }).join('\n\n----------------\n\n');
 
-  // 2. ROLE
-  const role = instructions?.role || `You are the **Inspiration Agent** and **Local Insider**.
+  // 3. ROLE
+  const role = `You are the **Inspiration Agent** and **Local Insider**.
   Your task is to find unique activities for a LIST of locations.
   You create **NO** schedule, but a flexible pool of ideas (Sun, Rain, Surprise).`;
 
-  // 3. INSTRUCTIONS
+  // 4. INSTRUCTIONS
   const promptInstructions = `# YOUR MISSION
 Process the following locations and find alternative ideas.
 Research **live on the internet** for every idea.
@@ -56,14 +76,14 @@ ${taskInstructions}
 # OUTPUT SCHEMA
 Return a SINGLE valid JSON object.`;
 
-  // 4. SCHEMA (V40 Batch + Wildcard)
+  // 5. SCHEMA
   const ideaSchema = {
       "name": "String",
       "description": "String (Why is this a great idea?)",
       "category": "String (e.g. Nature, Culture, Secret)",
       "estimated_duration_minutes": "Integer",
       "address": "String (Google Maps ready)",
-      "location": { "lat": "Number", "lng": "Number" }, // CRITICAL for Map Pins
+      "location": { "lat": "Number", "lng": "Number" },
       "website_url": "String | null",
       "planning_note": "String (Tips, e.g. 'Visit in the morning')"
   };
@@ -76,7 +96,7 @@ Return a SINGLE valid JSON object.`;
             "location": "String (City Name)",
             "sunny_day_ideas": [ideaSchema],
             "rainy_day_ideas": [ideaSchema],
-            "wildcard_ideas": [ideaSchema] // New Wildcard Array
+            "wildcard_ideas": [ideaSchema]
         }
     ]
   };
@@ -84,10 +104,10 @@ Return a SINGLE valid JSON object.`;
   return new PromptBuilder()
     .withOS()
     .withRole(role)
-    .withContext(context.strategic_briefing || "", "STRATEGIC GUIDELINE")
+    .withContext(strategicBriefing, "STRATEGIC GUIDELINE")
     .withInstruction(promptInstructions)
     .withOutputSchema(outputSchema)
-    .withSelfCheck(['creative', 'research'])
+    .withSelfCheck(['research', 'planning']) // FIX: Replaced 'creative' with 'planning'
     .build();
 };
-// --- END OF FILE 98 Zeilen ---
+// --- END OF FILE 108 Zeilen ---

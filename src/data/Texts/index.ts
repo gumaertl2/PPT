@@ -1,10 +1,6 @@
-// 01.02.2026 15:55 - FIX: Corrected import name 'agentManifest' (camelCase) to match export.
-/**
- * src/data/Texts/index.ts
- *
- * ZENTRALE TEXT-REGISTRY
- * Importiert die einzelnen Text-Module und stellt die Zugriffsfunktionen bereit.
- */
+// 01.02.2026 23:25 - FIX: Adaptive Wrappers for Complex Data Types (AgentManifest & Architecture).
+// Resolves TS2741 by extracting 'meta' data for the simple InfoContent interface.
+// src/data/Texts/index.ts
 
 import type { LanguageCode } from '../../core/types';
 
@@ -13,7 +9,6 @@ import { briefing } from './briefing';
 import { description } from './description';
 import { terms } from './terms';
 import { help } from './help';
-// WICHTIG: Hier muss der Import-Name exakt dem Export in der Datei entsprechen!
 import { agentManifest } from './agent_manifest'; 
 import { promptArchitecture } from './prompt_architecture';
 
@@ -22,8 +17,6 @@ export interface InfoContent {
   content: string;
 }
 
-// Wir behalten 'catalog' und 'setup' im Typ, damit der WelcomeScreen nicht abstürzt.
-// Erweitert um die neuen Doku-Module.
 export type InfoCategory = 
   | 'briefing' 
   | 'description' 
@@ -31,7 +24,7 @@ export type InfoCategory =
   | 'help' 
   | 'catalog' 
   | 'setup'
-  | 'agentManifest'      // camelCase für den Key
+  | 'agentManifest'      
   | 'promptArchitecture'; 
 
 // Platzhalter für Nicht-Text-Komponenten
@@ -40,15 +33,42 @@ const PLACEHOLDER_CONTENT = {
   en: { title: "Loading...", content: "" }
 };
 
+// --- ADAPTER HELPER ---
+// Wandelt die komplexe Struktur von AgentManifest/PromptArchitecture in das simple UI-Format um.
+const adaptComplexObject = (obj: any): { de: InfoContent; en?: InfoContent } => {
+  // Check if it already has de/en structure
+  if (obj.de && obj.de.title) return obj;
+
+  // Fallback: Assume it's a raw object with meta data (like PromptArchitecture)
+  // We wrap it in a 'de' structure to satisfy the type definition.
+  const title = obj.meta?.title || "System Info";
+  const desc = obj.meta?.description || "No description available.";
+  
+  return {
+    de: { 
+      title: title, 
+      content: desc // Simple fallback content. Detailed rendering should happen in specific Views.
+    },
+    en: {
+      title: title,
+      content: desc
+    }
+  };
+};
+
+// Wir wenden den Adapter auf die komplexen Module an
+const adaptedAgentManifest = adaptComplexObject(agentManifest);
+const adaptedPromptArchitecture = adaptComplexObject(promptArchitecture);
+
+// Jetzt passt der Typ!
 export const INFO_TEXTS: Record<InfoCategory, { de: InfoContent; en?: InfoContent }> = {
   briefing,
   description,
   terms,
   help,
-  agentManifest,      // Verwendet die importierte Variable
-  promptArchitecture, 
+  agentManifest: adaptedAgentManifest,
+  promptArchitecture: adaptedPromptArchitecture,
   
-  // Diese Kategorien werden bald durch echte React-Komponenten ersetzt
   catalog: PLACEHOLDER_CONTENT,
   setup: PLACEHOLDER_CONTENT
 };
@@ -65,6 +85,6 @@ export const getInfoText = (category: InfoCategory, lang: LanguageCode = 'de'): 
   return data.en || data.de;
 };
 
-// Optional: Exportiere TEXTS als Alias für INFO_TEXTS falls neuer Code das erwartet
+// Optional: Exportiere TEXTS als Alias für INFO_TEXTS
 export const TEXTS = INFO_TEXTS;
-// --- END OF FILE 65 Zeilen ---
+// --- END OF FILE 75 Zeilen ---

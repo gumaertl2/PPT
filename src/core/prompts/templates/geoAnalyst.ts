@@ -1,6 +1,4 @@
-// 01.02.2026 19:50 - MERGE: Combined V40 Payload Pattern with User's Detailed Logic.
-// Restored strict 'Granularity Rules' and 'Logistics Checks'.
-// Fixed: Consumes 'sights_cluster' from Preparer to enable true Center-of-Gravity analysis.
+// 01.02.2026 23:05 - FIX: Replaced invalid SelfCheck type 'logic' with 'planning'.
 // src/core/prompts/templates/geoAnalyst.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -8,8 +6,7 @@ import { PromptBuilder } from '../PromptBuilder';
 export const buildGeoAnalystPrompt = (payload: any): string => {
   const { context, instructions } = payload;
 
-  // 1. DATA PREPARATION (The "Missing Link" Fix)
-  // We format the cluster so the AI actually sees the locations.
+  // 1. DATA PREPARATION
   const clusterData = Array.isArray(context.sights_cluster) && context.sights_cluster.length > 0
     ? context.sights_cluster.map((s: any) => `- ${s.name} (${s.category}) @ ${s.location?.lat},${s.location?.lng}`).join('\n')
     : "No specific sights pre-selected. Rely on general destination knowledge.";
@@ -19,7 +16,7 @@ export const buildGeoAnalystPrompt = (payload: any): string => {
   Your job is NOT to find hotels yet. Your job is to define the optimal **Geographic Search Area** (District or Hub) for the Hotel Scout.
   You think in terms of "Logistical Efficiency" and "Vibe Match".`;
 
-  // 3. INSTRUCTIONS (Restored User's Detailed Logic)
+  // 3. INSTRUCTIONS
   const promptInstructions = `# DATA BASIS: SIGHTS CLUSTER
 The user wants to visit these locations:
 ${clusterData}
@@ -62,10 +59,9 @@ Recommend 1-2 specific areas/hubs that are strategically perfect.`;
     .withOS()
     .withRole(role)
     .withContext(context, "GEO PARAMETERS")
-    // Note: Strategic Briefing should ideally be in context, but logic holds without it for pure Geo-Analysis
     .withInstruction(promptInstructions)
     .withOutputSchema(outputSchema)
-    .withSelfCheck(['planning', 'logic'])
+    .withSelfCheck(['planning']) // FIX: Valid type
     .build();
 };
 // --- END OF FILE 82 Zeilen ---
