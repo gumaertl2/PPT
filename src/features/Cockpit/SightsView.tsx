@@ -1,6 +1,5 @@
-// 29.01.2026 13:00 - FIX: Removed unused Lucide icons (Search, MapIcon, X, Ghost) to resolve Vercel TS6133 error.
-// 29.01.2026 00:05 - FIX: Added 'Sondertage' as a virtual Tour in 'tourOptions' so it appears in the Filter & Tour-View.
-// 28.01.2026 23:55 - FIX: Added missing 'Tour Mode' rendering for Specials (appended to Candidates list).
+// 02.02.2026 13:15 - FIX: Enforced City Grouping for 'Specials' in Tour Mode.
+// Replaced flat mapping with 'renderGroupedList(..., "city")' to align Tour View with Category View.
 // src/features/Cockpit/SightsView.tsx
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -330,8 +329,8 @@ export const SightsView: React.FC = () => {
       <div key={groupKey} className="mb-6 last:mb-0">
         <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-100 pb-1 ml-1 flex justify-between">
           <span className="flex items-center gap-2">
-             {groupByOverride === 'city' && <span className="text-lg">📍</span>} 
-             {groupKey}
+              {groupByOverride === 'city' && <span className="text-lg">📍</span>} 
+              {groupKey}
           </span>
           <span className="text-xs text-gray-300">{items.length}</span>
         </h3>
@@ -410,17 +409,9 @@ export const SightsView: React.FC = () => {
                             <span>Tour: Sondertage & Ideen</span>
                             <span className="text-xs text-gray-300">{filteredLists.special.length}</span>
                         </h3>
-                        <div className="space-y-3">
-                            {filteredLists.special.map(place => (
-                                <div key={place.id} id={`card-${place.id}`}>
-                                    <SightCard 
-                                        id={place.id} 
-                                        data={place} 
-                                        mode="selection" 
-                                        showPriorityControls={showPlanningMode}
-                                    />
-                                </div>
-                            ))}
+                        {/* FIX: Use 'renderGroupedList' with 'city' override to group Specials by City in Tour Mode */}
+                        <div className="mt-2">
+                             {renderGroupedList(filteredLists.special, 'city')}
                         </div>
                     </div>
                 )}
@@ -467,4 +458,4 @@ export const SightsView: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 608 Zeilen ---
+// --- END OF FILE 612 Zeilen ---

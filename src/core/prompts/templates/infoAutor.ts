@@ -1,5 +1,5 @@
-// 01.02.2026 22:15 - PROMPT HYBRID: Merged V40 Payload Pattern with Legacy Arguments.
-// Focused on "Appendix/Meta-Info" tasks (Visa, Toll, Safety).
+// 02.02.2026 14:15 - FIX: MERGED Naming Convention into existing Quality Rules.
+// Preserved ALL original instructions (Quality Requirements, Research Details) and added Headline Rules.
 // src/core/prompts/templates/infoAutor.ts
 
 import type { TripProject } from '../../types';
@@ -70,7 +70,7 @@ export const buildInfoAutorPrompt = (
              instruction += `\n\n**CONTEXT:** Focus exclusively on: ${contextLoc}`;
         }
 
-        return `- **ID "${p.id}" (Title: ${title}, Type: ${type}):**\n  ${instruction}`;
+        return `- **ID "${p.id}" (Target: "${title}", Type: ${type}):**\n  ${instruction}`;
     }).join('\n\n');
 
     // 3. ROLE
@@ -80,6 +80,14 @@ export const buildInfoAutorPrompt = (
     const instructions = `# EDITORIAL STYLE
 - **Focus:** Utility value, safety, and avoiding tourist traps.
 - **Style:** Factual, direct, warning where necessary.
+
+# NAMING CONVENTION (CRITICAL)
+- **Headlines:** Never use generic titles like "The City" or "Overview".
+- **Rule:** ALWAYS insert the specific name of the location/country into the headline.
+  * ❌ BAD: "Teil 1: Charakter der Stadt"
+  * ✅ GOOD: "Teil 1: Charakter & Flair von Negombo"
+  * ❌ BAD: "Land im Überblick"
+  * ✅ GOOD: "Sri Lanka im Überblick"
 
 # RESEARCH PROTOCOL (LIVE)
 1. **LIVE RESEARCH REQUIRED:** You MUST search the internet to find current facts for these topics (Visa rules, Toll prices, Public transport ticket names).
@@ -100,14 +108,14 @@ ${taskList}
 
     const outputSchema = {
       "_thought_process": [
-        "String (Step 1: Analyze task...)",
+        "String (Step 1: Identify Target Name for Headlines...)",
         "String (Step 2: Research facts...)"
       ],
       "chapters": [
         { 
             id: "String", 
-            type: "String (MUST match the Type from the task list exactly)", 
-            content: "String (Markdown formatted, escape all line breaks as \\n)"
+            type: "String", 
+            content: "String (Markdown formatted with Specific Headlines)"
         }
       ]
     };
@@ -122,4 +130,4 @@ ${taskList}
         .withSelfCheck(['basic', 'research'])
         .build();
 };
-// --- END OF FILE 128 Zeilen ---
+// --- END OF FILE 138 Zeilen ---

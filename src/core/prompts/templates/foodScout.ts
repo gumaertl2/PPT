@@ -1,5 +1,6 @@
-// 01.02.2026 18:20 - PROMPT UPGRADE: Golden Rules & "Deep Scan" Mode.
-// Preserves "Exhaustive Search" logic (No Limits) for RAM-processing chain.
+// 02.02.2026 17:30 - FIX: Strict Source Enforcement.
+// Forbidden "Local Insider Tips" unless they appear in the allowed guide list.
+// Mandated explicit source attribution in output.
 // src/core/prompts/templates/foodScout.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -28,9 +29,13 @@ export const buildFoodScoutPrompt = (payload: any): string => {
   Your goal is to create a massive "Longlist" of candidates for the downstream geometric filter.
   **NEVER FILTER RESULTS YOURSELF.** We need quantity AND quality.`;
 
-  const mainInstruction = `# PHASE 1: SOURCE CONFIGURATION (SSOT)
-You are restricted to these official guides:
+  const mainInstruction = `# PHASE 1: STRICT SOURCE ENFORCEMENT (GATEKEEPER)
+You are restricted to these official guides/lists:
 👉 **${allowedSources}**
+
+⛔️ **FORBIDDEN:**
+- Do NOT suggest "Local Insider Tips" or "Google Maps High Rated" unless they appear in the specific lists above.
+- If a restaurant is NOT in one of the requested guides, **DISCARD IT**.
 
 # PHASE 2: EXHAUSTIVE SCANNING PROTOCOL (NO LIMITS)
 Target: **${locationName}** (Radius: ~${searchRadius})
@@ -38,15 +43,15 @@ Target: **${locationName}** (Radius: ~${searchRadius})
 2. **NO PRE-FILTERING:** Do not check opening hours or prices yet. Just capture valid guide entries.
 3. **REGIONAL SCOPE:** Scan the city center AND the surrounding villages/region.
 
-# PHASE 3: DATA INTEGRITY
+# PHASE 3: DATA INTEGRITY & ATTRIBUTION
 1. **Real Names Only:** Verify the name. Do not invent places.
-2. **Coordinates (CRITICAL):** You MUST provide Lat/Lng. The system calculates distances based on your coordinates.
-3. **Source Tracking:** Note which guide recommended the place.
+2. **Coordinates (CRITICAL):** You MUST provide Lat/Lng.
+3. **MANDATORY SOURCE:** You MUST fill the 'guides' field with the exact name of the list where you found the place (e.g. "${allowedSources.split(',')[0]}").
 
 ${specificCuisines}`;
 
   const outputSchema = {
-    "_thought_process": "String (Confirming strategy: 'Scanning [Guides] for [Location]. I will list ALL valid findings without limiting count...')",
+    "_thought_process": "String (Confirming strategy: 'Scanning [Guides] for [Location]...')",
     "resolved_search_locations": ["String (List of REAL city names you are scanning)"],
     "candidates": [
       {
@@ -54,7 +59,7 @@ ${specificCuisines}`;
         "city": "String",
         "address": "String (Full Address)",
         "location": { "lat": "Number", "lng": "Number" },
-        "guides": ["String (Name of the Guide, e.g. Michelin)"],
+        "guides": ["String (CRITICAL: Must match one of the allowed sources)"],
         "source_url": "String | null"
       }
     ]
@@ -69,4 +74,4 @@ ${specificCuisines}`;
     .withSelfCheck(['research'])
     .build();
 };
-// --- END OF FILE 74 Zeilen ---
+// --- END OF FILE 81 Zeilen ---
