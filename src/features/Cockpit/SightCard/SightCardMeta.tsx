@@ -1,5 +1,5 @@
-// 01.02.2026 14:45 - FIX: Added i18n support for selection buttons (Wählen/Ausgewählt).
-// 29.01.2026 19:55 - REFACTOR: Sub-component extraction (Meta).
+// 02.02.2026 18:30 - FIX: Hardened Google Search Link.
+// Included Address and Country in the search query to prevent ambiguous results (e.g. USA matches).
 // src/features/Cockpit/SightCard/SightCardMeta.tsx
 
 import React from 'react';
@@ -25,7 +25,7 @@ interface SightCardMetaProps {
   onHotelSelect: (e: React.MouseEvent) => void;
   onShowMap: (e: React.MouseEvent) => void;
   ensureAbsoluteUrl: (url: string | undefined) => string | undefined;
-  t: any; // FIX: Added translation function
+  t: any;
 }
 
 export const SightCardMeta: React.FC<SightCardMetaProps> = ({
@@ -60,6 +60,18 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
         {userRatingsTotal > 0 && <span className="text-gray-400 font-normal">({userRatingsTotal})</span>}
       </div>
     );
+  };
+
+  // HELPER: Build specific Google Search Query
+  const getGoogleSearchQuery = () => {
+    const parts = [
+      data.name,
+      data.address,
+      data.city,
+      data.country || 'Sri Lanka' // Fallback context if useful, otherwise remove 'Sri Lanka'
+    ];
+    // Filter empty/null/undefined parts and join
+    return parts.filter(p => p && typeof p === 'string' && p.trim().length > 0).join(', ');
   };
 
   return (
@@ -141,10 +153,21 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
         {websiteUrl && (
           <a href={ensureAbsoluteUrl(websiteUrl)} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-600" title="Zur Website"><Globe className="w-3.5 h-3.5" /></a>
         )}
-        <a href={`https://www.google.com/search?q=${encodeURIComponent((data.name || '') + ' ' + (data.city || ''))}`} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-600"><Search className="w-3.5 h-3.5" /></a>
+        
+        {/* FIX: Improved Google Search Query with Address & Country */}
+        <a 
+          href={`https://www.google.com/search?q=${encodeURIComponent(getGoogleSearchQuery())}`} 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className="text-gray-400 hover:text-blue-600"
+          title={`Suche: ${getGoogleSearchQuery()}`}
+        >
+          <Search className="w-3.5 h-3.5" />
+        </a>
+
         <button onClick={onShowMap} className="text-gray-400 hover:text-blue-600 transition-colors"><MapIcon className="w-3.5 h-3.5" /></button>
       </div>
     </div>
   );
 };
-// --- END OF FILE 137 Zeilen ---
+// --- END OF FILE 148 Zeilen ---
