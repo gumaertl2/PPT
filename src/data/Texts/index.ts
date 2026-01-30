@@ -1,5 +1,6 @@
+// 01.02.2026 15:55 - FIX: Corrected import name 'agentManifest' (camelCase) to match export.
 /**
- * src/data/texts/index.ts
+ * src/data/Texts/index.ts
  *
  * ZENTRALE TEXT-REGISTRY
  * Importiert die einzelnen Text-Module und stellt die Zugriffsfunktionen bereit.
@@ -12,15 +13,26 @@ import { briefing } from './briefing';
 import { description } from './description';
 import { terms } from './terms';
 import { help } from './help';
+// WICHTIG: Hier muss der Import-Name exakt dem Export in der Datei entsprechen!
+import { agentManifest } from './agent_manifest'; 
+import { promptArchitecture } from './prompt_architecture';
 
 export interface InfoContent {
   title: string;
   content: string;
 }
 
-// Wir behalten 'catalog' und 'setup' im Typ, damit der WelcomeScreen nicht abstürzt,
-// bevor wir ihn auf echte Modals umgebaut haben.
-export type InfoCategory = 'briefing' | 'description' | 'terms' | 'help' | 'catalog' | 'setup';
+// Wir behalten 'catalog' und 'setup' im Typ, damit der WelcomeScreen nicht abstürzt.
+// Erweitert um die neuen Doku-Module.
+export type InfoCategory = 
+  | 'briefing' 
+  | 'description' 
+  | 'terms' 
+  | 'help' 
+  | 'catalog' 
+  | 'setup'
+  | 'agentManifest'      // camelCase für den Key
+  | 'promptArchitecture'; 
 
 // Platzhalter für Nicht-Text-Komponenten
 const PLACEHOLDER_CONTENT = {
@@ -33,6 +45,8 @@ export const INFO_TEXTS: Record<InfoCategory, { de: InfoContent; en?: InfoConten
   description,
   terms,
   help,
+  agentManifest,      // Verwendet die importierte Variable
+  promptArchitecture, 
   
   // Diese Kategorien werden bald durch echte React-Komponenten ersetzt
   catalog: PLACEHOLDER_CONTENT,
@@ -50,3 +64,7 @@ export const getInfoText = (category: InfoCategory, lang: LanguageCode = 'de'): 
   // Fallback Logik: EN -> DE
   return data.en || data.de;
 };
+
+// Optional: Exportiere TEXTS als Alias für INFO_TEXTS falls neuer Code das erwartet
+export const TEXTS = INFO_TEXTS;
+// --- END OF FILE 65 Zeilen ---

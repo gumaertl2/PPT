@@ -1,3 +1,4 @@
+// 01.02.2026 15:00 - DOCS: Updated Architecture (SightCard Split, SSOT Logistics, Path Fixes).
 // 27.01.2026 16:00 - DOCS: FINAL SYSTEM LAW.
 // 1. Added Section 10 "The Orchestrator Core".
 // 2. Added Section 11 "Gemini Developer Protocols" incl. Strict Code Integrity.
@@ -68,7 +69,7 @@ Wir vermeiden "Blob-Komponenten" (>500 Zeilen).
 * **SightsView:** Die Hauptansicht (\`SightsView.tsx\`) delegiert komplexe UI-Logik an Sub-Komponenten.
 * **SightsMapView:** Kapselt die Leaflet-Karte, Custom Marker und Zoom-Logik.
 * **SightFilterModal:** Die Filter-Logik ist komplett in \`SightFilterModal.tsx\` ausgelagert.
-* **SightCard:** Verwaltet ihren eigenen lokalen Darstellungszustand (Detail-Level).
+* **SightCard:** Modularisierte Architektur (Header, Meta, Body) zur Vermeidung von Monolithen.
 
 #### D. PROMPT GENERATION (Preparer Pattern) - NEU V40.4
 Die Logik zur Erstellung von Prompts wurde entkoppelt, um Templates "dumm" und wartbar zu halten:
@@ -215,6 +216,9 @@ Details werden stufenweise enthüllt, um die UI ruhig zu halten:
 * **ExportModal:** Ermöglicht das Kopieren der JSON-Daten in die Zwischenablage für externe Tools.
 * **PrintModal / PrintReport:** Generiert eine druckoptimierte HTML-Ansicht (ohne UI-Elemente) für PDF-Export.
 
+**E. Logistics Intelligence (SSOT)**
+Auswahl eines Hotels in der SightCard schreibt die ID via \`assignHotelToLogistics\` direkt in die Logistik-Daten (Step 1).
+
 ---
 
 ### 8. Workflow Inventory & Prompt Architecture
@@ -249,13 +253,18 @@ Stellt sicher, dass das "Silence Protocol" (Prompt) und der "Native JSON Mode" (
 Übersicht aller relevanten Projektdateien und ihrer Aufgaben.
 
 #### Core Logic & Services (Das Gehirn)
-* **\`src/core/logic/ResultProcessor.ts\`**: Der "Bibliothekar". Nimmt KI-Antworten entgegen, validiert sie, führt IDs zusammen (Fuzzy Matching) und sortiert Daten in \`places\` oder \`content\`.
+* **\`src/services/ResultProcessor.ts\`**: Der "Bibliothekar". Nimmt KI-Antworten entgegen, validiert sie, führt IDs zusammen (Fuzzy Matching) und sortiert Daten in \`places\` oder \`content\`.
 * **\`src/services/orchestrator.ts\`**: Der "Manager". Steuert den Ablauf (Select Model -> Build Prompt -> Call API -> Process Result).
 * **\`src/core/prompts/PayloadBuilder.ts\`**: Die "Weiche". Verbindet jeden Task mit seinem spezifischen Preparer und Template.
 * **\`src/core/prompts/PromptBuilder.ts\`**: Fluent API zum Zusammenbauen von Prompts (OS, Context, Instructions, Schema).
 * **\`src/services/gemini.ts\`**: Die Schnittstelle zur Google AI API.
 * **\`src/services/validation.ts\`**: Zod-Schemas zur Validierung aller KI-Antworten.
 * **\`src/services/security.ts\`**: API-Key Management und Verschlüsselung.
+
+#### Documentation & Specs (SSOT)
+* **\`src/data/Texts/briefing.ts\`**: Diese Datei. Die Architekturbeschreibung.
+* **\`src/data/Texts/prompt_architecture.ts\`**: **[NEU]** Die detaillierte Spezifikation aller Prompts, Agenten, Input-Payloads und Quellen-Matrix (Food Scout). **Verbindlich für alle Prompt-Änderungen.**
+* **\`src/data/Texts/agent_manifest.ts\`**: Das "Manifest" der KI-Persönlichkeiten.
 
 #### Preparers (Business Logic Layer) - \`src/core/prompts/preparers/\`
 * **\`prepareInfoAutorPayload.ts\`**: Filtert Logistik-Infos (Heimatort, Inlandsreise) und stellt Text-Aufgaben zusammen.
@@ -288,7 +297,7 @@ Stellt sicher, dass das "Silence Protocol" (Prompt) und der "Native JSON Mode" (
 #### UI Features (Das Gesicht) - \`src/features/Cockpit/\`
 * **\`SightsView.tsx\`**: Hauptansicht für Orte (Liste/Karte).
 * **\`SightsMapView.tsx\`**: Die Kartenkomponente.
-* **\`SightCard.tsx\`**: Einzelne Karte für einen Ort (mit +/- Logik).
+* **\`src/features/Cockpit/SightCard/\`**: Modularisierter Ordner (Header, Meta, Body, Index).
 * **\`CockpitWizard.tsx\`**: Der Assistent, der den User durch den Prozess führt.
 * **\`SettingsModal.tsx\`**: Einstellungen für KI-Modelle.
 * **\`ExportModal.tsx\` / \`PrintModal.tsx\`**: Export-Funktionen.
@@ -366,4 +375,4 @@ Merk dir, dass ich für das Papatours Projekt immer unter dem Strict Code Integr
 `
   }
 };
-// --- END OF FILE 795 Zeilen ---
+// --- END OF FILE 805 Zeilen ---

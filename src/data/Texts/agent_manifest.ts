@@ -1,9 +1,9 @@
-// 27.01.2026 14:50 - FIX: Sync Manifest with Template Logic.
-// Added '_thought_process' to initialTagesplaner output to match strict schema.
-// Retained 'Encyclopedic Tone' for Chefredakteur.
+// 01.02.2026 16:15 - FIX: Full Sync with prompt_architecture.ts (SSOT).
+// Added all missing agents (TourGuide, RouteArchitect, InfoAutor, Chefredakteur).
+// Updated FoodScout logic (Sources).
 // src/data/Texts/agent_manifest.ts
 
-export const AGENT_MANIFEST = {
+export const agentManifest = {
   meta: {
     title: "Papatours V40: Die vollständige Prompt-Architektur & Agenten-Steuerung",
     description: "Dieses Dokument ist die 'Single Source of Truth'. Es beschreibt das Protokoll, die Pipeline und die exakte Arbeitsweise jedes Agenten ohne Vereinfachungen."
@@ -15,54 +15,54 @@ export const AGENT_MANIFEST = {
       {
         id: "task_decomposition",
         title: "Eine Aufgabe pro Prompt (Task Decomposition)",
-        description: "Jeder Prompt darf nur eine einzige, klar definierte Kernaufgabe enthalten. Zerlege komplexe Ziele in mehrere aufeinanderfolgende Prompts (z.B. erst sammeln, dann anreichern)."
+        description: "Jeder Prompt darf nur eine einzige, klar definierte Kernaufgabe enthalten. Zerlege komplexe Ziele in mehrere aufeinanderfolgende Prompts."
       },
       {
         id: "role_injection",
         title: "Klare Persona Zuweisung (Role Injection)",
-        description: "Beginne jeden Prompt mit der Definition einer spezifischen Rolle (z. B. 'Du bist ein Experte für nachhaltiges Reisen in Südostasien'). Dies lenkt den Stil, den Ton und das Fachwissen der KI."
+        description: "Beginne jeden Prompt mit der Definition einer spezifischen Rolle. Dies lenkt den Stil, den Ton und das Fachwissen der KI."
       },
       {
         id: "structure",
         title: "Logische Strukturierung",
-        description: "Gliedere den Prompt visuell und inhaltlich. Nutze Markdown-Überschriften (###), Listen und abgegrenzte Blöcke, um Kontext, Anweisungen, Beispiele und Formatvorgaben klar voneinander zu trennen."
+        description: "Gliedere den Prompt visuell. Nutze Markdown-Überschriften (###) und Listen, um Kontext und Anweisungen zu trennen."
       },
       {
         id: "noise_reduction",
-        title: "Präziser und relevanter Kontext (Noise Reduction)",
-        description: "Gib nur die Informationen, die zur Lösung der Aufgabe zwingend notwendig sind. Sei spezifisch und vermeide mehrdeutige oder überflüssige Details."
+        title: "Präziser Kontext (Noise Reduction)",
+        description: "Gib nur die Informationen, die zur Lösung der Aufgabe zwingend notwendig sind. Vermeide Noise."
       },
       {
         id: "instruction_hardening",
         title: "Unmissverständliche Anweisungen (Instruction Hardening)",
-        description: "Sei direkt: Nutze klare Verben im Imperativ. Setze Leitplanken: Formuliere explizite Verbote ('Was du vermeiden sollst') und positive Gebote ('Was du tun sollst'). Erkläre das 'Warum', damit die KI die Absicht versteht."
+        description: "Nutze klare Verben im Imperativ. Setze explizite Verbote ('Was du vermeiden sollst')."
       },
       {
-        id: "few_shot",
-        title: "Gib Beispiele (Few-Shot Prompting)",
-        description: "Zeige mit 1-2 guten Beispielen, wie die gewünschte Ausgabe aussehen soll (Input -> Output Pattern)."
+        id: "json_only",
+        title: "Das 'JSON-Only' Gesetz",
+        description: "Der Prompt muss erzwingen: NO PREAMBLE. START DIRECTLY WITH '{'. Kein Prosa-Text."
       },
       {
         id: "chain_of_thought",
-        title: "Geforderte Selbstreflexion (Chain-of-Thought)",
-        description: "Beende den Prompt mit einer klaren Anweisung an die KI, ihre eigene Antwort anhand der wichtigsten Regeln des Prompts zu überprüfen. Nutze Felder wie '_thought_process' im JSON-Output."
+        title: "Gedanken-Container (_thought_process)",
+        description: "Das Reasoning muss zwingend innerhalb des JSON-Objekts im Feld '_thought_process' stattfinden."
       }
     ]
   },
 
   pipeline: {
-    title: "2. Die technische Produktionsstraße (The Pipeline)",
+    title: "2. Die technische Pipeline (The Factory)",
     inputs: {
-      hard_facts: ["travelers (Wer)", "dates (Wann)", "logistics (Wohin & Wie)"],
-      soft_factors: ["Reise-Charakter", "vibe (Stimmung)", "pace (Reisetempo)", "budget (Preisniveau)", "selectedInterests (Interessen)"],
-      config: ["Feste Termine", "notes (Sonderwünsche)", "aiOutputLanguage (Sprache)", "searchSettings"]
+      hard_facts: ["travelers", "dates", "logistics"],
+      soft_factors: ["vibe", "pace", "budget", "selectedInterests"],
+      config: ["notes", "aiOutputLanguage", "searchSettings"]
     },
     components: {
-      dispatcher: "PayloadBuilder (Schaltzentrale)",
-      collector: "Preparer (Datensammler - Mise en place)",
-      blueprint: "Template (Text-Generierung mit Persona)",
-      standardizer: "PromptBuilder (System-Instruktionen & JSON-Zwang)",
-      refiner: "ResultProcessor (Validierung & Speicherung)"
+      dispatcher: "PayloadBuilder (Daten-Schleuse)",
+      collector: "Preparer (Extract & Filter)",
+      blueprint: "Template (Structure & Context)",
+      standardizer: "PromptBuilder (Role & Schema)",
+      refiner: "ResultProcessor (ID Factory & SSOT)"
     }
   },
 
@@ -72,31 +72,24 @@ export const AGENT_MANIFEST = {
       agents: {
         chefPlaner: {
           file: "chefPlaner.ts",
-          role: "Der strategische Reise-Architekt. Prüft Eingaben auf Fehler (Rechtschreibung, Existenz) und Machbarkeit.",
-          tasks: ["Reisebriefing erstellen", "Korrekturvorschläge für Falscheingaben"],
-          input: ["Reisende", "Vibe", "Budget", "Charakter der Reise", "Interessen"],
-          output: [
-            "strategic_briefing (Anweisung an Scouts)",
-            "itinerary_rules (Logik-Regeln)",
-            "smart_limit (Stopps pro Tag)"
-          ]
+          role: "Der Stratege.",
+          tasks: ["Fundamentalanalyse", "Machbarkeits-Check"],
+          input: ["Komplettes Profil (Travelers, Dates, Logistics, Interests)"],
+          output: ["strategy_analysis", "parameters (Empfehlungen)"]
         },
         routeArchitect: {
           file: "routeArchitect.ts",
-          role: "Der Logistiker und Routen-Planer für mobile Reisen.",
-          tasks: ["Prüfung sinnvoller Orte basierend auf Rahmenbedingungen"],
-          input: ["itinerary_rules", "Logistik (Start/Ziel/Modus)", "Dauer", "Regeln für mobile Reisen (Fahrtzeit, Hotelwechsel)"],
-          output: [
-            "routes (Etappen-Ziele, Dauer, km, Zeit, Beschreibung)",
-            "Definiert search_area für nachfolgende Scouts"
-          ]
+          role: "Der Logistik-Meister (Rundreise).",
+          tasks: ["Optimiert Routen-Reihenfolge", "Berechnet Fahrzeiten"],
+          input: ["stops (User-Wahl)", "start/end", "constraints (Max. Fahrzeit/Wechsel)"],
+          output: ["Optimierte stops mit drive_time und distance"]
         },
         geoAnalyst: {
           file: "geoAnalyst.ts",
-          role: "Der Standort-Optimierer (Immobilien-Makler).",
-          tasks: ["Hilfe für Hotelscout wenn noch kein Tagesplan existiert"],
-          input: ["Region", "Mobilität", "Constraints (max. Fahrzeit)"],
-          output: ["recommended_hubs (Strategisch beste Standorte)"]
+          role: "Der Kartograph.",
+          tasks: ["Findet geometrischen Mittelpunkt für Hotelsuche"],
+          input: ["Gefundene Places"],
+          output: ["recommended_hubs"]
         }
       }
     },
@@ -106,95 +99,97 @@ export const AGENT_MANIFEST = {
         basis: {
           file: "basis.ts",
           role: "Der Aktivitäten-Scout.",
-          tasks: ["Findet POIs passend zum Reisecharakter und Interessen"],
-          input: ["Such-Radius", "Interessen", "Briefing (Filtervorgaben)", "Charakter der Reise", "Reisestimmung"],
-          output: ["candidates (Liste potenzieller Ziele, noch ohne Details)"]
-        },
-        foodScout: {
-          file: "foodScout.ts",
-          role: "Der spezialisierte Kulinarik-Scout.",
-          tasks: ["Sucht Restaurantempfehlungen in speziellen Führern (nicht nur Google Maps)"],
-          input: ["Ort (Stopp oder Ad-Hoc)", "Modus (Authentisch vs. Sterne)", "Guides (Whitelist aus countries.ts)"],
-          output: ["rawFoodCandidates (Validierte Liste inkl. Guide-Referenz)"]
-        },
-        ideenScout: {
-          file: "ideenScout.ts",
-          role: "Der Kreativ-Scout für Sonderfälle.",
-          tasks: ["Sucht Aktivitäten für Sonnen- und Regentage außerhalb des Standard-Programms"],
-          input: ["Wer (Gruppe)", "Orte (Übernachtungsorte, exkl. Heimatort)"],
-          output: ["sunny_day_ideas (Outdoor)", "rainy_day_ideas (Indoor)"]
+          tasks: ["Findet POIs passend zu Interessen"],
+          input: ["destination", "interests (OHNE Services!)"],
+          output: ["candidates (Name, Category)"]
         },
         hotelScout: {
           file: "hotelScout.ts",
-          role: "Der Unterkunfts-Finder.",
-          tasks: ["Routen- und zeitoptimierte Vorschläge für Hotels/Camping"],
-          input: ["Hub (vom GeoAnalyst oder Tagesplan)", "Budget & Komfort"],
-          output: ["candidates (Konkrete Vorschläge mit Empfehlung)"]
+          role: "Der Logistiker (Unterkunft).",
+          tasks: ["Findet strategische Unterkunft (Stationär oder Rundreise)"],
+          input: ["logistics_mode", "vehicle_type (Camper!)", "budget", "current_stop"],
+          output: ["places (Category: accommodation, location_match)"]
+        },
+        foodScout: {
+          file: "foodScout.ts",
+          role: "Der Kulinarik-Experte (Quellen-basiert).",
+          tasks: ["Erstellt Kandidaten-Pool aus Restaurantführern"],
+          input: ["Suchgebiet (Radius Logik)", "Strategie (Guide vs. Ad-Hoc)", "Quellen-Matrix (countries.ts)"],
+          output: ["rawFoodCandidates (Name, Source Link)"]
+        },
+        ideenScout: {
+          file: "ideenScout.ts",
+          role: "Der Joker.",
+          tasks: ["Alternativen für schlechtes Wetter oder leeren Plan"],
+          input: ["weather_forecast", "current_plan"],
+          output: ["alternatives (Indoor, Hidden Gems)"]
         }
       }
     },
     phase_3: {
-      title: "PHASE 3: Anreicherung (Die Researcher)",
+      title: "PHASE 3: Anreicherung (Die Veredler)",
       agents: {
         anreicherer: {
           file: "anreicherer.ts",
-          role: "Der Fakten-Checker für Sights.",
-          tasks: ["Reichert Kandidaten mit Details an"],
-          input: ["Kandidaten (Namensliste)", "Sprache"],
-          output: ["Place-Objekte (Adresse, Geo, Öffnungszeiten, Rating, Logistik)"]
+          role: "Der Fakten-Checker.",
+          tasks: ["Sucht harte Fakten zu Namen"],
+          input: ["candidates (Batch 5-10)", "ID Pass-through"],
+          output: ["Place (Geo, Address, Hours)"]
         },
         foodEnricher: {
           file: "foodEnricher.ts",
-          role: "Der Premium-Researcher für Restaurants.",
-          tasks: ["Detail-Recherche für Food-Kandidaten"],
-          input: ["Kandidaten (rawFoodCandidates)", "Redaktionsanweisung (aus INTEREST_DATA)", "Referenz-Standort"],
-          output: ["enriched_candidates (Telefon, Awards, Cuisine, Vibe, Text)"]
+          role: "Der Detail-Prüfer (Food).",
+          tasks: ["Reichert Restaurant-Kandidaten an"],
+          input: ["rawFoodCandidates"],
+          output: ["enriched_candidates (Signature Dish, PriceLevel, Ratings)"]
+        },
+        transferPlanner: {
+          file: "transferPlanner.ts",
+          role: "Der Realist.",
+          tasks: ["Berechnet Wegezeiten (Fallback)"],
+          input: ["Geo-Koordinaten"],
+          output: ["transfer_times"]
         }
       }
     },
     phase_4: {
-      title: "PHASE 4: Feinplanung",
+      title: "PHASE 4: Struktur & Planung",
       agents: {
+        tourGuide: {
+          file: "tourGuide.ts",
+          role: "Der Clusterer.",
+          tasks: ["Ordnet Orte logischen Touren/Tagen zu"],
+          input: ["places", "duration", "hub"],
+          output: ["tour_suggestions (Cluster)"]
+        },
         initialTagesplaner: {
           file: "initialTagesplaner.ts",
-          role: "Der Zeit-Manager für einen konkreten Tag.",
+          role: "Der Zeit-Manager (Legacy).",
           tasks: ["Erstellt detaillierten Zeitstrahl"],
-          input: ["Orte", "Öffnungszeiten", "Präferenzen (Essen/Pause)", "Pace"],
-          output: [
-            "_thought_process (Strategic planning step)",
-            "timeline (09:00 A, 11:00 B...)", 
-            "Transfers (A nach B)", 
-            "Puffer-Regel (>30 min müssen gefüllt werden)"
-          ]
+          input: ["Orte", "Öffnungszeiten", "Pace"],
+          output: ["itinerary (Timeline)"]
         }
       }
     },
     phase_5: {
-      title: "PHASE 5: Content & Finish (Die Redaktion)",
+      title: "PHASE 5: Content & Redaktion",
       agents: {
-        chefredakteur: {
-          file: "chefredakteur.ts",
-          role: "Der Texter für die Detail-Ansicht.",
-          tasks: ["Schreibt strikt sachliche, enzyklopädische Texte basierend auf Fakten"],
-          input: ["Fakten", "Stil: Strikt sachlich/Enzyklopädisch (Ignoriere Vibe)", "Redaktionsanweisung (aus interests.ts - ZWINGEND)"],
-          output: ["detailContent (Intro, Highlights, Fakten)", "reasoning"]
-        },
         infoAutor: {
           file: "infoAutor.ts",
-          role: "Das Reise-Lexikon (Anhang).",
+          role: "Der Reiseführer (Wissen).",
           tasks: ["Schreibt informative Artikel"],
-          input: ["Reiseland", "Besuchte Städte", "Themen (Maut, Trinkgeld...)", "Aktivierte Interessen (Anhang)"],
-          output: ["chapters (Artikel gemäß Redaktionsanweisung)"]
+          input: ["topics", "context (Ziel, Gruppe)"],
+          output: ["ContentChapter (Markdown)"]
         },
-        tourGuide: {
-          file: "tourGuide.ts",
-          role: "Der Storyteller.",
-          tasks: ["Analysiert Sights und erstellt logische Einheiten (Touren)"],
-          input: ["Alle Sehenswürdigkeiten (Kategorie, Ort, Name)"],
-          output: ["kapitel (Touren mit geografischer/logistischer Ordnung)"]
+        chefredakteur: {
+          file: "chefredakteur.ts",
+          role: "Der Detail-Liebhaber.",
+          tasks: ["Schreibt inspirierende Deep-Dives"],
+          input: ["place", "tone (Faktisch/Begeisternd)"],
+          output: ["detailContent (Intro, Highlights)"]
         }
       }
     }
   }
 };
-// --- END OF FILE 166 Zeilen ---
+// --- END OF FILE 190 Zeilen ---

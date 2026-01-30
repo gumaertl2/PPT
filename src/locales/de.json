@@ -325,6 +325,8 @@
   },
   "sights": {
     "budget": "Budget",
+    "select": "Wählen",
+    "selected": "Ausgewählt",
     "planned": "Geplant",
     "time_exceeded": "Zeit überschritten",
     "prio_buttons": "Prio-Buttons",

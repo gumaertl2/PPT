@@ -1,3 +1,4 @@
+// 01.02.2026 14:45 - FIX: Passing 't' prop to Meta component for i18n buttons.
 // 29.01.2026 19:55 - REFACTOR: Split SightCard into Sub-Components (Header, Meta, Body).
 // src/features/Cockpit/SightCard/index.tsx
 
@@ -242,6 +243,7 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
             onHotelSelect={handleHotelSelect}
             onShowMap={(e) => { e.stopPropagation(); setUIState({ selectedPlaceId: id, viewMode: 'map' }); }}
             ensureAbsoluteUrl={ensureAbsoluteUrl}
+            t={t} // FIX: Pass t to Meta
         />
 
         {data.userSelection?.fixedDate && (

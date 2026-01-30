@@ -1,3 +1,4 @@
+// 01.02.2026 14:30 - FIX: Added 'resolveHotelName' to display Place names instead of IDs in inputs.
 // 20.01.2026 21:15 - FIX: Added resolveLabel helper to safely handle localized labels.
 // src/features/Cockpit/steps/LogisticsStep.tsx
 
@@ -25,7 +26,7 @@ import type { LanguageCode } from '../../../core/types';
 export const LogisticsStep = () => {
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
-  
+   
   // Store Access
   const { 
     project, 
@@ -48,6 +49,19 @@ export const LogisticsStep = () => {
     if (!item || !item.label) return '';
     if (typeof item.label === 'string') return item.label;
     return (item.label as any)[currentLang] || (item.label as any)['de'] || '';
+  };
+
+  // --- HELPER: Resolve Hotel Name (FIX) ---
+  // Checks if the value is an ID pointing to a known place. If so, returns the name.
+  const resolveHotelName = (val: string | undefined): string => {
+    if (!val) return '';
+    // Check if it's a known ID in our places database
+    const place = project.data?.places?.[val];
+    if (place) {
+        return place.name;
+    }
+    // Otherwise return the value as is (user might have typed it manually)
+    return val;
   };
 
   // --- AUTO-CALC DURATION ---
@@ -219,8 +233,8 @@ export const LogisticsStep = () => {
                     </div>
                 </div>
                 <div>
-                     <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">{t('cockpit.departure_time')}</label>
-                     <div className="relative">
+                      <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">{t('cockpit.departure_time')}</label>
+                      <div className="relative">
                         <Clock className="w-3 h-3 absolute left-2 top-2 text-slate-400" />
                         <input 
                             type="time" 
@@ -306,7 +320,7 @@ export const LogisticsStep = () => {
                 type="text"
                 className="w-full text-sm border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 placeholder={t('cockpit.hotel_placeholder')}
-                value={logistics.stationary.hotel || ''}
+                value={resolveHotelName(logistics.stationary.hotel)} // FIX: Show Name instead of ID
                 onChange={(e) => updateStationary({ hotel: e.target.value })}
               />
             </div>
@@ -432,10 +446,10 @@ export const LogisticsStep = () => {
                       type="text"
                       placeholder={t('cockpit.hotel_label')}
                       className="flex-1 text-xs border-slate-300 rounded"
-                      value={stop.hotel || ''}
+                      value={resolveHotelName(stop.hotel)} // FIX: Show Name instead of ID
                       onChange={(e) => updateRouteStop(stop.id, { hotel: e.target.value })}
                     />
-                     <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1">
                         <input
                             type="number"
                             placeholder="-"
@@ -465,4 +479,4 @@ export const LogisticsStep = () => {
     </div>
   );
 };
-// --- END OF FILE 465 Zeilen ---
+// --- END OF FILE 481 Zeilen ---

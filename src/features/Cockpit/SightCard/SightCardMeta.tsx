@@ -1,3 +1,4 @@
+// 01.02.2026 14:45 - FIX: Added i18n support for selection buttons (Wählen/Ausgewählt).
 // 29.01.2026 19:55 - REFACTOR: Sub-component extraction (Meta).
 // src/features/Cockpit/SightCard/SightCardMeta.tsx
 
@@ -24,6 +25,7 @@ interface SightCardMetaProps {
   onHotelSelect: (e: React.MouseEvent) => void;
   onShowMap: (e: React.MouseEvent) => void;
   ensureAbsoluteUrl: (url: string | undefined) => string | undefined;
+  t: any; // FIX: Added translation function
 }
 
 export const SightCardMeta: React.FC<SightCardMetaProps> = ({
@@ -45,7 +47,8 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
   onDurationChange,
   onHotelSelect,
   onShowMap,
-  ensureAbsoluteUrl
+  ensureAbsoluteUrl,
+  t
 }) => {
 
   const renderStars = () => {
@@ -124,9 +127,9 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
               `}
             >
               {isSelected ? (
-                <><Check className="w-3 h-3" /> Ausgewählt</>
+                <><Check className="w-3 h-3" /> {t('sights.selected', { defaultValue: 'Ausgewählt' })}</>
               ) : (
-                'Wählen'
+                t('sights.select', { defaultValue: 'Wählen' })
               )}
             </button>
           </div>
@@ -144,4 +147,4 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
     </div>
   );
 };
-// --- END OF FILE 136 Zeilen ---
+// --- END OF FILE 137 Zeilen ---
