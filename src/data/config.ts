@@ -1,5 +1,5 @@
+// 03.02.2026 15:40 - CONFIG: Upgraded FoodScout to PRO for stricter source compliance.
 // 31.01.2026 19:45 - CONFIG: FULL FILE. REMOVED DurationEstimator. Strict Naming.
-// 27.01.2026 17:00 - CONFIG: Increased Batch Limits for Collector to 60.
 // src/data/config.ts
 
 import type { TaskKey } from '../core/types';
@@ -50,13 +50,13 @@ export const CONFIG = {
       geoAnalyst: 'pro',
       infoAutor: 'pro',          // Renamed from infos
       chefredakteur: 'pro',      // Renamed from details
+      foodScout: 'pro',          // UPGRADED TO PRO (03.02.2026) for "The Law" compliance
       
       // FLASH TASKS
       foodEnricher: 'flash',
       hotelScout: 'flash',       // Renamed from accommodation
       transferPlanner: 'flash',  // Renamed from transfers
       countryScout: 'flash',
-      foodScout: 'flash',        // Renamed from food
       
       // Wizard Defaults
       basis: 'flash',      
@@ -111,4 +111,4 @@ export const CONFIG = {
     } as Partial<Record<TaskKey, string>>
   }
 };
-// Lines: 125
+// Lines: 124

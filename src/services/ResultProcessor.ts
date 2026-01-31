@@ -1,6 +1,5 @@
-// 03.02.2026 13:40 - FIX: Category Integrity & Guide Harvester.
-// Prevents AI from overwriting system categories (e.g. 'Restaurant') with hallucinated ones (e.g. 'hidden-gem').
-// Integrated Guide Harvester with robust targetCountry detection.
+// 03.02.2026 15:30 - FIX: HARD GATEKEEPER & Guide Harvester.
+// Enforces "No Source = No Entry" policy and prevents category overwrites.
 // src/services/ResultProcessor.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -401,6 +400,14 @@ export const ResultProcessor = {
                     savedCount++;
 
                     if (step === 'foodScout' || step === 'food') {
+                        // --- HARD GATEKEEPER: THE LAW ---
+                        // Drops any FoodScout candidate that has no Source Citation.
+                        if (!item.guides || item.guides.length === 0) {
+                             if (aiSettings.debug) console.warn(`[ResultProcessor] 👮‍♀️ The Law: Dropped candidate "${name}" (No Source Citation).`);
+                             return; // SKIP THIS ITEM
+                        }
+                        // --------------------------------
+
                         rawCandidates.push({
                             id,
                             name: finalName,
@@ -597,4 +604,4 @@ export const ResultProcessor = {
     }
   }
 };
-// --- END OF FILE 627 Zeilen ---
+// Lines: 636

@@ -1,5 +1,6 @@
-// 03.02.2026 14:45 - FIX: Strict Source Enforcement ("The Law").
-// Forces the AI to discard any candidate without a valid citation to prevent data loss in frontend.
+// 03.02.2026 15:35 - FIX: Smart Link Generation & Strict Source Enforcement.
+// - Forces AI to cite sources (The Law).
+// - Generates clickable verification URLs for sources.
 // src/core/prompts/templates/foodScout.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -65,6 +66,14 @@ Target: **${locationName}** (Radius: ~${searchRadius})
    - **IF YOU CANNOT CITE A SOURCE, DO NOT OUTPUT THE CANDIDATE.**
    - "I know this place" is NOT a valid source.
 
+# PHASE 4: SMART LINK GENERATION (VERIFICATION URLS)
+You MUST construct a verification URL for the 'source_url' field based on the source:
+- If source is **'Michelin'**: \`https://guide.michelin.com/en/search?q={Name}\`
+- If source is **'TripAdvisor'**: \`https://www.tripadvisor.com/Search?q={Name}\`
+- If source is **'Gault&Millau'**: \`https://www.gaultmillau.com/search?q={Name}\`
+- **Default/Other**: \`https://www.google.com/search?q={Name}+{City}+Restaurant\`
+*Replace {Name} and {City} with the actual values.*
+
 ${specificCuisines}`;
 
   const outputSchema = {
@@ -77,7 +86,7 @@ ${specificCuisines}`;
         "address": "String (Full Address)",
         "location": { "lat": "Number", "lng": "Number" },
         "guides": ["String (Source Name)"],
-        "source_url": "String | null"
+        "source_url": "String (Smart Verification Link)"
       }
     ]
   };
@@ -91,4 +100,4 @@ ${specificCuisines}`;
     .withSelfCheck(['research'])
     .build();
 };
-// --- END OF FILE 96 Zeilen ---
+// Lines: 104
