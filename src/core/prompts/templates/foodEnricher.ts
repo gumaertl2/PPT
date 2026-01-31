@@ -1,5 +1,6 @@
-// 01.02.2026 21:30 - PROMPT FINAL: "The Military Drill Enricher".
-// Features: ID Pass-through Loop, Award Detection, Strict Text Template.
+// 03.02.2026 20:30 - FIX: DATA PRESERVATION.
+// - Added mandatory pass-through for 'guides' and 'source_url'.
+// - Prevents data wipe during enrichment phase.
 // src/core/prompts/templates/foodEnricher.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -35,6 +36,7 @@ For the "description" field, you MUST start exactly like this:
 4. **Ratings:** Provide Google Rating (e.g. 4.6) and total count.
 5. **Logistics:** Add a short tip (e.g. "Reservation essential", "Cash only").
 6. **Coordinates:** You MUST provide accurate Latitude/Longitude for the Map View.
+7. **DATA PRESERVATION (THE SHIELD):** You received 'existing_guides' and 'source_url' (or 'existing_url') in the input. You MUST return them exactly as received. Do NOT delete or empty these fields.
 
 # FALLBACK RULE
 If a restaurant cannot be found or is permanently closed, set "found": false.
@@ -63,6 +65,8 @@ Before outputting JSON, you MUST verify:
         "phone": "String (e.g. +49 ... or null)",
         "website": "String | null",
         "awards": ["String (e.g. 'Michelin 1 Star', 'Bib Gourmand', 'Gault&Millau 3 Hauben')"],
+        "guides": ["String (CRITICAL: Copy 'existing_guides' from input exactly)"],
+        "source_url": "String (CRITICAL: Copy 'existing_url' or 'source_url' from input)",
         "cuisine": "String (e.g. 'French Modern')",
         "vibe": ["String (e.g. 'Romantic', 'Stylish')"],
         "signature_dish": "String (e.g. 'Bouillabaisse')",
@@ -85,4 +89,4 @@ Before outputting JSON, you MUST verify:
     .withSelfCheck(['research']) 
     .build();
 };
-// --- END OF FILE 99 Zeilen ---
+// --- END OF FILE 107 Zeilen ---

@@ -1,7 +1,6 @@
-// 31.01.2026 21:30 - FIX: Added 'hotelScout' & 'ideenScout' to Loop-Logic. Added 'mobil' mode support. Enforced limit=1 for loops.
-// 31.01.2026 14:00 - FIX: Return Enriched Result instead of Raw Scout Result to prevent Data Overwrite in Hook.
-// 31.01.2026 13:30 - FIX: Injected "RAM-ID-Assigner" in Food Pipeline. Ensures candidates have safe IDs before reaching GeoFilter/PayloadBuilder.
-// 31.01.2026 00:15 - FIX: Pure RAM Pipeline. Scout & Geo data is passed in-memory to Enricher. No intermediate Store saves.
+// 03.02.2026 20:30 - FIX: INSPECTION LOGGING.
+// - Added deep inspection logging for chunks to trace data loss (Guides/URL).
+// - Preserved all RAM-Pipeline logic.
 // src/services/orchestrator.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -148,6 +147,19 @@ export const TripOrchestrator = {
              candidates: inputData // <--- HERE IS THE RAM HANDOVER
          });
 
+         // --- INSPECTION LOG (The Fix) ---
+         if (task === 'foodEnricher' && i === 1) {
+             try {
+                 // Try to peek into the prompt context to see if guides are present
+                 // Note: prompt is a string, so we can't inspect objects directly unless we log inputData
+                 if (inputData && Array.isArray(inputData) && inputData.length > 0) {
+                     const sample = inputData[0];
+                     console.log(`[Orchestrator] 🔍 Inspection for foodEnricher Input (RAM): Item '${sample.name}' has guides:`, sample.guides);
+                 }
+             } catch (e) { console.warn("Log inspection failed", e); }
+         }
+         // --------------------------------
+
          const rawResult = await GeminiService.call(prompt, task, modelId);
 
          let validatedData = rawResult;
@@ -214,12 +226,9 @@ export const TripOrchestrator = {
             let candidates = scoutResult.candidates || [];
             
             // FIX: RAM-Pipeline ID Injection & Category Shield
-            // We must ensure every candidate has a safe unique ID before passing to RAM-Filter/Enricher.
-            // Otherwise PayloadBuilder drops them.
             const existingPlaces = project.data?.places || {};
             candidates = candidates.map((c: any) => {
                 let safeId = c.id;
-                // Collision Check: If ID exists but is a Sight -> Force new ID
                 if (safeId && existingPlaces[safeId]) {
                     const existing = existingPlaces[safeId];
                     if (['Sight', 'Attraktion', 'Landmark', 'Sehenswürdigkeit'].includes(existing.category)) {
@@ -259,16 +268,13 @@ export const TripOrchestrator = {
             
             console.log(`[Orchestrator] Geo-Filter Result: ${filteredCandidates.length} items. Handing to Enricher (In-Memory).`);
             
-            // NOTE: We REMOVED the intermediate save to store here!
-            
             // 6. UI: Update
             store.setChunkingState({ currentChunk: 3 });
 
             // 7. PHASE 3: ENRICHER (AI) - FINAL SAVE
-            // We pass the filtered list directly to the task executor
             console.log("[Orchestrator] Phase 3: Enricher (AI) -> FINAL SAVE");
             
-            // FIX: Capture and return the ENRICHED result, not the raw scout result!
+            // FIX: Capture and return the ENRICHED result
             const enricherResult = await this.executeTask('foodEnricher', undefined, filteredCandidates); 
 
             return enricherResult; 
@@ -282,7 +288,6 @@ export const TripOrchestrator = {
     }
 
     // --- B. CHUNKING CHECK (Standard Logic) ---
-    // FIX: Added 'hotelScout' and 'ideenScout' to enable loop logic for them
     const chunkableTasks: TaskKey[] = [
         'anreicherer', 'chefredakteur', 'infoAutor', 'foodEnricher', 'chefPlaner',
         'dayplan', 'initialTagesplaner', 'infos', 'details', 'basis',
@@ -292,7 +297,6 @@ export const TripOrchestrator = {
     if (chunkableTasks.includes(task)) {
         let totalItems = 0;
         const isManual = !apiKey;
-        // FIX: Changed to 'let' to allow override for Roundtrip logic
         let limit = getTaskLimit(task, isManual);
 
         if (['anreicherer', 'chefredakteur', 'details'].includes(task)) {
@@ -325,7 +329,6 @@ export const TripOrchestrator = {
                 const stops = logistics.roundtrip?.stops || [];
                 totalItems = stops.length > 0 ? stops.length : 1;
                 // FIX: Enforce 1 Chunk per Stop for loops. 
-                // This ensures PayloadBuilder (which uses chunkIndex) works for each stop.
                 limit = 1; 
             } else {
                 totalItems = 1;
@@ -350,8 +353,8 @@ export const TripOrchestrator = {
         }
     }
 
-    // Fallback for non-chunked tasks, passing inputData if supported by PromptBuilder (usually mostly for context)
+    // Fallback for non-chunked tasks
     return this._executeSingleStep(task, feedback);
   }
 };
-// --- END OF FILE 310 Zeilen ---
+// --- END OF FILE 330 Zeilen ---
