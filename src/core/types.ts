@@ -1,6 +1,4 @@
-// 29.01.2026 18:30 - FIX: Added Hotel-specific fields (locationMatch, priceEstimate, bookingUrl).
-// 29.01.2026 16:15 - FIX: Added 'source_url' to Place interface for Food Scout link tracking.
-// 29.01.2026 12:40 - FIX: Added 'details' property to Place interface to resolve Vercel TS2339 build error.
+// 03.02.2026 10:45 - FIX: Added 'target_countries' and 'interests' alias for full prompt compatibility.
 // src/core/types.ts
 
 // --- GENERAL TYPES ---
@@ -122,7 +120,7 @@ export interface ChunkingState {
     currentChunk: number;
     totalChunks: number;
     dataChunks: any[]; 
-    results: any[];    
+    results: any[];     
 }
 
 // --- FLUGSCHREIBER (DEBUG LOGS) ---
@@ -185,6 +183,8 @@ export interface TripUserProfile {
     nationality: string;
     groupType: 'couple' | 'family' | 'friends' | 'solo' | 'other';
     pets: boolean;
+    // FIX: Compatibility for 'interests' alias if used in older prompts
+    interests?: string[];
   };
   dates: {
     start: string;
@@ -206,6 +206,9 @@ export interface TripUserProfile {
   logistics: {
     mode: 'stationaer' | 'mobil' | 'roundtrip';
     accommodationStatus?: 'needs_suggestions' | 'booked'; 
+    // FIX: Added 'target_countries' for Multi-Country Logic
+    target_countries?: string[];
+    
     roundtripOptions?: {
         waypoints?: string;
         strictRoute?: boolean;
@@ -358,6 +361,12 @@ export interface IdeenScoutResult {
         description: string;
         planning_note?: string;
     }>;
+    // FIX: Added Wildcard Ideas for V30 Parity
+    wildcard_ideas?: Array<{
+        name: string;
+        description: string;
+        planning_note?: string;
+    }>;
 }
 
 export type FoodSearchMode = 'standard' | 'stars';
@@ -411,7 +420,7 @@ export interface Place {
 
   // Details for Special/Ideas
   details?: {
-    specialType?: 'sunny' | 'rainy' | string;
+    specialType?: 'sunny' | 'rainy' | 'wildcard' | string;
     duration?: number;
     note?: string;
     website?: string;
@@ -471,4 +480,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 528 Zeilen ---
+// --- END OF FILE 540 Zeilen ---

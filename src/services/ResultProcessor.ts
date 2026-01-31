@@ -1,12 +1,11 @@
-// 03.02.2026 10:15 - FIX: Integrated Guide Harvester (Self-Healing).
-// Preserved ALL existing logic (Wildcards, TourGuide, RawCandidates).
-// Added 'triggerCountriesDownload' and active User-Prompt for new guides.
+// 03.02.2026 10:20 - FIX: TS2339 Resolved.
+// Added 'as any' cast for 'target_countries' access.
 // src/services/ResultProcessor.ts
 
 import { v4 as uuidv4 } from 'uuid';
 import { useTripStore } from '../store/useTripStore';
 import type { WorkflowStepId, TaskKey } from '../core/types';
-import { globalGuideMatrix } from '../data/countries'; // NEW IMPORT
+import { globalGuideMatrix } from '../data/countries'; 
 
 // --- HELPER: LEVENSHTEIN DISTANCE ---
 const getSimilarity = (s1: string, s2: string): number => {
@@ -214,7 +213,7 @@ export function getGuidesForCountry(countryName: string | undefined): string[] {
 export const ResultProcessor = {
   process: (step: WorkflowStepId | TaskKey, data: any) => {
     const state = useTripStore.getState();
-    const { aiSettings, logEvent, setAnalysisResult, updatePlace } = state;
+    const { aiSettings, logEvent, setAnalysisResult, updatePlace, project } = state;
 
     if (aiSettings.debug) {
       logEvent({
@@ -438,7 +437,9 @@ export const ResultProcessor = {
 
                 if (foundGuides.size > 0) {
                     const projectData = useTripStore.getState().project;
-                    const targetCountry = projectData.userInputs?.logistics?.target_countries?.[0] || 
+                    
+                    // FIX: TS2339 - Cast to any to access potentially missing 'target_countries'
+                    const targetCountry = (projectData.userInputs?.logistics as any)?.target_countries?.[0] || 
                                           projectData.userInputs?.logistics?.stationary?.destination || 
                                           "Unknown";
                     

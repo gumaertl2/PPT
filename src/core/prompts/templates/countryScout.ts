@@ -1,5 +1,5 @@
-// 02.02.2026 22:00 - NEW: Ported V30 "Country Scout".
-// Researches valid restaurant guides for a specific country to prevent hallucinations.
+// 03.02.2026 10:20 - FIX: TS2322 Resolved.
+// Replaced invalid SelfCheck 'consistency' with valid 'basic'.
 // src/core/prompts/templates/countryScout.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -53,7 +53,8 @@ Provide a clean JSON list of guide names that I can feed into a search bot.`;
     .withContext({ targetCountry }, "TARGET PARAMETER")
     .withInstruction(instructions)
     .withOutputSchema(outputSchema)
-    .withSelfCheck(['research', 'consistency'])
+    // FIX: TS2322 - 'consistency' is not valid in PromptBuilder types, changed to 'basic'
+    .withSelfCheck(['research', 'basic'])
     .build();
 };
 // --- END OF FILE 65 Zeilen ---
