@@ -1,9 +1,9 @@
-// 02.02.2026 18:30 - FIX: Hardened Google Search Link.
-// Included Address and Country in the search query to prevent ambiguous results (e.g. USA matches).
+// 03.02.2026 17:15 - FIX: Added Wildcard Support.
+// Now handles 'wildcard' specialType explicitly with Sparkles icon.
 // src/features/Cockpit/SightCard/SightCardMeta.tsx
 
 import React from 'react';
-import { Star, Sun, CloudRain, CreditCard, ExternalLink, Check, BookOpen, Globe, Search, Map as MapIcon } from 'lucide-react';
+import { Star, Sun, CloudRain, CreditCard, ExternalLink, Check, BookOpen, Globe, Search, Map as MapIcon, Sparkles } from 'lucide-react';
 
 interface SightCardMetaProps {
   data: any;
@@ -68,19 +68,42 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
       data.name,
       data.address,
       data.city,
-      data.country || 'Sri Lanka' // Fallback context if useful, otherwise remove 'Sri Lanka'
+      data.country || 'Sri Lanka' 
     ];
-    // Filter empty/null/undefined parts and join
     return parts.filter(p => p && typeof p === 'string' && p.trim().length > 0).join(', ');
+  };
+
+  // HELPER: Render Special Badge (Sunny / Rainy / Wildcard)
+  const renderSpecialBadge = () => {
+      if (specialType === 'wildcard') {
+          return (
+              <div className="flex items-center gap-1 font-bold text-purple-600">
+                  <Sparkles className="w-3 h-3" />
+                  <span>Wildcard</span>
+              </div>
+          );
+      }
+      if (specialType === 'sunny') {
+          return (
+              <div className="flex items-center gap-1 font-bold text-amber-600">
+                  <Sun className="w-3 h-3" />
+                  <span>Sonnentag</span>
+              </div>
+          );
+      }
+      // Default: Rainy
+      return (
+          <div className="flex items-center gap-1 font-bold text-blue-600">
+              <CloudRain className="w-3 h-3" />
+              <span>Regentag</span>
+          </div>
+      );
   };
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 mb-1">
       {isSpecial ? (
-        <div className={`flex items-center gap-1 font-bold ${specialType === 'sunny' ? 'text-amber-600' : 'text-blue-600'}`}>
-          {specialType === 'sunny' ? <Sun className="w-3 h-3" /> : <CloudRain className="w-3 h-3" />}
-          <span>{specialType === 'sunny' ? 'Sonnentag' : 'Regentag'}</span>
-        </div>
+        renderSpecialBadge()
       ) : (
         <select 
           value={customCategory} 
@@ -154,7 +177,6 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
           <a href={ensureAbsoluteUrl(websiteUrl)} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-600" title="Zur Website"><Globe className="w-3.5 h-3.5" /></a>
         )}
         
-        {/* FIX: Improved Google Search Query with Address & Country */}
         <a 
           href={`https://www.google.com/search?q=${encodeURIComponent(getGoogleSearchQuery())}`} 
           target="_blank" 
@@ -170,4 +192,4 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
     </div>
   );
 };
-// --- END OF FILE 148 Zeilen ---
+// Lines: 167

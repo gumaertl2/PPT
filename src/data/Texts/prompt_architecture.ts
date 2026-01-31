@@ -1,6 +1,7 @@
-// 01.02.2026 16:45 - DOCS: SSOT SYNC. Aligned Specs with actual Code (Templates & Types).
-// ChefPlaner: strategy_analysis -> strategic_briefing.
-// Basis: candidates (String List).
+// 03.02.2026 19:15 - DOCS: FOOD SCOUT V4 & DATA PROTECTION.
+// - Added Smart Matching & Data Preservation Shield to ResultProcessor spec.
+// - Expanded Food Scout with "Smart Link Generation" (Phase 4).
+// - Defined Wildcards explicitly.
 // src/data/Texts/prompt_architecture.ts
 
 export const promptArchitecture = {
@@ -37,10 +38,13 @@ Keine KI-Antwort darf ungeprüft in das System.
 * **Prozess:** Jedes JSON von Gemini wird *vor* der Weiterverarbeitung gegen das Schema geparst.
 * **Konsequenz:** Fehlerhafte Strukturen führen zu einem kontrollierten Fehler, statt die UI crashen zu lassen.
 
-### D. Der \`ResultProcessor\` (Der Integrator)
+### D. Der \`ResultProcessor\` (Der Integrator & Beschützer)
 Das Herzstück der Datenverarbeitung (\`src/services/ResultProcessor.ts\`).
-* **ID Factory:** Wandelt Strings ("Hotel Ritter") in Datenbank-Objekte um (\`{ id: uuid(), name: "Hotel Ritter"... }\`).
-* **ID Pass-through:** Beim "Anreicherer" sorgt er dafür, dass die eingehende ID (\`candidates[0].id\`) exakt auf das Ergebnis gemappt wird.
+* **ID Factory & Smart Matching:** * Erstellt IDs für neue Orte.
+    * **WICHTIG:** Nutzt "Substring Matching" ("EssZimmer" in "EssZimmer by Bobby Bräuer"), um Duplikate zu verhindern und die Identität zu wahren.
+* **Data Preservation Shield (Der Daten-Schutz):**
+    * Beim Update durch den "Anreicherer" (Enrichment) verhindert der Processor aktiv, dass wertvolle Felder (wie \`guides\`, \`source_url\`) durch leere Werte überschrieben werden.
+    * **Grundsatz:** Bestehende Daten haben Vorrang vor fehlenden Daten.
 * **Content Router:** Entscheidet:
     * Ist es ein Ort? -> Ab in \`project.data.places\`.
     * Ist es Text-Wissen? -> Ab in \`project.data.content.infos\`.
@@ -66,154 +70,97 @@ Das Herzstück der Datenverarbeitung (\`src/services/ResultProcessor.ts\`).
 * **Template:** \`anreicherer.ts\`
 * **Input (Via \`prepareAnreichererPayload\`):**
     * \`candidates\`: Liste von Objekten \`{ id, name, search_context }\`.
-    * \`batch_size\`: Limitiert auf 5-10 Items pro Call (für Stabilität).
 * **Prompt-Logik:**
     * "Finde Adresse, Koordinaten, Öffnungszeiten."
     * **ID-Regel:** "Du musst die \`id\` aus dem Input 1:1 in den Output kopieren." (Ermöglicht das Matching im Processor).
-* **Output (Code-Sync):**
-    * \`results\`: Array von Objekten (\`id\`, \`valid\`, \`category\`, \`official_name\`, \`location\`, \`address\`, \`description\`, \`openingHours\`, \`rating\`, \`user_ratings_total\`, \`duration\`).
+* **Output:** \`results\` Array.
 
 ### C. Der "Hotel Scout" (Der Logistiker)
 **Aufgabe:** Findet die optimale Unterkunft passend zur Logistik-Strategie.
 * **Template:** \`hotelScout.ts\`
 * **Input (Via \`prepareHotelScoutPayload\`):**
     * \`logistics_mode\`: "stationaer" vs. "mobil" (Rundreise).
-    * \`vehicle_type\`: "car", "camper" (Trigger für Campingplätze), "train".
     * \`budget_level\`: Das gewählte Preisniveau.
-    * \`current_stop\`:
-        * *Stationär:* Der Zielort (\`stationary.destination\`).
-        * *Rundreise:* Der spezifische Stop (z.B. Stop 2: "Region Freiburg").
 * **Business Logic (Im Prompt):**
-    * **Modus Stationär:** Suche 1 zentrales "Base Camp". Fokus auf strategische Lage für Tagesausflüge (Hub-and-Spoke).
+    * **Modus Stationär:** Suche 1 zentrales "Base Camp".
     * **Modus Rundreise:** Suche für den *aktuellen* Stop 2-3 Optionen in direkter Nähe.
     * **Camper-Switch:** Wenn \`logistics_type == camper\`, suche **ausschließlich** Campingplätze/Stellplätze.
-    * **Preis-Treue:** Striktes Einhalten des \`budget_level\` (z.B. keine Luxushotels bei "Budget").
-* **Output (ResultProcessor):**
-    * Speichert Kandidaten in \`data.places\`.
-    * Setzt Feld \`category: 'accommodation'\`.
-    * Feld \`location_match\`: Begründung der strategischen Eignung.
+    * **Preis-Treue:** Striktes Einhalten des \`budget_level\`.
 
-### D. Der "Food Scout" & "Food Enricher" (Die Kulinarik)
-**WICHTIG:** Dieser Agent arbeitet streng nach einer Quellen-Matrix und ignoriert allgemeine Kulinarik-Interessen aus \`interests.ts\`.
+### D. Der "Food Scout" & "Food Enricher" (Die Kulinarik-Experten)
+**WICHTIG:** Dieser Workflow besteht aus zwei strikt getrennten Phasen, um die Qualität zu sichern.
 
-#### 1. Food Scout (Der Quellen-basierte Sammler)
+#### Phase 1: Der Food Scout (Der Quellen-Finder)
 * **Template:** \`foodScout.ts\`
-**Aufgabe:** Erstellt einen "Kandidaten-Pool" basierend auf renommierten Restaurantführern.
+* **Aufgabe:** Erstellt einen "Kandidaten-Pool" basierend auf renommierten Guides (Michelin, Gault&Millau, etc.).
+* **Regeln (The Law):**
+    * **Strict Source Enforcement:** Restaurants OHNE validen Guide werden verworfen.
+    * **Smart Link Generation (Phase 4):** Der Scout MUSS aktiv eine \`source_url\` generieren (z.B. direkter Link zur Michelin-Suche), damit der User die Quelle prüfen kann.
+* **Output:** Kandidaten mit \`name\`, \`guides\` (Liste) und \`source_url\`.
 
-* **Input (Via \`prepareFoodScoutPayload\`):**
-    * **Suchgebiet & Radius (Geografische Intelligenz):**
-        * Er erhält die \`hotel_data\` (vom gewählten Hotel) und ggf. \`city_districts\`.
-        * **Logik:** Er definiert ein Suchgebiet um diese Orte herum.
-            * *Beispiel:* Ist der Ort "München", sucht er in "Oberbayern" (ca. 50km Radius).
-            * *Beispiel:* Ist der Ort "Rosenheim", sucht er in "Oberbayern" UND "Österreich" (ca. 50km Radius).
-            * *Beispiel:* Bei spezifischen Stadtbezirken sucht er nur in der Stadt.
-    * **Strategie-Modus:**
-        * **Modus A (Guide Suche):** Suche NUR Restaurants in den Führern, die **keine Sterne** haben (z.B. Bib Gourmand, Empfehlungen).
-        * **Modus B (Ad-hoc Suche):** Der User gibt explizit vor, ob er Sterne will oder nicht.
-    * **Quellen-Matrix (Binding):**
-        * Der Scout nutzt die länderspezifische Datenbank (\`countries.ts\`), um gezielt in renommierten Guides zu suchen (z. B. Michelin, Gault&Millau, Slow Food, Falstaff).
-
-* **Prompt-Regeln:**
-    * **Ignore Interests:** Der Food-Scout bekommt NICHT die allgemeinen Informationen aus der \`interests.ts\`. Er wendet immer genau die hier definierte Suchstrategie an.
-    * **Ziel:** Es wird ein grober „Kandidaten-Pool“ erstellt, der nur Restaurants enthält, die in mindestens einem validen Guide gelistet sind und die Suchstrategie erfüllen.
-
-* **Output:**
-    * Kandidaten-Pool mit Namen.
-    * Quelle des Funds (inkl. Link, falls möglich).
-
-#### 2. Food Enricher (Der Detail-Prüfer)
+#### Phase 2: Der Food Enricher (Der Fakten-Checker)
 * **Template:** \`foodEnricher.ts\`
-**Aufgabe:** Veredelt den Kandidaten-Pool mit Details.
-
-* **Input:** Die Liste vom Scout.
-* **Logik:** Recherchiert "Hard Facts" und "Soft Facts".
-* **Output Felder:**
-    * \`signature_dish\`: Was muss man dort essen?
-    * \`priceLevel\`: €, €€, €€€.
-    * \`user_ratings_total\`: Anzahl der Bewertungen als Qualitäts-Indikator.
-    * \`openingHoursHint\`: Kurzform (z.B. "Mo Ruhetag").
+* **Aufgabe:** Veredelt den Kandidaten-Pool mit Details (Google Maps Daten).
+* **Daten-Schutz:**
+    * Der Enricher liefert KEINE Guides.
+    * Der **ResultProcessor** muss sicherstellen, dass die Guides und URLs aus Phase 1 beim Speichern der Phase-2-Daten **nicht gelöscht** werden.
 
 ### E. Der "ChefPlaner" (Der Stratege)
 **Aufgabe:** Fundamentalanalyse vor der eigentlichen Planung.
 * **Template:** \`chefPlaner.ts\`
 * **Input (Via \`prepareChefPlanerPayload\`):**
-    * Komplettes Profil: \`travelers\` (Alter, Gruppe), \`dates\` (Saison, Dauer), \`logistics\` (Modus), \`interests\`.
-* **Output (Code-Sync):**
-    * \`strategic_briefing\`: Objekt mit \`search_radius_instruction\`, \`sammler_briefing\`, \`itinerary_rules\`.
-    * \`smart_limit_recommendation\`: Objekt mit \`value\` (Anzahl) und \`reasoning\`.
-    * \`plausibility_check\`: Text.
-    * \`corrections\`: Objekt (Typos, Validierung).
+    * Komplettes Profil: \`travelers\`, \`dates\`, \`logistics\`, \`interests\`.
+* **Output:** \`strategic_briefing\`, \`smart_limit_recommendation\`.
 
 ### F. Der "Route Architect" (Der Logistik-Meister)
 **Aufgabe:** Berechnet die optimale Route für Rundreisen oder die Verteilung von Stationen.
 * **Template:** \`routeArchitect.ts\`
-* **Input (Via \`prepareRouteArchitectPayload\`):**
-    * \`stops\`: Die vom User gewählten Stationen (aus Step 1).
-    * \`start/end\`: Start- und Endpunkt der Reise.
-    * \`constraints\`: Max. Fahrzeit pro Etappe, Max. Hotelwechsel.
 * **Logik:**
-    * Optimiert die Reihenfolge der Stops ("Travelling Salesman" light).
+    * Optimiert die Reihenfolge der Stops.
     * Prüft, ob die Fahrzeiten realistisch sind.
-* **Output:** Optimierte Liste von \`stops\` mit \`drive_time\` und \`distance\`.
+* **Output:** Optimierte Liste von \`stops\` mit \`drive_time\`.
 
 ### G. Der "Tour Guide" (Der Clusterer)
 **Aufgabe:** Ordnet die gefundenen POIs (\`places\`) logischen "Touren" oder "Tagen" zu.
 * **Template:** \`tourGuide.ts\`
-* **Input (Via \`prepareTourGuidePayload\`):**
-    * \`places\`: Alle gefundenen und angereicherten Orte.
-    * \`duration\`: Anzahl der verfügbaren Tage.
-    * \`hub\`: Der Standort des Hotels (für Radial-Planung).
 * **Logik:** Bildet geografische Cluster ("Tag 1: Altstadt", "Tag 2: Umland").
-* **Output:** \`tour_suggestions\` (Cluster-Definitionen, die im View-Switcher genutzt werden).
+* **Output:** \`tour_suggestions\`.
 
 ### H. Der "Transfer Planner" & "Duration Estimator" (Die Realisten)
-**Aufgabe:** Berechnet Wegezeiten zwischen Orten, wenn keine API verfügbar ist.
-* **Templates:** \`transferPlanner.ts\`, \`durationEstimator.ts\`
-* **Input:** Liste von Geo-Koordinaten.
-* **Output:** Matrix von \`transfer_times\`.
+**Aufgabe:** Berechnet Wegezeiten zwischen Orten.
 
 ---
 
 ## 3. Die Agenten-Matrix: Redakteure (Phase 3)
 
-### I. Der "Info Autor" (Der Reiseführer)
-**Aufgabe:** Schreibt die redaktionellen Kapitel für den "Info"-Bereich (nicht Orte, sondern Wissen).
-* **Template:** \`infoAutor.ts\`
-* **Input (Via \`prepareInfoAutorPayload\`):**
-    * \`topics\`: Liste der geforderten Kapitel (z.B. "Anreise", "Budget & Geld", "Kultur-Knigge").
-    * \`context\`: Reiseziel, Reisezeit, Reisegruppe.
-* **Logik:** Erstellt Markdown-formatierten Content.
-* **Output:** Array von \`ContentChapter\` (\`{ id, title, content_markdown }\`), die im \`InfoView\` angezeigt werden.
-
-### J. Der "Chefredakteur" (Der Detail-Liebhaber)
-**Aufgabe:** Schreibt ausführliche, inspirierende Beschreibungen für ausgewählte Top-Highlights (Progressive Disclosure: Level 3).
-* **Template:** \`chefredakteur.ts\`
-* **Input (Via \`prepareChefredakteurPayload\`):**
-    * \`place\`: Das spezifische Objekt.
-    * \`tone\`: Tonalität ("Begeisternd", "Faktisch").
-* **Output:** \`detailContent\` (Langer Text mit Zwischenüberschriften).
-
-### K. Der "Ideen Scout" (Der Joker)
+### I. Der "Ideen Scout" (Der Joker)
 **Aufgabe:** Liefert Alternativen, wenn der Plan zu leer ist oder das Wetter schlecht wird.
 * **Template:** \`ideenScout.ts\`
-* **Input:** \`weather_forecast\` (simuliert/eingegeben), \`current_plan\`.
-* **Output:** \`alternatives\` (Indoor-Optionen, "Hidden Gems").
+* **Szenarien:**
+    * **Sunny:** Outdoor.
+    * **Rainy:** Indoor.
+    * **Wildcard:** Überraschungen ("Hidden Gems"), die bewusst vom Profil abweichen dürfen.
+* **Visualisierung:** Wildcards werden im Frontend explizit als solche markiert.
+
+### J. Der "Info Autor" (Der Reiseführer)
+**Aufgabe:** Schreibt die redaktionellen Kapitel für den "Info"-Bereich.
+* **Template:** \`infoAutor.ts\`
+* **Output:** \`ContentChapter\`.
+
+### K. Der "Chefredakteur" (Der Detail-Liebhaber)
+**Aufgabe:** Schreibt ausführliche, inspirierende Beschreibungen für ausgewählte Top-Highlights.
+* **Template:** \`chefredakteur.ts\`
+* **Output:** \`detailContent\` (Langer Text mit Zwischenüberschriften).
 
 ---
 
-## 4. Legacy & Future
-
-### L. Der "Initial Tagesplaner" (Legacy)
-*(Status: Wird refactored. Erstellt aktuell den finalen \`itinerary\`. Soll künftig stärker auf den Ergebnissen des \`TourGuide\` aufbauen.)*
-
----
-
-## 5. Daten-Integrität & Fehler-Korrektur (Global)
+## 4. Daten-Integrität & Fehler-Korrektur (Global)
 
 1.  **Strict Typing:** Alle Outputs müssen den TypeScript-Interfaces in \`types.ts\` entsprechen.
-2.  **SSOT:** Alle Agenten schreiben ihre Ergebnisse via \`ResultProcessor\` in den zentralen \`TripStore\`. Keine UI-Komponente speichert Daten lokal.
-3.  **Validation:** Zod-Firewall schützt vor Struktur-Brüchen.
+2.  **SSOT:** Alle Agenten schreiben ihre Ergebnisse via \`ResultProcessor\` in den zentralen \`TripStore\`.
+3.  **Data Persistence:** Bestehende Felder dürfen bei Updates niemals ungewollt gelöscht werden. Der \`ResultProcessor\` fungiert als Schutzschild für Daten, die nur in Phase 1 (Scout) verfügbar sind.
+4.  **Validation:** Zod-Firewall schützt vor Struktur-Brüchen.
 `
   }
 };
-// --- END OF FILE 270 Zeilen ---
+// --- END OF FILE 310 Zeilen ---

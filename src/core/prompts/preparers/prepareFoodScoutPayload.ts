@@ -1,15 +1,32 @@
-// 03.02.2026 10:20 - FIX: TS2339 Resolved.
-// Added 'as any' casts for 'target_countries' and corrected 'interests' to 'selectedInterests'.
+// 03.02.2026 20:00 - FIX: PAYLOAD COMPATIBILITY.
+// - Supports both direct Project call and Payload object (with instructions).
+// - Preserves all advanced logic (DACH, Dynamic Guides, Priorities).
 // src/core/prompts/preparers/prepareFoodScoutPayload.ts
 
 import type { TripProject, FoodSearchMode } from '../../types';
 import { getGuidesForCountry } from '../../../data/countries';
 
 export const prepareFoodScoutPayload = (
-    project: TripProject, 
+    projectOrPayload: any, 
     modeInput: FoodSearchMode = 'standard',
-    feedback?: string
+    feedbackInput?: string
 ) => {
+    // --- 0. RESOLVE INPUT (Project vs. Payload) ---
+    let project: TripProject;
+    let feedback = feedbackInput;
+
+    if (projectOrPayload.context || projectOrPayload.instructions) {
+        // Payload Mode (Ad-Hoc Call)
+        project = projectOrPayload.project || projectOrPayload; // Fallback
+        // If feedback was not passed directly, try to get it from instructions
+        if (!feedback && projectOrPayload.instructions) {
+            feedback = projectOrPayload.instructions;
+        }
+    } else {
+        // Standard Mode
+        project = projectOrPayload as TripProject;
+    }
+
     const { userInputs, analysis } = project;
     const logistics = userInputs?.logistics;
     
@@ -49,7 +66,23 @@ export const prepareFoodScoutPayload = (
         contextDescription = "Stationary Destination";
     }
 
-    // --- 2. COMPOSE SEARCH STRING ---
+    // --- 2. AD-HOC OVERRIDE (MOVED UP FOR PARSING) ---
+    // We check this EARLY to override the search location if needed
+    const isAdHoc = !!(feedback && feedback.toLowerCase().includes('adhoc'));
+    
+    if (isAdHoc && feedback) {
+        const locMatch = feedback.match(/LOC:([^|]+)/);
+        if (locMatch && locMatch[1].trim()) {
+            const manualLoc = locMatch[1].trim(); 
+            // OVERRIDE: If Ad-Hoc specifies a location, use it exclusively!
+            targetLocations = [manualLoc];
+            regionHint = manualLoc;
+            contextDescription = "Manual Ad-Hoc Search";
+            console.log(`[FoodScout] 🎯 Ad-Hoc Location detected: "${manualLoc}"`);
+        }
+    }
+
+    // --- 3. COMPOSE SEARCH STRING ---
     let searchLocation = "";
     if (targetLocations.length > 0) {
         searchLocation = Array.from(new Set(targetLocations)).join(', ');
@@ -58,7 +91,7 @@ export const prepareFoodScoutPayload = (
         console.warn("[FoodScout] No locations found in Analysis or Inputs.");
     }
 
-    // --- 3. DETERMINE GUIDES (ENHANCED) ---
+    // --- 4. DETERMINE GUIDES (ENHANCED) ---
     // Try to find specific guides based on region/country hint
     let countryForLookup = regionHint;
     
@@ -80,24 +113,17 @@ export const prepareFoodScoutPayload = (
          relevantGuides = ["Michelin", "Gault&Millau", "Feinschmecker", "Falstaff", ...relevantGuides];
     }
 
-    // --- 4. AD-HOC OVERRIDE ---
-    const isAdHoc = !!(feedback && feedback.toLowerCase().includes('adhoc'));
+    // --- 5. AD-HOC STRATEGY TEXT ---
     let searchArea = `Scope: ${contextDescription}. Locations: ${searchLocation}`;
     let strategyMode = modeInput;
 
     if (isAdHoc && feedback) {
-        const locMatch = feedback.match(/LOC:([^|]+)/);
-        if (locMatch && locMatch[1].trim()) {
-            searchLocation = locMatch[1].trim(); 
-            searchArea = `Manual Ad-Hoc Search: ${searchLocation}`;
-            relevantGuides = getGuidesForCountry(searchLocation);
-        }
+        // Redundant check for Radius to append to searchArea
         const radMatch = feedback.match(/RAD:(\d+)/);
         if (radMatch) searchArea += ` (Radius: ${radMatch[1]}km)`;
         if (feedback.toLowerCase().includes('sterne') || feedback.includes('mode:stars')) strategyMode = 'stars';
     }
 
-    // --- 5. STRATEGY TEXT ---
     let strategyText = "";
     if (strategyMode === 'stars') {
         strategyText = `**MODE: GOURMET & STARS**
@@ -131,4 +157,4 @@ export const prepareFoodScoutPayload = (
         }
     };
 };
-// --- END OF FILE 135 Zeilen ---
+// Lines: 160

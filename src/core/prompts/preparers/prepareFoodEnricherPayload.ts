@@ -1,18 +1,33 @@
-// 30.01.2026 02:45 - FIX: Pass 'id' to FoodEnricher to enable "Input=Output" Integrity Check (Prevent Duplicates).
-// 29.01.2026 15:30 - FIX: Harmonized 'distance' property from GeoFilter (Phase 2) and added source_url passthrough.
-// 28.01.2026 10:00 - FIX: Removed unused import & Added type safety for itemsToProcess.
-// 27.01.2026 23:15 - FIX: V30 Feature Parity (Distance Calculation & Store Access).
+// 03.02.2026 20:10 - FIX: PAYLOAD SUPPORT FOR AD-HOC.
+// - Now correctly extracts candidates from Payload object wrapper.
+// - Preserves all logic (Distance, ID, Editorial Guideline).
 // src/core/prompts/preparers/prepareFoodEnricherPayload.ts
 
 import type { TripProject } from '../../types';
 import { INTEREST_DATA } from '../../../data/interests';
 
 export const prepareFoodEnricherPayload = (
-    project: TripProject,
-    candidates?: any[], 
+    projectOrPayload: any, // Changed type to allow Payload wrapper
+    candidatesArg?: any[], 
     currentChunk: number = 1,
     totalChunks: number = 1
 ) => {
+    // --- 0. RESOLVE INPUT (Project vs. Payload) ---
+    let project: TripProject;
+    let candidatesFromPayload: any[] | undefined;
+
+    if (projectOrPayload.context || projectOrPayload.project) {
+        // Payload Mode (Ad-Hoc Call)
+        project = projectOrPayload.project || projectOrPayload; 
+        // Ad-Hoc Pipeline passes candidates inside context
+        if (projectOrPayload.context && Array.isArray(projectOrPayload.context.candidates)) {
+            candidatesFromPayload = projectOrPayload.context.candidates;
+        }
+    } else {
+        // Standard Mode
+        project = projectOrPayload as TripProject;
+    }
+
     const { meta, analysis, userInputs } = project;
     const lang = meta.language === 'en' ? 'en' : 'de';
 
@@ -33,7 +48,8 @@ export const prepareFoodEnricherPayload = (
     const destinationName = userInputs.logistics.stationary.destination || "Region";
     
     // 4. PREPARE CANDIDATES
-    let itemsToProcess = candidates || [];
+    // Priority: 1. Argument (Direct Call) -> 2. Payload Context (Ad-Hoc) -> 3. Store (Wizard)
+    let itemsToProcess = candidatesArg || candidatesFromPayload || [];
 
     if (itemsToProcess.length === 0) {
         // Fallback: Check store if passed empty (Integration Safety)
@@ -45,6 +61,8 @@ export const prepareFoodEnricherPayload = (
             console.warn(`[FoodEnricher] No candidates found in arguments or store.`);
             itemsToProcess = [];
         }
+    } else {
+        console.log(`[FoodEnricher] Processing ${itemsToProcess.length} candidates from Input/Pipeline.`);
     }
 
     // Map items (TS knows itemsToProcess is an array now)
@@ -101,4 +119,4 @@ export const prepareFoodEnricherPayload = (
         }
     };
 };
-// --- END OF FILE 99 Zeilen ---
+// Lines: 115
