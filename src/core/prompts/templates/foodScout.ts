@@ -1,5 +1,5 @@
-// 02.02.2026 23:10 - FIX: Adaptive Source Logic.
-// Handles both "Strict Lists" (e.g. Michelin) and "Dynamic Research" (Self-Healing) for unknown countries.
+// 03.02.2026 14:45 - FIX: Strict Source Enforcement ("The Law").
+// Forces the AI to discard any candidate without a valid citation to prevent data loss in frontend.
 // src/core/prompts/templates/foodScout.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -58,10 +58,12 @@ Target: **${locationName}** (Radius: ~${searchRadius})
 2. **NO PRE-FILTERING:** Do not check opening hours yet.
 3. **REGIONAL SCOPE:** Scan the city center AND the surrounding area.
 
-# PHASE 3: DATA INTEGRITY & ATTRIBUTION
+# PHASE 3: DATA INTEGRITY & ATTRIBUTION (ZERO TOLERANCE)
 1. **Real Names Only:** Verify the name.
 2. **Coordinates (CRITICAL):** You MUST provide Lat/Lng.
-3. **MANDATORY SOURCE:** You MUST fill the 'guides' field with the source you used.
+3. **SOURCE CITATION (THE LAW):** - You MUST fill the 'guides' array with the specific source name (e.g. "Yamu", "Michelin", "TripAdvisor Travelers' Choice").
+   - **IF YOU CANNOT CITE A SOURCE, DO NOT OUTPUT THE CANDIDATE.**
+   - "I know this place" is NOT a valid source.
 
 ${specificCuisines}`;
 
@@ -89,4 +91,4 @@ ${specificCuisines}`;
     .withSelfCheck(['research'])
     .build();
 };
-// --- END OF FILE 90 Zeilen ---
+// --- END OF FILE 96 Zeilen ---

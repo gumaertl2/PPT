@@ -1,5 +1,6 @@
-// 03.02.2026 10:30 - FIX: TS6133 (Unused variable 'project').
-// Refactored to consistently use the destructured 'project' variable instead of accessing state directly.
+// 03.02.2026 13:40 - FIX: Category Integrity & Guide Harvester.
+// Prevents AI from overwriting system categories (e.g. 'Restaurant') with hallucinated ones (e.g. 'hidden-gem').
+// Integrated Guide Harvester with robust targetCountry detection.
 // src/services/ResultProcessor.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -213,7 +214,7 @@ export function getGuidesForCountry(countryName: string | undefined): string[] {
 export const ResultProcessor = {
   process: (step: WorkflowStepId | TaskKey, data: any) => {
     const state = useTripStore.getState();
-    const { aiSettings, logEvent, setAnalysisResult, updatePlace, project } = state; // 'project' destructured here
+    const { aiSettings, logEvent, setAnalysisResult, updatePlace, project } = state; 
 
     if (aiSettings.debug) {
       logEvent({
@@ -242,7 +243,7 @@ export const ResultProcessor = {
                 const isString = typeof item === 'string';
                 const name = isString ? item : item.name;
                 if (name) {
-                    const existingPlaces = project.data?.places || {}; // FIX: used 'project' instead of 'state.project'
+                    const existingPlaces = project.data?.places || {};
                     const existingId = resolvePlaceId({ name }, existingPlaces, false);
                     const id = existingId || (isString ? uuidv4() : (item.id || uuidv4()));
 
@@ -262,7 +263,7 @@ export const ResultProcessor = {
       }
 
       case 'anreicherer': {
-        const existingPlaces = project.data?.places || {}; // FIX: used 'project' instead of 'useTripStore.getState().project'
+        const existingPlaces = project.data?.places || {};
         if (extractedItems.length > 0) {
             let successCount = 0;
             extractedItems.forEach((item: any) => {
@@ -291,7 +292,7 @@ export const ResultProcessor = {
 
       case 'chefredakteur':
       case 'details': {
-          const existingPlaces = project.data?.places || {}; // FIX: used 'project' instead of 'useTripStore.getState().project'
+          const existingPlaces = project.data?.places || {};
           if (extractedItems.length > 0) {
               let successCount = 0;
               extractedItems.forEach((item: any) => {
@@ -316,11 +317,11 @@ export const ResultProcessor = {
       case 'foodEnricher':
       case 'accommodation':
       case 'hotelScout': {
-        const category = ['food', 'foodScout', 'foodEnricher'].includes(step) ? 'Restaurant' : 'Hotel';
+        const systemCategory = ['food', 'foodScout', 'foodEnricher'].includes(step) ? 'Restaurant' : 'Hotel';
         
         if (extractedItems.length > 0) {
             const rawCandidates: any[] = []; 
-            const existingPlaces = project.data?.places || {}; // FIX: used 'project' instead of 'state.project'
+            const existingPlaces = project.data?.places || {};
 
             let savedCount = 0;
 
@@ -337,7 +338,7 @@ export const ResultProcessor = {
                     }
 
                     // --- 🧠 SMART MATCH ---
-                    const resolvedId = resolvePlaceId({ ...item, name }, existingPlaces, false, category);
+                    const resolvedId = resolvePlaceId({ ...item, name }, existingPlaces, false, systemCategory);
                     
                     let id: string;
                     if (resolvedId) {
@@ -362,10 +363,13 @@ export const ResultProcessor = {
                     
                     const finalName = item.name_official || name;
 
+                    // FIX: Prevent AI from overwriting system category (e.g. "hidden-gem")
+                    const { category: _aiCategory, ...cleanItem } = item;
+
                     updatePlace(id, {
                         id,
                         name: finalName,
-                        category, 
+                        
                         address: item.address,
                         location: item.location,
                         rating: item.rating || 0,
@@ -390,7 +394,9 @@ export const ResultProcessor = {
                         logistics_tip: item.logistics_tip,
                         original_name: item.original_name,
                         
-                        ...item
+                        ...cleanItem, // Spread clean item (without category)
+
+                        category: systemCategory // Enforce System Category
                     });
                     savedCount++;
 
@@ -436,7 +442,6 @@ export const ResultProcessor = {
                 });
 
                 if (foundGuides.size > 0) {
-                    // FIX: TS2339 & Consistency - use 'project' variable instead of refetching
                     const targetCountry = (project.userInputs?.logistics as any)?.target_countries?.[0] || 
                                           project.userInputs?.logistics?.stationary?.destination || 
                                           "Unknown";
@@ -464,7 +469,7 @@ export const ResultProcessor = {
                 // --- END GUIDE HARVESTER ---
             }
 
-            console.log(`[${category}] Stored/Updated ${savedCount} items.`);
+            console.log(`[${systemCategory}] Stored/Updated ${savedCount} items.`);
         }
         break;
       }
@@ -474,7 +479,7 @@ export const ResultProcessor = {
           // FIX: Add 'wildcard_ideas' to processing
           if (data) setAnalysisResult('ideenScout', data);
           if (data && data.results && Array.isArray(data.results)) {
-              const existingPlaces = project.data?.places || {}; // FIX: used 'project'
+              const existingPlaces = project.data?.places || {};
               let addedCount = 0;
               data.results.forEach((group: any) => {
                   const groupLocation = group.location || "Unbekannte Region";
@@ -549,7 +554,7 @@ export const ResultProcessor = {
       case 'infoAutor':
       case 'infos': {
           if (extractedItems.length > 0) {
-              const currentContent = project.data.content || {}; // FIX: used 'project'
+              const currentContent = project.data.content || {};
               const currentInfos = Array.isArray(currentContent.infos) ? [...currentContent.infos] : [];
               const processedChapters = extractedItems.map((chapter: any) => {
                   return {
@@ -592,4 +597,4 @@ export const ResultProcessor = {
     }
   }
 };
-// --- END OF FILE 620 Zeilen ---
+// --- END OF FILE 627 Zeilen ---

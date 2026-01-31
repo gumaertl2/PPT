@@ -1,5 +1,5 @@
-// 01.02.2026 21:00 - FEAT: Added User Profile (Interests/Vibe) to Task Payload.
-// Preserves strict Hub-Detection & Blocked-List logic.
+// 03.02.2026 14:15 - FIX: Robust Hub Detection & Wildcard Injection.
+// Ensures tasks are ALWAYS generated (Self-Healing) and explicitly requests Wildcards via instruction_override.
 // src/core/prompts/preparers/prepareIdeenScoutPayload.ts
 
 import type { TripProject } from '../../types';
@@ -50,14 +50,27 @@ export const prepareIdeenScoutPayload = (project: TripProject): any[] => {
         !isSameLocation(hub, origin)
     );
 
-    // --- FALLBACK IF NO HUBS FOUND ---
+    // --- FALLBACK IF NO HUBS FOUND (Robustness Fix) ---
     if (validHubs.length === 0) {
+        console.warn("[IdeenScout] No explicit hubs found. Activating fallback.");
+        
+        // Fallback A: Region
         const region = userInputs.logistics.mode === 'stationaer' 
             ? userInputs.logistics.stationary.region 
             : userInputs.logistics.roundtrip.region;
             
         if (region && region.length > 2) {
             validHubs.push(region);
+        }
+        
+        // Fallback B: Start Location (Emergency)
+        if (validHubs.length === 0 && userInputs.logistics.roundtrip.startLocation) {
+            validHubs.push(userInputs.logistics.roundtrip.startLocation);
+        }
+
+        // Fallback C: Generic (Prevention of crash)
+        if (validHubs.length === 0) {
+            validHubs.push("Destination Region");
         }
     }
 
@@ -79,7 +92,14 @@ export const prepareIdeenScoutPayload = (project: TripProject): any[] => {
             name: `Ideas for ${hub}`, 
             location: hub,
             blocked: blockedNames,
-            // NEW: Inject Profile Context directly into the task for atomic processing
+            
+            // NEW: Inject Instruction directly into task for Prompt Template
+            instruction_override: `Focus on ${hub}. 
+            REQUIRED LISTS: 
+            1. Sunny Day (Outdoor)
+            2. Rainy Day (Indoor)
+            3. WILDCARDS (Surprising/Quirky/Hidden Gems that fit the vibe '${userVibe}')`,
+            
             user_profile: {
                 interests: userInterests,
                 vibe: userVibe
@@ -87,4 +107,4 @@ export const prepareIdeenScoutPayload = (project: TripProject): any[] => {
         };
     });
 };
-// --- END OF FILE 105 Zeilen ---
+// --- END OF FILE 110 Zeilen ---

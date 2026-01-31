@@ -1,5 +1,5 @@
-// 01.02.2026 23:45 - FIX: Resolved TS6133 (Unused Variables).
-// Restored 'chunkInfo' logic to utilize currentChunk/totalChunks parameters correctly.
+// 03.02.2026 14:30 - FIX: Linked with Preparer via 'instruction_override'.
+// Ensures the strict Wildcard command from the preparer is actually used in the prompt.
 // src/core/prompts/templates/ideenScout.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -53,12 +53,16 @@ export const buildIdeenScoutPrompt = (
       const interests = task.user_profile?.interests?.join(', ') || "General";
       const vibe = task.user_profile?.vibe || "Standard";
 
+      // FIX: Use override from Preparer if available (contains the strict Wildcard command)
+      const scenarioInstructions = task.instruction_override || `
+1. **Scenario Sunny:** Find 2-3 outdoor ideas (Parks, Views, Activity). Must match Profile.
+2. **Scenario Rainy:** Find 2-3 indoor ideas (Museums, Cafes, Wellness). Must match Profile.
+3. **Scenario Wildcard:** Find 1 "Local Secret" (Surprise). **IGNORE PROFILE!** Search for something unique/weird/cult for this region.`;
+
       return `
 ### LOCATION: "${task.location}" (ID: ${task.id})
 **Profile:** Interests [${interests}], Vibe [${vibe}]
-1. **Scenario Sunny:** Find 2-3 outdoor ideas (Parks, Views, Activity). Must match Profile.
-2. **Scenario Rainy:** Find 2-3 indoor ideas (Museums, Cafes, Wellness). Must match Profile.
-3. **Scenario Wildcard:** Find 1 "Local Secret" (Surprise). **IGNORE PROFILE!** Search for something unique/weird/cult for this region.
+${scenarioInstructions}
 4. **Constraints:** ${blockedList}
 5. **Fallback:** If "${task.location}" is too small, search in the surrounding region (20-30min drive).`;
   }).join('\n\n----------------\n\n');
@@ -118,4 +122,4 @@ Return a SINGLE valid JSON object.`;
     .withSelfCheck(['research', 'planning'])
     .build();
 };
-// --- END OF FILE 105 Zeilen ---
+// --- END OF FILE 116 Zeilen ---
