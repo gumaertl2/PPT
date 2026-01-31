@@ -1,4 +1,4 @@
-// 03.02.2026 14:30 - FIX: Linked with Preparer via 'instruction_override'.
+// 03.02.2026 15:55 - FIX: Linked with Preparer via 'instruction_override'.
 // Ensures the strict Wildcard command from the preparer is actually used in the prompt.
 // src/core/prompts/templates/ideenScout.ts
 
@@ -122,4 +122,4 @@ Return a SINGLE valid JSON object.`;
     .withSelfCheck(['research', 'planning'])
     .build();
 };
-// --- END OF FILE 116 Zeilen ---
+// Lines: 116
