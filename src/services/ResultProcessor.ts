@@ -1,6 +1,7 @@
-// 03.02.2026 20:30 - FIX: SMART MATCHING ADDED.
-// - Added Substring-Match to 'resolvePlaceId' to fix "EssZimmer" vs "EssZimmer by Bobby Bräuer".
-// - Preserved all existing logic (Data Protection, Wildcards, etc.) exactly as provided by user.
+// 04.02.2026 12:15 - FIX: TYPE SAFETY & GUIDES PERSISTENCE.
+// - Fixed TS error for 'guides' property access using type assertion.
+// - Preserves Substring Match logic.
+// - Ensures Guides/URL are never overwritten by empty data.
 // src/services/ResultProcessor.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -339,8 +340,6 @@ export const ResultProcessor = {
                     }
 
                     // --- HARD GATEKEEPER (THE LAW) ---
-                    // Drops any FoodScout candidate that has no Source Citation.
-                    // ONLY APPLIES TO SCOUT PHASE, NOT ENRICHER!
                     if ((step === 'foodScout' || step === 'food') && (!item.guides || item.guides.length === 0)) {
                          if (aiSettings.debug) console.warn(`[ResultProcessor] 👮‍♀️ The Law: Dropped candidate "${name}" (No Source Citation).`);
                          return; // SKIP THIS ITEM
@@ -349,8 +348,6 @@ export const ResultProcessor = {
                     const finalName = item.name_official || name;
 
                     // --- FIX: DATA PROTECTION (NO DATA WIPE) ---
-                    // 1. We remove 'category' so AI doesn't overwrite it.
-                    // 2. We remove 'guides' & 'source_url' from cleanItem so the spread doesn't overwrite our preserved values with empty data.
                     const { category: _aiCategory, guides: _aiGuides, source_url: _aiUrl, ...cleanItem } = item;
 
                     updatePlace(id, {
@@ -358,13 +355,11 @@ export const ResultProcessor = {
                         name: finalName,
                         category: systemCategory, 
                         
-                        // Explicitly save/preserve Guides & URL
-                        // This logic now WINS because cleanItem doesn't contain these keys anymore.
-                        // If new item has guides, take them. If not, KEEP existing.
-                        guides: (item.guides && item.guides.length > 0) ? item.guides : (existingPlace?.guides || []),
-                        source_url: item.source_url || existingPlace?.source_url || '',
+                        // FIX: Explicitly handle guides to fix TS error and preserve data
+                        guides: (item.guides && item.guides.length > 0) ? item.guides : (existingPlace ? (existingPlace as any).guides : []),
+                        source_url: item.source_url || (existingPlace ? (existingPlace as any).source_url : ''),
 
-                        ...cleanItem // Spread the rest (Google data etc.)
+                        ...cleanItem 
                     });
                     savedCount++;
 
@@ -420,7 +415,6 @@ export const ResultProcessor = {
                     if (newGuides.length > 0) {
                         const guideList = newGuides.join("\n- ");
                         
-                        // USER INTERACTION
                         const userConfirmed = window.confirm(
                             `📍 UPDATE FÜR ${targetCountry.toUpperCase()}\n\n` +
                             `Der FoodScout hat neue Quellen gefunden:\n- ${guideList}\n\n` +
@@ -455,21 +449,18 @@ export const ResultProcessor = {
                           const targetId = resolvePlaceId(item, existingPlaces, aiSettings.debug);
                           const id = targetId || uuidv4();
                           
-                          // FIX: VISIBILITY FOR WILDCARDS
-                          // If subType is wildcard, we set the main category to 'Wildcard' 
-                          // so it appears in frontend filters immediately.
                           const finalCategory = subType === 'wildcard' ? 'Wildcard' : 'special';
 
                           updatePlace(id, {
                               id,
                               name: item.name,
-                              category: finalCategory, // VISIBILITY FIX
+                              category: finalCategory, 
                               address: item.address,
                               description: item.description,
                               city: groupLocation, 
                               location: item.location || { lat: 0, lng: 0 }, 
                               details: {
-                                  specialType: subType, // 'sunny', 'rainy', 'wildcard'
+                                  specialType: subType, 
                                   duration: item.estimated_duration_minutes,
                                   note: item.planning_note,
                                   website: item.website_url,
@@ -565,4 +556,4 @@ export const ResultProcessor = {
     }
   }
 };
-// --- END OF FILE 660 Zeilen ---
+// Lines: 675

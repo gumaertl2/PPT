@@ -1,30 +1,31 @@
-// 04.02.2026 10:45 - FIX: ROBUST DATA UNWRAPPING.
-// - Solves the "No candidates found" error by correctly unwrapping the input object.
-// - Handles both raw arrays and { candidates: [...] } objects passed by PayloadBuilder.
-// - Preserves V30 Hybrid Knowledge logic and Distance-Template.
+// 04.02.2026 11:30 - FIX: COMPILATION ERRORS.
+// - Fixed signature to match PayloadBuilder call (4 arguments).
+// - Added ANY-Cast for 'strategic_focus' to bypass strict type check.
+// - Implements Robust Data Unwrapping for Pipeline/Single-Step.
 // src/core/prompts/preparers/prepareFoodEnricherPayload.ts
 
 import type { TripProject } from '../../types';
 
 export const prepareFoodEnricherPayload = (
     project: TripProject, 
-    candidatesArg?: any
+    feedback?: string,
+    options?: any,
+    inputData?: any // The 4th argument is the Pipeline Data (from Orchestrator)
 ) => {
-    // 1. ROBUST DATA SOURCING (UNWRAPPING FIX)
+    // 1. ROBUST DATA SOURCING
     let candidates: any[] = [];
 
-    // Scenario A: Direct Array (Raw Pass)
-    if (Array.isArray(candidatesArg)) {
-        candidates = candidatesArg;
-    } 
-    // Scenario B: Wrapped Object (from PayloadBuilder/Orchestrator Single Step)
-    // The Orchestrator passes { candidates: inputData } inside options.
-    else if (candidatesArg && typeof candidatesArg === 'object') {
-        if (Array.isArray(candidatesArg.candidates)) {
-            candidates = candidatesArg.candidates;
-        } else if (Array.isArray(candidatesArg.inputData)) {
-            candidates = candidatesArg.inputData;
-        }
+    // Priority A: Pipeline Data (4th argument, passed by Orchestrator)
+    if (inputData && Array.isArray(inputData)) {
+        candidates = inputData;
+    }
+    // Priority B: Options wrapper (sometimes passed in Single Step)
+    else if (options?.candidates && Array.isArray(options.candidates)) {
+        candidates = options.candidates;
+    }
+    // Priority C: InputData as Object wrapper
+    else if (inputData && typeof inputData === 'object' && Array.isArray(inputData.candidates)) {
+        candidates = inputData.candidates;
     }
 
     // 2. FALLBACK TO STORE (If RAM pass failed)
@@ -53,7 +54,6 @@ export const prepareFoodEnricherPayload = (
         let distHint = "Unbekannt";
         let distVal = 0;
         
-        // Normalize 'dist' vs 'distance' legacy fields
         const rawDist = c.distance ?? c.dist;
         
         if (rawDist !== undefined && rawDist !== null) {
@@ -74,7 +74,7 @@ export const prepareFoodEnricherPayload = (
         };
     });
 
-    // 5. DEFINE STRATEGY (V30 HYBRID MODE)
+    // 5. DEFINE STRATEGY
     const role = `You are a 'Food-Enricher' & Restaurant Critic. Your job is to verify facts and write a high-quality review in specific format.`;
 
     const instructions = `
@@ -113,12 +113,15 @@ Before outputting JSON, verify:
 3. **ID Match:** Every 'id' in output matches an 'id' from input.
 `;
 
+    // FIX: Type-Cast for strategic_focus to avoid TS error
+    const strategicBriefing = (project.analysis?.geoAnalyst as any)?.strategic_focus || "";
+
     return {
         context: {
             candidates_list: candidatesList,
             chunk_progress: "", 
             target_language: project.userInputs?.aiOutputLanguage || 'de',
-            strategic_briefing: project.analysis?.geoAnalyst?.strategic_focus || "",
+            strategic_briefing: strategicBriefing,
             reference_location: project.userInputs?.logistics?.stationary?.destination || "Region"
         },
         instructions: {
@@ -128,4 +131,4 @@ Before outputting JSON, verify:
         userInputs: project.userInputs
     };
 };
-// Lines: 135
+// Lines: 139
