@@ -1,14 +1,12 @@
+// 04.02.2026 11:35 - FIX: Resolved TS6133 (Unused variable '_feedback').
 // 04.02.2026 11:30 - FIX: COMPILATION ERRORS.
-// - Fixed signature to match PayloadBuilder call (4 arguments).
-// - Added ANY-Cast for 'strategic_focus' to bypass strict type check.
-// - Implements Robust Data Unwrapping for Pipeline/Single-Step.
 // src/core/prompts/preparers/prepareFoodEnricherPayload.ts
 
 import type { TripProject } from '../../types';
 
 export const prepareFoodEnricherPayload = (
     project: TripProject, 
-    feedback?: string,
+    _feedback?: string,
     options?: any,
     inputData?: any // The 4th argument is the Pipeline Data (from Orchestrator)
 ) => {
@@ -131,4 +129,4 @@ Before outputting JSON, verify:
         userInputs: project.userInputs
     };
 };
-// Lines: 139
+// --- END OF FILE 140 Zeilen ---

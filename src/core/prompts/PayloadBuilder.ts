@@ -253,20 +253,26 @@ export const PayloadBuilder = {
           const slicedCandidates = sliceData(candidates, 'foodEnricher');
           
           // 3. GENERATE: Call Preparer & Template
+          // FIX: Correctly mapping arguments to match prepareFoodEnricherPayload signature:
+          // (project, feedback, options, inputData)
+          const chunkIndex = options?.chunkIndex || chunkingState?.currentChunk || 1;
+          const totalChunks = options?.totalChunks || chunkingState?.totalChunks || 1;
+          const opts = { chunkIndex, totalChunks };
+
           if (slicedCandidates.length === 0 && candidates.length === 0) {
               const payload = prepareFoodEnricherPayload(
                   project, 
-                  [],
-                  options?.chunkIndex || chunkingState?.currentChunk || 1,
-                  options?.totalChunks || chunkingState?.totalChunks || 1
+                  feedback || "", 
+                  opts,
+                  [] // 4th arg: candidates as inputData
               );
               generatedPrompt = buildFoodEnricherPrompt(payload); 
           } else {
               const payload = prepareFoodEnricherPayload(
                   project, 
-                  slicedCandidates,
-                  options?.chunkIndex || chunkingState?.currentChunk || 1,
-                  options?.totalChunks || chunkingState?.totalChunks || 1
+                  feedback || "",
+                  opts,
+                  slicedCandidates // 4th arg: candidates as inputData
               );
               generatedPrompt = buildFoodEnricherPrompt(payload);
           }
@@ -373,4 +379,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 563 Zeilen ---
+// --- END OF FILE 572 Zeilen ---
