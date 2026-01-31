@@ -1,6 +1,7 @@
-// 03.02.2026 20:00 - FIX: PAYLOAD COMPATIBILITY.
-// - Supports both direct Project call and Payload object (with instructions).
-// - Preserves all advanced logic (DACH, Dynamic Guides, Priorities).
+// 03.02.2026 23:30 - FIX: STRICT GUIDE ENFORCEMENT.
+// - BANS TripAdvisor/Google/Yelp globally from guide lists.
+// - ENFORCES Premium Guides for DACH region (Michelin, Varta, etc.).
+// - DISABLES Dynamic Mode to prevent AI hallucinations.
 // src/core/prompts/preparers/prepareFoodScoutPayload.ts
 
 import type { TripProject, FoodSearchMode } from '../../types';
@@ -91,7 +92,7 @@ export const prepareFoodScoutPayload = (
         console.warn("[FoodScout] No locations found in Analysis or Inputs.");
     }
 
-    // --- 4. DETERMINE GUIDES (ENHANCED) ---
+    // --- 4. DETERMINE GUIDES (STRICT ENFORCEMENT) ---
     // Try to find specific guides based on region/country hint
     let countryForLookup = regionHint;
     
@@ -102,16 +103,33 @@ export const prepareFoodScoutPayload = (
     const guideLookupKey = countryForLookup || "Welt";
     
     let relevantGuides = getGuidesForCountry(guideLookupKey);
-
-    // FIX: Detect Generic Fallback ("Welt") -> Trigger Dynamic Mode
-    const isGenericFallback = relevantGuides.some(g => g.includes("Local Recommendations") || g.includes("TripAdvisor (Travelers' Choice)"));
-    const dynamicGuideMode = isGenericFallback;
-
-    // DACH Fix
     const isGerman = userInputs?.aiOutputLanguage === 'de' || !userInputs?.aiOutputLanguage;
-    if (isGerman && relevantGuides.includes("World's 50 Best Restaurants") && relevantGuides.length <= 4 && !dynamicGuideMode) {
-         relevantGuides = ["Michelin", "Gault&Millau", "Feinschmecker", "Falstaff", ...relevantGuides];
+
+    // A. GLOBAL BAN: Remove Garbage Sources (TripAdvisor, Google, Yelp)
+    // We strictly filter out any garbage sources to prevent pollution.
+    relevantGuides = relevantGuides.filter(g => {
+        const lower = g.toLowerCase();
+        return !lower.includes('tripadvisor') && 
+               !lower.includes('google') && 
+               !lower.includes('yelp') && 
+               !lower.includes('local recommendation') &&
+               !lower.includes('travelers choice');
+    });
+
+    // B. DACH PREMIUM ENFORCEMENT (User Requirement: Strict V30 Logic)
+    if (isGerman) {
+         const premiumGuides = [
+             "Michelin", "Gault&Millau", "Feinschmecker", "Varta", "Slow Food", 
+             "Gusto", "Schlemmer Atlas", "Der Große Restaurant & Hotel Guide"
+         ];
+         // Merge and deduplicate
+         relevantGuides = Array.from(new Set([...relevantGuides, ...premiumGuides]));
     }
+
+    // C. DISABLE DYNAMIC MODE
+    // We NEVER want the AI to fall back to generic web search if guides are missing.
+    // It must strictly adhere to the list or find nothing.
+    const dynamicGuideMode = false;
 
     // --- 5. AD-HOC STRATEGY TEXT ---
     let searchArea = `Scope: ${contextDescription}. Locations: ${searchLocation}`;
@@ -137,12 +155,12 @@ export const prepareFoodScoutPayload = (
         context: {
             location_name: searchLocation, 
             search_area: searchArea,
-            // If dynamic mode, send EMPTY list to force AI research
-            guides_list: dynamicGuideMode ? [] : relevantGuides,
+            // If dynamic mode (false), send STRICT list.
+            guides_list: relevantGuides,
             mode: isAdHoc ? 'adhoc' : 'guide',
             target_language: userInputs?.aiOutputLanguage || 'de',
             _debug_source: contextDescription,
-            dynamic_guide_mode: dynamicGuideMode, // Trigger for Prompt
+            dynamic_guide_mode: dynamicGuideMode, // Trigger for Prompt (FALSE)
             target_country: countryForLookup || "Target Region"
         },
         instructions: {
@@ -157,4 +175,4 @@ export const prepareFoodScoutPayload = (
         }
     };
 };
-// Lines: 160
+// Lines: 165
