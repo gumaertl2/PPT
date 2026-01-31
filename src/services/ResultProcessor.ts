@@ -1,5 +1,5 @@
-// 03.02.2026 10:20 - FIX: TS2339 Resolved.
-// Added 'as any' cast for 'target_countries' access.
+// 03.02.2026 10:30 - FIX: TS6133 (Unused variable 'project').
+// Refactored to consistently use the destructured 'project' variable instead of accessing state directly.
 // src/services/ResultProcessor.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -213,7 +213,7 @@ export function getGuidesForCountry(countryName: string | undefined): string[] {
 export const ResultProcessor = {
   process: (step: WorkflowStepId | TaskKey, data: any) => {
     const state = useTripStore.getState();
-    const { aiSettings, logEvent, setAnalysisResult, updatePlace, project } = state;
+    const { aiSettings, logEvent, setAnalysisResult, updatePlace, project } = state; // 'project' destructured here
 
     if (aiSettings.debug) {
       logEvent({
@@ -242,7 +242,7 @@ export const ResultProcessor = {
                 const isString = typeof item === 'string';
                 const name = isString ? item : item.name;
                 if (name) {
-                    const existingPlaces = state.project.data?.places || {};
+                    const existingPlaces = project.data?.places || {}; // FIX: used 'project' instead of 'state.project'
                     const existingId = resolvePlaceId({ name }, existingPlaces, false);
                     const id = existingId || (isString ? uuidv4() : (item.id || uuidv4()));
 
@@ -262,7 +262,7 @@ export const ResultProcessor = {
       }
 
       case 'anreicherer': {
-        const existingPlaces = useTripStore.getState().project.data?.places || {};
+        const existingPlaces = project.data?.places || {}; // FIX: used 'project' instead of 'useTripStore.getState().project'
         if (extractedItems.length > 0) {
             let successCount = 0;
             extractedItems.forEach((item: any) => {
@@ -291,7 +291,7 @@ export const ResultProcessor = {
 
       case 'chefredakteur':
       case 'details': {
-          const existingPlaces = useTripStore.getState().project.data?.places || {};
+          const existingPlaces = project.data?.places || {}; // FIX: used 'project' instead of 'useTripStore.getState().project'
           if (extractedItems.length > 0) {
               let successCount = 0;
               extractedItems.forEach((item: any) => {
@@ -320,7 +320,7 @@ export const ResultProcessor = {
         
         if (extractedItems.length > 0) {
             const rawCandidates: any[] = []; 
-            const existingPlaces = state.project.data?.places || {};
+            const existingPlaces = project.data?.places || {}; // FIX: used 'project' instead of 'state.project'
 
             let savedCount = 0;
 
@@ -436,11 +436,9 @@ export const ResultProcessor = {
                 });
 
                 if (foundGuides.size > 0) {
-                    const projectData = useTripStore.getState().project;
-                    
-                    // FIX: TS2339 - Cast to any to access potentially missing 'target_countries'
-                    const targetCountry = (projectData.userInputs?.logistics as any)?.target_countries?.[0] || 
-                                          projectData.userInputs?.logistics?.stationary?.destination || 
+                    // FIX: TS2339 & Consistency - use 'project' variable instead of refetching
+                    const targetCountry = (project.userInputs?.logistics as any)?.target_countries?.[0] || 
+                                          project.userInputs?.logistics?.stationary?.destination || 
                                           "Unknown";
                     
                     const existingGuides = globalGuideMatrix[targetCountry] || [];
@@ -476,7 +474,7 @@ export const ResultProcessor = {
           // FIX: Add 'wildcard_ideas' to processing
           if (data) setAnalysisResult('ideenScout', data);
           if (data && data.results && Array.isArray(data.results)) {
-              const existingPlaces = useTripStore.getState().project.data?.places || {};
+              const existingPlaces = project.data?.places || {}; // FIX: used 'project'
               let addedCount = 0;
               data.results.forEach((group: any) => {
                   const groupLocation = group.location || "Unbekannte Region";
@@ -551,7 +549,7 @@ export const ResultProcessor = {
       case 'infoAutor':
       case 'infos': {
           if (extractedItems.length > 0) {
-              const currentContent = useTripStore.getState().project.data.content || {};
+              const currentContent = project.data.content || {}; // FIX: used 'project'
               const currentInfos = Array.isArray(currentContent.infos) ? [...currentContent.infos] : [];
               const processedChapters = extractedItems.map((chapter: any) => {
                   return {
