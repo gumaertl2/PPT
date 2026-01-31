@@ -1,6 +1,7 @@
-// 03.02.2026 23:45 - FIX: GEO-CONTAINMENT FOR AD-HOC.
-// - Prevents "Radius Explosion" by forcing Ad-Hoc user input as the ONLY search center.
-// - Ignores AI's "resolved_search_locations" during Ad-Hoc mode to ensure strict radius compliance.
+// 04.02.2026 09:30 - FIX: DATA LOSS IN SINGLE STEP.
+// - Fixed _executeSingleStep to accept and pass 'inputData' (RAM Pipeline).
+// - Added Inspection Logging to Single Step execution (Visibility Fix).
+// - Prevents "No candidates found" error when filtered results are < chunk limit.
 // src/services/orchestrator.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -106,12 +107,12 @@ export const TripOrchestrator = {
              chunkIndex: i, limit: limit, totalChunks: totalChunks, candidates: inputData 
          });
 
-         // --- DATA LOSS INSPECTION ---
+         // --- DATA LOSS INSPECTION (LOOP) ---
          if (task === 'foodEnricher' && i === 1) {
              try {
                  if (inputData && Array.isArray(inputData) && inputData.length > 0) {
                      const sample = inputData[0];
-                     console.log(`[Orchestrator] 🔍 Inspection for foodEnricher Input (RAM): Item '${sample.name}' has guides:`, sample.guides);
+                     console.log(`[Orchestrator] 🔍 Inspection for foodEnricher Input (RAM Loop): Item '${sample.name}' has guides:`, sample.guides);
                  }
              } catch (e) { console.warn("Log inspection failed", e); }
          }
@@ -132,11 +133,27 @@ export const TripOrchestrator = {
      return mergeResults(collectedResults, task);
  },
 
- async _executeSingleStep(task: TaskKey, feedback?: string, skipSave: boolean = false): Promise<any> {
+ // FIX: Added inputData to signature to fix "Missing Data" in Single Step execution
+ async _executeSingleStep(task: TaskKey, feedback?: string, skipSave: boolean = false, inputData?: any): Promise<any> {
      const store = useTripStore.getState();
-     const prompt = PayloadBuilder.buildPrompt(task, feedback);
+     // FIX: Pass candidates/inputData to PayloadBuilder
+     const prompt = PayloadBuilder.buildPrompt(task, feedback, { candidates: inputData });
      const modelId = resolveModelId(task);
+     
      if (store.aiSettings.debug) console.log(`[Orchestrator] Single Step: ${task} -> Model: ${modelId} ${skipSave ? '(NO SAVE)' : ''}`);
+
+     // --- DATA LOSS INSPECTION (SINGLE STEP) ---
+     if (task === 'foodEnricher') {
+         try {
+             if (inputData && Array.isArray(inputData) && inputData.length > 0) {
+                 const sample = inputData[0];
+                 console.log(`[Orchestrator] 🔍 Inspection for foodEnricher (Single Step): Item '${sample.name}' has guides:`, sample.guides);
+             } else if (inputData) {
+                 console.warn(`[Orchestrator] ⚠️ foodEnricher (Single Step) called but inputData seems empty or invalid:`, inputData);
+             }
+         } catch (e) { console.warn("Log inspection failed", e); }
+     }
+
      const rawResult = await GeminiService.call(prompt, task, modelId);
      const schema = SCHEMA_MAP[task];
      let validatedData = rawResult;
@@ -167,7 +184,7 @@ export const TripOrchestrator = {
             const scoutResult = await this._executeSingleStep('foodScout', feedback, true); 
             let candidates = scoutResult.candidates || [];
             
-            // FIX: RAM-Pipeline ID Injection to prevent duplicates
+            // FIX: RAM-Pipeline ID Injection
             const existingPlaces = project.data?.places || {};
             candidates = candidates.map((c: any) => {
                 let safeId = c.id;
@@ -191,8 +208,6 @@ export const TripOrchestrator = {
             let centers: string[] = [];
 
             // ⛔️ STRICT AD-HOC CONTAINMENT
-            // Fix: Ignoriere KI-Vorschläge (Expansion auf 11 Städte) bei Ad-Hoc.
-            // Nur der User-Input zählt.
             if (isAdHoc) {
                 const locMatch = feedback?.match(/LOC:([^|]+)/);
                 if (locMatch && locMatch[1].trim()) {
@@ -276,7 +291,9 @@ export const TripOrchestrator = {
             if (chunkingState.isActive && chunkingState.totalChunks <= 1) store.resetChunking(); 
         }
     }
-    return this._executeSingleStep(task, feedback);
+    
+    // FIX: Pass inputData to fallback/single-step execution
+    return this._executeSingleStep(task, feedback, false, inputData);
   }
 };
-// --- END OF FILE 349 Zeilen ---
+// --- END OF FILE 370 Zeilen ---
