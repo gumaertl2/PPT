@@ -1,13 +1,13 @@
-// 04.02.2026 16:00 - FIX: ADAPTED TO NEW COUNTRY CONFIG STRUCTURE.
-// - Replaced 'globalGuideMatrix' with 'countryGuideConfig'.
-// - Updated 'triggerCountriesDownload' to generate GuideDef objects.
-// - Refactored Guide Harvester to handle Object-based config.
+// 04.02.2026 17:00 - FIX: SAFE TYPE IMPORT.
+// - Uses 'import type { GuideDef }' to avoid runtime binding errors.
 // src/services/ResultProcessor.ts
 
 import { v4 as uuidv4 } from 'uuid';
 import { useTripStore } from '../store/useTripStore';
 import type { WorkflowStepId, TaskKey } from '../core/types';
-import { countryGuideConfig, GuideDef } from '../data/countries'; 
+// FIX: Explicit Type Import
+import { countryGuideConfig, getGuidesForCountry } from '../data/countries'; 
+import type { GuideDef } from '../data/countries';
 
 // --- HELPER: LEVENSHTEIN DISTANCE ---
 const getSimilarity = (s1: string, s2: string): number => {
@@ -443,7 +443,7 @@ export const ResultProcessor = {
                                 searchUrl: `https://www.google.com/search?q=${encodeURIComponent(name + ' restaurant ' + targetCountry)}`
                             }));
                             
-                            newConfig[targetCountry] = [...existingConfig, ...newDefs];
+                            newConfig[targetCountry] = [...(existingConfig || []), ...newDefs];
                             triggerCountriesDownload(newConfig);
                         }
                     }

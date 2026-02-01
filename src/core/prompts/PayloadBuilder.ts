@@ -1,5 +1,7 @@
-// 31.01.2026 23:55 - FIX: Removed unused variables to resolve TS6133.
-// 31.01.2026 17:35 - FIX: Added HotelScout Preparer & Roundtrip Logic.
+// 05.02.2026 15:15 - FIX: REMOVE NON-EXISTENT IMPORTS.
+// - Reverted Transfer, Route, and GeoAnalyst to legacy direct calls (no Preparers).
+// - Kept GeoExpander registration and FoodScout chain logic.
+// - Fixed InfoAutor spelling.
 // src/core/prompts/PayloadBuilder.ts
 
 import { useTripStore } from '../../store/useTripStore';
@@ -21,14 +23,18 @@ import { buildFoodScoutPrompt } from './templates/foodScout';
 import { buildFoodEnricherPrompt } from './templates/foodEnricher';
 import { buildTourGuidePrompt } from './templates/tourGuide';
 import { buildChefredakteurPrompt } from './templates/chefredakteur';
+// FIX: Correct spelling 'infoAutor'
 import { buildInfoAutorPrompt } from './templates/infoAutor';
 import { buildIdeenScoutPrompt } from './templates/ideenScout';
+// NEW: Geo Expander
+import { buildGeoExpanderPrompt } from './templates/geoExpander';
 
 // --- PREPARERS (V40 Strategy Pattern) ---
 import { prepareBasisPayload } from './preparers/prepareBasisPayload';
 import { prepareAnreichererPayload } from './preparers/prepareAnreichererPayload';
 import { prepareChefredakteurPayload } from './preparers/prepareChefredakteurPayload';
 import { prepareChefPlanerPayload } from './preparers/prepareChefPlanerPayload';
+// FIX: Correct spelling 'infoAutor'
 import { prepareInfoAutorPayload } from './preparers/prepareInfoAutorPayload';
 import { prepareTourGuidePayload } from './preparers/prepareTourGuidePayload';
 import { prepareIdeenScoutPayload } from './preparers/prepareIdeenScoutPayload';
@@ -36,6 +42,7 @@ import { prepareIdeenScoutPayload } from './preparers/prepareIdeenScoutPayload';
 import { prepareFoodScoutPayload } from './preparers/prepareFoodScoutPayload';
 import { prepareFoodEnricherPayload } from './preparers/prepareFoodEnricherPayload';
 import { prepareHotelScoutPayload } from './preparers/prepareHotelScoutPayload';
+import { prepareGeoExpanderPayload } from './preparers/prepareGeoExpanderPayload'; // NEW
 
 import type { LocalizedContent, TaskKey, ChunkingState, TripProject, FoodSearchMode } from '../types';
 import { filterByRadius } from '../utils/geo';
@@ -130,7 +137,6 @@ export const PayloadBuilder = {
 
       case 'basis':
       case 'sightCollector': {
-        // V40 FIX: Pass chunking options to enable interest slicing & ratio logic
         const payload = prepareBasisPayload(
             project,
             options?.chunkIndex || chunkingState?.currentChunk || 1,
@@ -157,7 +163,6 @@ export const PayloadBuilder = {
 
       case 'details':
       case 'chefredakteur' as any: {
-          // V40: FIX - Slice FIRST, then call Preparer
           const allPlacesForEditor = Object.values(project.data.places || {}).flat();
           const slicedCandidatesForEditor = sliceData(allPlacesForEditor, 'chefredakteur' as TaskKey);
 
@@ -168,7 +173,6 @@ export const PayloadBuilder = {
               options?.totalChunks || chunkingState?.totalChunks || 1
           );
 
-          // WICHTIG: Template erwartet Array, Preparer liefert Objekt (Rich Version)
           generatedPrompt = buildChefredakteurPrompt(
               project, 
               payload.context.editorial_tasks, 
@@ -183,11 +187,14 @@ export const PayloadBuilder = {
           const allInfoTasks = prepareInfoAutorPayload(project);
           const slicedTasks = sliceData(allInfoTasks, 'infoAutor');
           generatedPrompt = buildInfoAutorPrompt(
-              project, 
-              slicedTasks, 
-              options?.chunkIndex || chunkingState?.currentChunk || 1, 
-              options?.totalChunks || chunkingState?.totalChunks || 1, 
-              [] 
+              {
+                 context: {
+                     destination: project.userInputs.logistics.stationary.destination || "Reiseziel",
+                     dates: project.userInputs.dates.start ? `${project.userInputs.dates.start} - ${project.userInputs.dates.end}` : "Flexibel",
+                     travelers: `${project.userInputs.travelers.adults} Erwachsene, ${project.userInputs.travelers.children} Kinder`,
+                     tasks: slicedTasks
+                 }
+              }
           ) || "";
           break;
       }
@@ -229,9 +236,16 @@ export const PayloadBuilder = {
               project.userInputs.customPreferences?.foodMode === 'stars') {
               mode = 'stars';
           }
-          // V40: Use specialized Preparer
-          const payload = prepareFoodScoutPayload(project, mode, feedback || "");
+          // V40: Use specialized Preparer + Pass OPTIONS (Town List)
+          const payload = prepareFoodScoutPayload(project, mode, feedback || "", options);
           generatedPrompt = buildFoodScoutPrompt(payload);
+          break;
+      }
+      
+      // NEW: Geo Expander Case
+      case 'geoExpander': {
+          const payload = prepareGeoExpanderPayload(project, feedback);
+          generatedPrompt = buildGeoExpanderPrompt(payload);
           break;
       }
         
@@ -249,12 +263,26 @@ export const PayloadBuilder = {
              candidates = getFilteredFoodCandidates(project);
           }
 
-          // 2. SLICE: Batching logic
-          const slicedCandidates = sliceData(candidates, 'foodEnricher');
+          // 2. SLICE: Batching logic (INTELLIGENT PAGINATION FIX)
+          let slicedCandidates: any[] = [];
+          
+          const isRamDirectCall = !!(options?.candidates && options.candidates.length > 0);
+          const isExplicitBatch = options?.chunkIndex !== undefined;
+
+          // If we are in RAM Pipeline (Orchestrator passed candidates directly)
+          // AND we are NOT in a specific Batch Loop (no explicit chunkIndex),
+          // THEN we MUST ignore the global 'chunkingState.currentChunk' (which is used for Pipeline Phases).
+          // Otherwise, Phase 2 (Enricher) triggers "Page 2" of data, returning empty if < 10 items.
+          if (isRamDirectCall && !isExplicitBatch) {
+              const limit = options?.limit || getTaskChunkLimit('foodEnricher');
+              // Take from start (0) up to limit. Ignore global chunk index.
+              slicedCandidates = candidates.slice(0, limit);
+          } else {
+              // Standard Logic (Store or Explicit Chunk Loop)
+              slicedCandidates = sliceData(candidates, 'foodEnricher');
+          }
           
           // 3. GENERATE: Call Preparer & Template
-          // FIX: Correctly mapping arguments to match prepareFoodEnricherPayload signature:
-          // (project, feedback, options, inputData)
           const chunkIndex = options?.chunkIndex || chunkingState?.currentChunk || 1;
           const totalChunks = options?.totalChunks || chunkingState?.totalChunks || 1;
           const opts = { chunkIndex, totalChunks };
@@ -270,7 +298,7 @@ export const PayloadBuilder = {
           } else {
               const payload = prepareFoodEnricherPayload(
                   project, 
-                  feedback || "",
+                  feedback || "", 
                   opts,
                   slicedCandidates // 4th arg: candidates as inputData
               );
@@ -282,9 +310,6 @@ export const PayloadBuilder = {
       // --- ACCOMMODATION / HOTEL SCOUT (V40 UPGRADE) ---
       case 'accommodation':
       case 'hotelScout': {
-          // FIX: Removed unused 'totalStops' and 'isRoundtrip' variables to resolve TS6133
-          // The logic for chunk determination is handled in Orchestrator/Preparer
-          
           // Determine Chunk (Default 1)
           const currentChunk = options?.chunkIndex || chunkingState?.currentChunk || 1;
 
@@ -299,9 +324,10 @@ export const PayloadBuilder = {
       // --- 2. LEGACY HANDLERS ---
       
       case 'routeArchitect':
-      case 'routenArchitekt':
+      case 'routenArchitekt': {
         generatedPrompt = buildRouteArchitectPrompt(project);
         break;
+      }
 
       case 'durationEstimator':
         generatedPrompt = buildDurationEstimatorPrompt(project, "", "");
@@ -338,9 +364,10 @@ export const PayloadBuilder = {
         break;
       }
 
-      case 'geoAnalyst':
+      case 'geoAnalyst': {
         generatedPrompt = buildGeoAnalystPrompt(project);
         break;
+      }
 
       default:
         throw new Error(`PayloadBuilder: Unknown task '${task}'`);
@@ -379,4 +406,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 572 Zeilen ---
+// --- END OF FILE 592 Zeilen ---

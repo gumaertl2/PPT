@@ -1,10 +1,15 @@
-// 27.01.2026 20:30 - FIX: Added UI Feedback (Loading Notification) for Ad-Hoc Search.
-// Location: src/features/Cockpit/AdHocFoodModal.tsx
+// 04.02.2026 21:30 - FIX: STRICT COUNTRY SELECTION.
+// - Replaced text input with <select> dropdown.
+// - Populated dynamically from 'countryGuideConfig' keys.
+// - Prevents typos and guarantees Guide Injection matches.
+// src/features/Cockpit/AdHocFoodModal.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useTripStore } from '../../store/useTripStore';
-import { MapPin, ChefHat, Star, X } from 'lucide-react';
+import { MapPin, ChefHat, Star, X, Globe, Navigation, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+// FIX: Import Config to get available keys
+import { countryGuideConfig } from '../../data/countries';
 
 interface AdHocFoodModalProps {
   isOpen: boolean;
@@ -12,38 +17,62 @@ interface AdHocFoodModalProps {
 }
 
 export const AdHocFoodModal: React.FC<AdHocFoodModalProps> = ({ isOpen, onClose }) => {
-  // FIX: Destructure notification actions
-  const { triggerAiTask, addNotification, dismissNotification } = useTripStore();
+  const { triggerAiTask, addNotification, dismissNotification, project } = useTripStore();
   const { t } = useTranslation();
   
-  // State
   const [location, setLocation] = useState('');
-  const [radius, setRadius] = useState(10);
+  const [country, setCountry] = useState('');
+  const [radius, setRadius] = useState(20);
   const [mode, setMode] = useState<'standard' | 'stars'>('standard');
+
+  // 1. Extract Available Countries from Config (Sorted)
+  const availableCountries = useMemo(() => {
+      return Object.keys(countryGuideConfig).sort();
+  }, []);
+
+  // Pre-fill
+  useEffect(() => {
+    if (isOpen) {
+      const logistics = project.userInputs?.logistics;
+      
+      // Location
+      if (logistics?.mode === 'stationaer' && logistics.stationary?.destination) {
+        setLocation(logistics.stationary.destination);
+      } else if (logistics?.mode === 'roundtrip' && logistics.roundtrip?.startLocation) {
+        setLocation(logistics.roundtrip.startLocation);
+      } else {
+        setLocation('');
+      }
+
+      // Country (Auto-Select if matches)
+      const targetCountry = (logistics as any)?.target_countries?.[0]; 
+      if (targetCountry && countryGuideConfig[targetCountry]) {
+          setCountry(targetCountry); // Only set if strictly valid
+      } else {
+          setCountry(''); 
+      }
+    }
+  }, [isOpen, project]);
 
   if (!isOpen) return null;
 
   const handleSearch = async () => {
-    // 1. Prepare Command
-    const locString = location || 'Umgebung';
-    const feedbackString = `ADHOC_SEARCH|LOC:${locString}|RAD:${radius}|MODE:${mode}`;
+    if (!location.trim()) return;
 
-    // 2. CLOSE MODAL IMMEDIATELY (User returns to Cockpit)
+    // Format: ADHOC_SEARCH|LOC:München|COUNTRY:Deutschland|RAD:20|MODE:stars
+    const feedbackString = `ADHOC_SEARCH|LOC:${location}|COUNTRY:${country}|RAD:${radius}|MODE:${mode}`;
+
     onClose();
 
-    // 3. SHOW LOADING NOTIFICATION (The "Window")
     const loadingId = addNotification({
         type: 'loading',
-        message: `${t('adhoc_food.title')}: ${t('status.analyzing')}`, // "Ad-Hoc...: Analysiere..."
+        message: `${t('adhoc_food.title')}: ${t('status.analyzing')}`,
         autoClose: false
     });
 
     try {
-        // 4. RUN TASK (Awaited)
-        // Orchestrator handles the sequence (Scout -> Enricher)
         await triggerAiTask('foodScout', feedbackString);
 
-        // 5. SUCCESS
         dismissNotification(loadingId);
         addNotification({
             type: 'success',
@@ -52,7 +81,6 @@ export const AdHocFoodModal: React.FC<AdHocFoodModalProps> = ({ isOpen, onClose 
         });
 
     } catch (error) {
-        // 6. ERROR
         console.error("Ad-Hoc Search Failed:", error);
         dismissNotification(loadingId);
         addNotification({
@@ -64,143 +92,147 @@ export const AdHocFoodModal: React.FC<AdHocFoodModalProps> = ({ isOpen, onClose 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 dark:border-slate-700 flex flex-col max-h-[90vh] scale-100 animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100 dark:border-slate-800 transform transition-all scale-100">
         
-        {/* HEADER */}
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-emerald-50/50 dark:bg-emerald-900/10 rounded-t-2xl">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <ChefHat className="w-6 h-6 text-emerald-600" />
-              {t('adhoc_food.title')}
-            </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              {t('adhoc_food.subtitle')}
-            </p>
+        {/* Header */}
+        <div className="bg-emerald-600 px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white/20 rounded-lg">
+              <ChefHat className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white leading-none">{t('adhoc_food.title')}</h3>
+              <p className="text-emerald-100 text-xs mt-1">{t('adhoc_food.subtitle')}</p>
+            </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
-            <X className="w-5 h-5 text-slate-400" />
+          <button 
+            onClick={onClose}
+            className="text-white/80 hover:text-white hover:bg-white/10 p-2 rounded-full transition-colors"
+          >
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* BODY */}
-        <div className="p-6 space-y-6 overflow-y-auto">
+        {/* Body */}
+        <div className="p-6 space-y-5">
           
-          {/* 1. LOCATION */}
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+          {/* 1. Location Input */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-emerald-600" />
               {t('adhoc_food.label_location')}
             </label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
-              <input
-                type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder={t('adhoc_food.placeholder_location')}
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
-                // Auto-Focus for UX
-                autoFocus
-              />
-            </div>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder={t('adhoc_food.placeholder_location')}
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-slate-800 dark:text-slate-200 placeholder:text-slate-400 font-medium"
+              autoFocus
+            />
           </div>
 
-          {/* 2. RADIUS */}
+          {/* 2. Country Select (FIX: Dropdown from Config) */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+              <Globe className="w-4 h-4 text-emerald-600" />
+              {t('adhoc_food.label_country')}
+            </label>
+            <div className="relative">
+                <select
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-slate-800 dark:text-slate-200 font-medium appearance-none cursor-pointer"
+                >
+                  <option value="" disabled>-- {t('sights.select')} --</option>
+                  {availableCountries.map((c) => (
+                      <option key={c} value={c}>
+                          {c}
+                      </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            </div>
+            <p className="text-[10px] text-slate-400 px-1">
+                {t('adhoc_food.hint_country')}
+            </p>
+          </div>
+
+          {/* 3. Radius Slider */}
           <div className="space-y-3">
-            <div className="flex justify-between">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('adhoc_food.label_radius')}</label>
-              <span className="text-sm font-bold text-emerald-600">{radius} km</span>
+            <div className="flex justify-between items-center">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                <Navigation className="w-4 h-4 text-emerald-600" />
+                {t('adhoc_food.label_radius')}
+              </label>
+              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded-md border border-emerald-100 dark:border-emerald-800">
+                {radius} km
+              </span>
             </div>
             <input
               type="range"
               min="1"
-              max="50"
-              step="1"
+              max="100"
               value={radius}
               onChange={(e) => setRadius(parseInt(e.target.value))}
               className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-600"
             />
-            <div className="flex justify-between text-xs text-slate-400">
+            <div className="flex justify-between text-[10px] text-slate-400 font-medium px-1">
               <span>{t('adhoc_food.walk')}</span>
               <span>{t('adhoc_food.drive')}</span>
             </div>
           </div>
 
-          {/* 3. MODE */}
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-              {t('adhoc_food.label_mode')}
-            </label>
-            <div className="grid grid-cols-2 gap-4">
-              {/* Option Standard */}
-              <button
-                onClick={() => setMode('standard')}
-                className={`p-4 rounded-xl border-2 text-left transition-all relative ${
-                  mode === 'standard'
-                    ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 ring-1 ring-emerald-500'
-                    : 'border-slate-200 dark:border-slate-700 hover:border-emerald-200'
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <ChefHat className={`w-5 h-5 ${mode === 'standard' ? 'text-emerald-600' : 'text-slate-400'}`} />
-                  <span className={`font-semibold ${mode === 'standard' ? 'text-emerald-900 dark:text-emerald-400' : 'text-slate-600'}`}>
-                    {t('adhoc_food.mode_standard_title')}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  {t('adhoc_food.mode_standard_desc')}
-                </p>
-                {mode === 'standard' && (
-                  <div className="absolute top-3 right-3 w-3 h-3 bg-emerald-500 rounded-full" />
-                )}
-              </button>
-
-              {/* Option Stars */}
-              <button
-                onClick={() => setMode('stars')}
-                className={`p-4 rounded-xl border-2 text-left transition-all relative ${
-                  mode === 'stars'
-                    ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20 ring-1 ring-amber-400'
-                    : 'border-slate-200 dark:border-slate-700 hover:border-amber-200'
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Star className={`w-5 h-5 ${mode === 'stars' ? 'text-amber-500 fill-amber-500' : 'text-slate-400'}`} />
-                  <span className={`font-semibold ${mode === 'stars' ? 'text-amber-900 dark:text-amber-400' : 'text-slate-600'}`}>
-                    {t('adhoc_food.mode_stars_title')}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  {t('adhoc_food.mode_stars_desc')}
-                </p>
-                {mode === 'stars' && (
-                  <div className="absolute top-3 right-3 w-3 h-3 bg-amber-400 rounded-full" />
-                )}
-              </button>
-            </div>
+          {/* 4. Mode Selection */}
+          <div className="bg-slate-50 dark:bg-slate-800 p-1 rounded-xl flex border border-slate-100 dark:border-slate-700">
+            <button
+              onClick={() => setMode('standard')}
+              className={`flex-1 py-2 px-3 text-sm font-medium rounded-lg transition-all ${
+                mode === 'standard'
+                  ? 'bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-400 shadow-sm border border-slate-100 dark:border-slate-600'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+              }`}
+            >
+              {t('adhoc_food.mode_standard_title')} 💎
+            </button>
+            <button
+              onClick={() => setMode('stars')}
+              className={`flex-1 py-2 px-3 text-sm font-medium rounded-lg transition-all ${
+                mode === 'stars'
+                  ? 'bg-white dark:bg-slate-700 text-amber-600 dark:text-amber-400 shadow-sm border border-slate-100 dark:border-slate-600'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+              }`}
+            >
+              {t('adhoc_food.mode_stars_title')} ⭐️
+            </button>
           </div>
 
         </div>
 
-        {/* FOOTER */}
-        <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 bg-slate-50 dark:bg-slate-900/50 rounded-b-2xl">
+        {/* Footer */}
+        <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-5 py-2.5 rounded-xl text-slate-600 font-medium hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800 rounded-lg transition-colors"
           >
             {t('adhoc_food.btn_cancel')}
           </button>
           <button
             onClick={handleSearch}
-            disabled={!location}
-            className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg shadow-emerald-200 dark:shadow-none disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-95"
+            disabled={!location.trim() || !country}
+            className={`px-6 py-2 text-sm font-bold text-white rounded-lg shadow-md transition-all flex items-center gap-2 ${
+                (!location.trim() || !country)
+                ? 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed' 
+                : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 hover:shadow-lg transform hover:-translate-y-0.5'
+            }`}
           >
+            <ChefHat className="w-4 h-4" />
             {t('adhoc_food.btn_search')}
           </button>
         </div>
-
       </div>
     </div>
   );
 };
-// --- END OF FILE 135 Zeilen ---
+// --- END OF FILE 145 Zeilen ---

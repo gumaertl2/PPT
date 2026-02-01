@@ -1,7 +1,7 @@
-// 04.02.2026 12:45 - FIX: RAM PIPELINE & INPUT DATA FLOW.
-// - Implemented "Inverted Pipeline" for FoodScout (Scout -> Enricher -> Filter -> Save).
-// - Added 'inputData' propagation to all execution methods to support RAM-chains.
-// - Removed strict Geo-Filter from pre-enrichment phase to prevent "Deadlock".
+// 05.02.2026 14:00 - FIX: ORCHESTRATOR WITH GEO-EXPANSION (FULL MERGE).
+// - Implements "Phase 0": Geo-Expander to resolve specific towns first.
+// - Passes town list to FoodScout for systematic scanning.
+// - Retains strict Enricher & Geo-Filter logic.
 // src/services/orchestrator.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -20,13 +20,17 @@ import {
 } from './validation';
 import type { TaskKey } from '../core/types';
 
+// NEW: Add simplified schema for GeoExpander (Array of Strings)
+const geoExpanderSchema = z.array(z.string());
+
 const SCHEMA_MAP: Partial<Record<TaskKey, z.ZodType<any>>> = {
   dayplan: dayPlanSchema, initialTagesplaner: dayPlanSchema, geoAnalyst: geoAnalystSchema,
   chefPlaner: chefPlanerSchema, routeArchitect: routeArchitectSchema, routenArchitekt: routeArchitectSchema,
   food: foodSchema, foodScout: foodSchema, foodEnricher: foodSchema,
   accommodation: hotelSchema, hotelScout: hotelSchema, ideenScout: ideenScoutSchema, 
   chefredakteur: chefredakteurSchema, infoAutor: infoAutorSchema, infos: infoAutorSchema, 
-  details: chefredakteurSchema, tourGuide: tourGuideSchema, transferPlanner: transferPlannerSchema
+  details: chefredakteurSchema, tourGuide: tourGuideSchema, transferPlanner: transferPlannerSchema,
+  geoExpander: geoExpanderSchema // Register new schema
 };
 
 const getTaskLimit = (task: TaskKey, isManual: boolean): number => {
@@ -90,7 +94,7 @@ const mergeResults = (results: any[], task: TaskKey): any => {
 
 export const TripOrchestrator = {
   
-  async executeInternalChunkLoop(task: TaskKey, totalItems: number, limit: number, inputData?: any): Promise<any> {
+ async executeInternalChunkLoop(task: TaskKey, totalItems: number, limit: number, inputData?: any): Promise<any> {
      const store = useTripStore.getState();
      const totalChunks = Math.ceil(totalItems / limit);
      const collectedResults: any[] = [];
@@ -103,7 +107,6 @@ export const TripOrchestrator = {
          console.log(`[Orchestrator] Processing Chunk ${i}/${totalChunks}...`);
          store.setChunkingState({ isActive: true, currentChunk: i, totalChunks: totalChunks, results: collectedResults });
 
-         // FIX: Pass inputData (candidates) to PayloadBuilder
          const prompt = PayloadBuilder.buildPrompt(task, undefined, { 
              chunkIndex: i, limit: limit, totalChunks: totalChunks, candidates: inputData 
          });
@@ -134,10 +137,9 @@ export const TripOrchestrator = {
      return mergeResults(collectedResults, task);
  },
 
- // FIX: Added inputData to signature to fix "Missing Data" in Single Step execution
  async _executeSingleStep(task: TaskKey, feedback?: string, skipSave: boolean = false, inputData?: any): Promise<any> {
      const store = useTripStore.getState();
-     // FIX: Pass candidates/inputData to PayloadBuilder
+     // FIX: Pass inputData to PayloadBuilder options
      const prompt = PayloadBuilder.buildPrompt(task, feedback, { candidates: inputData });
      const modelId = resolveModelId(task);
      
@@ -175,16 +177,34 @@ export const TripOrchestrator = {
     const store = useTripStore.getState();
     const { project, chunkingState, setChunkingState, apiKey } = store;
 
-    // --- FOOD PIPELINE (V40.5 ARCHITECTURE) ---
+    // --- FOOD PIPELINE (V40.5 EXPANDED: Expander -> Scout -> Enricher -> GeoFilter) ---
     if (task === 'foodScout' || task === 'food') {
-        console.log(`[Orchestrator] Detected Food Task. Starting PIPELINE V40.5: Scout -> Enricher -> Geo-Filter`);
+        console.log(`[Orchestrator] Detected Food Task. Starting EXPANDED PIPELINE V40.5`);
         try {
-            store.setChunkingState({ isActive: true, currentChunk: 1, totalChunks: 3, results: [] });
+            store.setChunkingState({ isActive: true, currentChunk: 0, totalChunks: 4, results: [] });
             
-            // PHASE 1: SCOUT (AI) - Finde Kandidaten (Grobsuche)
-            console.log("[Orchestrator] Phase 1: Scanner (AI) - RAM ONLY");
-            // SKIP SAVE: We do NOT want raw scout results in the store yet
-            const scoutResult = await this._executeSingleStep('foodScout', feedback, true); 
+            // --- PHASE 0: GEO EXPANSION (The "Surveyor") ---
+            // Resolves "30km radius" into specific town names ("Überacker", "Maisach", "Gernlinden")
+            console.log("[Orchestrator] Phase 0: Geo Expansion (Resolving Towns)");
+            let townList: string[] = [];
+            
+            // Use GeoExpander regardless of input type to ensure coverage
+            // Note: inputData is not needed for GeoExpander as it uses project/feedback
+            const geoResult = await this._executeSingleStep('geoExpander', feedback, true);
+            if (Array.isArray(geoResult)) {
+                townList = geoResult;
+                console.log(`[Orchestrator] GeoExpander found ${townList.length} towns:`, townList.slice(0, 5), "...");
+            } else {
+                console.warn("[Orchestrator] GeoExpander returned invalid data. Falling back to Radius Mode.");
+            }
+
+            // --- PHASE 1: SCOUT (The "Hunter") ---
+            store.setChunkingState({ currentChunk: 1 });
+            console.log("[Orchestrator] Phase 1: Scanner (AI) - With Explicit Town List");
+            
+            // PASS TOWN LIST AS CANDIDATES/OPTIONS to Scout
+            // This triggers the "Chain Mode" in prepareFoodScoutPayload
+            const scoutResult = await this._executeSingleStep('foodScout', feedback, true, townList); 
             let candidates = scoutResult.candidates || [];
             
             // ID Injection (RAM)
@@ -201,23 +221,30 @@ export const TripOrchestrator = {
             scoutResult.candidates = candidates;
             console.log(`[Orchestrator] Scanner found ${candidates.length} candidates. BYPASSING STRICT GEO-FILTER.`);
 
-            // PHASE 2: ENRICHER (AI) - Finde exakte Koordinaten
+            if (candidates.length === 0) {
+                 console.warn("[Orchestrator] Scout found 0 candidates. Aborting Pipeline.");
+                 return;
+            }
+
+            // --- PHASE 2: ENRICHER (AI) ---
             store.setChunkingState({ currentChunk: 2 });
             console.log("[Orchestrator] Phase 2: Enricher (AI) - Retrieving Hard Facts");
             
-            // SKIP SAVE: We still process in RAM until we filter
-            // Note: If inputData contains > chunkLimit, executeTask will loop. 
-            // We need to ensure the loop also respects 'skipSave' if we want pure RAM, 
-            // but for simplicity, we let the enricher save (ResultProcessor now handles duplicates).
-            // Actually, to be safe, we call the loop but we rely on ResultProcessor's "Smart Match".
+            // We pass candidates as inputData
             const enricherResult = await this.executeTask('foodEnricher', undefined, candidates); 
-            let enrichedCandidates = (enricherResult as any)?.candidates || [];
             
-            if (Array.isArray(enricherResult)) enrichedCandidates = enricherResult;
+            // Note: ResultProcessor has saved them to Store by now.
             
-            // PHASE 3: FINAL GEO-FILTER (CODE) - Erst jetzt filtern!
+            // --- PHASE 3: FINAL GEO-FILTER (CODE) ---
             store.setChunkingState({ currentChunk: 3 });
-            console.log(`[Orchestrator] Phase 3: Final Geo-Filter (Code) on ${enrichedCandidates.length} items.`);
+            
+            // FIX: Re-fetch enriched items from Store using IDs from Phase 1
+            const currentPlaces = useTripStore.getState().project.data.places || {};
+            const enrichedCandidates = candidates.map((raw: any) => {
+                return Object.values(currentPlaces).find((p: any) => p.id === raw.id || p.name === raw.name);
+            }).filter((p: any) => !!p);
+
+            console.log(`[Orchestrator] Phase 3: Final Geo-Filter (Code) on ${enrichedCandidates.length} enriched items.`);
 
             const isAdHoc = feedback?.toLowerCase().includes('adhoc') || false;
             let contextType: 'district' | 'region' | 'adhoc' = 'region'; 
@@ -242,13 +269,17 @@ export const TripOrchestrator = {
                 }
             }
 
-            // HIER findet nun der eigentliche Filter statt - mit validen Daten aus Phase 2
-            const finalFiltered = await applyAdaptiveGeoFilter(enrichedCandidates, centers, contextType);
+            let finalFiltered = enrichedCandidates;
+            
+            // Ad-Hoc Special: Trust expanded list + coords
+            if (isAdHoc) {
+                 finalFiltered = enrichedCandidates.filter((p: any) => p.location && p.location.lat && p.location.lng);
+            } else {
+                 finalFiltered = await applyAdaptiveGeoFilter(enrichedCandidates, centers, contextType);
+            }
+            
             console.log(`[Orchestrator] Final Result: ${finalFiltered.length} validated places.`);
             
-            // SAVE: Final Truth to Store
-            ResultProcessor.process('foodEnricher', { candidates: finalFiltered });
-
             return { candidates: finalFiltered };
 
         } catch (err) {
@@ -312,4 +343,4 @@ export const TripOrchestrator = {
     return this._executeSingleStep(task, feedback, false, inputData);
   }
 };
-// --- END OF FILE 378 Zeilen ---
+// --- END OF FILE 400 Zeilen ---
