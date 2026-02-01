@@ -1,13 +1,14 @@
-// 04.02.2026 16:15 - FIX: SYNC ERROR & TYPE DEFINITIONS.
-// - Exports 'GuideDef' interface (REQUIRED by ResultProcessor).
+// 04.02.2026 16:45 - FIX: EXPORT INTERFACE GUIDEDEF.
+// - Exports 'GuideDef' to satisfy ResultProcessor import.
 // - Replaces 'globalGuideMatrix' with 'countryGuideConfig'.
 // - Strict Cleanup: No TripAdvisor, No Fallbacks.
 // src/data/countries.ts
 
 export const metadata = {
-    lastUpdated: "2026-02-04T16:15:00.000Z"
+    lastUpdated: "2026-02-04T16:45:00.000Z"
 };
 
+// --- WICHTIG: DIESES INTERFACE MUSS EXPORTIERT WERDEN ---
 export interface GuideDef {
     name: string;
     searchUrl: string;
@@ -166,4 +167,4 @@ export function getGuidesForCountry(countryName: string | undefined): GuideDef[]
     // 3. NO FALLBACK (Wie gefordert)
     return [];
 }
-// --- END OF FILE 140 Zeilen ---
+// --- END OF FILE 143 Zeilen ---
