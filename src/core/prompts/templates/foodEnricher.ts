@@ -1,6 +1,7 @@
-// 03.02.2026 20:30 - FIX: DATA PRESERVATION.
-// - Added mandatory pass-through for 'guides' and 'source_url'.
-// - Prevents data wipe during enrichment phase.
+// 04.02.2026 15:30 - FIX: HARD FACTS RECOVERY & COORDINATE REPAIR.
+// - PRIORITY 1: Fix missing lat/lng from Scout (Honesty Protocol).
+// - Preserves 'guides' and 'source_url' shield.
+// - Enforces valid coordinates for all found items to pass Geo-Filter.
 // src/core/prompts/templates/foodEnricher.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -9,14 +10,20 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
   // 1. Unpack Payload (Standard V40 Pattern)
   const { context, instructions } = payload;
   
-  const role = instructions?.role || `You are the "Food-Enricher", a hybrid intelligence agent acting as a premium Restaurant Critic.`;
+  const role = instructions?.role || `You are the "Food-Enricher" & Data Repair Specialist.`;
   const editorialGuideline = instructions?.editorial_guideline || "";
 
   // 2. Build Instructions
   const mainInstruction = `# TASK
-Perform a "Hybrid Knowledge" enrichment for the provided restaurant candidates.
-1. **Live Research:** Find current Hard Facts (Address, Phone, Website, Opening Hours, Current Menu, **Coordinates**).
-2. **LLM Knowledge:** Use your internal culinary knowledge to describe the Vibe, Cuisine Style, and Reputation.
+Perform a "Hybrid Knowledge" enrichment AND "Hard Facts Recovery".
+The previous agent (Scout) may have delivered incomplete data (lat/lng: null). Your job is to FIX this.
+
+1. **COORDINATE RECOVERY (PRIORITY A):** - Check if input has valid coordinates. If NOT (null/0), you MUST determine them based on Name + City + Address.
+   - **Without valid coordinates, the candidate will be DELETED by the system.** You must save it!
+
+2. **Live Research:** Find current Hard Facts (Address, Phone, Website, Opening Hours, Current Menu).
+
+3. **LLM Knowledge:** Use your internal culinary knowledge to describe the Vibe, Cuisine Style, and Reputation.
 
 # EDITORIAL STYLE (BINDING)
 You MUST follow this specific writing guideline:
@@ -31,11 +38,11 @@ For the "description" field, you MUST start exactly like this:
 
 # DATA REQUIREMENTS (ORCHESTRATED INTELLIGENCE)
 1. **Identity:** You MUST return the exact 'id' provided in the input. Do NOT generate a new ID.
-2. **Awards:** Explicitly check for Michelin (Stars, Bib), Gault&Millau, Feinschmecker.
-3. **Signature Dish:** Identify one specific dish or specialty the place is famous for.
-4. **Ratings:** Provide Google Rating (e.g. 4.6) and total count.
-5. **Logistics:** Add a short tip (e.g. "Reservation essential", "Cash only").
-6. **Coordinates:** You MUST provide accurate Latitude/Longitude for the Map View.
+2. **Coordinates (CRITICAL):** You MUST provide accurate Latitude/Longitude. Do NOT return null for found places.
+3. **Awards:** Explicitly check for Michelin (Stars, Bib), Gault&Millau, Feinschmecker.
+4. **Signature Dish:** Identify one specific dish or specialty the place is famous for.
+5. **Ratings:** Provide Google Rating (e.g. 4.6) and total count.
+6. **Logistics:** Add a short tip (e.g. "Reservation essential", "Cash only").
 7. **DATA PRESERVATION (THE SHIELD):** You received 'existing_guides' and 'source_url' (or 'existing_url') in the input. You MUST return them exactly as received. Do NOT delete or empty these fields.
 
 # FALLBACK RULE
@@ -45,12 +52,13 @@ If a restaurant cannot be found or is permanently closed, set "found": false.
 Before outputting JSON, you MUST verify:
 1. **Input Count:** I received X candidates.
 2. **Output Count:** I am returning exactly X candidates.
-3. **ID Match:** Every 'id' in output matches an 'id' from input.
+3. **Coordinates Check:** Do all 'found' candidates have valid numbers for lat/lng?
+4. **ID Match:** Every 'id' in output matches an 'id' from input.
 ⛔️ **CRITICAL:** If counts do not match, STOP and fix the list. Do NOT drop items because they are closed/unfound (set found:false instead).`;
 
   // 3. Schema
   const outputSchema = {
-    "_thought_process": "String (Step 1: Count input items. Step 2: Research Awards & Coordinates. Step 3: Verify Output Count matches Input Count. CONFIRM!)",
+    "_thought_process": "String (Step 1: Inspect Input for missing coords. Step 2: Repair Coordinates. Step 3: Verify Output Count. CONFIRM!)",
     "enriched_candidates": [
       {
         "id": "String (CRITICAL: Copy exactly from input! Do NOT change!)",
@@ -59,8 +67,8 @@ Before outputting JSON, you MUST verify:
         "name_official": "String (Correct spelling)",
         "address": "String (Full Address with Zip/City)",
         "location": {
-            "lat": "Number (e.g. 48.1351)",
-            "lng": "Number (e.g. 11.5820)"
+            "lat": "Number (Must be valid float, e.g. 48.1351)",
+            "lng": "Number (Must be valid float, e.g. 11.5820)"
         },
         "phone": "String (e.g. +49 ... or null)",
         "website": "String | null",
@@ -89,4 +97,4 @@ Before outputting JSON, you MUST verify:
     .withSelfCheck(['research']) 
     .build();
 };
-// --- END OF FILE 107 Zeilen ---
+// --- END OF FILE 113 Zeilen ---

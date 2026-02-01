@@ -1,13 +1,13 @@
-// 04.02.2026 12:15 - FIX: TYPE SAFETY & GUIDES PERSISTENCE.
-// - Fixed TS error for 'guides' property access using type assertion.
-// - Preserves Substring Match logic.
-// - Ensures Guides/URL are never overwritten by empty data.
+// 04.02.2026 16:00 - FIX: ADAPTED TO NEW COUNTRY CONFIG STRUCTURE.
+// - Replaced 'globalGuideMatrix' with 'countryGuideConfig'.
+// - Updated 'triggerCountriesDownload' to generate GuideDef objects.
+// - Refactored Guide Harvester to handle Object-based config.
 // src/services/ResultProcessor.ts
 
 import { v4 as uuidv4 } from 'uuid';
 import { useTripStore } from '../store/useTripStore';
 import type { WorkflowStepId, TaskKey } from '../core/types';
-import { globalGuideMatrix } from '../data/countries'; 
+import { countryGuideConfig, GuideDef } from '../data/countries'; 
 
 // --- HELPER: LEVENSHTEIN DISTANCE ---
 const getSimilarity = (s1: string, s2: string): number => {
@@ -162,8 +162,8 @@ const isEnrichedItem = (item: any): boolean => {
     return !!(item.original_name || (item.user_ratings_total !== undefined) || item.logistics_tip);
 };
 
-// --- HELPER: DOWNLOAD GENERATOR ---
-const triggerCountriesDownload = (updatedMatrix: Record<string, string[]>) => {
+// --- HELPER: DOWNLOAD GENERATOR (NEW STRUCTURE) ---
+const triggerCountriesDownload = (updatedConfig: Record<string, GuideDef[]>) => {
     const fileContent = `// src/data/countries.ts
 // UPDATED AUTOMATICALLY BY FOODSCOUT HARVESTER
 // ${new Date().toISOString()}
@@ -172,19 +172,30 @@ export const metadata = {
     lastUpdated: "${new Date().toISOString()}"
 };
 
-export const globalGuideMatrix: Record<string, string[]> = ${JSON.stringify(updatedMatrix, null, 4)};
+export interface GuideDef {
+    name: string;
+    searchUrl: string;
+}
 
-export function getGuidesForCountry(countryName: string | undefined): string[] {
-    if (!countryName) return globalGuideMatrix["Welt"];
-    if (globalGuideMatrix[countryName]) return globalGuideMatrix[countryName];
+// SINGLE SOURCE OF TRUTH - SORTED BY COUNTRY
+export const countryGuideConfig: Record<string, GuideDef[]> = ${JSON.stringify(updatedConfig, null, 4)};
+
+export function getGuidesForCountry(countryName: string | undefined): GuideDef[] {
+    if (!countryName) return [];
+    
+    if (countryGuideConfig[countryName]) return countryGuideConfig[countryName];
+    
     const normalized = countryName.toLowerCase();
-    const foundKey = Object.keys(globalGuideMatrix).find(k => 
+    
+    const foundKey = Object.keys(countryGuideConfig).find(k => 
         k.toLowerCase() === normalized || 
         normalized.includes(k.toLowerCase()) || 
         k.toLowerCase().includes(normalized)
     );
-    if (foundKey) return globalGuideMatrix[foundKey];
-    return globalGuideMatrix["Welt"];
+    
+    if (foundKey) return countryGuideConfig[foundKey];
+
+    return [];
 }
 `;
     const blob = new Blob([fileContent], { type: 'application/typescript' });
@@ -392,7 +403,7 @@ export const ResultProcessor = {
                     }
                 }));
 
-                // --- GUIDE HARVESTER LOGIC ---
+                // --- GUIDE HARVESTER LOGIC (V40.5 Compatible) ---
                 const foundGuides = new Set<string>();
                 extractedItems.forEach((item: any) => {
                     if (Array.isArray(item.guides)) {
@@ -409,11 +420,14 @@ export const ResultProcessor = {
                                           project.userInputs?.logistics?.stationary?.destination || 
                                           "Unknown";
                     
-                    const existingGuides = globalGuideMatrix[targetCountry] || [];
-                    const newGuides = Array.from(foundGuides).filter(g => !existingGuides.includes(g));
+                    // NEW: Lookup via GuideDef Objects
+                    const existingConfig = countryGuideConfig[targetCountry] || [];
+                    const existingNames = existingConfig.map(g => g.name);
+                    
+                    const newGuideNames = Array.from(foundGuides).filter(g => !existingNames.includes(g));
 
-                    if (newGuides.length > 0) {
-                        const guideList = newGuides.join("\n- ");
+                    if (newGuideNames.length > 0) {
+                        const guideList = newGuideNames.join("\n- ");
                         
                         const userConfirmed = window.confirm(
                             `📍 UPDATE FÜR ${targetCountry.toUpperCase()}\n\n` +
@@ -422,9 +436,15 @@ export const ResultProcessor = {
                         );
 
                         if (userConfirmed) {
-                            const newMatrix = { ...globalGuideMatrix };
-                            newMatrix[targetCountry] = Array.from(new Set([...existingGuides, ...newGuides]));
-                            triggerCountriesDownload(newMatrix);
+                            const newConfig = { ...countryGuideConfig };
+                            // Add new guides with fallback URL (as AI doesn't provide URL source)
+                            const newDefs: GuideDef[] = newGuideNames.map(name => ({
+                                name,
+                                searchUrl: `https://www.google.com/search?q=${encodeURIComponent(name + ' restaurant ' + targetCountry)}`
+                            }));
+                            
+                            newConfig[targetCountry] = [...existingConfig, ...newDefs];
+                            triggerCountriesDownload(newConfig);
                         }
                     }
                 }
@@ -490,12 +510,18 @@ export const ResultProcessor = {
       case 'countryScout': {
            if (data.recommended_guides && data.country_profile?.official_name) {
                const country = data.country_profile.official_name;
-               const newGuides = data.recommended_guides;
+               const newGuides = data.recommended_guides; // Array of strings
+               
                const userConfirmed = window.confirm(`Länder-Scout erfolgreich!\n\nGuides für ${country}:\n${newGuides.join(', ')}\n\nDatei aktualisieren?`);
+               
                if (userConfirmed) {
-                   const newMatrix = { ...globalGuideMatrix };
-                   newMatrix[country] = newGuides;
-                   triggerCountriesDownload(newMatrix);
+                   const newConfig = { ...countryGuideConfig };
+                   const newDefs: GuideDef[] = newGuides.map((name: string) => ({
+                       name,
+                       searchUrl: `https://www.google.com/search?q=${encodeURIComponent(name + ' restaurant ' + country)}`
+                   }));
+                   newConfig[country] = newDefs;
+                   triggerCountriesDownload(newConfig);
                }
            }
            break;
@@ -556,4 +582,4 @@ export const ResultProcessor = {
     }
   }
 };
-// Lines: 675
+// --- END OF FILE 715 Zeilen ---

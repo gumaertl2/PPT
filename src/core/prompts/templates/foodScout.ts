@@ -1,13 +1,14 @@
-// 04.02.2026 09:00 - FIX: V30 STRATEGY REBORN & ROBUST LINKS.
-// - Implements "Concentric Quality Circles" (Smart Radius) from V30.
-// - Enforces Strict Guide compliance (No Local Heroes).
-// - Uses "Google Proxy" links (Phase 4) because AI lacks live browsing capabilities.
+// 04.02.2026 15:00 - FIX: HYBRID STRATEGY (V30 LOGIC + V40.5 KNOWLEDGE).
+// - RESTORED: "Concentric Quality Circles" (Zone A/B) for smart radius.
+// - RESTORED: "Google Proxy Links" but upgraded with dynamic 'guide_anchors'.
+// - KEPT: "Honesty Protocol" (confidence, verification_status) to prevent hallucinations.
 // src/core/prompts/templates/foodScout.ts
 
 import { PromptBuilder } from '../PromptBuilder';
+import type { FoodSearchPayload } from '../../types';
 
-export const buildFoodScoutPrompt = (payload: any): string => {
-  const { context, userInputs } = payload;
+export const buildFoodScoutPrompt = (payload: FoodSearchPayload): string => {
+  const { context, instructions, userInputs } = payload;
   
   const locationName = context.location_name || "Target Region";
   // FIX: Smart Radius Logic (Use input or default to 20km)
@@ -25,7 +26,7 @@ export const buildFoodScoutPrompt = (payload: any): string => {
   const guidesList = context.guides_list || [];
   const guidesString = guidesList.length > 0 ? guidesList.join(', ') : "Premium Guides (Michelin, Gault&Millau, Feinschmecker, Varta)";
 
-  // 1. ROLE & STRATEGY (V30 Logic adapted for V40 Strictness)
+  // 1. ROLE & STRATEGY (Restored V30 Logic)
   const role = `You are the **Strategic Culinary Sourcing Agent**.
   
   # YOUR STRATEGY: "CONCENTRIC QUALITY CIRCLES" (Smart Radius)
@@ -44,29 +45,32 @@ export const buildFoodScoutPrompt = (payload: any): string => {
   const mainInstruction = `# PHASE 1: SOURCE CHECK
   allowed_guides: [${guidesString}]
   target_location: ${locationName} (~${searchRadius})
+  target_country: ${context.target_country}
   
-  # PHASE 2: SCANNING PROTOCOL (EXHAUSTIVE)
-  For each candidate, you MUST verify:
-  1. Is it physically existing?
-  2. Is it currently listed in at least one of the allowed_guides? (TripAdvisor/Google Reviews do NOT count as guides).
+  # PHASE 2: SCANNING PROTOCOL (HONESTY FIRST)
+  For each candidate, you must ESTIMATE the likelihood of existence and listing.
+  1. **Existence:** Is it likely physically existing?
+  2. **Guide Check:** Is it *plausibly* listed in allowed_guides?
   3. **Strict Location Check:** Does it fall within Zone A or Zone B?
   
-  # PHASE 3: DATA INTEGRITY & ATTRIBUTION
+  # PHASE 3: KNOWLEDGE INTEGRATION
+  We have injected "Knowledge Anchors" for you. Use them!
+  ANCHORS:
+  ${context.guide_anchors || "No anchors available."}
+
+  # PHASE 4: DATA INTEGRITY & ATTRIBUTION
   1. **Real Names Only:** Verify the name.
-  2. **Coordinates (CRITICAL):** You MUST provide Lat/Lng.
+  2. **Coordinates:** Provide Lat/Lng if known (high confidence), otherwise set to null.
   3. **SOURCE CITATION (THE LAW):** - You MUST fill the 'guides' array with the specific source name.
      - **IF YOU CANNOT CITE A SOURCE, DO NOT OUTPUT THE CANDIDATE.**
 
-  # PHASE 4: SMART LINK GENERATION (GOOGLE PROXY)
-  Since you cannot browse live, you MUST construct a Google Search URL to let the user verify the guide entry.
-  - If source is **'Michelin'**: \`https://www.google.com/search?q=site:guide.michelin.com+{Name}+{City}\`
-  - If source is **'Gault&Millau'**: \`https://www.google.com/search?q=Gault%26Millau+{Name}+{City}\`
-  - If source is **'Feinschmecker'**: \`https://www.google.com/search?q=Feinschmecker+{Name}+{City}\`
-  - If source is **'Varta'**: \`https://www.google.com/search?q=Varta+Guide+{Name}+{City}\`
-  - If source is **'Falstaff'**: \`https://www.google.com/search?q=site:falstaff.com+{Name}+{City}\`
-  - **Default (Global)**: \`https://www.google.com/search?q={Name}+{City}+Restaurant\`
-  *Replace {Name} and {City} with the actual values.*
-
+  # PHASE 5: SMART LINK GENERATION (HYBRID)
+  You cannot browse live, but you can construct smart verification links using the ANCHORS.
+  
+  - **Strategy A (Direct Anchor):** If an anchor provides a direct search URL (e.g. guide.michelin.com/.../restaurants), append the city or name if the URL structure allows it.
+  - **Strategy B (Google Proxy):** If no specific anchor helps, construct a Google Search URL:
+    \`https://www.google.com/search?q={GuideName}+{RestaurantName}+{City}\`
+  
   ${specificCuisines}`;
 
   const outputSchema = {
@@ -76,10 +80,13 @@ export const buildFoodScoutPrompt = (payload: any): string => {
       {
         "name": "String (Official Name)",
         "city": "String",
-        "address": "String (Full Address)",
-        "location": { "lat": "Number", "lng": "Number" },
+        "address": "String (Full Address or 'Unknown')",
+        "location": { "lat": "Number OR null", "lng": "Number OR null" },
         "guides": ["String (Source Name - MUST be from allowed list)"],
-        "source_url": "String (Google Search Verification Link)"
+        "source_url": "String (Constructed Verification Link)",
+        "confidence": "Integer (0-100)",
+        "verification_status": "String ('verified_memory' OR 'ai_estimate')",
+        "description": "String (Short reasoning, max 10 words)"
       }
     ]
   };
@@ -90,7 +97,7 @@ export const buildFoodScoutPrompt = (payload: any): string => {
     .withContext(context, "SCANNER CONTEXT")
     .withInstruction(mainInstruction)
     .withOutputSchema(outputSchema)
-    .withSelfCheck(['research'])
+    .withSelfCheck(['research', 'hallucination_check'])
     .build();
 };
-// Lines: 104
+// --- END OF FILE 108 Zeilen ---

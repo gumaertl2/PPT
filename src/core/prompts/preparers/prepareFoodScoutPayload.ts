@@ -1,7 +1,7 @@
-// 03.02.2026 23:30 - FIX: STRICT GUIDE ENFORCEMENT.
-// - BANS TripAdvisor/Google/Yelp globally from guide lists.
-// - ENFORCES Premium Guides for DACH region (Michelin, Varta, etc.).
-// - DISABLES Dynamic Mode to prevent AI hallucinations.
+// 04.02.2026 14:15 - FIX: CONNECTED TO NEW COUNTRY CONFIG.
+// - Uses 'countryGuideConfig' (No Fallbacks, No TripAdvisor).
+// - Injects 'guide_anchors' (URLs) for AI Knowledge Grounding.
+// - Removes redundant filtering (Data Source is now clean).
 // src/core/prompts/preparers/prepareFoodScoutPayload.ts
 
 import type { TripProject, FoodSearchMode } from '../../types';
@@ -19,7 +19,6 @@ export const prepareFoodScoutPayload = (
     if (projectOrPayload.context || projectOrPayload.instructions) {
         // Payload Mode (Ad-Hoc Call)
         project = projectOrPayload.project || projectOrPayload; // Fallback
-        // If feedback was not passed directly, try to get it from instructions
         if (!feedback && projectOrPayload.instructions) {
             feedback = projectOrPayload.instructions;
         }
@@ -67,8 +66,7 @@ export const prepareFoodScoutPayload = (
         contextDescription = "Stationary Destination";
     }
 
-    // --- 2. AD-HOC OVERRIDE (MOVED UP FOR PARSING) ---
-    // We check this EARLY to override the search location if needed
+    // --- 2. AD-HOC OVERRIDE ---
     const isAdHoc = !!(feedback && feedback.toLowerCase().includes('adhoc'));
     
     if (isAdHoc && feedback) {
@@ -92,51 +90,29 @@ export const prepareFoodScoutPayload = (
         console.warn("[FoodScout] No locations found in Analysis or Inputs.");
     }
 
-    // --- 4. DETERMINE GUIDES (STRICT ENFORCEMENT) ---
-    // Try to find specific guides based on region/country hint
+    // --- 4. DETERMINE GUIDES (NEW: V40.5 KNOWLEDGE INJECTION) ---
     let countryForLookup = regionHint;
     
-    // FIX: TS2339 - Cast logistics to any to access potential target_countries
     if (!countryForLookup && (logistics as any)?.target_countries) {
         countryForLookup = (logistics as any).target_countries[0];
     }
-    const guideLookupKey = countryForLookup || "Welt";
     
-    let relevantGuides = getGuidesForCountry(guideLookupKey);
-    const isGerman = userInputs?.aiOutputLanguage === 'de' || !userInputs?.aiOutputLanguage;
-
-    // A. GLOBAL BAN: Remove Garbage Sources (TripAdvisor, Google, Yelp)
-    // We strictly filter out any garbage sources to prevent pollution.
-    relevantGuides = relevantGuides.filter(g => {
-        const lower = g.toLowerCase();
-        return !lower.includes('tripadvisor') && 
-               !lower.includes('google') && 
-               !lower.includes('yelp') && 
-               !lower.includes('local recommendation') &&
-               !lower.includes('travelers choice');
-    });
-
-    // B. DACH PREMIUM ENFORCEMENT (User Requirement: Strict V30 Logic)
-    if (isGerman) {
-         const premiumGuides = [
-             "Michelin", "Gault&Millau", "Feinschmecker", "Varta", "Slow Food", 
-             "Gusto", "Schlemmer Atlas", "Der Große Restaurant & Hotel Guide"
-         ];
-         // Merge and deduplicate
-         relevantGuides = Array.from(new Set([...relevantGuides, ...premiumGuides]));
-    }
-
-    // C. DISABLE DYNAMIC MODE
-    // We NEVER want the AI to fall back to generic web search if guides are missing.
-    // It must strictly adhere to the list or find nothing.
-    const dynamicGuideMode = false;
+    // FETCH CONFIG (Clean List, No TripAdvisor, No Fallbacks)
+    // Returns GuideDef[]: { name: string, searchUrl: string }[]
+    const relevantGuideDefs = getGuidesForCountry(countryForLookup);
+    
+    // TRANSFORM FOR PROMPT
+    const guideNames = relevantGuideDefs.map(g => g.name);
+    
+    // ANCHORS: "Michelin (https://...)"
+    // This helps the AI to ground its hallucinations on specific URLs.
+    const guideAnchors = relevantGuideDefs.map(g => `- ${g.name}: ${g.searchUrl}`).join('\n');
 
     // --- 5. AD-HOC STRATEGY TEXT ---
     let searchArea = `Scope: ${contextDescription}. Locations: ${searchLocation}`;
     let strategyMode = modeInput;
 
     if (isAdHoc && feedback) {
-        // Redundant check for Radius to append to searchArea
         const radMatch = feedback.match(/RAD:(\d+)/);
         if (radMatch) searchArea += ` (Radius: ${radMatch[1]}km)`;
         if (feedback.toLowerCase().includes('sterne') || feedback.includes('mode:stars')) strategyMode = 'stars';
@@ -155,12 +131,17 @@ export const prepareFoodScoutPayload = (
         context: {
             location_name: searchLocation, 
             search_area: searchArea,
-            // If dynamic mode (false), send STRICT list.
-            guides_list: relevantGuides,
+            
+            // PURE NAMES (for "Allowed List" check)
+            guides_list: guideNames,
+            
+            // KNOWLEDGE INJECTION (URLs for "Grounding")
+            guide_anchors: guideAnchors,
+
             mode: isAdHoc ? 'adhoc' : 'guide',
             target_language: userInputs?.aiOutputLanguage || 'de',
             _debug_source: contextDescription,
-            dynamic_guide_mode: dynamicGuideMode, // Trigger for Prompt (FALSE)
+            dynamic_guide_mode: false, // STRICT MODE ALWAYS
             target_country: countryForLookup || "Target Region"
         },
         instructions: {
@@ -168,11 +149,10 @@ export const prepareFoodScoutPayload = (
             role: `You are the 'Food-Collector'. You have a LIST of locations: "${searchLocation}". 
             TASK: Scan the allowed guides for EACH of these locations. Return candidates for ALL listed places.`
         },
-        userInputs: { // Passed for Prompt Usage
-             // FIX: TS2339 - Use 'selectedInterests' instead of 'interests'
+        userInputs: { 
              selectedInterests: userInputs?.selectedInterests || [],
              pace: userInputs?.pace || 'balanced'
         }
     };
 };
-// Lines: 165
+// --- END OF FILE 135 Zeilen ---
