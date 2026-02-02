@@ -1,7 +1,7 @@
-// 05.02.2026 14:00 - FIX: ORCHESTRATOR WITH GEO-EXPANSION (FULL MERGE).
-// - Implements "Phase 0": Geo-Expander to resolve specific towns first.
-// - Passes town list to FoodScout for systematic scanning.
-// - Retains strict Enricher & Geo-Filter logic.
+// 05.02.2026 19:00 - FIX: REMOVE REDUNDANT GEO-FILTER.
+// - Implements "Inverted Search" logic fully: Trust the AI Auditor.
+// - REMOVED Phase 3 (Code Geo-Filter) which was killing valid results.
+// - Directly returns enriched candidates.
 // src/services/orchestrator.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -12,7 +12,6 @@ import { useTripStore } from '../store/useTripStore';
 import { ResultProcessor } from './ResultProcessor'; 
 import { CONFIG } from '../data/config';
 import { APPENDIX_ONLY_INTERESTS } from '../data/constants'; 
-import { applyAdaptiveGeoFilter } from '../core/utils/geo'; 
 import { 
   dayPlanSchema, geoAnalystSchema, foodSchema, hotelSchema, chefPlanerSchema,
   routeArchitectSchema, ideenScoutSchema, chefredakteurSchema, infoAutorSchema,
@@ -20,8 +19,11 @@ import {
 } from './validation';
 import type { TaskKey } from '../core/types';
 
-// NEW: Add simplified schema for GeoExpander (Array of Strings)
-const geoExpanderSchema = z.array(z.string());
+// FIX: Standardize GeoExpander Schema
+const geoExpanderSchema = z.object({
+    _thought_process: z.string().optional(),
+    candidates: z.array(z.string())
+});
 
 const SCHEMA_MAP: Partial<Record<TaskKey, z.ZodType<any>>> = {
   dayplan: dayPlanSchema, initialTagesplaner: dayPlanSchema, geoAnalyst: geoAnalystSchema,
@@ -30,7 +32,7 @@ const SCHEMA_MAP: Partial<Record<TaskKey, z.ZodType<any>>> = {
   accommodation: hotelSchema, hotelScout: hotelSchema, ideenScout: ideenScoutSchema, 
   chefredakteur: chefredakteurSchema, infoAutor: infoAutorSchema, infos: infoAutorSchema, 
   details: chefredakteurSchema, tourGuide: tourGuideSchema, transferPlanner: transferPlannerSchema,
-  geoExpander: geoExpanderSchema // Register new schema
+  geoExpander: geoExpanderSchema 
 };
 
 const getTaskLimit = (task: TaskKey, isManual: boolean): number => {
@@ -60,6 +62,8 @@ const mergeResults = (results: any[], task: TaskKey): any => {
     if (!results || results.length === 0) return null;
     if (results.length === 1) return results[0];
     console.log(`[Orchestrator] Merging ${results.length} chunks for ${task}...`);
+    
+    // Dayplan special merge logic
     if (['dayplan', 'initialTagesplaner'].includes(task)) {
         const merged = JSON.parse(JSON.stringify(results[0])); 
         for (let i = 1; i < results.length; i++) {
@@ -73,19 +77,21 @@ const mergeResults = (results: any[], task: TaskKey): any => {
         }
         return merged;
     }
+
+    // Standard Object/Array Merge
     let merged: any = {};
     if (Array.isArray(results[0])) return results.flat();
+    
     results.forEach(chunk => {
-        if (chunk.places) merged.places = { ...(merged.places || {}), ...chunk.places };
-        if (chunk.content) merged.content = { ...(merged.content || {}), ...chunk.content };
-        if (chunk.sights && Array.isArray(chunk.sights)) merged.sights = [...(merged.sights || []), ...chunk.sights];
-        if (chunk.chapters && Array.isArray(chunk.chapters)) merged.chapters = [...(merged.chapters || []), ...chunk.chapters];
+        // Generic Merge for keys like places, content, etc.
         Object.keys(chunk).forEach(key => {
-            if (!['places', 'content', 'sights', 'chapters'].includes(key)) {
-                const value = chunk[key];
-                if (Array.isArray(value)) merged[key] = [...(merged[key] || []), ...value];
-                else if (typeof value === 'object' && value !== null) merged[key] = { ...(merged[key] || {}), ...value };
-                else merged[key] = value;
+            const value = chunk[key];
+            if (Array.isArray(value)) {
+                merged[key] = [...(merged[key] || []), ...value];
+            } else if (typeof value === 'object' && value !== null) {
+                merged[key] = { ...(merged[key] || {}), ...value };
+            } else {
+                merged[key] = value;
             }
         });
     });
@@ -145,18 +151,6 @@ export const TripOrchestrator = {
      
      if (store.aiSettings.debug) console.log(`[Orchestrator] Single Step: ${task} -> Model: ${modelId} ${skipSave ? '(NO SAVE)' : ''}`);
 
-     // --- DATA LOSS INSPECTION (SINGLE STEP) ---
-     if (task === 'foodEnricher') {
-         try {
-             if (inputData && Array.isArray(inputData) && inputData.length > 0) {
-                 const sample = inputData[0];
-                 console.log(`[Orchestrator] 🔍 Inspection for foodEnricher (Single Step): Item '${sample.name}' has guides:`, sample.guides);
-             } else if (inputData) {
-                 console.warn(`[Orchestrator] ⚠️ foodEnricher (Single Step) called but inputData seems empty or invalid:`, inputData);
-             }
-         } catch (e) { console.warn("Log inspection failed", e); }
-     }
-
      const rawResult = await GeminiService.call(prompt, task, modelId);
      const schema = SCHEMA_MAP[task];
      let validatedData = rawResult;
@@ -177,110 +171,72 @@ export const TripOrchestrator = {
     const store = useTripStore.getState();
     const { project, chunkingState, setChunkingState, apiKey } = store;
 
-    // --- FOOD PIPELINE (V40.5 EXPANDED: Expander -> Scout -> Enricher -> GeoFilter) ---
+    // --- FOOD PIPELINE (V40.5 "INVERTED SEARCH": Expander -> Scout -> Enricher (Auditor)) ---
     if (task === 'foodScout' || task === 'food') {
-        console.log(`[Orchestrator] Detected Food Task. Starting EXPANDED PIPELINE V40.5`);
+        console.log(`[Orchestrator] Detected Food Task. Starting INVERTED SEARCH PIPELINE V40.5`);
         try {
-            store.setChunkingState({ isActive: true, currentChunk: 0, totalChunks: 4, results: [] });
+            store.setChunkingState({ isActive: true, currentChunk: 0, totalChunks: 3, results: [] });
             
             // --- PHASE 0: GEO EXPANSION (The "Surveyor") ---
-            // Resolves "30km radius" into specific town names ("Überacker", "Maisach", "Gernlinden")
             console.log("[Orchestrator] Phase 0: Geo Expansion (Resolving Towns)");
             let townList: string[] = [];
             
-            // Use GeoExpander regardless of input type to ensure coverage
-            // Note: inputData is not needed for GeoExpander as it uses project/feedback
             const geoResult = await this._executeSingleStep('geoExpander', feedback, true);
-            if (Array.isArray(geoResult)) {
-                townList = geoResult;
-                console.log(`[Orchestrator] GeoExpander found ${townList.length} towns:`, townList.slice(0, 5), "...");
+            
+            if (geoResult && Array.isArray(geoResult.candidates)) {
+                townList = geoResult.candidates;
+                console.log(`[Orchestrator] GeoExpander found ${townList.length} towns.`);
+            } else if (Array.isArray(geoResult)) {
+                 townList = geoResult;
             } else {
-                console.warn("[Orchestrator] GeoExpander returned invalid data. Falling back to Radius Mode.");
+                console.warn("[Orchestrator] GeoExpander returned invalid data. Falling back.");
             }
 
-            // --- PHASE 1: SCOUT (The "Hunter") ---
+            // --- PHASE 1: SCOUT (The "Collector") ---
             store.setChunkingState({ currentChunk: 1 });
             console.log("[Orchestrator] Phase 1: Scanner (AI) - With Explicit Town List");
             
-            // PASS TOWN LIST AS CANDIDATES/OPTIONS to Scout
-            // This triggers the "Chain Mode" in prepareFoodScoutPayload
+            // Pass town list -> Scout returns RAW candidates (Broad Recall)
             const scoutResult = await this._executeSingleStep('foodScout', feedback, true, townList); 
             let candidates = scoutResult.candidates || [];
             
             // ID Injection (RAM)
-            const existingPlaces = project.data?.places || {};
-            candidates = candidates.map((c: any) => {
-                let safeId = c.id;
-                if (safeId && existingPlaces[safeId]) {
-                    const existing = existingPlaces[safeId];
-                    if (['Sight', 'Attraktion', 'Landmark', 'Sehenswürdigkeit'].includes(existing.category)) safeId = undefined;
-                }
-                if (!safeId) safeId = uuidv4();
-                return { ...c, id: safeId };
-            });
+            candidates = candidates.map((c: any) => ({ ...c, id: c.id || uuidv4() }));
+            
+            // Overwrite candidates in result for next step
             scoutResult.candidates = candidates;
-            console.log(`[Orchestrator] Scanner found ${candidates.length} candidates. BYPASSING STRICT GEO-FILTER.`);
+            console.log(`[Orchestrator] Scanner found ${candidates.length} raw candidates. Sending to Auditor...`);
 
             if (candidates.length === 0) {
                  console.warn("[Orchestrator] Scout found 0 candidates. Aborting Pipeline.");
                  return;
             }
 
-            // --- PHASE 2: ENRICHER (AI) ---
+            // --- PHASE 2: ENRICHER (The "Auditor") ---
             store.setChunkingState({ currentChunk: 2 });
-            console.log("[Orchestrator] Phase 2: Enricher (AI) - Retrieving Hard Facts");
+            console.log("[Orchestrator] Phase 2: Enricher (AI) - The Auditor");
             
-            // We pass candidates as inputData
+            // Execute Enricher (Chunks handled internally)
             const enricherResult = await this.executeTask('foodEnricher', undefined, candidates); 
             
-            // Note: ResultProcessor has saved them to Store by now.
+            // --- PHASE 3: RESULT EXTRACTION (NO GEO-FILTER) ---
+            // We trust the Auditor. We just grab the result.
+            console.log(`[Orchestrator] Pipeline Finished. Trusting Auditor Results.`);
             
-            // --- PHASE 3: FINAL GEO-FILTER (CODE) ---
-            store.setChunkingState({ currentChunk: 3 });
+            // Extract the list from the result object (could be 'candidates', 'places', or 'enriched_candidates')
+            let finalCandidates: any[] = [];
             
-            // FIX: Re-fetch enriched items from Store using IDs from Phase 1
-            const currentPlaces = useTripStore.getState().project.data.places || {};
-            const enrichedCandidates = candidates.map((raw: any) => {
-                return Object.values(currentPlaces).find((p: any) => p.id === raw.id || p.name === raw.name);
-            }).filter((p: any) => !!p);
+            if (enricherResult.enriched_candidates) finalCandidates = enricherResult.enriched_candidates;
+            else if (enricherResult.candidates) finalCandidates = enricherResult.candidates;
+            else if (enricherResult.places) finalCandidates = Object.values(enricherResult.places);
+            else if (Array.isArray(enricherResult)) finalCandidates = enricherResult;
 
-            console.log(`[Orchestrator] Phase 3: Final Geo-Filter (Code) on ${enrichedCandidates.length} enriched items.`);
+            // Optional: Filter out items explicitly marked as 'rejected' by the Auditor
+            const validCandidates = finalCandidates.filter((c: any) => c.verification_status !== 'rejected');
 
-            const isAdHoc = feedback?.toLowerCase().includes('adhoc') || false;
-            let contextType: 'district' | 'region' | 'adhoc' = 'region'; 
-            if (isAdHoc) contextType = 'adhoc';
+            console.log(`[Orchestrator] Final Result: ${validCandidates.length} validated places (from Auditor).`);
             
-            let centers: string[] = [];
-
-            if (isAdHoc) {
-                const locMatch = feedback?.match(/LOC:([^|]+)/);
-                if (locMatch && locMatch[1].trim()) {
-                    centers = [locMatch[1].trim()];
-                } else {
-                     centers = scoutResult.resolved_search_locations || [];
-                }
-            } else {
-                if (scoutResult.resolved_search_locations?.length > 0) centers = scoutResult.resolved_search_locations;
-                else if (project.analysis?.geoAnalyst?.recommended_hubs?.length) {
-                    centers = project.analysis.geoAnalyst.recommended_hubs.map(h => h.hub_name);
-                    contextType = 'district';
-                } else {
-                    centers = [project.userInputs.logistics.stationary.destination || "Region"];
-                }
-            }
-
-            let finalFiltered = enrichedCandidates;
-            
-            // Ad-Hoc Special: Trust expanded list + coords
-            if (isAdHoc) {
-                 finalFiltered = enrichedCandidates.filter((p: any) => p.location && p.location.lat && p.location.lng);
-            } else {
-                 finalFiltered = await applyAdaptiveGeoFilter(enrichedCandidates, centers, contextType);
-            }
-            
-            console.log(`[Orchestrator] Final Result: ${finalFiltered.length} validated places.`);
-            
-            return { candidates: finalFiltered };
+            return { candidates: validCandidates };
 
         } catch (err) {
             console.error("[Orchestrator] Food Sequence Failed", err);
@@ -290,7 +246,7 @@ export const TripOrchestrator = {
         }
     }
 
-    // --- STANDARD CHUNKING ---
+    // --- STANDARD CHUNKING LOGIC (Unchanged) ---
     const chunkableTasks: TaskKey[] = [
         'anreicherer', 'chefredakteur', 'infoAutor', 'foodEnricher', 'chefPlaner',
         'dayplan', 'initialTagesplaner', 'infos', 'details', 'basis', 'hotelScout', 'ideenScout'
@@ -339,8 +295,7 @@ export const TripOrchestrator = {
         }
     }
     
-    // FIX: Pass inputData to fallback/single-step execution
     return this._executeSingleStep(task, feedback, false, inputData);
   }
 };
-// --- END OF FILE 400 Zeilen ---
+// --- END OF FILE 380 Zeilen ---

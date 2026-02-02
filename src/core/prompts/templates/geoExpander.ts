@@ -1,6 +1,6 @@
-// 05.02.2026 12:00 - NEW: GEO EXPANDER PROMPT.
-// - Task: Explode a Center + Radius into a specific list of villages/towns.
-// - Output: Pure JSON String Array.
+// 05.02.2026 18:30 - NEW STRATEGY: GEOGRAPHIC FUNNEL (STEP 1).
+// - Implements the "GIS Assistant" Logic.
+// - Focus: Create relevant clusters instead of random lists.
 // src/core/prompts/templates/geoExpander.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -8,30 +8,25 @@ import { PromptBuilder } from '../PromptBuilder';
 export const buildGeoExpanderPrompt = (payload: any): string => {
   const { context } = payload;
   const center = context.center || "Unknown Location";
-  const radius = context.radius || 20;
-
-  const role = `You are an Expert Geographer and Surveyor.
-  Your Goal: List EVERY single distinct settlement (Village, Town, City, Hamlet, "Ortsteil") within a ${radius}km radius of "${center}".`;
-
-  const instruction = `# TASK
-  1. Mentally simulate a map around **${center}**.
-  2. Identify all surrounding locations within **${radius}km**.
-  3. Be GRANULAR: Do not just list big cities. We explicitly need the **small villages** (e.g. if center is Maisach, we need Überacker, Gernlinden, Rottbach, Esting, etc.).
-  4. Return them as a simple JSON Array of Strings.
+  // We interpret radius broadly (20-25km) as per your prompt logic
   
-  # OUTPUT FORMAT
-  ["${center}", "Village A", "Town B", "Hamlet C", ...]
-  
-  # RULES
-  - STRICTLY JSON only. No text before/after.
-  - Include the center itself.
-  - Sort alphabetically.
-  - Limit to max 40 most relevant locations (prioritize close proximity over size).`;
+  const role = `Du bist ein GIS-Assistent (Geographic Information System).`;
+
+  const instruction = `
+  Ich gebe dir einen Ausgangsort. Erstelle eine Liste der relevantesten Städte, Gemeinden und wichtigen Ortsteile im Radius von ca. 20-25 km, die gastronomisch relevant sein könnten.
+  Ignoriere winzige Weiler, konzentriere dich auf Orte mit Infrastruktur.
+
+  Input Ort: "${center}"`;
+
+  const outputSchema = {
+    "_thought_process": "String (Kurze Erklärung der Cluster-Bildung)",
+    "candidates": ["String (Liste der Orte, z.B. ['Ort 1', 'Ort 2 (inkl. Ortsteil X)'])"]
+  };
 
   return new PromptBuilder()
     .withOS()
     .withRole(role)
     .withInstruction(instruction)
+    .withOutputSchema(outputSchema)
     .build();
 };
-// --- END OF FILE 36 Zeilen ---
