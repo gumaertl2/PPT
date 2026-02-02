@@ -1,48 +1,48 @@
-// 03.02.2026 12:30 - FIX: Replaced broken Google Maps URL with official API (dir/?api=1).
-// Added 'countryContext' support to disambiguate locations (e.g. "Galle" -> "Galle, Sri Lanka").
+// 02.02.2026 15:30 - FIX: GOOGLE MAPS ROUTING API.
+// - Uses official cross-platform URL syntax (https://www.google.com/maps/dir/?api=1).
+// - Dynamic 'countryContext': Only appends country if provided (no defaults).
 // src/features/Cockpit/utils.ts
 
 /**
  * Generiert eine Google Maps Routen-URL basierend auf einer Liste von Orten.
- * Die Orte können Adressen oder Namen sein.
  * @param locations Array von Strings (z.B. ["München", "Salzburg", "Wien"])
  * @param travelMode Optional: 'driving' (default), 'walking', 'bicycling', 'transit'
- * @param countryContext Optional: Land, das angehängt wird, falls der Ort mehrdeutig ist (z.B. "Sri Lanka")
- * @returns Die URL oder null, wenn zu wenige Orte (weniger als 2)
+ * @param countryContext Optional: Land für Disambiguierung (z.B. "Italien"). Falls leer, wird nichts angehängt.
  */
 export const generateGoogleMapsRouteUrl = (
   locations: (string | null | undefined)[],
   travelMode: 'driving' | 'walking' | 'bicycling' | 'transit' = 'driving',
-  countryContext?: string
+  countryContext?: string 
 ): string | null => {
-  // 1. Bereinigen: Leere Einträge entfernen
+  // 1. Bereinigen
   const cleanLocations = locations.filter((loc): loc is string => !!loc && loc.trim().length > 0);
 
   if (cleanLocations.length < 2) {
     return null;
   }
 
-  // Helper: Kontext anhängen, wenn nötig (Fix für "Axel Galle-Röd" statt "Galle, Sri Lanka")
+  // Helper: Kontext anhängen (z.B. "Neustadt" -> "Neustadt, Deutschland")
+  // Aber NUR, wenn countryContext auch wirklich existiert.
   const formatLoc = (loc: string) => {
-      // Wenn wir ein Land haben und es noch NICHT im String steht, hängen wir es an.
-      if (countryContext && !loc.toLowerCase().includes(countryContext.toLowerCase())) {
-          return `${loc}, ${countryContext}`;
+      const cleanLoc = loc.trim();
+      if (countryContext && !cleanLoc.toLowerCase().includes(countryContext.toLowerCase())) {
+          return `${cleanLoc}, ${countryContext}`;
       }
-      return loc;
+      return cleanLoc;
   };
 
-  // 2. Start und Ziel extrahieren
+  // 2. Encoding für URL
   const origin = encodeURIComponent(formatLoc(cleanLocations[0]));
   const destination = encodeURIComponent(formatLoc(cleanLocations[cleanLocations.length - 1]));
 
-  // 3. Waypoints (alles dazwischen)
+  // 3. Waypoints
   let waypointsParam = '';
   if (cleanLocations.length > 2) {
     const waypoints = cleanLocations.slice(1, -1).map(loc => encodeURIComponent(formatLoc(loc)));
     waypointsParam = `&waypoints=${waypoints.join('|')}`;
   }
 
-  // 4. URL bauen (Official Google Maps Directions API)
+  // 4. Offizielle API URL (https://developers.google.com/maps/documentation/urls/get-started)
   return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${waypointsParam}&travelmode=${travelMode}`;
 };
-// --- END OF FILE 48 Zeilen ---
+// --- END OF FILE 48 Lines ---

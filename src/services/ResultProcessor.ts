@@ -1,11 +1,12 @@
-// 04.02.2026 17:00 - FIX: SAFE TYPE IMPORT.
-// - Uses 'import type { GuideDef }' to avoid runtime binding errors.
+// 02.02.2026 16:00 - FIX: URL SANITIZER & AUDITOR GATEKEEPER.
+// - Added 'sanitizeUrl' to strip 'gl=lk' and generate clean fallbacks.
+// - Updated 'isEnrichedItem' to accept V40.5 Auditor fields.
+// - Uses 'import type' for safety.
 // src/services/ResultProcessor.ts
 
 import { v4 as uuidv4 } from 'uuid';
 import { useTripStore } from '../store/useTripStore';
 import type { WorkflowStepId, TaskKey } from '../core/types';
-// FIX: Explicit Type Import
 import { countryGuideConfig, getGuidesForCountry } from '../data/countries'; 
 import type { GuideDef } from '../data/countries';
 
@@ -38,7 +39,7 @@ const getSimilarity = (s1: string, s2: string): number => {
     return (longerLength - costs[shorter.length]) / longerLength;
 };
 
-// --- HELPER: SMART ID FINDER (CATEGORY AWARE + SUBSTRING SUPPORT) ---
+// --- HELPER: SMART ID FINDER ---
 const resolvePlaceId = (item: any, existingPlaces: Record<string, any>, debug: boolean, incomingCategory?: string): string | undefined => {
     // 1. Direct ID Match
     if (item.id && existingPlaces[item.id]) {
@@ -68,15 +69,14 @@ const resolvePlaceId = (item: any, existingPlaces: Record<string, any>, debug: b
             }
             const targetName = p.name.trim().toLowerCase();
             
-            // A. Fuzzy Score (Levenshtein)
+            // A. Fuzzy Score
             let score = getSimilarity(searchName, targetName);
             
-            // B. NEW: Substring Boost (The "EssZimmer" Fix)
-            // If one name contains the other (and is distinct enough), assume match.
+            // B. Substring Boost
             if (targetName.includes(searchName) || searchName.includes(targetName)) {
                 if (Math.min(targetName.length, searchName.length) > 4) {
                     if (debug) console.log(`[ResultProcessor] 🔗 Substring Match detected: "${searchName}" <-> "${targetName}"`);
-                    score = Math.max(score, 0.95); // Force high score > 0.85
+                    score = Math.max(score, 0.95);
                 }
             }
 
@@ -94,7 +94,30 @@ const resolvePlaceId = (item: any, existingPlaces: Record<string, any>, debug: b
     return undefined;
 };
 
-// --- HELPER: THE VACUUM CLEANER V4 (Strict Mode) ---
+// --- HELPER: URL SANITIZER (DYNAMIC) ---
+const sanitizeUrl = (url: string | undefined, item: any): string => {
+    // 1. Construct a clean fallback URL (Universal)
+    // We do NOT append &gl=de here. We trust the query.
+    const query = `${item.name || item.original_name} ${item.city || ''}`.trim().replace(/\s+/g, '+');
+    const cleanFallback = `https://www.google.com/search?q=${query}`;
+
+    // 2. If URL is missing, use fallback immediately
+    if (!url || url.trim() === '') return cleanFallback;
+
+    // 3. Clean existing URL
+    let safeUrl = url.trim();
+    
+    // Remove "Sri Lanka" artifacts (gl=lk) and US artifacts if present
+    if (safeUrl.includes('gl=lk')) safeUrl = safeUrl.replace(/&?gl=lk/g, '');
+    if (safeUrl.includes('gl=us')) safeUrl = safeUrl.replace(/&?gl=us/g, '');
+    
+    // If the URL looks totally broken (no protocol), replace it
+    if (!safeUrl.startsWith('http')) return cleanFallback;
+
+    return safeUrl;
+};
+
+// --- HELPER: THE VACUUM CLEANER V4 ---
 const extractItems = (data: any, allowStrings: boolean = true): any[] => {
     let items: any[] = [];
     if (!data) return [];
@@ -157,12 +180,19 @@ const isGarbageName = (name: string): boolean => {
     return false;
 };
 
-// --- SSOT HELPER ---
+// --- SSOT HELPER (UPDATED) ---
 const isEnrichedItem = (item: any): boolean => {
-    return !!(item.original_name || (item.user_ratings_total !== undefined) || item.logistics_tip);
+    // V40.5: Accept 'verification_status' or 'guides' as proof of enrichment
+    return !!(
+        item.original_name || 
+        (item.user_ratings_total !== undefined) || 
+        item.logistics_tip ||
+        item.verification_status === 'verified' ||
+        (Array.isArray(item.guides) && item.guides.length > 0)
+    );
 };
 
-// --- HELPER: DOWNLOAD GENERATOR (NEW STRUCTURE) ---
+// --- HELPER: DOWNLOAD GENERATOR ---
 const triggerCountriesDownload = (updatedConfig: Record<string, GuideDef[]>) => {
     const fileContent = `// src/data/countries.ts
 // UPDATED AUTOMATICALLY BY FOODSCOUT HARVESTER
@@ -182,19 +212,14 @@ export const countryGuideConfig: Record<string, GuideDef[]> = ${JSON.stringify(u
 
 export function getGuidesForCountry(countryName: string | undefined): GuideDef[] {
     if (!countryName) return [];
-    
     if (countryGuideConfig[countryName]) return countryGuideConfig[countryName];
-    
     const normalized = countryName.toLowerCase();
-    
     const foundKey = Object.keys(countryGuideConfig).find(k => 
         k.toLowerCase() === normalized || 
         normalized.includes(k.toLowerCase()) || 
         k.toLowerCase().includes(normalized)
     );
-    
     if (foundKey) return countryGuideConfig[foundKey];
-
     return [];
 }
 `;
@@ -358,17 +383,18 @@ export const ResultProcessor = {
                     
                     const finalName = item.name_official || name;
 
-                    // --- FIX: DATA PROTECTION (NO DATA WIPE) ---
                     const { category: _aiCategory, guides: _aiGuides, source_url: _aiUrl, ...cleanItem } = item;
+
+                    // --- NEW: SANITIZE URL ---
+                    const cleanSourceUrl = sanitizeUrl(item.source_url, item);
 
                     updatePlace(id, {
                         id,
                         name: finalName,
                         category: systemCategory, 
                         
-                        // FIX: Explicitly handle guides to fix TS error and preserve data
                         guides: (item.guides && item.guides.length > 0) ? item.guides : (existingPlace ? (existingPlace as any).guides : []),
-                        source_url: item.source_url || (existingPlace ? (existingPlace as any).source_url : ''),
+                        source_url: cleanSourceUrl, // <-- USE CLEAN URL
 
                         ...cleanItem 
                     });
@@ -380,7 +406,7 @@ export const ResultProcessor = {
                             name: finalName,
                             city: item.city || item.ort,
                             guides: item.guides,
-                            source_url: item.source_url,
+                            source_url: cleanSourceUrl, // <-- KEEP CLEAN
                             address: item.address,
                             location: item.location 
                         });
@@ -420,7 +446,6 @@ export const ResultProcessor = {
                                           project.userInputs?.logistics?.stationary?.destination || 
                                           "Unknown";
                     
-                    // NEW: Lookup via GuideDef Objects
                     const existingConfig = countryGuideConfig[targetCountry] || [];
                     const existingNames = existingConfig.map(g => g.name);
                     
@@ -437,7 +462,6 @@ export const ResultProcessor = {
 
                         if (userConfirmed) {
                             const newConfig = { ...countryGuideConfig };
-                            // Add new guides with fallback URL (as AI doesn't provide URL source)
                             const newDefs: GuideDef[] = newGuideNames.map(name => ({
                                 name,
                                 searchUrl: `https://www.google.com/search?q=${encodeURIComponent(name + ' restaurant ' + targetCountry)}`
@@ -582,4 +606,4 @@ export const ResultProcessor = {
     }
   }
 };
-// --- END OF FILE 715 Zeilen ---
+// --- END OF FILE 765 Lines ---
