@@ -1,5 +1,7 @@
-// 03.02.2026 13:30 - FIX: PASS GUIDE URLS.
-// - Maps guides to "Name (URL)" so the AI can generate smart links.
+// 02.02.2026 14:00 - FIX: GUIDE INJECTION FOR AUDITOR.
+// - Extracts 'COUNTRY' from feedback string.
+// - Fetches the specific guide list (Michelin, Varta...) for that country.
+// - Passes this "Knowledge Base" to the Enricher template.
 // src/core/prompts/preparers/prepareFoodEnricherPayload.ts
 
 import type { TripProject } from '../../types';
@@ -18,7 +20,9 @@ export const prepareFoodEnricherPayload = (
     }
 
     // 2. Dynamic Country Parsing
+    // We try to find the country in the AdHoc string.
     let resolvedCountry = "Deutschland"; // Default
+    
     if (typeof feedback === 'string') {
         const countryMatch = feedback.match(/COUNTRY:([^|]+)/);
         if (countryMatch && countryMatch[1]) {
@@ -27,21 +31,19 @@ export const prepareFoodEnricherPayload = (
     }
 
     // 3. Fetch Knowledge Base (Guides)
+    // Now we arm the Auditor with the correct list of guides for this country.
     const relevantGuides = getGuidesForCountry(resolvedCountry);
-    
-    // FIX: Pass URL to Context!
-    const guideString = relevantGuides.length > 0 
-        ? relevantGuides.map(g => `${g.name} (${g.searchUrl})`).join(', ') 
-        : "Michelin, Gault&Millau, Varta";
+    const guideNames = relevantGuides.map(g => g.name);
+    const guideString = guideNames.length > 0 ? guideNames.join(', ') : "Michelin, Gault&Millau, Varta";
 
     return {
         context: {
             candidates_list: finalCandidates || [],
             target_country: resolvedCountry,
-            allowed_guides: guideString 
+            allowed_guides: guideString // <-- THE KEY!
         },
         instructions: {
-            role: "Du bist ein strenger Restaurant-Kritiker und Daten-Auditor."
+            role: "Du bist ein strenger Restaurant-Kritiker und Fakten-Prüfer."
         }
     };
 };

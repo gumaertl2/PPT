@@ -1,6 +1,7 @@
-// 03.02.2026 13:30 - FIX: SMART LINKS & NO HALLUCINATION.
-// - Instructions to use provided Search URLs.
-// - Strict rule against inventing addresses.
+// 02.02.2026 17:10 - FIX: STRICT GUIDES ONLY (No Google Ratings allowed).
+// - Removed unauthorized "Top-Favorit" loophole.
+// - Enforced strict "No Guide = No Entry" policy.
+// - Kept technical field mapping (Phone, Website, Vibe).
 // src/core/prompts/templates/foodEnricher.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -9,56 +10,66 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
   const { context, instructions } = payload;
   const inputListJSON = JSON.stringify(context.candidates_list || []);
   const targetCountry = context.target_country || "Deutschland";
-  const allowedGuides = context.allowed_guides || "Michelin, Slow Food, Varta";
+  const allowedGuides = context.allowed_guides || "Michelin, Gault&Millau, Varta, Schlemmer Atlas, Feinschmecker, Gusto, Slow Food";
 
-  const role = instructions.role || "Du bist ein strenger Restaurant-Kritiker und Daten-Auditor.";
+  const role = instructions.role || "Du bist ein strenger Restaurant-Kritiker, Recherche-Profi und Daten-Auditor.";
 
   const mainInstruction = `
-  Ich gebe dir eine Liste von Kandidaten ("Raw Candidates").
-  Deine Aufgabe ist die Validierung und Anreicherung.
+  Ich gebe dir eine Liste von potenziellen Restaurants ("Raw Candidates").
+  Deine Aufgabe ist die harte Validierung ("The Auditor") und die maximale Datenanreicherung.
 
   TARGET COUNTRY: **${targetCountry}**
-  ALLOWED GUIDES & QUELLEN: **[${allowedGuides}]**
+  ALLOWED GUIDES: **[${allowedGuides}]**
 
-  SCHRITT 1: PRÜFUNG (The Filter)
-  - Existiert das Restaurant wirklich?
-  - Ist es in einem der Guides gelistet?
-  - **Priorität:** Prüfe ZUERST "Slow Food", "Michelin", "Gault&Millau". Erst dann "Varta".
-  - **DISCARD RULE:** Falls es in KEINEM Guide steht -> Lösche es aus der Liste!
+  SCHRITT 1: PRÜFUNG (Inverted Search - The Filter)
+  - Existiert das Restaurant wirklich in ${targetCountry}?
+  - Ist es in einem der oben genannten Guides gelistet?
+  - **DISCARD RULE:** Falls es in KEINEM Guide steht -> **Lösche es aus der Liste!** Es darf nicht im Output erscheinen.
 
-  SCHRITT 2: DATEN-ANREICHERUNG
-  Fülle alle Felder.
+  SCHRITT 2: TIEFEN-RECHERCHE (Die "Goldenen" Daten)
+  Fülle für jeden verbleibenden Kandidaten ALLE folgenden Felder:
+  
+  1. **Kontakt:**
+     - **Phone:** Die Telefonnummer für Reservierungen (Format international: +49...).
+     - **Website:** Die OFFIZIELLE Homepage (nicht Facebook, nicht Tripadvisor, außer es gibt nichts anderes).
+  
+  2. **Details:**
+     - **Opening Hours:** Ein String oder Array mit den Zeiten (z.B. "Di-so 18-23 Uhr").
+     - **Signature Dish:** Das berühmteste Gericht oder eine Spezialität des Hauses.
+     - **Vibe:** Liste 2-3 Adjektive zur Atmosphäre (z.B. ["Romantisch", "Traditionell", "Laut"]).
+     - **Awards:** In welchen Guides steht es genau? (z.B. ["Michelin Stern", "Gault&Millau 2 Hauben"]).
 
-  WICHTIG - ADRESSEN & FAKTEN:
-  - **Erfinde NIEMALS eine Adresse!** Wenn du dir bei der Hausnummer oder PLZ unsicher bist, nutze nur den Ort.
-  - Wenn du ein Restaurant an einem falschen Ort vermutest (z.B. "Rottbach" vs "Grafrath"), prüfe es doppelt.
-
-  WICHTIG - LINKS (Source URL):
-  - Nutze die oben bereitgestellten URLs!
-  - Wenn du es im "Slow Food" findest, nutze die Slow Food URL für den Link.
-  - Fallback: Google Link mit Guide-Namen (z.B. "...+Slow+Food").
+  3. **Basis-Daten (Pflicht):**
+     - **Location:** Exakte Lat/Lng Koordinaten.
+     - **URL:** Baue zusätzlich den Google-Link: \`https://www.google.com/search?q={Name}+{Stadt}+${targetCountry}\`
 
   Input Liste: ${inputListJSON}
   `;
 
+  // Full Schema mapping to src/core/types.ts -> Place
   const outputSchema = {
-    "_thought_process": "String (Audit Log)",
+    "_thought_process": "String (Audit Log: Found website? Found phone? Which guide?)",
     "candidates": [
       {
         "name_official": "String (Offizieller Name)",
         "city": "String (Ort)",
-        "address": "String (Volle Adresse - KEINE ERFINDUNGEN!)",
-        "location": { "lat": "Number", "lng": "Number" },
-        "phone": "String",
-        "website": "String",
-        "openingHours": ["String"],
-        "signature_dish": "String",
-        "vibe": ["String"],
-        "awards": ["String (Liste ALLE Guides auf!)"], 
-        "source_url": "String (Der Beweis-Link zum Guide)",
-        "description": "String",
-        "cuisine": "String",
-        "priceLevel": "String",
+        "address": "String (Volle Adresse)",
+        "location": { "lat": "Number (Pflicht!)", "lng": "Number (Pflicht!)" },
+        
+        // Extended Data
+        "phone": "String (oder null)",
+        "website": "String (Offizielle URL oder null)",
+        "openingHours": ["String (z.B. 'Mo-Fr 12-14')"],
+        "signature_dish": "String (Spezialität)",
+        "vibe": ["String (Atmosphäre Keywords)"],
+        "awards": ["String (Guide Namen)"], // Mapped to 'awards' in Store
+        
+        "source_url": "String (Google Search Link)",
+        "description": "String (Marketing Text)",
+        "cuisine": "String (Küchenstil)",
+        "priceLevel": "String (€-€€€)",
+        "rating": "Number (4.0-5.0)",
+        "user_ratings_total": "Number (Integer - geschätzt)",
         "verification_status": "String ('verified')"
       }
     ]
@@ -71,4 +82,4 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
     .withOutputSchema(outputSchema)
     .build();
 };
-// --- END OF FILE 85 Lines ---
+// --- END OF FILE 86 Lines ---

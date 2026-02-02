@@ -1,5 +1,5 @@
-// 02.02.2026 20:00 - FIX: Added missing 'updatePlace' action for ResultProcessor V40.
 // 29.01.2026 19:55 - FEAT: Added 'assignHotelToLogistics' with auto-stop-matching logic.
+// 20.01.2026 22:15 - FIX: "Operation Clean Sweep" - Surgical Update of Defaults to English Keys.
 // src/store/slices/createProjectSlice.ts
 
 import type { StateCreator } from 'zustand';
@@ -10,8 +10,7 @@ import type {
   TripUserProfile, 
   RouteStop, 
   CalendarEvent, 
-  DepartureDetails,
-  Place // FIX: Imported Place type
+  DepartureDetails 
 } from '../../core/types';
 import {
   DEFAULT_SIGHTS_COUNT,
@@ -69,9 +68,6 @@ export interface ProjectSlice {
 
   // NEW: Logic Linker
   assignHotelToLogistics: (placeId: string) => void;
-
-  // FIX: Added explicit Data Setter for ResultProcessor
-  updatePlace: (id: string, data: Partial<Place>) => void;
 }
 
 // Helper für Initial State
@@ -634,24 +630,6 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
           }
       }
       return state;
-  }),
-
-  // FIX: ResultProcessor V40 Data Setter
-  updatePlace: (id, data) => set((state: any) => ({
-      project: {
-          ...state.project,
-          data: {
-              ...state.project.data,
-              places: {
-                  ...state.project.data.places,
-                  [id]: {
-                      ...(state.project.data.places[id] || {}),
-                      ...data
-                  }
-              }
-          }
-      }
-  }))
-
+  })
 });
-// --- END OF FILE 528 Zeilen ---
+// --- END OF FILE 513 Zeilen ---
