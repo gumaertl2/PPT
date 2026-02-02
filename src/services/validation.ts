@@ -1,7 +1,6 @@
-// 02.02.2026 17:55 - FIX: Hardened Food Schema (Validation Firewall).
-// - Replaced z.any() with strict type definitions for new fields.
-// - Validates: phone, website, signature_dish, vibe, awards.
-// 20.01.2026 17:45 - FIX: Relaxed validation for 'chefredakteur' & 'infoAutor' to accept Arrays or Objects.
+// 02.02.2026 20:10 - FIX: RELAXED FOOD SCHEMA (Permissive Mode).
+// - Changed 'awards', 'vibe', 'openingHours' to accept String OR Array.
+// - This prevents Zod from dropping valid AI results due to minor format mismatches.
 // src/services/validation.ts
 
 import { z } from 'zod';
@@ -23,6 +22,7 @@ export const validateJson = <T>(
     if (schema && typeof schema.safeParse === 'function') {
       const validation = schema.safeParse(parsed);
       if (!validation.success) {
+        // Log warning but don't crash flow? For now just return error.
         return { valid: false, error: validation.error.toString() };
       }
       return { valid: true, data: validation.data };
@@ -46,16 +46,16 @@ export const chefPlanerSchema = z.object({
     validated_hotels: z.array(z.any()).optional()
 }).passthrough();
 
-// 2. ROUTE ARCHITECT (Updated for Stats)
+// 2. ROUTE ARCHITECT
 export const routeArchitectSchema = z.object({
     routes: z.array(z.object({
       id: z.string().optional(),
       title: z.string(),
       description: z.string().optional(),
-      total_km: z.number().optional(), // V40 Added
-      total_drive_time: z.number().optional(), // V40 Added
-      hotel_changes: z.number().optional(), // V40 Added
-      map_waypoints: z.array(z.string()).optional(), // V40 Added
+      total_km: z.number().optional(),
+      total_drive_time: z.number().optional(),
+      hotel_changes: z.number().optional(),
+      map_waypoints: z.array(z.string()).optional(),
       stages: z.array(z.object({
         location_name: z.string(),
         nights: z.union([z.number(), z.string()]),
@@ -64,7 +64,7 @@ export const routeArchitectSchema = z.object({
     }).passthrough()).optional()
 }).passthrough();
 
-// 3. FOOD SCOUT / ENRICHER
+// 3. FOOD SCOUT / ENRICHER (RELAXED V40.7)
 export const foodSchema = z.object({
     _thought_process: z.string().optional(),
     candidates: z.array(z.object({
@@ -72,13 +72,18 @@ export const foodSchema = z.object({
         name_official: z.string().optional(),
         city: z.string().optional(),
         
-        // The New "Golden Fields" (Strict Validation)
-        phone: z.string().nullable().optional(),
+        // The New "Golden Fields" (Relaxed Types)
+        // Allow String OR Array for list fields to prevent validation death
+        phone: z.union([z.string(), z.number(), z.null()]).optional(),
         website: z.string().nullable().optional(),
-        openingHours: z.union([z.array(z.string()), z.string()]).optional(),
-        signature_dish: z.string().optional(),
-        vibe: z.array(z.string()).optional(),
-        awards: z.array(z.string()).optional(),
+        
+        openingHours: z.union([z.array(z.string()), z.string(), z.null()]).optional(),
+        
+        signature_dish: z.string().nullable().optional(),
+        
+        vibe: z.union([z.array(z.string()), z.string(), z.null()]).optional(),
+        
+        awards: z.union([z.array(z.string()), z.string(), z.null()]).optional(),
         
         // Legacy / Standard
         location: z.object({ lat: z.number(), lng: z.number() }).optional(),
@@ -92,17 +97,17 @@ export const hotelSchema = z.object({
     candidates: z.array(z.any()).optional()
 }).passthrough();
 
-// 5. DAY PLAN (Tagesplaner - V40 Structure)
+// 5. DAY PLAN
 export const dayPlanSchema = z.object({
     days: z.array(z.object({
       day: z.union([z.number(), z.string()]),
       date: z.string().optional(),
-      morning: z.array(z.any()).optional(),   // V40 Time Slot
-      afternoon: z.array(z.any()).optional(), // V40 Time Slot
-      evening: z.array(z.any()).optional(),   // V40 Time Slot
+      morning: z.array(z.any()).optional(),
+      afternoon: z.array(z.any()).optional(),
+      evening: z.array(z.any()).optional(),
       logistics_note: z.string().optional(),
       daily_summary: z.string().optional(),
-      activities: z.array(z.any()).optional() // Legacy Fallback
+      activities: z.array(z.any()).optional()
     }).passthrough()).optional()
 }).passthrough();
 
@@ -112,38 +117,33 @@ export const geoAnalystSchema = z.object({
   recommended_hubs: z.array(z.any()).optional()
 }).passthrough();
 
-// --- NEW SCHEMAS (MISSING IN PREVIOUS VERSION) ---
-
-// 7. IDEEN SCOUT (Sondertage)
+// 7. IDEEN SCOUT
 export const ideenScoutSchema = z.object({
     sunny_day_ideas: z.array(z.any()).optional(),
     rainy_day_ideas: z.array(z.any()).optional()
 }).passthrough();
 
-// 8. CHEFREDAKTEUR (Details) - FIX: Allow Array OR Object
+// 8. CHEFREDAKTEUR
 export const chefredakteurSchema = z.union([
-    z.array(z.any()), // Direct Array form
-    z.object({ sights: z.array(z.any()).optional() }).passthrough() // Object form
+    z.array(z.any()),
+    z.object({ sights: z.array(z.any()).optional() }).passthrough()
 ]);
 
-// 9. INFO AUTOR (Reiseinfos) - FIX: Allow Array OR Object
+// 9. INFO AUTOR
 export const infoAutorSchema = z.union([
-    z.array(z.any()), // Direct Array form
-    z.object({ chapters: z.array(z.any()).optional() }).passthrough() // Object form
+    z.array(z.any()),
+    z.object({ chapters: z.array(z.any()).optional() }).passthrough()
 ]);
 
-// 10. TOUR GUIDE (Touren) - NEW
+// 10. TOUR GUIDE
 export const tourGuideSchema = z.object({
     guide: z.object({
         tours: z.array(z.any()).optional()
-    })
-    // FIX: .passthrough() must come BEFORE .optional()
-    .passthrough()
-    .optional()
+    }).passthrough().optional()
 }).passthrough();
 
-// 11. TRANSFER PLANNER (Logistik) - NEW
+// 11. TRANSFER PLANNER
 export const transferPlannerSchema = z.object({
     transfers: z.array(z.any()).optional()
 }).passthrough();
-// --- END OF FILE 156 Zeilen ---
+// --- END OF FILE 156 Lines ---
