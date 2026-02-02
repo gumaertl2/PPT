@@ -1,32 +1,38 @@
-// 05.02.2026 18:30 - NEW STRATEGY: GEOGRAPHIC FUNNEL (STEP 1).
-// - Implements the "GIS Assistant" Logic.
-// - Focus: Create relevant clusters instead of random lists.
+// 03.02.2026 14:00 - FIX: SAFETY FALLBACK.
+// - Ensures we never get an empty list.
 // src/core/prompts/templates/geoExpander.ts
 
 import { PromptBuilder } from '../PromptBuilder';
 
 export const buildGeoExpanderPrompt = (payload: any): string => {
   const { context } = payload;
-  const center = context.center || "Unknown Location";
-  // We interpret radius broadly (20-25km) as per your prompt logic
+  const { location, radius, country } = context;
+
+  const role = "Du bist ein Geographie-Experte.";
   
-  const role = `Du bist ein GIS-Assistent (Geographic Information System).`;
+  const mainInstruction = `
+  Ziel: Liste alle Orte im Umkreis von ${radius} km um "${location}" (${country}).
 
-  const instruction = `
-  Ich gebe dir einen Ausgangsort. Erstelle eine Liste der relevantesten Städte, Gemeinden und wichtigen Ortsteile im Radius von ca. 20-25 km, die gastronomisch relevant sein könnten.
-  Ignoriere winzige Weiler, konzentriere dich auf Orte mit Infrastruktur.
+  STRATEGIE:
+  1. Nenne die wichtigen Nachbarorte (z.B. bei Maisach: Gernlinden, Esting, Olching, Fürstenfeldbruck).
+  2. Nenne kleine Dörfer mit Gasthäusern (z.B. Rottbach, Überacker, Palsweis, Fußberg).
+  
+  SICHERHEITS-REGEL:
+  Gib NIEMALS eine leere Liste zurück. Wenn du keine Orte findest, gib zumindest ["${location}"] zurück.
 
-  Input Ort: "${center}"`;
+  OUTPUT FORMAT (JSON):
+  { "candidates": ["Ort A", "Ort B", ...] }
+  `;
 
   const outputSchema = {
-    "_thought_process": "String (Kurze Erklärung der Cluster-Bildung)",
-    "candidates": ["String (Liste der Orte, z.B. ['Ort 1', 'Ort 2 (inkl. Ortsteil X)'])"]
+    "candidates": ["String"]
   };
 
   return new PromptBuilder()
     .withOS()
     .withRole(role)
-    .withInstruction(instruction)
+    .withInstruction(mainInstruction)
     .withOutputSchema(outputSchema)
     .build();
 };
+// --- END OF FILE 33 Lines ---

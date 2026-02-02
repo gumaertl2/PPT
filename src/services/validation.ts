@@ -1,6 +1,5 @@
-// 02.02.2026 20:10 - FIX: RELAXED FOOD SCHEMA (Permissive Mode).
-// - Changed 'awards', 'vibe', 'openingHours' to accept String OR Array.
-// - This prevents Zod from dropping valid AI results due to minor format mismatches.
+// 03.02.2026 12:00 - FIX: ADDED GEO EXPANDER SCHEMA.
+// - Explicitly allows 'towns' array to match prompt output.
 // src/services/validation.ts
 
 import { z } from 'zod';
@@ -22,7 +21,6 @@ export const validateJson = <T>(
     if (schema && typeof schema.safeParse === 'function') {
       const validation = schema.safeParse(parsed);
       if (!validation.success) {
-        // Log warning but don't crash flow? For now just return error.
         return { valid: false, error: validation.error.toString() };
       }
       return { valid: true, data: validation.data };
@@ -68,24 +66,14 @@ export const routeArchitectSchema = z.object({
 export const foodSchema = z.object({
     _thought_process: z.string().optional(),
     candidates: z.array(z.object({
-        // Core Identity
         name_official: z.string().optional(),
         city: z.string().optional(),
-        
-        // The New "Golden Fields" (Relaxed Types)
-        // Allow String OR Array for list fields to prevent validation death
         phone: z.union([z.string(), z.number(), z.null()]).optional(),
         website: z.string().nullable().optional(),
-        
         openingHours: z.union([z.array(z.string()), z.string(), z.null()]).optional(),
-        
         signature_dish: z.string().nullable().optional(),
-        
         vibe: z.union([z.array(z.string()), z.string(), z.null()]).optional(),
-        
         awards: z.union([z.array(z.string()), z.string(), z.null()]).optional(),
-        
-        // Legacy / Standard
         location: z.object({ lat: z.number(), lng: z.number() }).optional(),
         source_url: z.string().optional(),
         verification_status: z.string().optional()
@@ -117,6 +105,11 @@ export const geoAnalystSchema = z.object({
   recommended_hubs: z.array(z.any()).optional()
 }).passthrough();
 
+// FIX: 6b. GEO EXPANDER (Explicit Schema to match Prompt)
+export const geoExpanderSchema = z.object({
+    towns: z.array(z.string())
+}).passthrough();
+
 // 7. IDEEN SCOUT
 export const ideenScoutSchema = z.object({
     sunny_day_ideas: z.array(z.any()).optional(),
@@ -146,4 +139,4 @@ export const tourGuideSchema = z.object({
 export const transferPlannerSchema = z.object({
     transfers: z.array(z.any()).optional()
 }).passthrough();
-// --- END OF FILE 156 Lines ---
+// --- END OF FILE 160 Lines ---

@@ -1,42 +1,49 @@
-// 02.02.2026 15:30 - FIX: SCOUT DIET V2 (Strategic Broad Search).
-// - Implemented "Broad Search" logic from successful monolith prompt.
-// - Focus: "Gehobene Gasthäuser & Restaurants" instead of "Alles".
-// - Filters: Explicitly ignores Fast Food/Döner to prevent noise.
+// 03.02.2026 14:00 - FIX: V30 STRATEGY RESTORED.
+// - Implements the "500+ Reviews OR Guide" rule from V30.
+// - Robust Fallback: Ignores empty town lists and searches radius instead.
 // src/core/prompts/templates/foodScout.ts
 
 import { PromptBuilder } from '../PromptBuilder';
-import type { FoodSearchPayload } from '../../types';
 
-export const buildFoodScoutPrompt = (payload: FoodSearchPayload): string => {
-  const { context, instructions } = payload;
-  const townListJSON = JSON.stringify(context.town_list || []);
+export const buildFoodScoutPrompt = (payload: any): string => {
+  const { context } = payload;
+  const locationName = context.locationName || "Unbekannter Ort";
+  // V30-Logic: Use provided list OR fallback to radius search
+  const townList = (context.town_list && context.town_list.length > 0) 
+    ? context.town_list.join(', ') 
+    : `alle Orte im Umkreis von 20km um ${locationName}`;
 
-  const role = instructions.role || "Du bist ein Experte für die Gastronomie-Landschaft.";
+  const role = "Du bist ein Food-Scout. Dein Ziel ist Maximale Ausbeute an Qualität.";
 
-  // LOGIC ADAPTED FROM SUCCESSFUL "BROAD SEARCH" STEP:
   const mainInstruction = `
-  Führe eine "Broad Search" (Sammel-Phase) für folgende Orte durch.
-  
-  Such-Cluster: ${townListJSON}
+  SUCHGEBIET: ${townList}
 
-  Aufgabe:
-  Identifiziere alle bekannten, gehobenen Gasthäuser und Restaurants in diesen Clustern.
+  DEINE MISSION (V30 STRATEGIE):
+  Finde JEDES Restaurant, das relevant ist. Höre nicht nach 5 Treffern auf. Wir brauchen eine volle Liste (20-30 Kandidaten).
+
+  FILTER-REGELN ("THE LOCAL HERO LAW"):
+  Ein Restaurant darf auf die Liste, wenn EINE der Bedingungen erfüllt ist:
+  A) Es steht in einem Guide (Michelin, Slow Food, Feinschmecker, Varta, Gusto).
+  B) ODER: Es ist ein "Local Hero" mit **vielen positiven Bewertungen** (Google > 4.5 bei > 300 Bewertungen ODER > 4.0 bei > 500 Bewertungen).
   
-  Regeln für die Auswahl:
-  1. Fokus Qualität: Suche nach "Fine Dining", "Gehobener regionaler Küche" oder lokalen "Hidden Gems".
-  2. Anti-Rauschen: Ignoriere strikt Fast Food, Dönerbuden, reine Imbisse oder Lieferdienste.
-  3. Vollständigkeit: Wirf das Netz weit aus, aber nur innerhalb der Qualitäts-Parameter ("Gutes Essen").
-  4. Output: Liefere NUR Name und Ort. Die Detail-Prüfung macht der Auditor.
+  Das garantiert, dass wir Institutionen wie "Klosterstüberl", "Widmann" oder "Bräustüberl" finden, auch wenn sie in keinem Guide stehen.
+
+  FOKUS KATEGORIEN:
+  1. Traditionelle bayerische Wirtshäuser (Dorf-Gasthöfe sind Gold wert!).
+  2. Gehobene Landküche.
+  3. Beliebte Italiener/Griechen, wenn sie eine Institution im Ort sind.
+
+  OUTPUT:
+  Eine JSON-Liste mit Kandidaten.
   `;
 
-  // Minimal Schema for the Collector
   const outputSchema = {
-    "_thought_process": "String (Scan-Logik: Welche guten Adressen fallen mir in den Clustern ein?)",
     "candidates": [
       {
-        "name": "String (Name des Restaurants)",
-        "city": "String (Ort)",
-        "description": "String (Kurz: Küche/Stil - z.B. 'Bayrisch gehoben')"
+        "name": "String",
+        "city": "String (Wichtig: Der genaue Ort!)",
+        "why_relevant": "String (z.B. 'Local Hero mit 800 Bewertungen' oder 'Slow Food Genussführer')",
+        "cuisine": "String"
       }
     ]
   };
@@ -48,4 +55,4 @@ export const buildFoodScoutPrompt = (payload: FoodSearchPayload): string => {
     .withOutputSchema(outputSchema)
     .build();
 };
-// --- END OF FILE 48 Lines ---
+// --- END OF FILE 52 Lines ---
