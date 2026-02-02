@@ -1,3 +1,4 @@
+// 02.02.2026 15:00 - FIX: Removed hardcoded 'Sri Lanka' fallback in Google Search Query.
 // 03.02.2026 17:15 - FIX: Added Wildcard Support.
 // Now handles 'wildcard' specialType explicitly with Sparkles icon.
 // src/features/Cockpit/SightCard/SightCardMeta.tsx
@@ -68,7 +69,7 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
       data.name,
       data.address,
       data.city,
-      data.country || 'Sri Lanka' 
+      data.country
     ];
     return parts.filter(p => p && typeof p === 'string' && p.trim().length > 0).join(', ');
   };
@@ -192,4 +193,4 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
     </div>
   );
 };
-// Lines: 167
+// --- END OF FILE 167 Zeilen ---

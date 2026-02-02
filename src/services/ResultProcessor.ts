@@ -1,7 +1,8 @@
-// 02.02.2026 16:00 - FIX: URL SANITIZER & AUDITOR GATEKEEPER.
-// - Added 'sanitizeUrl' to strip 'gl=lk' and generate clean fallbacks.
-// - Updated 'isEnrichedItem' to accept V40.5 Auditor fields.
-// - Uses 'import type' for safety.
+// 02.02.2026 18:00 - FIX: NATIVE FIELD SUPPORT & INVERTED SEARCH LOGIC.
+// - Removed legacy mapping workarounds.
+// - Implemented direct support for 'awards', 'phone', 'website', 'signature_dish', 'vibe'.
+// - Updated "The Law" to support Inverted Search (Scout collects, Enricher filters).
+// - Harvester now scans 'awards' for new guides.
 // src/services/ResultProcessor.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -182,13 +183,15 @@ const isGarbageName = (name: string): boolean => {
 
 // --- SSOT HELPER (UPDATED) ---
 const isEnrichedItem = (item: any): boolean => {
-    // V40.5: Accept 'verification_status' or 'guides' as proof of enrichment
+    // V40.5: Updated for strict type support (awards, signature_dish)
     return !!(
         item.original_name || 
         (item.user_ratings_total !== undefined) || 
         item.logistics_tip ||
         item.verification_status === 'verified' ||
-        (Array.isArray(item.guides) && item.guides.length > 0)
+        (Array.isArray(item.awards) && item.awards.length > 0) ||
+        (Array.isArray(item.guides) && item.guides.length > 0) || // Legacy
+        item.signature_dish
     );
 };
 
@@ -376,14 +379,22 @@ export const ResultProcessor = {
                     }
 
                     // --- HARD GATEKEEPER (THE LAW) ---
-                    if ((step === 'foodScout' || step === 'food') && (!item.guides || item.guides.length === 0)) {
-                         if (aiSettings.debug) console.warn(`[ResultProcessor] 👮‍♀️ The Law: Dropped candidate "${name}" (No Source Citation).`);
-                         return; // SKIP THIS ITEM
+                    // V40.5 Update: FoodScout is "Collector" (Broad Search) -> No guides required yet.
+                    // FoodEnricher is "Auditor" -> Must have guides/awards.
+                    if (step === 'foodEnricher') {
+                         const hasAwards = (item.awards && item.awards.length > 0);
+                         const hasGuides = (item.guides && item.guides.length > 0);
+                         const isVerified = item.verification_status === 'verified';
+
+                         if (!hasAwards && !hasGuides && !isVerified) {
+                             if (aiSettings.debug) console.warn(`[ResultProcessor] 👮‍♀️ The Law: Dropped Enriched candidate "${name}" (No Awards/Guides found).`);
+                             return; // SKIP THIS ITEM
+                         }
                     }
                     
                     const finalName = item.name_official || name;
 
-                    const { category: _aiCategory, guides: _aiGuides, source_url: _aiUrl, ...cleanItem } = item;
+                    const { category: _aiCategory, source_url: _aiUrl, ...cleanItem } = item;
 
                     // --- NEW: SANITIZE URL ---
                     const cleanSourceUrl = sanitizeUrl(item.source_url, item);
@@ -393,7 +404,16 @@ export const ResultProcessor = {
                         name: finalName,
                         category: systemCategory, 
                         
-                        guides: (item.guides && item.guides.length > 0) ? item.guides : (existingPlace ? (existingPlace as any).guides : []),
+                        // Native Field Support
+                        awards: (item.awards && item.awards.length > 0) ? item.awards : (existingPlace ? (existingPlace as any).awards : []),
+                        phone: item.phone,
+                        website: item.website,
+                        openingHours: item.openingHours,
+                        vibe: item.vibe,
+                        signature_dish: item.signature_dish,
+                        cuisine: item.cuisine,
+                        priceLevel: item.priceLevel,
+                        
                         source_url: cleanSourceUrl, // <-- USE CLEAN URL
 
                         ...cleanItem 
@@ -405,8 +425,7 @@ export const ResultProcessor = {
                             id,
                             name: finalName,
                             city: item.city || item.ort,
-                            guides: item.guides,
-                            source_url: cleanSourceUrl, // <-- KEEP CLEAN
+                            // Collector data only
                             address: item.address,
                             location: item.location 
                         });
@@ -432,8 +451,9 @@ export const ResultProcessor = {
                 // --- GUIDE HARVESTER LOGIC (V40.5 Compatible) ---
                 const foundGuides = new Set<string>();
                 extractedItems.forEach((item: any) => {
-                    if (Array.isArray(item.guides)) {
-                        item.guides.forEach((g: string) => {
+                    const sources = [...(item.awards || []), ...(item.guides || [])];
+                    if (Array.isArray(sources)) {
+                        sources.forEach((g: string) => {
                             if (g && g.length > 3 && !g.includes("Google") && !g.includes("Unknown")) {
                                 foundGuides.add(g);
                             }
@@ -606,4 +626,4 @@ export const ResultProcessor = {
     }
   }
 };
-// --- END OF FILE 765 Lines ---
+// --- END OF FILE 790 Lines ---

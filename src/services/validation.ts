@@ -1,3 +1,6 @@
+// 02.02.2026 17:55 - FIX: Hardened Food Schema (Validation Firewall).
+// - Replaced z.any() with strict type definitions for new fields.
+// - Validates: phone, website, signature_dish, vibe, awards.
 // 20.01.2026 17:45 - FIX: Relaxed validation for 'chefredakteur' & 'infoAutor' to accept Arrays or Objects.
 // src/services/validation.ts
 
@@ -63,7 +66,25 @@ export const routeArchitectSchema = z.object({
 
 // 3. FOOD SCOUT / ENRICHER
 export const foodSchema = z.object({
-    candidates: z.array(z.any()).optional()
+    _thought_process: z.string().optional(),
+    candidates: z.array(z.object({
+        // Core Identity
+        name_official: z.string().optional(),
+        city: z.string().optional(),
+        
+        // The New "Golden Fields" (Strict Validation)
+        phone: z.string().nullable().optional(),
+        website: z.string().nullable().optional(),
+        openingHours: z.union([z.array(z.string()), z.string()]).optional(),
+        signature_dish: z.string().optional(),
+        vibe: z.array(z.string()).optional(),
+        awards: z.array(z.string()).optional(),
+        
+        // Legacy / Standard
+        location: z.object({ lat: z.number(), lng: z.number() }).optional(),
+        source_url: z.string().optional(),
+        verification_status: z.string().optional()
+    }).passthrough()).optional()
 }).passthrough();
 
 // 4. HOTEL SCOUT
@@ -125,4 +146,4 @@ export const tourGuideSchema = z.object({
 export const transferPlannerSchema = z.object({
     transfers: z.array(z.any()).optional()
 }).passthrough();
-// --- END OF FILE 136 Zeilen ---
+// --- END OF FILE 156 Zeilen ---
