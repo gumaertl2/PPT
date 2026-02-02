@@ -1,38 +1,62 @@
-// 05.02.2026 18:30 - NEW STRATEGY: THE AUDITOR (STEP 3).
-// - Implements "Golden Master" logic.
-// - Strict Verification & Assignment.
+// 02.02.2026 14:00 - FIX: AUDITOR WITH GUIDE LIST.
+// - Uses the injected 'allowed_guides' list for verification.
+// - Enforces coordinates (no nulls!).
+// - Maps strict audit results to legacy UI fields.
 // src/core/prompts/templates/foodEnricher.ts
 
 import { PromptBuilder } from '../PromptBuilder';
 
 export const buildFoodEnricherPrompt = (payload: any): string => {
   const { context, instructions } = payload;
-  // We take the raw list from the context
   const inputListJSON = JSON.stringify(context.candidates_list || []);
+  const targetCountry = context.target_country || "Deutschland";
+  const allowedGuides = context.allowed_guides || "Michelin, Gault&Millau";
 
-  const role = instructions.role || "Du bist ein strenger Restaurant-Kritiker und Fakten-Prüfer. Deine Datenbasis endet 2026.";
+  const role = instructions.role || "Du bist ein strenger Restaurant-Kritiker und Fakten-Prüfer.";
 
   const mainInstruction = `
-  Ich gebe dir eine Liste von potenziellen Restaurants.
-  Deine Aufgabe:
-  1. VERIFIZIEREN: Existiert das Restaurant wirklich und ist es gehoben? (Lösche Halluzinationen oder dauerhaft geschlossene).
-  2. ZUORDNEN: In welchem Führer ist es aktuell gelistet? (Michelin, Gault&Millau, Slow Food, Varta, Schlemmer Atlas). Wenn KEIN Eintrag existiert -> Lösche es aus der Liste (außer es ist ein absoluter lokaler Geheimtipp).
-  3. BEWERTEN: Gib eine Einschätzung der Google-Bewertung (konservativ geschätzt auf Basis deines Wissens: "Sehr gut" (>4.6), "Gut" (>4.4) oder "Durchschnitt").
+  Ich gebe dir eine Liste von potenziellen Restaurants ("Raw Candidates").
+  Deine Aufgabe ist die harte Validierung ("The Auditor").
+  
+  TARGET COUNTRY: **${targetCountry}**
+  ALLOWED GUIDES: **[${allowedGuides}]**
+
+  SCHRITT 1: PRÜFUNG (Inverted Search)
+  - Existiert das Restaurant wirklich in ${targetCountry}?
+  - Ist es in einem der oben genannten Guides gelistet? (Oder ein absoluter lokaler Top-Favorit?)
+  - Falls NEIN -> Lösche es (Empty Result).
+  - Falls JA -> Verifiziere Adresse und Status.
+
+  SCHRITT 2: DATEN-VERVOLLSTÄNDIGUNG (Pflichtfelder)
+  1. **Koordinaten (CRITICAL):** Du MUSST Lat/Lng liefern. Wenn du die Adresse nicht exakt pinnen kannst, nimm die Stadtmitte. 'null' ist VERBOTEN.
+  2. **URL:** Baue die URL so: \`https://www.google.com/search?q={Name}+{Stadt}+${targetCountry}\`
+  3. **Guides:** Nenne exakt, wo es gelistet ist (z.B. "Varta", "Michelin").
+  4. **Mapping:** Fülle die "alten" Felder (original_name, logistics_tip) für das System.
 
   Input Liste: ${inputListJSON}
   `;
 
-  // Mapping your requested structure to our store-compatible schema
+  // Legacy Schema with Quality Audit
   const outputSchema = {
-    "_thought_process": "String (Audit Log)",
-    "enriched_candidates": [
+    "_thought_process": "String (Audit Log: Which guide found?)",
+    "_quality_audit": "String (CONFIRM: 'Coordinates set. URL valid.')",
+    "candidates": [
       {
-        "name": "String",
-        "city": "String", // mapped from address_city
-        "guides": ["String (Liste der Führer)"],
-        "description": "String (Style)",
-        "rating_category": "String (Top Rated / Excellent / Good)",
-        "verification_status": "String ('verified' | 'rejected')"
+        "original_name": "String (Offizieller Name)",
+        "name_official": "String (Offizieller Name)",
+        "city": "String (Ort)",
+        "address": "String (Adresse)",
+        "location": { "lat": "Number (Pflicht!)", "lng": "Number (Pflicht!)" },
+        "guides": ["String"],
+        "source_url": "String (Clean URL with Country)",
+        "description": "String (Marketing Text)",
+        "logistics_tip": "String (Logistik Info)",
+        "cuisine": "String (Küchenstil)",
+        "priceLevel": "String (€-€€€)",
+        "rating": "Number (4.0-5.0)",
+        "user_ratings_total": "Number (Integer - geschätzt)",
+        "found": "Boolean (immer true)",
+        "verification_status": "String ('verified')"
       }
     ]
   };
@@ -44,3 +68,4 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
     .withOutputSchema(outputSchema)
     .build();
 };
+// --- END OF FILE 72 Lines ---

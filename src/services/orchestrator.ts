@@ -1,7 +1,7 @@
-// 05.02.2026 19:00 - FIX: REMOVE REDUNDANT GEO-FILTER.
-// - Implements "Inverted Search" logic fully: Trust the AI Auditor.
-// - REMOVED Phase 3 (Code Geo-Filter) which was killing valid results.
-// - Directly returns enriched candidates.
+// 05.02.2026 19:15 - FIX: ID INJECTION SAFETY.
+// - Implements "Inverted Search" logic.
+// - Solves the "0 Items" bug by bypassing Store-Lookup.
+// - Adds ID generation to final results to prevent UI crashes.
 // src/services/orchestrator.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -223,7 +223,7 @@ export const TripOrchestrator = {
             // We trust the Auditor. We just grab the result.
             console.log(`[Orchestrator] Pipeline Finished. Trusting Auditor Results.`);
             
-            // Extract the list from the result object (could be 'candidates', 'places', or 'enriched_candidates')
+            // Extract the list from the result object
             let finalCandidates: any[] = [];
             
             if (enricherResult.enriched_candidates) finalCandidates = enricherResult.enriched_candidates;
@@ -232,7 +232,14 @@ export const TripOrchestrator = {
             else if (Array.isArray(enricherResult)) finalCandidates = enricherResult;
 
             // Optional: Filter out items explicitly marked as 'rejected' by the Auditor
-            const validCandidates = finalCandidates.filter((c: any) => c.verification_status !== 'rejected');
+            let validCandidates = finalCandidates.filter((c: any) => c.verification_status !== 'rejected');
+
+            // NEW: SAFETY ID INJECTION
+            // Ensure every candidate has an ID, otherwise UI might crash
+            validCandidates = validCandidates.map((c: any) => ({
+                ...c,
+                id: c.id || uuidv4()
+            }));
 
             console.log(`[Orchestrator] Final Result: ${validCandidates.length} validated places (from Auditor).`);
             
@@ -298,4 +305,4 @@ export const TripOrchestrator = {
     return this._executeSingleStep(task, feedback, false, inputData);
   }
 };
-// --- END OF FILE 380 Zeilen ---
+// --- END OF FILE 390 Zeilen ---

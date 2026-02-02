@@ -1,6 +1,7 @@
-// 05.02.2026 18:30 - NEW STRATEGY: BROAD COLLECTION (STEP 2 PREP).
-// - Removed all filters (Stars, Guides, Kill-Lists).
-// - Prepares the "Wide Net" strategy for the Scout.
+// 02.02.2026 14:15 - FIX: LOBOTOMIZED SCOUT.
+// - REMOVED all Guide/Country logic.
+// - The Scout is now a "Dumb Collector" that only knows WHERE to look (Towns), not WHAT to look for.
+// - Prevents early filtering/bias.
 // src/core/prompts/preparers/prepareFoodScoutPayload.ts
 
 import type { TripProject, FoodSearchMode } from '../../types';
@@ -9,8 +10,9 @@ export const prepareFoodScoutPayload = (
     projectOrPayload: any, 
     modeInput: FoodSearchMode = 'standard',
     feedbackInput?: string,
-    options?: any
+    options?: any // Receives the town list from Orchestrator!
 ) => {
+    // --- 0. RESOLVE INPUT ---
     let project: TripProject;
     let feedback = feedbackInput;
 
@@ -22,29 +24,32 @@ export const prepareFoodScoutPayload = (
     }
 
     const { userInputs } = project;
+    
+    // --- 1. DETECT INPUT MODE ---
+    // The Orchestrator passes the "Clusters" (Town List) in options.candidates
     const townList: string[] = Array.isArray(options?.candidates) ? options.candidates : [];
     
-    // Default location fallback
+    // Fallback Location Name (for the prompt title mostly)
     let searchLocation = userInputs?.logistics?.stationary?.destination || "Target Region";
     if (feedback && feedback.includes('LOC:')) {
         const match = feedback.match(/LOC:([^|]+)/);
         if (match) searchLocation = match[1].trim();
     }
 
-    // THE WIDE NET STRATEGY
-    // We pass the raw town list to the template.
-    // No filters applied here.
+    // --- 2. PREPARE CONTEXT (MINIMALIST) ---
+    // No Guides. No Rules. Just Geography.
     
     return {
         context: {
             location_name: searchLocation,
-            town_list: townList, // Passing the full cluster list
-            target_country: "Deutschland" // Default
+            town_list: townList, // The only map he needs
         },
         instructions: {
-            // We leave specific instructions to the template to keep this clean
-            role: "Du bist ein Datenbank-Expertensystem für europäische Gastronomie."
+            role: "Du bist ein Datenbank-Crawler für Standort-Daten." // Sehr nüchterne Rolle
         },
-        userInputs: { selectedInterests: [] }
+        userInputs: { 
+             selectedInterests: [] // Irrelevant for the collector
+        }
     };
 };
+// --- END OF FILE 52 Lines ---
