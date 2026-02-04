@@ -1,0 +1,138 @@
+// 05.02.2026 16:30 - REFACTOR: PLANNING PROCESSOR.
+// Handles Strategy, Routes, Special Days, Content and Tours.
+// src/services/processors/PlanningProcessor.ts
+
+import { v4 as uuidv4 } from 'uuid';
+import { useTripStore } from '../../store/useTripStore';
+import { extractItems, resolvePlaceId, triggerCountriesDownload } from './resultUtils';
+import { countryGuideConfig, type GuideDef } from '../../data/countries';
+
+export const PlanningProcessor = {
+    
+    // --- STRATEGY & ROUTES ---
+    processAnalysis: (step: string, data: any) => {
+        const { setAnalysisResult } = useTripStore.getState();
+        if (data) {
+            setAnalysisResult(step as any, data);
+            console.log(`[${step}] Analysis result persisted.`);
+        }
+    },
+
+    // --- IDEEN SCOUT (WILDCARDS) ---
+    processIdeenScout: (data: any, debug: boolean) => {
+        const { updatePlace, project, setAnalysisResult } = useTripStore.getState();
+        if (data) setAnalysisResult('ideenScout', data);
+        
+        if (data && data.results && Array.isArray(data.results)) {
+             const existingPlaces = project.data?.places || {};
+             let addedCount = 0;
+             data.results.forEach((group: any) => {
+                 const groupLocation = group.location || "Unbekannte Region";
+                 const processList = (list: any[], subType: string) => {
+                     if (!Array.isArray(list)) return;
+                     list.forEach((item: any) => {
+                         const targetId = resolvePlaceId(item, existingPlaces, debug);
+                         const id = targetId || uuidv4();
+                         
+                         updatePlace(id, {
+                             id,
+                             name: item.name,
+                             category: 'special', // Unified category
+                             address: item.address,
+                             description: item.description,
+                             city: groupLocation, 
+                             location: item.location || { lat: 0, lng: 0 }, 
+                             details: {
+                                 specialType: subType, 
+                                 duration: item.estimated_duration_minutes,
+                                 note: item.planning_note,
+                                 website: item.website_url,
+                                 source: 'ideenScout'
+                             }
+                         });
+                         addedCount++;
+                     });
+                 };
+                 processList(group.sunny_day_ideas, 'sunny');
+                 processList(group.rainy_day_ideas, 'rainy');
+                 processList(group.wildcard_ideas, 'wildcard');
+             });
+             console.log(`[IdeenScout] Added ${addedCount} special places.`);
+        }
+    },
+
+    // --- INFO AUTOR (CONTENT) ---
+    processInfoAutor: (data: any) => {
+        const { project } = useTripStore.getState();
+        const extractedItems = extractItems(data, true);
+        
+        if (extractedItems.length > 0) {
+            const currentContent = project.data.content || {};
+            const currentInfos = Array.isArray(currentContent.infos) ? [...currentContent.infos] : [];
+            
+            const processedChapters = extractedItems.map((chapter: any) => {
+                return {
+                    id: chapter.id || uuidv4(),
+                    type: chapter.type || 'info',
+                    title: chapter.title || chapter.name || (chapter.id ? chapter.id.replace(/_/g, ' ') : 'Information'),
+                    content: chapter.content || chapter.description
+                };
+            }).filter(c => c.content); 
+
+            processedChapters.forEach(newChap => {
+                const idx = currentInfos.findIndex(c => c.id === newChap.id || c.title === newChap.title);
+                if (idx >= 0) {
+                    currentInfos[idx] = newChap;
+                } else {
+                    currentInfos.push(newChap);
+                }
+            });
+
+            useTripStore.setState((s) => ({
+                project: {
+                    ...s.project,
+                    data: {
+                        ...s.project.data,
+                        content: {
+                            ...s.project.data.content,
+                            infos: currentInfos 
+                        }
+                    }
+                }
+            }));
+            console.log(`[InfoAutor] Persisted ${processedChapters.length} chapters.`);
+        }
+    },
+
+    // --- TOUR GUIDE ---
+    processTourGuide: (data: any) => {
+         const { setAnalysisResult } = useTripStore.getState();
+         if (data) {
+              setAnalysisResult('tourGuide', data);
+              if (data.guide && data.guide.tours) {
+                  console.log(`[TourGuide] Persisted ${data.guide.tours.length} tours.`);
+              }
+         }
+    },
+
+    // --- COUNTRY SCOUT ---
+    processCountryScout: (data: any) => {
+        if (data.recommended_guides && data.country_profile?.official_name) {
+             const country = data.country_profile.official_name;
+             const newGuides = data.recommended_guides; 
+             
+             const userConfirmed = window.confirm(`Länder-Scout: Neue Guides für ${country} gefunden.\n\n${newGuides.join(', ')}\n\nDatenbank aktualisieren?`);
+             
+             if (userConfirmed) {
+                 const newConfig = { ...countryGuideConfig };
+                 const newDefs: GuideDef[] = newGuides.map((name: string) => ({
+                     name,
+                     searchUrl: `https://www.google.com/search?q=${encodeURIComponent(name + ' restaurant ' + country)}`
+                 }));
+                 newConfig[country] = newDefs;
+                 triggerCountriesDownload(newConfig);
+             }
+        }
+    }
+};
+// --- END OF FILE 137 Zeilen ---
