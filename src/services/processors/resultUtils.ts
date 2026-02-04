@@ -1,9 +1,8 @@
-// 05.02.2026 16:30 - REFACTOR: RESULT UTILS (SHARED LOGIC).
-// Extracted from ResultProcessor.ts to enforce Separation of Concerns.
+// 05.02.2026 16:45 - FIX: REMOVE UNUSED IMPORTS.
+// - Cleaned up uuidv4 and countryGuideConfig imports.
 // src/services/processors/resultUtils.ts
 
-import { v4 as uuidv4 } from 'uuid';
-import { countryGuideConfig, type GuideDef } from '../../data/countries';
+import { type GuideDef } from '../../data/countries';
 
 // --- HELPER: LEVENSHTEIN DISTANCE ---
 export const getSimilarity = (s1: string, s2: string): number => {
@@ -220,4 +219,4 @@ export function getGuidesForCountry(countryName: string | undefined): GuideDef[]
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 };
-// --- END OF FILE 196 Zeilen ---
+// --- END OF FILE 194 Zeilen ---
