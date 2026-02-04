@@ -1,5 +1,5 @@
-// 26.01.2026 19:25 - FIX: Type Safety fixes for UserInputs.
-// Corrects 'origin' access and 'profile.budget' path.
+// 04.02.2026 12:20 - FIX: Restore logic (User Selection required).
+// Reverted mandatory core modules. Tasks are only generated if selected in userInputs.
 // src/core/prompts/preparers/prepareInfoAutorPayload.ts
 
 import type { TripProject } from '../../types';

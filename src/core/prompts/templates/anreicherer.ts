@@ -1,5 +1,6 @@
-// 01.02.2026 17:40 - REFACTOR: Migrated Schema to Object-Pattern.
-// Hardened "ID Pass-through" Protocol to prevent ResultProcessor mismatch.
+// 04.02.2026 13:10 - FIX: STRICT CATEGORY WHITELISTING.
+// - Filtered out System-IDs (General, Special, Buffer) and Chapter-Types (Arrival, Budget).
+// - Added Negative Constraints (Blacklist) to prevent Hallucinations.
 // src/core/prompts/templates/anreicherer.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -10,7 +11,16 @@ export const buildAnreichererPrompt = (payload: any): string => {
   const builder = new PromptBuilder();
 
   // 1. Generate Whitelist from System Data (SSOT)
-  const validCategories = Object.keys(INTEREST_DATA).join(', ');
+  // FIX: Strict filtering. Only allow real POI categories.
+  // Exclude: System flags (isSystem), Chapters (city_info, etc.), and Logistics (hotel, arrival).
+  const allowedCategories = Object.values(INTEREST_DATA)
+    .filter(cat => 
+        !cat.isSystem && 
+        !['ignored_places', 'city_info', 'travel_info', 'arrival', 'budget', 'hotel'].includes(cat.id)
+    )
+    .map(c => c.id);
+
+  const validCategoriesString = allowedCategories.join(', ');
 
   builder.withRole(instructions.role || "You are the **Data Precision Expert** ('The Enricher'). Your job is to validate and enrich raw candidates with high-precision geo-data.");
 
@@ -42,7 +52,7 @@ You receive a list of candidates, each with a unique 'id'.
 
 # PROTOCOL C: CATEGORY MAPPING (STRICT)
 Map the place to one of these SYSTEM IDs:
-[${validCategories}]
+[${validCategoriesString}]
 
 *Fallback Logic:*
 - Castles, Ruins -> 'architecture'
@@ -54,6 +64,13 @@ Map the place to one of these SYSTEM IDs:
 # PROTOCOL D: CONTENT
 - **Description:** Factual, 2 sentences. No marketing fluff.
 - **Duration:** Estimate realistic visit duration in minutes.
+
+# BLACKLIST (FORBIDDEN TERMS)
+You are strictly FORBIDDEN from using the following terms as categories:
+- ❌ "General" / "Allgemein"
+- ❌ "Sondertage" / "Special"
+- ❌ "Wildcard"
+- ❌ "Sightseeing" (Use 'architecture' or 'districts' instead)
 `);
 
   // 4. Output Schema (Object-based for PromptBuilder optimization)
@@ -81,4 +98,4 @@ Map the place to one of these SYSTEM IDs:
 
   return builder.build();
 };
-// --- END OF FILE 79 Zeilen ---
+// --- END OF FILE 95 Zeilen ---

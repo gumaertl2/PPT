@@ -1,8 +1,6 @@
-// 02.02.2026 18:00 - FIX: NATIVE FIELD SUPPORT & INVERTED SEARCH LOGIC.
-// - Removed legacy mapping workarounds.
-// - Implemented direct support for 'awards', 'phone', 'website', 'signature_dish', 'vibe'.
-// - Updated "The Law" to support Inverted Search (Scout collects, Enricher filters).
-// - Harvester now scans 'awards' for new guides.
+// 04.02.2026 12:45 - FIX: UNIFIED CATEGORY FOR SPECIAL DAYS.
+// - Reverted 'Wildcard' category split. All ideas (Sunny, Rainy, Wildcard) are now 'special'.
+// - Differentiation handled via 'details.specialType' strictly.
 // src/services/ResultProcessor.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -513,7 +511,9 @@ export const ResultProcessor = {
                           const targetId = resolvePlaceId(item, existingPlaces, aiSettings.debug);
                           const id = targetId || uuidv4();
                           
-                          const finalCategory = subType === 'wildcard' ? 'Wildcard' : 'special';
+                          // FIX: Force category to 'special' for all subtypes (including wildcard)
+                          // Differentiation is handled via details.specialType
+                          const finalCategory = 'special'; 
 
                           updatePlace(id, {
                               id,

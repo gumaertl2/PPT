@@ -1,5 +1,6 @@
-// 03.02.2026 15:55 - FIX: Linked with Preparer via 'instruction_override'.
-// Ensures the strict Wildcard command from the preparer is actually used in the prompt.
+// 04.02.2026 13:00 - FIX: Enforce Wildcard "Wow-Effect" & Quantity.
+// - Updated Mandatory Rules to strictly enforce Vibe-Independence for Wildcards.
+// - Synced fallback instructions with Preparer logic (2 ideas per list).
 // src/core/prompts/templates/ideenScout.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -55,9 +56,9 @@ export const buildIdeenScoutPrompt = (
 
       // FIX: Use override from Preparer if available (contains the strict Wildcard command)
       const scenarioInstructions = task.instruction_override || `
-1. **Scenario Sunny:** Find 2-3 outdoor ideas (Parks, Views, Activity). Must match Profile.
-2. **Scenario Rainy:** Find 2-3 indoor ideas (Museums, Cafes, Wellness). Must match Profile.
-3. **Scenario Wildcard:** Find 1 "Local Secret" (Surprise). **IGNORE PROFILE!** Search for something unique/weird/cult for this region.`;
+1. **Scenario Sunny:** Find 2 outdoor ideas (Parks, Views, Activity). Must match Profile.
+2. **Scenario Rainy:** Find 2 indoor ideas (Museums, Cafes, Wellness). Must match Profile.
+3. **Scenario Wildcard:** Find 2 "Local Secrets" (Surprise). **IGNORE PROFILE!** Search for something unique/weird/cult for this region. Must be a "Wow" experience.`;
 
       return `
 ### LOCATION: "${task.location}" (ID: ${task.id})
@@ -83,7 +84,7 @@ ${taskInstructions}
 # MANDATORY RULES
 - **Rule 1 (No Duplicates):** Strictly respect the "ALREADY PLANNED" list for each location.
 - **Rule 2 (Geo-Data):** You MUST provide Lat/Lng coordinates for every idea (Critical for Map Pins).
-- **Rule 3 (Wildcard):** The Wildcard MUST be a contrast to the user's usual interests.
+- **Rule 3 (Wildcard):** The Wildcard MUST be completely INDEPENDENT of the user's profile/vibe. It must be a "Wow-Idea", a local secret, or something unique.
 
 # OUTPUT SCHEMA
 Return a SINGLE valid JSON object.`;

@@ -1,5 +1,6 @@
-// 03.02.2026 14:15 - FIX: Robust Hub Detection & Wildcard Injection.
-// Ensures tasks are ALWAYS generated (Self-Healing) and explicitly requests Wildcards via instruction_override.
+// 04.02.2026 12:55 - FIX: WILDCARD DEFINITION & QUANTITY ENFORCEMENT.
+// - Explicitly requesting "2 ideas" per category.
+// - Redefined Wildcards as "Vibe-Independent", "WOW-Effects" and "Unique".
 // src/core/prompts/preparers/prepareIdeenScoutPayload.ts
 
 import type { TripProject } from '../../types';
@@ -94,11 +95,12 @@ export const prepareIdeenScoutPayload = (project: TripProject): any[] => {
             blocked: blockedNames,
             
             // NEW: Inject Instruction directly into task for Prompt Template
+            // FIX: Explicitly asking for 2 ideas and independent wildcards
             instruction_override: `Focus on ${hub}. 
             REQUIRED LISTS: 
-            1. Sunny Day (Outdoor)
-            2. Rainy Day (Indoor)
-            3. WILDCARDS (Surprising/Quirky/Hidden Gems that fit the vibe '${userVibe}')`,
+            1. Sunny Day (2 ideas - Outdoor)
+            2. Rainy Day (2 ideas - Indoor)
+            3. WILDCARDS (2 ideas - Surprising/Quirky/Hidden Gems. COMPLETELY INDEPENDENT of vibe/profile. WOW-Effect mandatory!)`,
             
             user_profile: {
                 interests: userInterests,

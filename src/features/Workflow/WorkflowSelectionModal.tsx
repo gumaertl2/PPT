@@ -1,4 +1,4 @@
-// 31.01.2026 19:45 - FIX: Corrected Case Names to match Templates.
+// 04.02.2026 13:15 - FIX: Corrected Status Check for InfoAutor (Array Detection).
 // src/features/Workflow/WorkflowSelectionModal.tsx
 
 import React, { useState, useEffect } from 'react';
@@ -81,7 +81,8 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
         return project.itinerary.days.length > 0 ? 'done' : 'available';
 
       case 'infoAutor': // Renamed from infos
-        const hasInfos = Object.values(project.data.content).some((c: any) => c.type === 'info' || c.type === 'Information');
+        // FIX: Check for array in 'infos' property (V40 Structure)
+        const hasInfos = Array.isArray(project.data.content?.infos) && project.data.content.infos.length > 0;
         return hasInfos ? 'done' : 'available';
 
       case 'foodScout': // Renamed from food
@@ -350,4 +351,4 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
     </>
   );
 };
-// --- END OF FILE 275 Zeilen ---
+// --- END OF FILE 276 Zeilen ---

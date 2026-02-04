@@ -1,5 +1,5 @@
-// 02.02.2026 14:15 - FIX: MERGED Naming Convention into existing Quality Rules.
-// Preserved ALL original instructions (Quality Requirements, Research Details) and added Headline Rules.
+// 04.02.2026 12:35 - FIX: Robust Payload Detection & Empty Task Handling.
+// Corrects V40 context detection and prevents "John Doe" hallucinations on empty tasks.
 // src/core/prompts/templates/infoAutor.ts
 
 import type { TripProject } from '../../types';
@@ -21,10 +21,12 @@ export const buildInfoAutorPrompt = (
     let arrivalType = 'Plane/Car';
     let countriesListString = "";
 
-    if (projectOrPayload.context && projectOrPayload.instructions) {
+    // FIX: Relaxed check. 'instructions' might not be in root of payload.
+    if (projectOrPayload.context) {
         // V40 Payload Mode
         const payload = projectOrPayload;
-        tasks = payload.context.tasks_chunk || [];
+        // FIX: Check 'tasks' first (PayloadBuilder standard), then 'tasks_chunk'
+        tasks = payload.context.tasks || payload.context.tasks_chunk || [];
         strategicBriefing = payload.context.strategic_guideline || "";
         chunkInfo = payload.context.chunk_info || "";
         home = payload.context.home_location || "Unknown";
@@ -54,7 +56,8 @@ export const buildInfoAutorPrompt = (
 
     // Safety Check
     if (!tasks || tasks.length === 0) {
-        return "ERROR: No tasks provided for Info Autor.";
+        // FIX: Return null instead of string error to prevent JSON parsing issues/hallucinations
+        return null;
     }
 
     // 2. GENERATE TASK LIST
