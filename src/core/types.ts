@@ -1,4 +1,6 @@
-// 03.02.2026 10:45 - FIX: Added 'target_countries' and 'interests' alias for full prompt compatibility.
+// 05.02.2026 15:00 - FIX: REGISTER GEOEXPANDER & FOOD PAYLOAD.
+// - Added 'geoExpander' to WorkflowStepId.
+// - Added 'FoodSearchPayload' interface.
 // src/core/types.ts
 
 // --- GENERAL TYPES ---
@@ -70,6 +72,7 @@ export type WorkflowStepId =
   | 'timeOptimizer'        // Fallback
   | 'hotelScout'           // Unterkunft
   | 'geoAnalyst'           // Lage-Analyse
+  | 'geoExpander'          // NEW: Geografische Erweiterung (V40.5)
   | 'foodCollector'        // Kulinarik Sourcing
   | 'foodEnricher'         // Kulinarik Details
   | 'foodScout'            // Kulinarik Guide
@@ -371,6 +374,20 @@ export interface IdeenScoutResult {
 
 export type FoodSearchMode = 'standard' | 'stars';
 
+// NEW: Missing Interface for FoodScout
+export interface FoodSearchPayload {
+  context: {
+    town_list?: string[];
+    location_name?: string;
+    [key: string]: any;
+  };
+  instructions: {
+    role?: string;
+    [key: string]: any;
+  };
+  userInputs?: any;
+}
+
 // --- DATA OBJECTS (PLACES & CONTENT) ---
 export type PlaceCategory = 'sight' | 'food' | 'accommodation' | 'hidden-gem' | string;
 
@@ -480,4 +497,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 540 Zeilen ---
+// --- END OF FILE 550 Zeilen ---

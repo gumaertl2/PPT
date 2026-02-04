@@ -1,12 +1,11 @@
-// 04.02.2026 21:30 - FIX: STRICT COUNTRY SELECTION.
+// 04.02.2026 21:30 - FIX: STRICT COUNTRY SELECTION & LINT.
 // - Replaced text input with <select> dropdown.
-// - Populated dynamically from 'countryGuideConfig' keys.
-// - Prevents typos and guarantees Guide Injection matches.
+// - Removed unused 'Star' import.
 // src/features/Cockpit/AdHocFoodModal.tsx
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTripStore } from '../../store/useTripStore';
-import { MapPin, ChefHat, Star, X, Globe, Navigation, ChevronDown } from 'lucide-react';
+import { MapPin, ChefHat, X, Globe, Navigation, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 // FIX: Import Config to get available keys
 import { countryGuideConfig } from '../../data/countries';
