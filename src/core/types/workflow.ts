@@ -1,8 +1,8 @@
-// 05.02.2026 17:00 - REFACTOR: WORKFLOW TYPES.
-// Cleaned up V30 legacy keys.
+// 05.02.2026 17:30 - REFACTOR: WORKFLOW TYPES.
+// Cleaned up V30 legacy keys & fixed imports.
 // src/core/types/workflow.ts
 
-import { LocalizedContent } from './shared';
+import type { LocalizedContent } from './shared';
 
 // --- WORKFLOW / MAGIC CHAIN ---
 export type WorkflowStepId = 
@@ -42,8 +42,9 @@ export interface WorkflowStepDef {
   isMandatory: boolean;       
   requiresUserInteraction?: boolean; 
   requires?: WorkflowStepId[]; 
-  label: { de: string; en: string; };
-  description: { de: string; en: string; };
+  // Used LocalizedContent here to fix unused import and improve typing
+  label: LocalizedContent;
+  description: LocalizedContent;
 }
 
 // --- AI SETTINGS ---

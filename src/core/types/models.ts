@@ -1,8 +1,8 @@
-// 05.02.2026 17:00 - REFACTOR: DOMAIN MODELS.
+// 05.02.2026 17:30 - REFACTOR: DOMAIN MODELS.
 // Project structure, User Inputs, Analysis Results.
 // src/core/types/models.ts
 
-import { LanguageCode } from './shared';
+import type { LanguageCode } from './shared';
 
 // --- SUB-TYPES ---
 export interface RouteStop {
