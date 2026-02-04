@@ -1,5 +1,5 @@
+// 05.02.2026 19:25 - FEAT: Added 'Selective Regeneration' logic (handleRegenerate).
 // 01.02.2026 14:45 - FIX: Passing 't' prop to Meta component for i18n buttons.
-// 29.01.2026 19:55 - REFACTOR: Split SightCard into Sub-Components (Header, Meta, Body).
 // src/features/Cockpit/SightCard/index.tsx
 
 import React, { useState, useEffect, useRef } from 'react'; 
@@ -8,6 +8,8 @@ import { useTranslation } from 'react-i18next';
 import { INTEREST_DATA } from '../../../data/interests'; 
 import type { LanguageCode } from '../../../core/types';
 import { Database, Trash2, Plus, Minus, X } from 'lucide-react';
+// ADDED: Import Orchestrator for regeneration
+import { TripOrchestrator } from '../../../services/orchestrator';
 
 import { SightCardHeader } from './SightCardHeader';
 import { SightCardMeta } from './SightCardMeta';
@@ -37,6 +39,8 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   const isDetailed = viewLevel === 'details';
   const currentLevelIndex = VIEW_LEVELS.indexOf(viewLevel);
   const [showDebug, setShowDebug] = useState(false);
+  // ADDED: State for regeneration
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   // Derivation of Values
   const name = data.name || 'Unbekannter Ort';
@@ -63,6 +67,20 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   };
 
   // --- Handlers & Helpers ---
+
+  // ADDED: Handler for single item regeneration
+  const handleRegenerate = async () => {
+      setIsRegenerating(true);
+      try {
+          // Trigger Orchestrator for THIS single ID only
+          // We pass [id] as the inputData, which our modified Orchestrator now understands as a selective update list.
+          await TripOrchestrator.executeTask('chefredakteur', undefined, [id]);
+      } catch (error) {
+          console.error("Regeneration failed:", error);
+      } finally {
+          setIsRegenerating(false);
+      }
+  };
 
   const highlightText = (text: string | undefined | null) => {
     if (!text) return null;
@@ -263,6 +281,9 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
             isDetailed={isDetailed}
             highlightText={highlightText}
             t={t}
+            // ADDED: Pass regeneration props to Body
+            onRegenerate={handleRegenerate}
+            isRegenerating={isRegenerating}
             onCloseDetails={() => {
                 setViewLevel('standard');
                 setTimeout(() => cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
@@ -281,4 +302,4 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     </>
   );
 };
-// --- END OF FILE 228 Zeilen ---
+// --- END OF FILE 253 Zeilen ---

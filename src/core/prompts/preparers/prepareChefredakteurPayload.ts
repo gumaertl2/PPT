@@ -1,3 +1,4 @@
+// 05.02.2026 21:40 - FIX: Surgical Insertion of Selective Logic (preserving V40 logic).
 // 28.01.2026 17:20 - FIX: Added 'Walking Tour' instruction logic for districts.
 // 26.01.2026 19:40 - FIX: RESTORED Rich Logic (No Simplification).
 // Returns full object { context, instructions } with strict Fact Injection.
@@ -5,7 +6,7 @@
 // src/core/prompts/preparers/prepareChefredakteurPayload.ts
 
 import type { TripProject } from '../../types';
-import { INTEREST_DATA } from '../../../data/interests';
+import { INTEREST_DATA, VALID_POI_CATEGORIES } from '../../../data/interests'; // ADDED SSOT
 
 /**
  * Helfer: Versucht, die Kategorie eines Ortes auf eine Interest-ID zu mappen.
@@ -36,26 +37,59 @@ const isDistrict = (cat: string) => {
     return c === 'districts' || c === 'stadtbezirke' || c === 'citydistricts' || c === 'neighborhood';
 };
 
+// MODIFIED SIGNATURE to support options object from Orchestrator V2
 export const prepareChefredakteurPayload = (
-    project: TripProject,
-    candidates: any[], 
-    currentChunk: number = 1,
-    totalChunks: number = 1
+    context: any, // Was: project: TripProject
+    options: any = {} // Was: candidates: any[], ...
 ) => {
-    // A. Sicherheits-Check: Wir brauchen echte Place-Objekte aus dem Store
-    const validPlaces = candidates.map(c => {
-        const id = typeof c === 'string' ? c : c.id;
-        return project.data.places[id];
-    }).filter(p => p !== undefined);
-
-    // B. Slicing Logik (falls nötig, hier vereinfacht übernommen)
-    // Wenn 'candidates' schon der Chunk ist, brauchen wir nicht slicen.
-    // Wir nehmen an, der Caller (PayloadBuilder) übergibt den korrekten Chunk.
+    // Unpack context
+    const project = context.project || context as TripProject;
     
+    // 1. SELECTIVE LOGIC (Surgical Insert)
+    // Determine which IDs to process. 
+    // If options.candidates (from "Text aktualisieren" button) is set, use ONLY those.
+    // Otherwise, grab ALL valid places from the store.
+    let targetCandidates: any[] = [];
+
+    if (options.candidates && Array.isArray(options.candidates) && options.candidates.length > 0) {
+        // Explicit Request (Button Click)
+        // Map IDs to full objects if necessary
+        targetCandidates = options.candidates.map((c: any) => {
+            const id = typeof c === 'string' ? c : c.id;
+            return project.data.places[id];
+        }).filter((p: any) => p !== undefined);
+        console.log(`[Chefredakteur] Selective Run: Processing ${targetCandidates.length} specific items.`);
+    } else {
+        // Auto-Mode: Process ALL places that match our SSOT criteria
+        targetCandidates = Object.values(project.data.places || {}).filter((p: any) => {
+            if (!p.valid) return false; // Basic validity check
+            // Use SSOT to verify category relevance
+            if (VALID_POI_CATEGORIES.includes(p.category)) return true;
+            // Legacy/Fallback check
+            return resolveInterestId(p.category) !== undefined;
+        });
+    }
+
+    // Chunking Logic (Preserved but adapted to new variable name)
+    let processedCandidates = targetCandidates;
+    const currentChunk = options.chunkIndex || 1;
+    const totalChunks = options.totalChunks || 1;
+    const limit = options.limit || 10;
+
+    // If Orchestrator handles chunking via options.limit, slice here
+    if (options.limit && targetCandidates.length > limit) {
+         const start = (currentChunk - 1) * limit;
+         const end = start + limit;
+         processedCandidates = targetCandidates.slice(start, end);
+    }
+
+    // A. Sicherheits-Check: Wir brauchen echte Place-Objekte aus dem Store
+    const validPlaces = processedCandidates; // Already resolved above
+
     // C. Enrichment (Anweisungen injizieren)
     const lang = (project.meta.language === 'en' ? 'en' : 'de');
 
-    const editorialTasks = validPlaces.map(place => {
+    const editorialTasks = validPlaces.map((place: any) => {
         // 1. Basis-Anweisung
         let instructions = `Create a general, useful description for '${place.name}'.`;
 
@@ -92,7 +126,10 @@ export const prepareChefredakteurPayload = (
                 address: place.address || "N/A",
                 openingHours: place.openingHours || "N/A",
                 location: place.location,
-                description: place.description // Der kurze Faktentext vom Anreicherer
+                description: place.description, // Der kurze Faktentext vom Anreicherer
+                // ADDED: Logistics & Price for Template V2 (if available)
+                logistics: place.logistics,
+                price_estimate: place.price_estimate
             },
             anweisung: instructions
         };
@@ -111,4 +148,4 @@ export const prepareChefredakteurPayload = (
         }
     };
 };
-// --- END OF FILE 107 Zeilen ---
+// --- END OF FILE 135 Zeilen ---

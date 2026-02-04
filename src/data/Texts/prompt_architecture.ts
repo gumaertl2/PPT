@@ -1,8 +1,7 @@
-// 03.02.2026 19:15 - DOCS: FOOD SCOUT V4 & DATA PROTECTION.
-// - Added Smart Matching & Data Preservation Shield to ResultProcessor spec.
-// - Expanded Food Scout with "Smart Link Generation" (Phase 4).
-// - Defined Wildcards explicitly.
 // src/data/Texts/prompt_architecture.ts
+// 05.02.2026 19:30 - DOCS: SYNC WITH CODE (Inverted Search Pipeline).
+// - Updated Food Workflow to reflect "Collector -> Auditor" Strategy.
+// - Removed obsolete "Source-First" logic.
 
 export const promptArchitecture = {
   de: {
@@ -88,22 +87,27 @@ Das Herzstück der Datenverarbeitung (\`src/services/ResultProcessor.ts\`).
     * **Preis-Treue:** Striktes Einhalten des \`budget_level\`.
 
 ### D. Der "Food Scout" & "Food Enricher" (Die Kulinarik-Experten)
-**WICHTIG:** Dieser Workflow besteht aus zwei strikt getrennten Phasen, um die Qualität zu sichern.
+**WICHTIG:** In V40.5 gilt die "Inverted Search Pipeline" (Diet V2). Wir sammeln erst breit und filtern dann hart.
 
-#### Phase 1: Der Food Scout (Der Quellen-Finder)
+#### Phase 1: Der Food Scout (The Collector)
 * **Template:** \`foodScout.ts\`
-* **Aufgabe:** Erstellt einen "Kandidaten-Pool" basierend auf renommierten Guides (Michelin, Gault&Millau, etc.).
-* **Regeln (The Law):**
-    * **Strict Source Enforcement:** Restaurants OHNE validen Guide werden verworfen.
-    * **Smart Link Generation (Phase 4):** Der Scout MUSS aktiv eine \`source_url\` generieren (z.B. direkter Link zur Michelin-Suche), damit der User die Quelle prüfen kann.
-* **Output:** Kandidaten mit \`name\`, \`guides\` (Liste) und \`source_url\`.
+* **Strategie:** "Broad Search" (Sammel-Phase).
+* **Input:** Eine Liste von Städten/Clustern (vom \`GeoExpander\`).
+* **Aufgabe:**
+    * Identifiziere ALLE bekannten, gehobenen Gasthäuser in den Ziel-Clustern.
+    * **Filter:** Ignoriere Fast Food und Imbisse. Fokus auf Qualität.
+    * **Modus:** "Dumb Collector" – Er prüft KEINE Guides und generiert KEINE Links. Er liefert "Raw Candidates".
+* **Output:** Liste von \`candidates\` (Name, Ort).
 
-#### Phase 2: Der Food Enricher (Der Fakten-Checker)
+#### Phase 2: Der Food Enricher (The Auditor)
 * **Template:** \`foodEnricher.ts\`
-* **Aufgabe:** Veredelt den Kandidaten-Pool mit Details (Google Maps Daten).
-* **Daten-Schutz:**
-    * Der Enricher liefert KEINE Guides.
-    * Der **ResultProcessor** muss sicherstellen, dass die Guides und URLs aus Phase 1 beim Speichern der Phase-2-Daten **nicht gelöscht** werden.
+* **Strategie:** "Strict Validation" (Filter-Phase).
+* **Input:** Die "Raw Candidates" aus Phase 1.
+* **Aufgabe:**
+    * **Der Filter:** Prüft: "Steht dieses Restaurant im Michelin, Gault&Millau, etc.?".
+    * **The Law:** "Falls KEIN Guide -> LÖSCHEN!". Nur validierte Orte überleben.
+    * **Anreicherung:** Sucht Telefon, Website, Öffnungszeiten und generiert den Google-Link.
+* **Output:** Eine bereinigte Liste von \`enriched_candidates\` mit \`awards\` (Guide-Namen).
 
 ### E. Der "ChefPlaner" (Der Stratege)
 **Aufgabe:** Fundamentalanalyse vor der eigentlichen Planung.
@@ -158,9 +162,9 @@ Das Herzstück der Datenverarbeitung (\`src/services/ResultProcessor.ts\`).
 
 1.  **Strict Typing:** Alle Outputs müssen den TypeScript-Interfaces in \`types.ts\` entsprechen.
 2.  **SSOT:** Alle Agenten schreiben ihre Ergebnisse via \`ResultProcessor\` in den zentralen \`TripStore\`.
-3.  **Data Persistence:** Bestehende Felder dürfen bei Updates niemals ungewollt gelöscht werden. Der \`ResultProcessor\` fungiert als Schutzschild für Daten, die nur in Phase 1 (Scout) verfügbar sind.
+3.  **Data Persistence:** Bestehende Felder dürfen bei Updates niemals ungewollt gelöscht werden.
 4.  **Validation:** Zod-Firewall schützt vor Struktur-Brüchen.
 `
   }
 };
-// --- END OF FILE 310 Zeilen ---
+// --- END OF FILE 311 Zeilen ---

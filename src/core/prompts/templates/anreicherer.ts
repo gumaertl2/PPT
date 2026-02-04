@@ -1,6 +1,5 @@
-// 04.02.2026 13:10 - FIX: STRICT CATEGORY WHITELISTING.
-// - Filtered out System-IDs (General, Special, Buffer) and Chapter-Types (Arrival, Budget).
-// - Added Negative Constraints (Blacklist) to prevent Hallucinations.
+// 05.02.2026 20:45 - FIX: Mapped output to 'logistics' field (removed new field logistics_tip).
+// 05.02.2026 20:30 - FEATURE: ENRICHER V2 - Added Price & Logistics Research.
 // src/core/prompts/templates/anreicherer.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -11,8 +10,6 @@ export const buildAnreichererPrompt = (payload: any): string => {
   const builder = new PromptBuilder();
 
   // 1. Generate Whitelist from System Data (SSOT)
-  // FIX: Strict filtering. Only allow real POI categories.
-  // Exclude: System flags (isSystem), Chapters (city_info, etc.), and Logistics (hotel, arrival).
   const allowedCategories = Object.values(INTEREST_DATA)
     .filter(cat => 
         !cat.isSystem && 
@@ -61,9 +58,11 @@ Map the place to one of these SYSTEM IDs:
 - Swimming -> 'beach'
 - Concerts -> 'nightlife'
 
-# PROTOCOL D: CONTENT
+# PROTOCOL D: CONTENT & LOGISTICS (DEEP DIVE)
 - **Description:** Factual, 2 sentences. No marketing fluff.
 - **Duration:** Estimate realistic visit duration in minutes.
+- **Price:** Research ticket prices or if it's free. Format: "Free" or "Adults ~15€".
+- **Logistics:** Find practical tips (Parking near the spot, best time to visit, public transport stop).
 
 # BLACKLIST (FORBIDDEN TERMS)
 You are strictly FORBIDDEN from using the following terms as categories:
@@ -86,6 +85,8 @@ You are strictly FORBIDDEN from using the following terms as categories:
         "address": "String (Full Address)",
         "description": "String (Short factual text)",
         "openingHours": "String (e.g. 'Daily 9-17')",
+        "price_estimate": "String (e.g. 'Free', 'approx. 20€')",
+        "logistics": "String (Parking, Bus Stop, Accessibility...)",
         "rating": "Number (Google Rating 1-5)",
         "user_ratings_total": "Number (Count)",
         "duration": "Number (Minutes)",
@@ -98,4 +99,4 @@ You are strictly FORBIDDEN from using the following terms as categories:
 
   return builder.build();
 };
-// --- END OF FILE 95 Zeilen ---
+// --- END OF FILE 103 Zeilen ---

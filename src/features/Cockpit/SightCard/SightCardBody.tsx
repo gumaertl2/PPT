@@ -1,8 +1,11 @@
-// 29.01.2026 19:55 - REFACTOR: Sub-component extraction (Body).
+// 05.02.2026 21:00 - FEATURE: Added 'Planungs-Hinweis' & 'Preis' display (PDF Style).
+// 05.02.2026 19:40 - FIX: Restored Icons (MapPin, Clock, Wallet) for Address/Hours/Price.
+// 05.02.2026 19:30 - FEATURE: Added 'Regenerate Text' button.
 // src/features/Cockpit/SightCard/SightCardBody.tsx
 
 import React from 'react';
-import { CheckCircle2, ChefHat, Utensils, Sparkles, Trophy, Phone, Footprints, Map as MapIcon, ChevronUp } from 'lucide-react';
+// FIX: Added Info and Banknote icons
+import { CheckCircle2, ChefHat, Utensils, Sparkles, Trophy, Phone, Footprints, Map as MapIcon, ChevronUp, RefreshCw, MapPin, Clock, Wallet, Info, Banknote } from 'lucide-react';
 
 interface SightCardBodyProps {
   data: any;
@@ -12,6 +15,8 @@ interface SightCardBodyProps {
   highlightText: (text: string | undefined | null) => React.ReactNode;
   t: any;
   onCloseDetails: () => void;
+  onRegenerate?: () => void;
+  isRegenerating?: boolean;
 }
 
 export const SightCardBody: React.FC<SightCardBodyProps> = ({
@@ -21,7 +26,9 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
   isDetailed,
   highlightText,
   t,
-  onCloseDetails
+  onCloseDetails,
+  onRegenerate,
+  isRegenerating = false
 }) => {
   if (!isStandardOrHigher) return null;
 
@@ -69,7 +76,7 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
                 className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
              >
                 <MapIcon className="w-3 h-3" />
-                <span className="underline decoration-indigo-200 underline-offset-2">Route auf Google Maps öffnen</span>
+                <span className="underline decoration-indigo-200 underline-offset-2">Route auf Google Maps ﾃｶffnen</span>
              </a>
          </div>
       </div>
@@ -121,22 +128,43 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
         </div>
       )}
 
-      <div className="text-xs text-gray-500 leading-snug space-y-1">
+      {/* NEW: Logistics & Price Section (PDF Style) */}
+      {(data.logistics || data.price_estimate) && (
+        <div className="mt-2 mb-2 space-y-1.5 bg-slate-50/80 p-2 rounded border border-slate-100">
+            {/* Logistik / Planungs-Hinweis */}
+            {data.logistics && (
+                <div className="flex items-start gap-2">
+                    <Info className="w-3.5 h-3.5 text-blue-500 mt-0.5 shrink-0" />
+                    <div className="text-[11px] text-slate-700 leading-tight">
+                        <span className="font-bold text-slate-800">Planungs-Hinweis: </span>
+                        {highlightText(data.logistics)}
+                    </div>
+                </div>
+            )}
+            
+            {/* Preis */}
+            {data.price_estimate && (
+                <div className="flex items-start gap-2">
+                    <Banknote className="w-3.5 h-3.5 text-green-600 mt-0.5 shrink-0" />
+                    <div className="text-[11px] text-slate-700 leading-tight">
+                        <span className="font-bold text-slate-800">Preis: </span>
+                        {highlightText(data.price_estimate)}
+                    </div>
+                </div>
+            )}
+        </div>
+      )}
+
+      <div className="text-xs text-gray-500 leading-snug space-y-1 mt-2">
           <div className="flex flex-wrap gap-x-3 gap-y-1">
-              {data.address && (<span className="flex items-center gap-1"><span className="font-semibold text-gray-400">📍</span> {highlightText(data.address)}</span>)}
+              {data.address && (<span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-gray-400" /> {highlightText(data.address)}</span>)}
               {(data.phone || data.phone_number) && (<span className="flex items-center gap-1 text-gray-600"><Phone className="w-3 h-3 text-gray-400" /><a href={`tel:${data.phone || data.phone_number}`} className="hover:text-blue-600 hover:underline">{data.phone || data.phone_number}</a></span>)}
           </div>
           <div className="flex flex-wrap gap-x-3 gap-y-1">
-              {(data.openingHoursHint || data.openingHours) && (<span className="flex items-center gap-1"><span className="font-semibold text-gray-400">🕒</span> {highlightText(data.openingHoursHint || data.openingHours)}</span>)}
-              {data.priceLevel && (<span className="flex items-center gap-1"><span className="font-semibold text-gray-400">💶</span> {highlightText(data.priceLevel)}</span>)}
+              {(data.openingHoursHint || data.openingHours) && (<span className="flex items-center gap-1"><Clock className="w-3 h-3 text-gray-400" /> {highlightText(data.openingHoursHint || data.openingHours)}</span>)}
+              {data.priceLevel && (<span className="flex items-center gap-1"><Wallet className="w-3 h-3 text-gray-400" /> {highlightText(data.priceLevel)}</span>)}
           </div>
       </div>
-      
-      {(data.logistics || data.logistics_tip) && (
-          <div className="mt-1.5 bg-slate-50 p-1.5 rounded text-[11px] text-slate-700 border border-slate-100 leading-tight">
-              <span className="font-bold text-slate-500 mr-1">Logistik:</span>{highlightText(data.logistics || data.logistics_tip)}
-          </div>
-      )}
       
       {isHotel && data.pros && data.pros.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1">
@@ -152,6 +180,26 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
 
       {isDetailed && data.category !== 'special' && (
         <div className="mt-3 pt-3 border-t-2 border-dashed border-slate-100 space-y-3 animate-in fade-in slide-in-from-top-4 duration-500">
+          
+          {/* REGENERATE BUTTON */}
+          {onRegenerate && (
+            <div className="flex justify-end no-print -mt-1 mb-2">
+                <button 
+                    onClick={onRegenerate} 
+                    disabled={isRegenerating}
+                    className={`
+                        flex items-center gap-1.5 px-3 py-1.5 rounded text-[10px] font-bold border transition-all
+                        ${isRegenerating 
+                            ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' 
+                            : 'bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-100 hover:border-indigo-200'}
+                    `}
+                >
+                    <RefreshCw className={`w-3 h-3 ${isRegenerating ? 'animate-spin' : ''}`} />
+                    {isRegenerating ? 'Schreibe neu...' : 'Text aktualisieren'}
+                </button>
+            </div>
+          )}
+
           <div className="space-y-3 text-[13px] leading-relaxed text-slate-800 px-1">
               {(data.detailContent || data.description).split(/\n\n/).map((section: string, idx: number) => {
                 const content = section.trim();
@@ -166,7 +214,7 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
                     return (<div key={idx} className="mb-3">{lines.map((line, lIdx) => {
                             const cleanLine = line.trim();
                             if (!cleanLine) return null;
-                            const isListItem = /^[-\*•\d\.]/.test(cleanLine);
+                            const isListItem = /^[-\*窶｢\d\.]/.test(cleanLine);
                             if (isListItem) { return (<div key={lIdx} className="pl-4 py-1 text-xs text-slate-700 border-l-2 border-slate-200 ml-1 mb-1">{highlightText(cleanLine)}</div>); }
                             return <p key={lIdx} className="mb-1 text-xs">{highlightText(cleanLine)}</p>;
                         })}</div>);
@@ -182,4 +230,4 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
     </div>
   );
 };
-// --- END OF FILE 144 Zeilen ---
+// --- END OF FILE 200 Zeilen ---

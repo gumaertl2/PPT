@@ -1,3 +1,4 @@
+// src/core/prompts/templates/chefredakteur.ts
 // 01.02.2026 22:00 - PROMPT HYBRID: Merged V40 Structure with Legacy Logic.
 // Retains 'findSightData' fallback & supports both Project-based and Payload-based calls.
 // src/core/prompts/templates/chefredakteur.ts
@@ -129,6 +130,7 @@ Structure:
 
     // 5. BUILD
     const builder = new PromptBuilder();
+    builder.withOS(); // FIX: Added Safety Protocol
     builder.withRole(role);
     builder.withContext(JSON.stringify(contextData, null, 2), "EDITORIAL BRIEFING");
     builder.withInstruction(instructions);

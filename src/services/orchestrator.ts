@@ -1,7 +1,8 @@
-// 05.02.2026 19:15 - FIX: ID INJECTION SAFETY.
+// 05.02.2026 19:15 - FIX: ID INJECTION SAFETY & SELECTIVE REFRESH.
 // - Implements "Inverted Search" logic.
 // - Solves the "0 Items" bug by bypassing Store-Lookup.
 // - Adds ID generation to final results to prevent UI crashes.
+// - Enable Selective Run for specific IDs.
 // src/services/orchestrator.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -264,7 +265,16 @@ export const TripOrchestrator = {
         const isManual = !apiKey;
         let limit = getTaskLimit(task, isManual);
 
-        if (['anreicherer', 'chefredakteur', 'details'].includes(task)) totalItems = Object.values(project.data.places || {}).flat().length;
+        if (['anreicherer', 'chefredakteur', 'details'].includes(task)) {
+            // FIX: Allow Single-Item Refresh (Selective Run)
+            // If inputData (e.g. array of IDs) is provided, use its length.
+            // Otherwise default to full store count.
+            if (inputData && Array.isArray(inputData) && inputData.length > 0) {
+                totalItems = inputData.length;
+            } else {
+                totalItems = Object.values(project.data.places || {}).flat().length;
+            }
+        }
         else if (task === 'foodEnricher') {
             const raw = inputData || (project.data.content as any)?.rawFoodCandidates || [];
             totalItems = raw.length; 
@@ -305,4 +315,4 @@ export const TripOrchestrator = {
     return this._executeSingleStep(task, feedback, false, inputData);
   }
 };
-// --- END OF FILE 390 Zeilen ---
+// --- END OF FILE 402 Zeilen ---

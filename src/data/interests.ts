@@ -1,3 +1,4 @@
+// 04.02.2026 18:20 - FEAT: Added VALID_POI_CATEGORIES export (SSOT).
 // 28.01.2026 20:10 - FEAT: Added 'special' category for 'Sondertage' (preserving full file integrity).
 // 25.01.2026 13:00 - FIX: "Quality Clean Sweep".
 // Restored V30 "Deep Dive" instructions for 9 key categories:
@@ -469,4 +470,24 @@ Write a short conclusion below with your personal recommendation for the most se
     prompt: { de: 'Finde Ideen für Regen und Sonne.', en: 'Find ideas for rain and sun.' }
   }
 };
-// --- END OF FILE 540 Zeilen ---
+
+/**
+ * THE SSOT LIST: Defines which categories are valid for a final Place (Sight/Activity).
+ * Used by:
+ * 1. Anreicherer (to map/validate)
+ * 2. UI (SightCard Dropdown)
+ */
+export const VALID_POI_CATEGORIES = [
+  'architecture',
+  'museum',
+  'districts',
+  'nature',
+  'parks',
+  'sports',
+  'beach',
+  'family',
+  'wellness',
+  'shopping',
+  'nightlife'
+];
+// --- END OF FILE 558 Zeilen ---

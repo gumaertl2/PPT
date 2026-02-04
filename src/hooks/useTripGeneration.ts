@@ -1,7 +1,6 @@
-// 22.01.2026 17:00 - UX: Added Real-Time Chunk Progress to Notifications (e.g., "Step 1/5").
+// 05.02.2026 21:15 - FIX: Softened Dependency Guard (Warn instead of Block) to keep Workflow running.
+// 05.02.2026 20:10 - FIX: Stopped Infinite Loop (Race Condition) with Concurrency Guard.
 // src/hooks/useTripGeneration.ts
-// 22.01.2026 15:45 - REFACTOR: Decoupled Data Processing to ResultProcessor (Service Pattern).
-// 22.01.2026 02:00 - FIX: Removed 'chunkingState' dependency to prevent Race Condition during Orchestrator Init.
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -99,6 +98,8 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
   const [error, setError] = useState<string | null>(null);
 
   const initialQueueLength = useRef<number>(0);
+  const isExecutingRef = useRef<boolean>(false);
+
   const progress = initialQueueLength.current > 0 
     ? Math.round(((initialQueueLength.current - queue.length) / initialQueueLength.current) * 100)
     : 0;
@@ -109,6 +110,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     setCurrentStep(null);
     setManualMode(null, null);
     resetChunking(); 
+    isExecutingRef.current = false;
     if (aiSettings.debug) logEvent({ task: 'workflow_manager', type: 'system', content: 'Workflow CANCELLED' });
   }, [aiSettings.debug, logEvent, setManualMode, resetChunking]);
 
@@ -121,7 +123,11 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
   // --- WORKFLOW ENGINE ---
   useEffect(() => {
     let isMounted = true;
+
     const executeNextStep = async () => {
+      // GUARD: Prevent parallel execution or re-entry if already running
+      if (isExecutingRef.current) return;
+      
       if (status !== 'generating' || queue.length === 0) {
         if (status === 'generating' && queue.length === 0) {
           setStatus('success');
@@ -130,11 +136,31 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
         }
         return;
       }
+
       const nextStepId = queue[0];
+
+      // --- DEPENDENCY GUARD (PHASE LOCK) - SOFTENED ---
+      // FIX: Warn but DO NOT STOP. Let the agents handle raw data or skip it.
+      if (['chefredakteur', 'tourGuide'].includes(nextStepId)) {
+        const currentPlaces = Object.values(useTripStore.getState().project.data.places || {});
+        // Check for raw 'Sight' candidates that should have been enriched
+        const hasRawCandidates = currentPlaces.some((p: any) => p.category === 'Sight' || p.category === 'Sightseeing');
+        
+        if (hasRawCandidates) {
+            console.warn(`[DependencyGuard] Warning: Raw candidates detected before ${nextStepId}. Proceeding anyway.`);
+            // Removed: setError / setStatus('error') / return
+        }
+      }
+      // -------------------------------------
+
+      // LOCK
+      isExecutingRef.current = true;
+
       const stepDef = WORKFLOW_STEPS.find(s => s.id === nextStepId);
       if (stepDef?.requiresUserInteraction && currentStep !== nextStepId) {
          setStatus('waiting_for_user');
          setCurrentStep(nextStepId);
+         isExecutingRef.current = false; // UNLOCK
          return; 
       }
       setCurrentStep(nextStepId);
@@ -167,6 +193,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
             dismissNotification(loadingId);
             setManualMode(payload, nextStepId);
             setStatus('waiting_for_user');
+            isExecutingRef.current = false; // UNLOCK
             return;
         }
 
@@ -176,8 +203,11 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
         if (isMounted) {
             processResult(nextStepId, result);
             
+            // Logik: Orchestrator handled Loop internally now (in most cases). 
+            // But if we use manual chunking via hook:
             if (chunkingState.isActive && chunkingState.currentChunk < chunkingState.totalChunks) {
               setChunkingState({ currentChunk: chunkingState.currentChunk + 1 });
+              // We do NOT slice queue yet, we repeat step
             } else {
               setQueue(prev => prev.slice(1));
               resetChunking();
@@ -185,7 +215,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
         }
       } catch (err) {
         dismissNotification(loadingId);
-        if (!isMounted) return; 
+        if (!isMounted) { isExecutingRef.current = false; return; }
         
         const friendlyMsg = getFriendlyErrorMessage(err, lang);
         
@@ -209,12 +239,17 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
             }
           ]
         });
+      } finally {
+          isExecutingRef.current = false; // UNLOCK ALWAYS
       }
     };
+    
     executeNextStep();
+    
     return () => { isMounted = false; };
   }, [
-    queue, status, aiSettings.debug, logEvent, processResult, addNotification, 
+    queue, status, chunkingState.currentChunk, // Needs to react to chunks
+    aiSettings.debug, logEvent, processResult, addNotification, 
     dismissNotification, cancelWorkflow, t, lang, setManualMode, setChunkingState, resetChunking
   ]);
 
@@ -224,6 +259,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     setQueue(steps);
     setStatus('generating');
     setError(null);
+    isExecutingRef.current = false; // Reset lock
   }, []);
 
   const resumeWorkflow = useCallback(() => {
@@ -245,6 +281,10 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
   }, [manualStepId, processResult, queue.length, setManualMode]);
 
   const startSingleTask = useCallback(async (task: TaskKey, feedback?: string) => {
+      // SINGLE TASK MODE - ALSO GUARDED
+      if (isExecutingRef.current) return;
+      isExecutingRef.current = true;
+
       setStatus('generating');
       setError(null);
 
@@ -278,6 +318,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
               dismissNotification(loadingId);
               setManualMode(prompt, task); 
               setStatus('waiting_for_user'); 
+              isExecutingRef.current = false;
               return; 
           }
 
@@ -297,9 +338,11 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
             message: friendlyMsg,
             autoClose: 5000
           });
+      } finally {
+          isExecutingRef.current = false;
       }
   }, [processResult, setManualMode, addNotification, dismissNotification, lang, t, cancelWorkflow]);
 
   return { status, currentStep, queue, error, progress, manualPrompt, submitManualResult, startWorkflow, resumeWorkflow, cancelWorkflow, startSingleTask };
 };
-// --- END OF FILE 245 Zeilen ---
+// --- END OF FILE 310 Zeilen ---

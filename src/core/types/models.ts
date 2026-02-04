@@ -1,3 +1,4 @@
+// 05.02.2026 20:40 - REFACTOR: Generalized 'price_estimate' for all Places (not just Hotels).
 // 05.02.2026 17:30 - REFACTOR: DOMAIN MODELS.
 // Project structure, User Inputs, Analysis Results.
 // src/core/types/models.ts
@@ -238,6 +239,7 @@ export interface Place {
   logistics?: string; 
   priceLevel?: string; 
   duration?: number; 
+  price_estimate?: string; // Moved here (General use)
   
   // Special Fields
   waypoints?: Array<{ name: string; address: string; }>;
@@ -250,7 +252,7 @@ export interface Place {
   
   // Hotel Specifics
   location_match?: string;
-  price_estimate?: string;
+  // price_estimate removed from here
   bookingUrl?: string;
   pros?: string[];
 

@@ -1,3 +1,4 @@
+// src/core/prompts/templates/initialTagesplaner.ts
 // 27.01.2026 14:45 - FIX: Schema Injection Bug (String vs Object).
 // Added missing "30-Min Buffer Rule" from Manifest.
 // Enforced _thought_process in Output Schema.
@@ -63,6 +64,7 @@ export const buildInitialTagesplanerPrompt = (
 
   // 2. Initialize Builder
   const builder = new PromptBuilder()
+    .withOS() // FIX: Added Safety Protocol
     .withRole('You are an ELITE TRAVEL PLANNER (AI). Create a detailed, logical daily itinerary.');
 
   // 3. Framework Conditions

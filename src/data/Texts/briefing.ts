@@ -248,71 +248,82 @@ Stellt sicher, dass das "Silence Protocol" (Prompt) und der "Native JSON Mode" (
 
 ---
 
-### 9. File Inventory (Complete Overview)
+## 9. File Inventory (Complete Overview)
 
-Übersicht aller relevanten Projektdateien und ihrer Aufgaben.
+Dies ist die "Living Map" der Architektur V40.5. Sie spiegelt das Refactoring vom 04.02.2026 wider.
 
-#### Core Logic & Services (Das Gehirn)
-* **\`src/services/ResultProcessor.ts\`**: Der "Bibliothekar". Nimmt KI-Antworten entgegen, validiert sie, führt IDs zusammen (Fuzzy Matching) und sortiert Daten in \`places\` oder \`content\`.
-* **\`src/services/orchestrator.ts\`**: Der "Manager". Steuert den Ablauf (Select Model -> Build Prompt -> Call API -> Process Result).
-* **\`src/core/prompts/PayloadBuilder.ts\`**: Die "Weiche". Verbindet jeden Task mit seinem spezifischen Preparer und Template.
-* **\`src/core/prompts/PromptBuilder.ts\`**: Fluent API zum Zusammenbauen von Prompts (OS, Context, Instructions, Schema).
-* **\`src/services/gemini.ts\`**: Die Schnittstelle zur Google AI API.
-* **\`src/services/validation.ts\`**: Zod-Schemas zur Validierung aller KI-Antworten.
-* **\`src/services/security.ts\`**: API-Key Management und Verschlüsselung.
+### A. Core Services (The Brain & Nervous System)
+Die monolithischen Services wurden in spezialisierte Module zerlegt.
 
-#### Documentation & Specs (SSOT)
-* **\`src/data/Texts/briefing.ts\`**: Diese Datei. Die Architekturbeschreibung.
-* **\`src/data/Texts/prompt_architecture.ts\`**: **[NEU]** Die detaillierte Spezifikation aller Prompts, Agenten, Input-Payloads und Quellen-Matrix (Food Scout). **Verbindlich für alle Prompt-Änderungen.**
-* **\`src/data/Texts/agent_manifest.ts\`**: Das "Manifest" der KI-Persönlichkeiten.
+| Datei | Status | Funktion (V40.5) |
+| :--- | :--- | :--- |
+| \`src/store/useTripStore.ts\` | ✅ Stable | **SSOT State Manager.** Hält den globalen State, aber KEINE Business-Logik. |
+| \`src/services/orchestrator.ts\` | ✅ V40.5 | **Workflow Engine.** Steuert die "Magic Chain" und implementiert die "Inverted Search Pipeline". |
+| \`src/hooks/useTripGeneration.ts\` | ✅ V40.5 | **Phase Controller.** Enthält den "Dependency Guard" (sperrt TourGuide/Chefredakteur bis Anreicherung fertig). |
+| \`src/services/ResultProcessor.ts\` | ✅ Refactored | **Central Dispatcher.** Fungiert nur noch als Router. Delegiert die Arbeit an Sub-Prozessoren. |
+| \`src/services/processors/PlaceProcessor.ts\` | 🆕 New | **POI Logic.** Validiert Orte, generiert UUIDs, verhindert Duplikate (Fuzzy Match). |
+| \`src/services/processors/FoodProcessor.ts\` | 🆕 New | **Gastro Logic.** Verarbeitet "Inverted Search" Ergebnisse (Scout vs. Enricher). |
+| \`src/services/processors/PlanningProcessor.ts\`| 🆕 New | **Itinerary Logic.** Verarbeitet Tagespläne und Routen. |
 
-#### Preparers (Business Logic Layer) - \`src/core/prompts/preparers/\`
-* **\`prepareInfoAutorPayload.ts\`**: Filtert Logistik-Infos (Heimatort, Inlandsreise) und stellt Text-Aufgaben zusammen.
-* **\`prepareChefPlanerPayload.ts\`**: Bereitet User-Inputs und Interessen für die Erstanalyse vor.
-* **\`prepareAnreichererPayload.ts\`**: Kümmert sich um das Batching und Slicing von Orten für die Detail-Suche.
-* **\`prepareBasisPayload.ts\`**: Extrahiert relevante Interessen für die POI-Suche.
-* **\`prepareChefredakteurPayload.ts\`**: Wählt Orte für die detaillierte Beschreibung aus.
+### B. Prompt Engineering (The Interface)
+Infrastruktur für typ-sichere KI-Interaktion.
 
-#### Templates (Text Generation Layer) - \`src/core/prompts/templates/\`
-* **\`infoAutor.ts\`**: Rendert die Anweisungen für den Info-Autor (ohne eigene Logik).
-* **\`chefPlaner.ts\`**: Prompt für die Fundamentalanalyse.
-* **\`basis.ts\`**: Prompt für die POI-Suche ("Sight Collector").
-* **\`anreicherer.ts\`**: Prompt für Detailsuche ("Enricher").
-* **\`chefredakteur.ts\`**: Prompt für ausführliche Beschreibungen.
-* **\`foodScout.ts\` / \`hotelScout.ts\`**: Prompts für die Suche nach Restaurants und Hotels.
-* **\`routeArchitect.ts\`**: Prompt für die Routenberechnung.
-* **\`tourGuide.ts\`**: Prompt für die Touren-Planung.
-* **\`geoAnalyst.ts\`**: Prompt für geografische Analysen.
-* **\`initialTagesplaner.ts\`**: Prompt für die erste Tagesplanung.
+| Datei | Funktion |
+| :--- | :--- |
+| \`src/core/prompts/PromptBuilder.ts\` | **Factory.** Erstellt Prompts und erzwingt das "Silence Protocol" (JSON-Only). |
+| \`src/core/prompts/PayloadBuilder.ts\` | **Data Prep.** Sammelt Datenfragmente. Isoliert Agenten vom Gesamt-State. |
+| \`src/core/prompts/preparers/*.ts\` | **Filters.** Eine Datei pro Agent. Filtert "Dirty Data" (z.B. \`EXCLUDED_FOR_BASIS\`). |
 
-#### Store & Data (Das Gedächtnis)
-* **\`src/store/useTripStore.ts\`**: Der zentrale Zustand (Zustand Assembler).
-* **\`src/store/slices/createProjectSlice.ts\`**: Verwaltet Projektdaten (Laden/Speichern).
-* **\`src/store/slices/createUISlice.ts\`**: Steuert UI-Zustände (Views, Modale).
-* **\`src/store/slices/createSystemSlice.ts\`**: System-Settings und Logging.
-* **\`src/data/interests.ts\`**: Die zentrale Datenbank für Interessen, Labels und redaktionelle Anweisungen (V30 Quality).
-* **\`src/data/Texts/agent_manifest.ts\`**: Die "Living Documentation". Enthält das Goldene Prompt-Protokoll und die Definition aller Agenten-Rollen. Wird vom PromptBuilder zur Laufzeit referenziert (Self-Reflection).
-* **\`src/core/types.ts\`**: TypeScript-Interfaces für das gesamte Projekt.
+### C. Agent Templates (The Intelligence)
+*Alle Templates implementieren jetzt \`.withOS()\` für maximale Sicherheit.*
 
-#### UI Features (Das Gesicht) - \`src/features/Cockpit/\`
-* **\`SightsView.tsx\`**: Hauptansicht für Orte (Liste/Karte).
-* **\`SightsMapView.tsx\`**: Die Kartenkomponente.
-* **\`src/features/Cockpit/SightCard/\`**: Modularisierter Ordner (Header, Meta, Body, Index).
-* **\`CockpitWizard.tsx\`**: Der Assistent, der den User durch den Prozess führt.
-* **\`SettingsModal.tsx\`**: Einstellungen für KI-Modelle.
-* **\`ExportModal.tsx\` / \`PrintModal.tsx\`**: Export-Funktionen.
-* **\`SightFilterModal.tsx\`**: Filterung der Orte.
+#### Phase 1 & 2: Sourcing (Daten-Beschaffung)
+| Template | Aufgabe | Besonderheit |
+| :--- | :--- | :--- |
+| \`basis.ts\` | POI-Scout | **Firewall:** Blockiert Gastro/Hotels strikt. |
+| \`foodScout.ts\` | Gastro-Scout | **Collector:** Sammelt breit ("Broad Search"). |
+| \`geoExpander.ts\` | Geo-Scout | Sucht Nachbarstädte für Cluster-Suche. |
+| \`countryScout.ts\` | Macro-Scout | Liefert Länder-Infos und Sicherheits-Checks. |
 
-#### UI Features - Steps (\`src/features/Cockpit/steps/\`)
-* **\`ProfileStep.tsx\`**: Eingabe des Reiseprofils (Pace, Budget).
-* **\`InterestsStep.tsx\`**: Auswahl der Interessen.
-* **\`LogisticsStep.tsx\`**: Eingabe von Reisedaten und Orten.
-* **\`TravelerStep.tsx\`**: Eingabe der Reisenden.
+#### Phase 3: Veredelung (Audit & Data)
+| Template | Aufgabe | Besonderheit |
+| :--- | :--- | :--- |
+| \`anreicherer.ts\` | POI-Audit | **Validator:** Blacklist für "Sight"-Kategorie. Lat/Lng Zwang. |
+| \`foodEnricher.ts\` | Gastro-Audit | **Strict Filter:** Nur Guide-gelistete Orte überleben. |
+| \`geoAnalyst.ts\` | Geo-Audit | Validiert Adressen und Koordinaten. |
 
-#### UI Features - Info (\`src/features/info/\`)
-* **\`InfoView.tsx\`**: Ansicht für Text-Kapitel (Reiseinfos, Budget). Zeigt Daten aus \`data.content.infos\`.
+#### Phase 4: Planung (Logistik)
+| Template | Aufgabe | Besonderheit |
+| :--- | :--- | :--- |
+| \`chefPlaner.ts\` | Strategie | Erstellt das "Strategic Briefing". |
+| \`initialTagesplaner.ts\`| Ablauf | **30-Min Rule:** Keine Lücken im Zeitplan erlauben. |
+| \`routeArchitect.ts\` | Routing | Optimiert Fahrzeiten und Reihenfolge. |
+| \`hotelScout.ts\` | Unterkunft | Wählt Base-Camp vs. Rundreise-Stops. |
+| \`transferPlanner.ts\` | Transfer | Berechnet Wege zwischen Clustern. |
+
+#### Phase 5: Content (Redaktion)
+| Template | Aufgabe | Besonderheit |
+| :--- | :--- | :--- |
+| \`chefredakteur.ts\` | Deep Content | **Hybrid:** Nutzt Hard-Facts + Web-Research. |
+| \`tourGuide.ts\` | Cluster | Ordnet Orte logischen Tagen zu. |
+| \`infoAutor.ts\` | Wiki | Schreibt allgemeine Kapitel (Kultur, Tipps). |
+| \`ideenScout.ts\` | Joker | Liefert Schlechtwetter-Alternativen. |
+
+### D. Data & Config (The Knowledge)
+| Datei | Beschreibung |
+| :--- | :--- |
+| \`src/data/Texts/prompt_architecture.ts\` | **DOCS SSOT.** Beschreibt die Logik aller Agenten (Inverted Search Pipeline). |
+| \`src/data/Texts/agent_manifest.ts\` | **RULES.** Die 7 unbrechbaren Gesetze der KI-Interaktion. |
+| \`src/data/interests.ts\` | **Ontology.** Definiert Kategorien und ihre "Deep Dive" Prompts. |
 
 ---
+
+## 10. Known Issues & Watchlist
+1. **Race Condition (Gefahr):** Der \`chefredakteur\` ist schneller als der \`anreicherer\`.
+   * *Fix V40.5:* \`useTripGeneration.ts\` blockiert Phase 5, bis Anreicherung fertig ist.
+2. **Food Pipeline:** Erfordert zwingend "Collector -> Auditor" Sequenz.
+3. **Kategorie "Sight":** Darf im Endprodukt nicht vorkommen (Indikator für fehlende Anreicherung).
+
 
 ### 10. The Orchestrator Core & Chunking Strategy
 Der \`TripOrchestrator\` ist das Gehirn der Anwendung. Er verwaltet nicht nur API-Calls, sondern implementiert komplexe Business-Logik.

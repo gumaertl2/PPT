@@ -1,10 +1,13 @@
+// 04.02.2026 18:30 - FEATURE: Connected Category Select to SSOT (interests.ts).
 // 02.02.2026 15:00 - FIX: Removed hardcoded 'Sri Lanka' fallback in Google Search Query.
 // 03.02.2026 17:15 - FIX: Added Wildcard Support.
-// Now handles 'wildcard' specialType explicitly with Sparkles icon.
 // src/features/Cockpit/SightCard/SightCardMeta.tsx
 
 import React from 'react';
+import { useTranslation } from 'react-i18next'; // ADDED: For dynamic labels
 import { Star, Sun, CloudRain, CreditCard, ExternalLink, Check, BookOpen, Globe, Search, Map as MapIcon, Sparkles } from 'lucide-react';
+// ADDED: Import SSOT Data
+import { VALID_POI_CATEGORIES, INTEREST_DATA } from '../../../data/interests';
 
 interface SightCardMetaProps {
   data: any;
@@ -51,6 +54,9 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
   ensureAbsoluteUrl,
   t
 }) => {
+  // ADDED: Resolve current language for labels
+  const { i18n } = useTranslation();
+  const currentLang = (i18n.language && i18n.language.startsWith('en')) ? 'en' : 'de';
 
   const renderStars = () => {
     if (!rating) return null;
@@ -111,14 +117,22 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
           onChange={onCategoryChange}
           className="bg-transparent border-none p-0 pr-4 text-xs font-medium text-gray-700 focus:ring-0 cursor-pointer hover:text-blue-600 py-0.5"
         >
+          {/* Default Option (Current Original) */}
           <option value={data.category}>{displayCategory}</option>
-          <option value="Kultur">Kultur</option>
-          <option value="Natur">Natur</option>
-          <option value="Entspannung">Entspannung</option>
-          <option value="Abenteuer">Abenteuer</option>
-          <option value="Shopping">Shopping</option>
-          <option value="Restaurant">Restaurant</option>
-          <option value="Hotel">Hotel</option>
+          
+          {/* SSOT Options: Render valid categories dynamically */}
+          {VALID_POI_CATEGORIES.map((catId) => {
+             // Safety check if category exists in INTEREST_DATA
+             const label = INTEREST_DATA[catId]?.label[currentLang] || catId;
+             // Don't render if it's the same as the current data.category (avoid duplicates)
+             if (catId === data.category) return null;
+             
+             return (
+               <option key={catId} value={catId}>
+                 {label}
+               </option>
+             );
+          })}
         </select>
       )}
       <span className="text-gray-300">|</span>
@@ -193,4 +207,4 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
     </div>
   );
 };
-// --- END OF FILE 167 Zeilen ---
+// --- END OF FILE 190 Zeilen ---
