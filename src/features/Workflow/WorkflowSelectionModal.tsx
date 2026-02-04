@@ -1,4 +1,6 @@
-// 04.02.2026 13:15 - FIX: Corrected Status Check for InfoAutor (Array Detection).
+// 05.02.2026 16:15 - FIX: AUTO-SELECT INFO AUTHOR.
+// - Removed explicit exclusion of 'infoAutor' from default selection.
+// - Now selects 'Travel Infos' automatically if available.
 // src/features/Workflow/WorkflowSelectionModal.tsx
 
 import React, { useState, useEffect } from 'react';
@@ -33,126 +35,156 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
   const [selectedSteps, setSelectedSteps] = useState<WorkflowStepId[]>([]);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // 1. SPRACHE ERMITTELN (Fallback auf 'de')
+  // 1. SPRACHE ERMITTELN
   const lang = project.meta.language === 'en' ? 'en' : 'de';
 
-  // 2. STATUS-LOGIK (Zentralisiert)
+  // 2. GLOBALE LOGIK-VARIABLEN
+  const isStationary = project.userInputs.logistics.mode === 'stationaer';
+
+  // HELPER: Check if a specific step is currently selected for execution
+  // This enables the "Magic Chain": Selecting 'basis' unlocks 'anreicherer' immediately.
+  const isSelected = (id: WorkflowStepId) => selectedSteps.includes(id);
+
+  // 3. STATUS-LOGIK (Dynamisch)
   const getStepStatus = (stepId: WorkflowStepId): StepStatus => {
-    // Basis-Check: Haben wir überhaupt Orte?
+    // Basis-Check: Haben wir schon Orte in der DB?
     const places = project.data.places || {};
     const validPlaces = Object.values(places).filter((p: any) => p.id !== 'dummy-example-id');
     const hasPlaces = validPlaces.length > 0;
     
+    // Prerequisite Checks: Data Exists OR Prerequisite Step is Selected
+    const canRunPlaceDependent = hasPlaces || isSelected('basis');
+    const canRunGuideDependent = !!project.analysis.tourGuide || isSelected('tourGuide');
+
     switch (stepId) {
       case 'chefPlaner':
-        // Check if analysis exists
         return project.analysis.chefPlaner ? 'done' : 'available';
 
       case 'routeArchitect':
+        // STRICT LOCK: Never available for stationary trips
+        if (isStationary) return 'locked';
         return project.analysis.routeArchitect ? 'done' : 'available';
 
       case 'basis':
         return hasPlaces ? 'done' : 'available';
       
       case 'anreicherer':
-          if (!hasPlaces) return 'locked';
-          
+          if (!canRunPlaceDependent) return 'locked';
           const isEnriched = validPlaces.some((p: any) => 
              (p.kurzbeschreibung && p.kurzbeschreibung.length > 20) || 
              (p.logistics_info && p.logistics_info.length > 10) ||
-             // V40 Check (english keys)
              (p.description && p.description.length > 20)
           );
           return isEnriched ? 'done' : 'available';
 
-      case 'tourGuide': // Renamed from guide
-        if (!hasPlaces) return 'locked'; 
+      case 'tourGuide': 
+        if (!canRunPlaceDependent) return 'locked'; 
         return project.analysis.tourGuide ? 'done' : 'available';
 
-      case 'chefredakteur': // Renamed from details
-        if (!hasPlaces) return 'locked';
-        // FIX: V40 stores details directly on the Place object (detailContent), not in data.content
+      case 'chefredakteur': 
+        if (!canRunPlaceDependent) return 'locked';
         const hasDetails = validPlaces.some((p: any) => p.detailContent && p.detailContent.length > 50);
         return hasDetails ? 'done' : 'available';
 
-      case 'initialTagesplaner': // Renamed from dayplan
-        const hasGuide = project.analysis.tourGuide; 
-        if (!hasPlaces || !hasGuide) return 'locked';
+      case 'initialTagesplaner': 
+        // Needs Places AND TourGuide (either existing or planned)
+        const canRunDayPlan = canRunPlaceDependent && canRunGuideDependent;
+        if (!canRunDayPlan) return 'locked';
         return project.itinerary.days.length > 0 ? 'done' : 'available';
 
-      case 'infoAutor': // Renamed from infos
-        // FIX: Check for array in 'infos' property (V40 Structure)
+      case 'infoAutor': 
+        // Independent step, but usually runs after basics
         const hasInfos = Array.isArray(project.data.content?.infos) && project.data.content.infos.length > 0;
         return hasInfos ? 'done' : 'available';
 
-      case 'foodScout': // Renamed from food
-        if (!hasPlaces) return 'locked';
+      case 'foodScout': 
+        if (!canRunPlaceDependent) return 'locked';
         const hasRestaurants = validPlaces.some((p: any) => p.category === 'restaurant' || p.category === 'Restaurant');
         return hasRestaurants ? 'done' : 'available';
 
-      case 'hotelScout': // Renamed from accommodation
-        if (!hasPlaces) return 'locked';
+      case 'hotelScout': 
+        if (!canRunPlaceDependent) return 'locked';
         const manualHotel = project.userInputs.logistics?.stationary?.hotel;
-        // FIX: Using V40 English Key 'validated_hotels'
         const hasValidatedHotels = (project.analysis.chefPlaner?.validated_hotels?.length || 0) > 0;
         return (manualHotel || hasValidatedHotels) ? 'done' : 'available';
       
-      case 'ideenScout': // Renamed from sondertage
-          if (!hasPlaces) return 'locked';
-          // FIX: Check if 'ideenScout' data exists in analysis
+      case 'ideenScout': 
+          if (!canRunPlaceDependent) return 'locked';
           const hasIdeen = !!(project.analysis as any).ideenScout;
           return hasIdeen ? 'done' : 'available';
 
-      case 'transferPlanner': // Renamed from transfers
+      case 'transferPlanner': 
+        if (isStationary) return 'locked';
+        // Needs DayPlan (either existing or planned)
         const hasDayPlan = project.itinerary.days.length > 0;
-        return hasDayPlan ? 'available' : 'locked';
+        const canRunTransfer = hasDayPlan || isSelected('initialTagesplaner');
+        return canRunTransfer ? 'available' : 'locked';
         
       default:
         return 'available';
     }
   };
 
-  // 3. INITIALE SELEKTION BEIM ÖFFNEN
+  // 4. INITIALE SELEKTION (Smart Defaults)
   useEffect(() => {
     if (isOpen) {
       const defaults: WorkflowStepId[] = [];
+      
+      // Determine what is ALREADY there to decide initial strategy
+      const places = project.data.places || {};
+      const hasPlaces = Object.keys(places).length > 0;
+
       WORKFLOW_STEPS.forEach(step => {
+        // Special Logic: If it's a fresh start (no places), select logical chain
+        if (!hasPlaces) {
+            if (['basis', 'anreicherer', 'foodScout', 'ideenScout', 'infoAutor'].includes(step.id)) {
+                 defaults.push(step.id);
+                 return;
+            }
+        }
+
         const status = getStepStatus(step.id);
         
-        // EXCEPTION: 'infoAutor' step shall NOT be selected by default
-        if (step.id === 'infoAutor') return;
-        
-        // EXCEPTION: Don't select 'done' steps by default (Safety)
+        // Don't select 'done' steps by default (avoid accidental overwrite)
         if (status === 'done') return;
+        
+        // FIX: Removed 'infoAutor' exclusion. It is now selected by default if available.
 
-        // Wir wählen standardmäßig nur aus, was "sinnvoll" (available) ist.
         if (status === 'available') {
           defaults.push(step.id);
         }
       });
-      setSelectedSteps(defaults);
+      
+      // Remove locked items (e.g. RouteArchitect for Stationary)
+      const validDefaults = defaults.filter(id => {
+          if (id === 'routeArchitect' && isStationary) return false;
+          if (id === 'transferPlanner' && isStationary) return false;
+          return true;
+      });
+
+      setSelectedSteps(validDefaults);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, project]); 
 
   const toggleStep = (id: WorkflowStepId) => {
-    setSelectedSteps(prev => 
-      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
-    );
+    if (getStepStatus(id) === 'locked') return;
+
+    setSelectedSteps(prev => {
+       const isAdding = !prev.includes(id);
+       let newSet = isAdding ? [...prev, id] : prev.filter(s => s !== id);
+       return newSet;
+    });
   };
 
-  // 4. START HANDLER MIT GENERALISIERTER SICHERHEITSABFRAGE
   const handleStartRequest = () => {
     if (selectedSteps.length === 0) return;
-
-    // PRÜFUNG: Ist IRGENDEIN ausgewählter Schritt bereits "erledigt"?
-    // Das bedeutet, der User will einen Re-Run für existierende Daten.
     const isRerunningDoneSteps = selectedSteps.some(stepId => getStepStatus(stepId) === 'done');
 
     if (isRerunningDoneSteps) {
-      setShowConfirm(true); // Warnung zeigen
+      setShowConfirm(true); 
     } else {
-      executeStart(); // Sicherer Start (alles neu oder leer)
+      executeStart(); 
     }
   };
 
@@ -187,34 +219,26 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
             </button>
           </div>
 
-          {/* BODY (Liste der Schritte) */}
+          {/* BODY */}
           <div className="flex-1 overflow-y-auto p-6 space-y-3">
             {WORKFLOW_STEPS.map((step) => {
               const status = getStepStatus(step.id);
               const isSelected = selectedSteps.includes(step.id);
-              
               const isWarning = status === 'locked'; 
               const isDone = status === 'done';
               
-              // Dynamisches Styling
-              let containerClass = "relative flex items-start gap-4 p-4 rounded-lg border-2 transition-all cursor-pointer ";
+              let containerClass = "relative flex items-start gap-4 p-4 rounded-lg border-2 transition-all ";
+              if (!isWarning) containerClass += "cursor-pointer ";
+              else containerClass += "cursor-not-allowed opacity-60 "; 
               
               if (isSelected) {
-                if (isDone) {
-                   // SPECIAL WARNING STYLE FOR SELECTED RE-RUN
-                   containerClass += "border-amber-500 bg-amber-50 shadow-sm";
-                } else {
-                   // Normal Selected
-                   containerClass += "border-blue-500 bg-blue-50/50 shadow-sm";
-                }
+                if (isDone) containerClass += "border-amber-500 bg-amber-50 shadow-sm";
+                else containerClass += "border-blue-500 bg-blue-50/50 shadow-sm";
               } else if (isWarning) {
-                // Locked / Missing Deps
-                containerClass += "border-slate-100 bg-slate-50 opacity-80 hover:border-amber-300";
+                containerClass += "border-slate-100 bg-slate-50";
               } else if (isDone) {
-                // Done but NOT selected (Safe state)
                 containerClass += "border-green-200 bg-green-50/30 hover:border-green-400";
               } else {
-                // Available
                 containerClass += "border-slate-200 hover:border-blue-300 hover:bg-slate-50";
               }
 
@@ -224,10 +248,9 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
                   className={containerClass}
                   onClick={() => toggleStep(step.id)}
                 >
-                  {/* ICON / CHECKBOX */}
                   <div className="flex-shrink-0 mt-1">
                     {isWarning && !isSelected ? (
-                      <Unlock className="w-6 h-6 text-amber-400" />
+                      <Unlock className="w-6 h-6 text-slate-300" /> 
                     ) : isDone && !isSelected ? (
                       <CheckCircle2 className="w-6 h-6 text-green-500" />
                     ) : (
@@ -243,14 +266,11 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
                     )}
                   </div>
 
-                  {/* TEXT & LABELS */}
                   <div className="flex-grow">
                     <div className="flex justify-between items-start">
-                      <h3 className={`font-bold ${isWarning && !isSelected ? 'text-slate-500' : 'text-slate-800'}`}>
+                      <h3 className={`font-bold ${isWarning && !isSelected ? 'text-slate-400' : 'text-slate-800'}`}>
                         {step.label[lang]}
                       </h3>
-                      
-                      {/* STATUS BADGES */}
                       <div className="flex gap-2">
                         {isDone && (
                           <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${
@@ -261,8 +281,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
                               : (lang === 'de' ? 'Erledigt' : 'Done')}
                           </span>
                         )}
-                        {/* FIX: Hide Interaction Badge if step is already DONE */}
-                        {step.requiresUserInteraction && !isDone && (
+                        {step.requiresUserInteraction && !isDone && !isWarning && (
                           <span className="text-[10px] uppercase font-bold tracking-wider text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full flex items-center gap-1">
                             <Settings2 className="w-3 h-3" />
                             {lang === 'de' ? 'Interaktion' : 'Interactive'}
@@ -275,26 +294,13 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
                       {step.description[lang]}
                     </p>
 
-                    {/* HINWEIS BEI RE-RUN SELEKTION */}
-                    {isSelected && isDone && (
-                        <div className="flex items-center gap-1 mt-2 text-xs text-amber-600 font-medium">
-                          <AlertCircle className="w-3 h-3" />
-                          <span>
-                            {lang === 'de' 
-                              ? 'Achtung: Vorhandene Daten werden überschrieben.' 
-                              : 'Warning: Existing data will be overwritten.'}
-                          </span>
-                        </div>
-                    )}
-
-                    {/* HINWEIS BEI LOCK */}
-                    {isWarning && step.requires && !isSelected && (
-                      <div className="flex items-center gap-1 mt-2 text-xs text-amber-500">
+                    {isWarning && isStationary && (step.id === 'routeArchitect' || step.id === 'transferPlanner') && (
+                       <div className="flex items-center gap-1 mt-2 text-xs text-slate-400">
                         <AlertCircle className="w-3 h-3" />
                         <span>
                           {lang === 'de' 
-                            ? `Info: Daten für "${step.requires.join(', ')}" fehlen evtl.` 
-                            : `Note: Data for "${step.requires.join(', ')}" might be missing.`}
+                            ? 'Nicht verfügbar für stationäre Reisen.' 
+                            : 'Not available for stationary trips.'}
                         </span>
                       </div>
                     )}
@@ -304,7 +310,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
             })}
           </div>
 
-          {/* FOOTER ACTIONS */}
+          {/* FOOTER */}
           <div className="p-6 border-t border-slate-100 bg-slate-50 rounded-b-xl flex justify-between items-center">
             <div className="text-xs text-slate-500">
               {selectedSteps.length} {lang === 'de' ? 'Aufgaben gewählt' : 'tasks selected'}
@@ -332,11 +338,9 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
               </button>
             </div>
           </div>
-
         </div>
       </div>
 
-      {/* SICHERHEITS-MODAL (Generalisiert) */}
       <ConfirmModal 
         isOpen={showConfirm}
         title={lang === 'de' ? 'Schritte erneut ausführen?' : 'Re-run steps?'} 
@@ -351,4 +355,4 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
     </>
   );
 };
-// --- END OF FILE 276 Zeilen ---
+// --- END OF FILE 332 Zeilen ---

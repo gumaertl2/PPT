@@ -227,7 +227,11 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
       {/* 6. ACTION BUTTON */}
       <div className="pt-4 border-t border-gray-100">
         <button 
-          onClick={() => isMobil ? onNext() : setWorkflowModalOpen(true)}
+          type="button" 
+          onClick={(e) => {
+             e.preventDefault(); 
+             isMobil ? onNext() : setWorkflowModalOpen(true);
+          }}
           className={`w-full group flex items-center justify-center gap-3 p-4 rounded-xl shadow-md hover:shadow-lg hover:scale-[1.01] transition transform ${
              isMobil 
                ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white' 
@@ -253,4 +257,4 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
     </div>
   );
 };
-// --- END OF FILE 195 Zeilen ---
+// --- END OF FILE 200 Zeilen ---
