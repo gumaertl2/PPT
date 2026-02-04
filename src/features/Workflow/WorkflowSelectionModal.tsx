@@ -1,10 +1,11 @@
-// 05.02.2026 16:15 - FIX: AUTO-SELECT INFO AUTHOR.
-// - Removed explicit exclusion of 'infoAutor' from default selection.
-// - Now selects 'Travel Infos' automatically if available.
+// 05.02.2026 17:15 - REFACTOR: UI VIEW COMPONENT.
+// - Logic delegates to useWorkflowSelection hook.
+// - Pure presentation layer.
 // src/features/Workflow/WorkflowSelectionModal.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useTripStore } from '../../store/useTripStore';
+import { useWorkflowSelection } from '../../hooks/useWorkflowSelection';
 import { WORKFLOW_STEPS } from '../../core/Workflow/steps';
 import type { WorkflowStepId } from '../../core/types';
 import { ConfirmModal } from '../Cockpit/ConfirmModal';
@@ -24,159 +25,20 @@ interface WorkflowSelectionModalProps {
   onStart: (selectedSteps: WorkflowStepId[]) => void;
 }
 
-type StepStatus = 'locked' | 'available' | 'done';
-
 export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({ 
   isOpen, 
   onClose, 
   onStart 
 }) => {
   const { project } = useTripStore();
-  const [selectedSteps, setSelectedSteps] = useState<WorkflowStepId[]>([]);
   const [showConfirm, setShowConfirm] = useState(false);
+  
+  // LOGIC HOOK INJECTION
+  const { selectedSteps, toggleStep, getStepStatus, isStationary } = useWorkflowSelection(isOpen);
 
-  // 1. SPRACHE ERMITTELN
   const lang = project.meta.language === 'en' ? 'en' : 'de';
 
-  // 2. GLOBALE LOGIK-VARIABLEN
-  const isStationary = project.userInputs.logistics.mode === 'stationaer';
-
-  // HELPER: Check if a specific step is currently selected for execution
-  // This enables the "Magic Chain": Selecting 'basis' unlocks 'anreicherer' immediately.
-  const isSelected = (id: WorkflowStepId) => selectedSteps.includes(id);
-
-  // 3. STATUS-LOGIK (Dynamisch)
-  const getStepStatus = (stepId: WorkflowStepId): StepStatus => {
-    // Basis-Check: Haben wir schon Orte in der DB?
-    const places = project.data.places || {};
-    const validPlaces = Object.values(places).filter((p: any) => p.id !== 'dummy-example-id');
-    const hasPlaces = validPlaces.length > 0;
-    
-    // Prerequisite Checks: Data Exists OR Prerequisite Step is Selected
-    const canRunPlaceDependent = hasPlaces || isSelected('basis');
-    const canRunGuideDependent = !!project.analysis.tourGuide || isSelected('tourGuide');
-
-    switch (stepId) {
-      case 'chefPlaner':
-        return project.analysis.chefPlaner ? 'done' : 'available';
-
-      case 'routeArchitect':
-        // STRICT LOCK: Never available for stationary trips
-        if (isStationary) return 'locked';
-        return project.analysis.routeArchitect ? 'done' : 'available';
-
-      case 'basis':
-        return hasPlaces ? 'done' : 'available';
-      
-      case 'anreicherer':
-          if (!canRunPlaceDependent) return 'locked';
-          const isEnriched = validPlaces.some((p: any) => 
-             (p.kurzbeschreibung && p.kurzbeschreibung.length > 20) || 
-             (p.logistics_info && p.logistics_info.length > 10) ||
-             (p.description && p.description.length > 20)
-          );
-          return isEnriched ? 'done' : 'available';
-
-      case 'tourGuide': 
-        if (!canRunPlaceDependent) return 'locked'; 
-        return project.analysis.tourGuide ? 'done' : 'available';
-
-      case 'chefredakteur': 
-        if (!canRunPlaceDependent) return 'locked';
-        const hasDetails = validPlaces.some((p: any) => p.detailContent && p.detailContent.length > 50);
-        return hasDetails ? 'done' : 'available';
-
-      case 'initialTagesplaner': 
-        // Needs Places AND TourGuide (either existing or planned)
-        const canRunDayPlan = canRunPlaceDependent && canRunGuideDependent;
-        if (!canRunDayPlan) return 'locked';
-        return project.itinerary.days.length > 0 ? 'done' : 'available';
-
-      case 'infoAutor': 
-        // Independent step, but usually runs after basics
-        const hasInfos = Array.isArray(project.data.content?.infos) && project.data.content.infos.length > 0;
-        return hasInfos ? 'done' : 'available';
-
-      case 'foodScout': 
-        if (!canRunPlaceDependent) return 'locked';
-        const hasRestaurants = validPlaces.some((p: any) => p.category === 'restaurant' || p.category === 'Restaurant');
-        return hasRestaurants ? 'done' : 'available';
-
-      case 'hotelScout': 
-        if (!canRunPlaceDependent) return 'locked';
-        const manualHotel = project.userInputs.logistics?.stationary?.hotel;
-        const hasValidatedHotels = (project.analysis.chefPlaner?.validated_hotels?.length || 0) > 0;
-        return (manualHotel || hasValidatedHotels) ? 'done' : 'available';
-      
-      case 'ideenScout': 
-          if (!canRunPlaceDependent) return 'locked';
-          const hasIdeen = !!(project.analysis as any).ideenScout;
-          return hasIdeen ? 'done' : 'available';
-
-      case 'transferPlanner': 
-        if (isStationary) return 'locked';
-        // Needs DayPlan (either existing or planned)
-        const hasDayPlan = project.itinerary.days.length > 0;
-        const canRunTransfer = hasDayPlan || isSelected('initialTagesplaner');
-        return canRunTransfer ? 'available' : 'locked';
-        
-      default:
-        return 'available';
-    }
-  };
-
-  // 4. INITIALE SELEKTION (Smart Defaults)
-  useEffect(() => {
-    if (isOpen) {
-      const defaults: WorkflowStepId[] = [];
-      
-      // Determine what is ALREADY there to decide initial strategy
-      const places = project.data.places || {};
-      const hasPlaces = Object.keys(places).length > 0;
-
-      WORKFLOW_STEPS.forEach(step => {
-        // Special Logic: If it's a fresh start (no places), select logical chain
-        if (!hasPlaces) {
-            if (['basis', 'anreicherer', 'foodScout', 'ideenScout', 'infoAutor'].includes(step.id)) {
-                 defaults.push(step.id);
-                 return;
-            }
-        }
-
-        const status = getStepStatus(step.id);
-        
-        // Don't select 'done' steps by default (avoid accidental overwrite)
-        if (status === 'done') return;
-        
-        // FIX: Removed 'infoAutor' exclusion. It is now selected by default if available.
-
-        if (status === 'available') {
-          defaults.push(step.id);
-        }
-      });
-      
-      // Remove locked items (e.g. RouteArchitect for Stationary)
-      const validDefaults = defaults.filter(id => {
-          if (id === 'routeArchitect' && isStationary) return false;
-          if (id === 'transferPlanner' && isStationary) return false;
-          return true;
-      });
-
-      setSelectedSteps(validDefaults);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, project]); 
-
-  const toggleStep = (id: WorkflowStepId) => {
-    if (getStepStatus(id) === 'locked') return;
-
-    setSelectedSteps(prev => {
-       const isAdding = !prev.includes(id);
-       let newSet = isAdding ? [...prev, id] : prev.filter(s => s !== id);
-       return newSet;
-    });
-  };
-
+  // HANDLERS (UI specific)
   const handleStartRequest = () => {
     if (selectedSteps.length === 0) return;
     const isRerunningDoneSteps = selectedSteps.some(stepId => getStepStatus(stepId) === 'done');
@@ -355,4 +217,4 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
     </>
   );
 };
-// --- END OF FILE 332 Zeilen ---
+// --- END OF FILE 190 Zeilen ---
