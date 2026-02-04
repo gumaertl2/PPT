@@ -1,6 +1,6 @@
-// 05.02.2026 14:30 - FIX: REMOVE LOCAL EXPERTS.
-// - Removed "Local Experts" from fallback guides to ensure high quality sources only.
-// - Prioritizes Project Logistics (Target Country/Region).
+// 05.02.2026 14:45 - FIX: REMOVE LOCAL EXPERTS & LINTING.
+// - Removed "Local Experts" from fallback guides.
+// - Prefixed unused 'options' parameter with underscore.
 // src/core/prompts/preparers/prepareFoodEnricherPayload.ts
 
 import type { TripProject } from '../../types';
@@ -9,7 +9,7 @@ import { getGuidesForCountry } from '../../../data/countries';
 export const prepareFoodEnricherPayload = (
     projectOrPayload: any, 
     feedback: string,      
-    options: any,          
+    _options: any,          
     candidates: any[]      
 ) => {
     // 0. Resolve Project Input (V40/Legacy Hybrid)

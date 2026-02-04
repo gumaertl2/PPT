@@ -1,12 +1,12 @@
-// 04.02.2026 12:45 - FIX: UNIFIED CATEGORY FOR SPECIAL DAYS.
-// - Reverted 'Wildcard' category split. All ideas (Sunny, Rainy, Wildcard) are now 'special'.
-// - Differentiation handled via 'details.specialType' strictly.
+// 05.02.2026 14:45 - FIX: REMOVE UNUSED IMPORT.
+// - Removed 'getGuidesForCountry' to satisfy linter.
+// - Kept 'countryGuideConfig' as it is used.
 // src/services/ResultProcessor.ts
 
 import { v4 as uuidv4 } from 'uuid';
 import { useTripStore } from '../store/useTripStore';
 import type { WorkflowStepId, TaskKey } from '../core/types';
-import { countryGuideConfig, getGuidesForCountry } from '../data/countries'; 
+import { countryGuideConfig } from '../data/countries'; 
 import type { GuideDef } from '../data/countries';
 
 // --- HELPER: LEVENSHTEIN DISTANCE ---

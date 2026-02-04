@@ -1,14 +1,13 @@
-// 02.02.2026 14:15 - FIX: LOBOTOMIZED SCOUT.
-// - REMOVED all Guide/Country logic.
-// - The Scout is now a "Dumb Collector" that only knows WHERE to look (Towns), not WHAT to look for.
-// - Prevents early filtering/bias.
+// 05.02.2026 14:45 - FIX: LINTING & LOBOTOMIZED SCOUT.
+// - Prefixed unused 'modeInput' parameter.
+// - The Scout is a "Dumb Collector" that only knows WHERE to look (Towns).
 // src/core/prompts/preparers/prepareFoodScoutPayload.ts
 
 import type { TripProject, FoodSearchMode } from '../../types';
 
 export const prepareFoodScoutPayload = (
     projectOrPayload: any, 
-    modeInput: FoodSearchMode = 'standard',
+    _modeInput: FoodSearchMode = 'standard',
     feedbackInput?: string,
     options?: any // Receives the town list from Orchestrator!
 ) => {
