@@ -1,6 +1,5 @@
+// 05.02.2026 22:30 - FIX: Implemented Selective Run & Updated Call Signature for Chefredakteur.
 // 05.02.2026 17:30 - FIX: REMOVE LEGACY KEYS & SPELLING.
-// - Removed dead cases (sightCollector, intelligentEnricher, foodCollector, etc.)
-// - Fixed InfoAutor spelling.
 // src/core/prompts/PayloadBuilder.ts
 
 import { useTripStore } from '../../store/useTripStore';
@@ -153,14 +152,27 @@ export const PayloadBuilder = {
 
       case 'details':
       case 'chefredakteur': {
-          const allPlacesForEditor = Object.values(project.data.places || {}).flat();
-          const slicedCandidatesForEditor = sliceData(allPlacesForEditor, 'chefredakteur');
+          // FIX: Handling Selective Run (Button Click) vs. Auto Run (Store)
+          let candidatesToProcess: any[] = [];
 
+          if (options?.candidates && options.candidates.length > 0) {
+              // A: Selective Run (from "Refresh Text" button) -> Use passed IDs directly
+              candidatesToProcess = options.candidates;
+          } else {
+              // B: Auto Run -> Fetch from Store & Apply Slicing
+              const allPlacesForEditor = Object.values(project.data.places || {}).flat();
+              candidatesToProcess = sliceData(allPlacesForEditor, 'chefredakteur');
+          }
+
+          // FIX: Updated Call Signature to (context, options) to match prepareChefredakteurPayload.ts
           const payload = prepareChefredakteurPayload(
-              project, 
-              slicedCandidatesForEditor, 
-              options?.chunkIndex || chunkingState?.currentChunk || 1, 
-              options?.totalChunks || chunkingState?.totalChunks || 1
+              { project }, 
+              { 
+                  candidates: candidatesToProcess, 
+                  chunkIndex: options?.chunkIndex || chunkingState?.currentChunk || 1, 
+                  totalChunks: options?.totalChunks || chunkingState?.totalChunks || 1,
+                  limit: options?.limit
+              }
           );
 
           generatedPrompt = buildChefredakteurPrompt(
@@ -380,4 +392,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 332 Zeilen ---
+// --- END OF FILE 365 Zeilen ---
