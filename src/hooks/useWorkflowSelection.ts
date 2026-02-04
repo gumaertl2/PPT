@@ -1,6 +1,6 @@
-// 05.02.2026 17:15 - NEW: WORKFLOW LOGIC HOOK.
-// - Encapsulates all logic for Step Status, Locking, and Auto-Selection.
-// - Implements the "Magic Chain" (Unlocks dependents if parent is selected).
+// 05.02.2026 18:15 - FIX: INFINITE SELECTION LOOP.
+// - Removed circular dependency in useEffect (getStepStatus).
+// - Auto-selection now only runs once when modal opens.
 // src/hooks/useWorkflowSelection.ts
 
 import { useState, useEffect, useCallback } from 'react';
@@ -23,6 +23,7 @@ export const useWorkflowSelection = (isOpen: boolean) => {
     }, [selectedSteps]);
 
     // 3. CORE LOGIC: STATUS CALCULATION
+    // Note: This logic is reactive. It updates as the user clicks items.
     const getStepStatus = useCallback((stepId: WorkflowStepId): StepStatus => {
         // Data Presence Checks
         const places = project.data.places || {};
@@ -99,6 +100,7 @@ export const useWorkflowSelection = (isOpen: boolean) => {
     }, [project, isStationary, isSelected]);
 
     // 4. SMART AUTO-SELECTION (On Open)
+    // FIX: Removed 'getStepStatus' from dependency array to prevent infinite loop on selection change.
     useEffect(() => {
         if (isOpen) {
             const defaults: WorkflowStepId[] = [];
@@ -106,7 +108,7 @@ export const useWorkflowSelection = (isOpen: boolean) => {
             const hasPlaces = Object.keys(places).length > 0;
 
             WORKFLOW_STEPS.forEach(step => {
-                // Scenario: Fresh Start
+                // Scenario: Fresh Start (Special Logic)
                 if (!hasPlaces) {
                     if (['basis', 'anreicherer', 'foodScout', 'ideenScout', 'infoAutor'].includes(step.id)) {
                          defaults.push(step.id);
@@ -114,9 +116,9 @@ export const useWorkflowSelection = (isOpen: boolean) => {
                     }
                 }
 
+                // Standard Logic using CURRENT status (Snapshot at open time)
                 const status = getStepStatus(step.id);
                 
-                // Safety: Don't select done steps
                 if (status === 'done') return;
                 
                 if (status === 'available') {
@@ -124,7 +126,7 @@ export const useWorkflowSelection = (isOpen: boolean) => {
                 }
             });
             
-            // Final Filter: Remove locked items (e.g. RouteArchitect for Stationary)
+            // Final Filter
             const validDefaults = defaults.filter(id => {
                 if (id === 'routeArchitect' && isStationary) return false;
                 if (id === 'transferPlanner' && isStationary) return false;
@@ -133,16 +135,21 @@ export const useWorkflowSelection = (isOpen: boolean) => {
 
             setSelectedSteps(validDefaults);
         }
-    }, [isOpen, project, isStationary, getStepStatus]); // Depend on getStepStatus
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, project, isStationary]); // Explicitly excluded getStepStatus
 
     // 5. ACTIONS
     const toggleStep = (id: WorkflowStepId) => {
+        // If I click a selected item to DESELECT it:
+        if (selectedSteps.includes(id)) {
+            setSelectedSteps(prev => prev.filter(s => s !== id));
+            return;
+        }
+
+        // If I click an unselected item to SELECT it:
         if (getStepStatus(id) === 'locked') return;
 
-        setSelectedSteps(prev => {
-            const isAdding = !prev.includes(id);
-            return isAdding ? [...prev, id] : prev.filter(s => s !== id);
-        });
+        setSelectedSteps(prev => [...prev, id]);
     };
 
     return {
@@ -152,4 +159,4 @@ export const useWorkflowSelection = (isOpen: boolean) => {
         isStationary
     };
 };
-// --- END OF FILE 135 Zeilen ---
+// --- END OF FILE 138 Zeilen ---
