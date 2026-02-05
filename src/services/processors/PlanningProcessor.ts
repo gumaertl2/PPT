@@ -1,4 +1,5 @@
 // 05.02.2026 16:30 - REFACTOR: PLANNING PROCESSOR.
+// 06.02.2026 18:00 - FEATURE: Apply Geography Correction (inferred_country) to Logistics.
 // Handles Strategy, Routes, Special Days, Content and Tours.
 // src/services/processors/PlanningProcessor.ts
 
@@ -11,10 +12,24 @@ export const PlanningProcessor = {
     
     // --- STRATEGY & ROUTES ---
     processAnalysis: (step: string, data: any) => {
-        const { setAnalysisResult } = useTripStore.getState();
+        const store = useTripStore.getState();
+        const { setAnalysisResult, updateLogistics } = store; // ACCESS updateLogistics
+        
         if (data) {
             setAnalysisResult(step as any, data);
             console.log(`[${step}] Analysis result persisted.`);
+
+            // FIX: Apply Geography Correction from ChefPlaner to Store
+            if (step === 'chefPlaner' && data.corrections?.inferred_country) {
+                const inferredCountry = data.corrections.inferred_country;
+                const currentCountries = store.project.userInputs.logistics.target_countries || [];
+                
+                // If we don't have a structured country yet, use the inferred one
+                if (currentCountries.length === 0 || (currentCountries.length === 1 && !currentCountries[0])) {
+                    console.log(`[PlanningProcessor] applying inferred country: ${inferredCountry}`);
+                    updateLogistics('target_countries', [inferredCountry]);
+                }
+            }
         }
     },
 
@@ -135,4 +150,4 @@ export const PlanningProcessor = {
         }
     }
 };
-// --- END OF FILE 137 Zeilen ---
+// --- END OF FILE 153 Zeilen ---
