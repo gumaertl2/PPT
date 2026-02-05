@@ -1,5 +1,5 @@
 // 02.02.2026 13:15 - FIX: Enforced City Grouping for 'Specials' in Tour Mode.
-// Replaced flat mapping with 'renderGroupedList(..., "city")' to align Tour View with Category View.
+// 06.02.2026 17:30 - FIX: Fulltext Search (Deep Search in all fields).
 // src/features/Cockpit/SightsView.tsx
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -17,7 +17,6 @@ import {
   Briefcase, 
   Layout,
   Filter
-  // FIX: Removed unused Search, MapIcon, X, Ghost (29.01.2026)
 } from 'lucide-react';
 
 const TRAVEL_PACE_CONFIG: Record<string, { startHour: number; endHour: number; breakMinutes: number; bufferMinutes: number }> = {
@@ -184,11 +183,26 @@ export const SightsView: React.FC = () => {
 
     places.forEach((p: any) => {
       const cat = p.category || 'Sonstiges';
-      const name = p.name || '';
-
+      
       if (ignoreList.includes(cat)) return;
 
-      if (term && !name.toLowerCase().includes(term) && !cat.toLowerCase().includes(term)) return;
+      // FIX: FULL TEXT SEARCH ACROSS ALL RELEVANT FIELDS
+      if (term) {
+          const searchableText = [
+              p.name,
+              p.official_name,
+              p.category,
+              p.userSelection?.customCategory,
+              p.description,
+              p.shortDesc,
+              p.detailContent,
+              p.reasoning,
+              p.logistics,
+              p.address
+          ].filter(Boolean).join(' ').toLowerCase();
+
+          if (!searchableText.includes(term)) return;
+      }
       
       // FIX: selectedCategory is now part of UIState interface
       if (uiState.selectedCategory && uiState.selectedCategory !== 'all') {
@@ -458,4 +472,4 @@ export const SightsView: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 612 Zeilen ---
+// --- END OF FILE 628 Zeilen ---

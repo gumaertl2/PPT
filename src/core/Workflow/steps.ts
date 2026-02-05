@@ -1,5 +1,8 @@
 // src/core/Workflow/steps.ts
-// 31.01.2026 21:00 - REFACTOR: Strict Template Naming. No GeoAnalyst (Internal).
+// 06.02.2026 17:15 - REFACTOR: FLATTENED DEPENDENCIES & REORDERING.
+// - All core tasks now depend only on 'anreicherer' (Independence).
+// - Moved 'initialTagesplaner' to the end (Late Stage).
+// - Preserved 'requiresUserInteraction: true' for Day Planner.
 
 import type { WorkflowStepDef } from '../types';
 
@@ -43,44 +46,45 @@ export const WORKFLOW_STEPS: WorkflowStepDef[] = [
   {
     id: 'chefredakteur',
     isMandatory: false,
-    requires: ['tourGuide'],
+    requires: ['anreicherer'], // FIX: Decoupled from TourGuide
     label: { de: '4. Detail-Texte (Content)', en: '4. Detail Content' },
     description: { de: 'Schreibt ausführliche, inspirierende Texte zu jeder Sehenswürdigkeit.', en: 'Writes detailed, inspiring texts for every sight.' }
   },
   {
-    id: 'initialTagesplaner',
-    isMandatory: false,
-    requires: ['tourGuide'],
-    requiresUserInteraction: true,
-    label: { de: '5. Tagesplan erstellen', en: '5. Create Itinerary' },
-    description: { de: 'Erstellt den zeitlichen Ablauf. Sie können vorher Tempo & Prioritäten anpassen.', en: 'Creates the daily schedule. You can adjust pace & priorities beforehand.' }
-  },
-  {
     id: 'infoAutor',
     isMandatory: false,
-    label: { de: '6. Reise-Infos (A-Z)', en: '6. Travel Info (A-Z)' },
+    label: { de: '5. Reise-Infos (A-Z)', en: '5. Travel Info (A-Z)' },
     description: { de: 'Recherchiert praktische Infos basierend auf Ihren Interessen.', en: 'Researches practical info based on your interests.' }
   },
   {
     id: 'foodScout',
     isMandatory: false,
     requires: ['anreicherer'],
-    label: { de: '7. Restaurants & Genuss', en: '7. Restaurants & Food' },
+    label: { de: '6. Restaurants & Genuss', en: '6. Restaurants & Food' },
     description: { de: 'Sucht kulinarische Highlights passend zur Route.', en: 'Finds culinary highlights fitting the route.' }
   },
   {
     id: 'hotelScout',
     isMandatory: false,
     requires: ['chefPlaner'],
-    label: { de: '8. Unterkunft suchen', en: '8. Find Accommodation' },
+    label: { de: '7. Unterkunft suchen', en: '7. Find Accommodation' },
     description: { de: 'Sucht Hotels oder Campingplätze (Stationär oder Rundreise).', en: 'Searches for hotels or campsites (Stationary or Roundtrip).' }
   },
   {
     id: 'ideenScout',
     isMandatory: false,
-    requires: ['tourGuide'],
-    label: { de: '9. Flexibilität (Wetter)', en: '9. Flexibility (Weather)' },
+    requires: ['anreicherer'], // FIX: Decoupled from TourGuide
+    label: { de: '8. Flexibilität (Wetter)', en: '8. Flexibility (Weather)' },
     description: { de: 'Plant Optionen für Regen- oder reine Sonnentage.', en: 'Plans options for rainy or sunny days.' }
+  },
+  // MOVED TO END
+  {
+    id: 'initialTagesplaner',
+    isMandatory: false,
+    requires: ['anreicherer'], // FIX: Decoupled from TourGuide
+    requiresUserInteraction: true, // RESTORED: User MUST interact
+    label: { de: '9. Tagesplan erstellen', en: '9. Create Itinerary' },
+    description: { de: 'Erstellt den zeitlichen Ablauf. Sie können vorher Tempo & Prioritäten anpassen.', en: 'Creates the daily schedule. You can adjust pace & priorities beforehand.' }
   },
   {
     id: 'transferPlanner',

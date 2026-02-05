@@ -1,6 +1,6 @@
 // 05.02.2026 16:00 - FIX: Solved Race Condition in Workflow Loop (Timeout wrapper).
 // 05.02.2026 21:15 - FIX: Softened Dependency Guard (Warn instead of Block) to keep Workflow running.
-// 05.02.2026 20:10 - FIX: Stopped Infinite Loop (Race Condition) with Concurrency Guard.
+// 06.02.2026 17:10 - FIX: STALE CLOSURE BUG. Accessing live store state in timeout to ensure queue progression.
 // src/hooks/useTripGeneration.ts
 
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -169,8 +169,10 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       
       // UX UPGRADE: Add Chunk Progress Info
       let progressSuffix = "";
-      if (chunkingState.isActive && chunkingState.totalChunks > 1) {
-          progressSuffix = ` (${chunkingState.currentChunk}/${chunkingState.totalChunks})`;
+      // NOTE: We use current store state for display, which is reactive
+      const liveChunkState = useTripStore.getState().chunkingState;
+      if (liveChunkState.isActive && liveChunkState.totalChunks > 1) {
+          progressSuffix = ` (${liveChunkState.currentChunk}/${liveChunkState.totalChunks})`;
       }
 
       const loadingId = addNotification({ 
@@ -204,13 +206,16 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
         if (isMounted) {
             processResult(nextStepId, result);
             
-            // FIX: Wrap state updates in setTimeout to allow 'finally' block to run and release 'isExecutingRef'
-            // before the next useEffect cycle triggers. Prevents Race Condition where loop stops.
+            // FIX: Wrap state updates in setTimeout to allow 'finally' block to run.
+            // BUGFIX: Access LIVE store state. The local 'chunkingState' variable is stale 
+            // (captured at start of async function) and doesn't reflect Orchestrator updates.
             setTimeout(() => {
               if (!isMounted) return;
+              
+              const liveState = useTripStore.getState().chunkingState;
 
-              if (chunkingState.isActive && chunkingState.currentChunk < chunkingState.totalChunks) {
-                setChunkingState({ currentChunk: chunkingState.currentChunk + 1 });
+              if (liveState.isActive && liveState.currentChunk < liveState.totalChunks) {
+                setChunkingState({ currentChunk: liveState.currentChunk + 1 });
                 // We do NOT slice queue yet, we repeat step
               } else {
                 setQueue(prev => prev.slice(1));
@@ -350,4 +355,4 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
   return { status, currentStep, queue, error, progress, manualPrompt, submitManualResult, startWorkflow, resumeWorkflow, cancelWorkflow, startSingleTask };
 };
-// --- END OF FILE 325 Zeilen ---
+// --- END OF FILE 331 Zeilen ---

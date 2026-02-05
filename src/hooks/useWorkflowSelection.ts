@@ -1,6 +1,6 @@
 // 05.02.2026 18:15 - FIX: INFINITE SELECTION LOOP.
-// - Removed circular dependency in useEffect (getStepStatus).
-// - Auto-selection now only runs once when modal opens.
+// 06.02.2026 17:15 - FIX: DEFAULT SELECTION OPT-OUT FOR DAY PLANNER.
+// - Added logic to exclude 'initialTagesplaner' from default auto-selection.
 // src/hooks/useWorkflowSelection.ts
 
 import { useState, useEffect, useCallback } from 'react';
@@ -122,6 +122,9 @@ export const useWorkflowSelection = (isOpen: boolean) => {
                 if (status === 'done') return;
                 
                 if (status === 'available') {
+                    // FIX: Opt-in only for DayPlanner. User must select it manually.
+                    if (step.id === 'initialTagesplaner') return;
+
                     defaults.push(step.id);
                 }
             });
@@ -159,4 +162,4 @@ export const useWorkflowSelection = (isOpen: boolean) => {
         isStationary
     };
 };
-// --- END OF FILE 138 Zeilen ---
+// --- END OF FILE 142 Zeilen ---
