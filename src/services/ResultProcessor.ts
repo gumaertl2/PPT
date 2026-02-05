@@ -1,4 +1,5 @@
 // 05.02.2026 16:35 - REFACTOR: RESULT PROCESSOR (DISPATCHER).
+// 06.02.2026 16:15 - FIX: Added handler for 'details' task (mapped to Chefredakteur).
 // - Acts as a Facade/Router.
 // - Delegates logic to specialized processors.
 // - All Legacy Logic removed.
@@ -38,6 +39,7 @@ export const ResultProcessor = {
         PlaceProcessor.processAnreicherer(data, aiSettings.debug);
         break;
 
+      case 'details': // FIX: Added alias for manual regeneration
       case 'chefredakteur':
         PlaceProcessor.processDetails(data, aiSettings.debug);
         break;
@@ -80,4 +82,4 @@ export const ResultProcessor = {
     }
   }
 };
-// --- END OF FILE 79 Zeilen ---
+// --- END OF FILE 80 Zeilen ---

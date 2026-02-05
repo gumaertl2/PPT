@@ -1,4 +1,5 @@
 // 05.02.2026 16:30 - REFACTOR: PLACE PROCESSOR.
+// 06.02.2026 16:40 - FIX: Added 'detailContent' mapping to processDetails.
 // Handles Sights, Enrichment, and Details.
 // src/services/processors/PlaceProcessor.ts
 
@@ -74,7 +75,8 @@ export const PlaceProcessor = {
             extractedItems.forEach((item: any) => {
                 const targetId = resolvePlaceId(item, existingPlaces, debug);
                 if (targetId) {
-                    const content = item.text || item.article || item.detailed_description || item.description || item.content;
+                    // FIX: Check for 'detailContent' explicitly first
+                    const content = item.detailContent || item.text || item.article || item.detailed_description || item.description || item.content;
                     updatePlace(targetId, {
                         detailContent: content,
                         reasoning: item.reasoning,
@@ -87,4 +89,4 @@ export const PlaceProcessor = {
         }
     }
 };
-// --- END OF FILE 86 Zeilen ---
+// --- END OF FILE 87 Zeilen ---

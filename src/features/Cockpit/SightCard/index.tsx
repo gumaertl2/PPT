@@ -1,4 +1,5 @@
 // 06.02.2026 21:30 - FIX: REMOVE DEAD CODE (Vercel Cleanup).
+// 06.02.2026 21:45 - FEATURE: Conditional Regenerate Button (Pass 'hasCategoryChanged').
 // - Removed unused 'resolveCategoryLabel' function.
 // - Removed unused imports (INTEREST_DATA, LanguageCode) and 'i18n'.
 // src/features/Cockpit/SightCard/index.tsx
@@ -56,6 +57,9 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   const userSelection = activeData.userSelection || {};
   const priority = userSelection.priority ?? 0; 
   
+  // LOGIC: Check if category was manually changed
+  const hasCategoryChanged = !!userSelection.customCategory && userSelection.customCategory !== category;
+
   // Selection State from Logistics (SSOT)
   const isSelectedInLogistics = () => {
       const logistics = project.userInputs.logistics;
@@ -274,6 +278,7 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
             t={t}
             onRegenerate={handleRegenerate}
             isRegenerating={isRegenerating}
+            hasCategoryChanged={hasCategoryChanged}
             onCloseDetails={() => {
                 setViewLevel('standard');
                 setTimeout(() => cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
@@ -292,4 +297,4 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     </>
   );
 };
-// --- END OF FILE 253 Zeilen ---
+// --- END OF FILE 257 Zeilen ---

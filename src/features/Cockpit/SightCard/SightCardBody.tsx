@@ -1,4 +1,5 @@
 // 06.02.2026 20:15 - FIX: CRASH PROTECTION & DESCRIPTION FALLBACK.
+// 06.02.2026 21:50 - FEATURE: Conditional Regenerate Button (Only on Category Change).
 // - Added safety checks for 'detailContent' split to prevent crash.
 // - Added 'summary' and 'editorial_summary' as description fallbacks.
 // src/features/Cockpit/SightCard/SightCardBody.tsx
@@ -16,6 +17,7 @@ interface SightCardBodyProps {
   onCloseDetails: () => void;
   onRegenerate?: () => void;
   isRegenerating?: boolean;
+  hasCategoryChanged?: boolean; // NEU
 }
 
 export const SightCardBody: React.FC<SightCardBodyProps> = ({
@@ -27,7 +29,8 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
   t,
   onCloseDetails,
   onRegenerate,
-  isRegenerating = false
+  isRegenerating = false,
+  hasCategoryChanged = false // NEU
 }) => {
   if (!isStandardOrHigher) return null;
 
@@ -205,8 +208,8 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
       {isDetailed && data.category !== 'special' && (
         <div className="mt-3 pt-3 border-t-2 border-dashed border-slate-100 space-y-3 animate-in fade-in slide-in-from-top-4 duration-500">
           
-          {/* REGENERATE BUTTON */}
-          {onRegenerate && (
+          {/* REGENERATE BUTTON - ONLY IF CATEGORY CHANGED */}
+          {onRegenerate && hasCategoryChanged && (
             <div className="flex justify-end no-print -mt-1 mb-2">
                 <button 
                     onClick={onRegenerate} 
@@ -256,4 +259,4 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
     </div>
   );
 };
-// --- END OF FILE 225 Zeilen ---
+// --- END OF FILE 226 Zeilen ---

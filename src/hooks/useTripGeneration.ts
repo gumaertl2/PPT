@@ -1,3 +1,4 @@
+// 05.02.2026 16:00 - FIX: Solved Race Condition in Workflow Loop (Timeout wrapper).
 // 05.02.2026 21:15 - FIX: Softened Dependency Guard (Warn instead of Block) to keep Workflow running.
 // 05.02.2026 20:10 - FIX: Stopped Infinite Loop (Race Condition) with Concurrency Guard.
 // src/hooks/useTripGeneration.ts
@@ -25,7 +26,7 @@ interface UseTripGenerationReturn {
   queue: WorkflowStepId[];
   error: string | null;
   progress: number;
-  
+   
   manualPrompt: string | null;
   submitManualResult: (jsonResult: any) => Promise<void>;
 
@@ -158,10 +159,10 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
       const stepDef = WORKFLOW_STEPS.find(s => s.id === nextStepId);
       if (stepDef?.requiresUserInteraction && currentStep !== nextStepId) {
-         setStatus('waiting_for_user');
-         setCurrentStep(nextStepId);
-         isExecutingRef.current = false; // UNLOCK
-         return; 
+          setStatus('waiting_for_user');
+          setCurrentStep(nextStepId);
+          isExecutingRef.current = false; // UNLOCK
+          return; 
       }
       setCurrentStep(nextStepId);
       const stepLabel = stepDef?.label[lang] || nextStepId;
@@ -203,15 +204,19 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
         if (isMounted) {
             processResult(nextStepId, result);
             
-            // Logik: Orchestrator handled Loop internally now (in most cases). 
-            // But if we use manual chunking via hook:
-            if (chunkingState.isActive && chunkingState.currentChunk < chunkingState.totalChunks) {
-              setChunkingState({ currentChunk: chunkingState.currentChunk + 1 });
-              // We do NOT slice queue yet, we repeat step
-            } else {
-              setQueue(prev => prev.slice(1));
-              resetChunking();
-            }
+            // FIX: Wrap state updates in setTimeout to allow 'finally' block to run and release 'isExecutingRef'
+            // before the next useEffect cycle triggers. Prevents Race Condition where loop stops.
+            setTimeout(() => {
+              if (!isMounted) return;
+
+              if (chunkingState.isActive && chunkingState.currentChunk < chunkingState.totalChunks) {
+                setChunkingState({ currentChunk: chunkingState.currentChunk + 1 });
+                // We do NOT slice queue yet, we repeat step
+              } else {
+                setQueue(prev => prev.slice(1));
+                resetChunking();
+              }
+            }, 0);
         }
       } catch (err) {
         dismissNotification(loadingId);
@@ -345,4 +350,4 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
   return { status, currentStep, queue, error, progress, manualPrompt, submitManualResult, startWorkflow, resumeWorkflow, cancelWorkflow, startSingleTask };
 };
-// --- END OF FILE 310 Zeilen ---
+// --- END OF FILE 325 Zeilen ---

@@ -1,4 +1,5 @@
 // 05.02.2026 21:40 - FIX: Surgical Insertion of Selective Logic (preserving V40 logic).
+// 06.02.2026 16:35 - FEATURE: Respect 'customCategory' in Prompt Generation.
 // 28.01.2026 17:20 - FIX: Added 'Walking Tour' instruction logic for districts.
 // 26.01.2026 19:40 - FIX: RESTORED Rich Logic (No Simplification).
 // Returns full object { context, instructions } with strict Fact Injection.
@@ -94,7 +95,8 @@ export const prepareChefredakteurPayload = (
         let instructions = `Create a general, useful description for '${place.name}'.`;
 
         // 2. Spezifische Anweisung aus Interests suchen
-        const category = place.category || 'general';
+        // FEATURE: Priority for manual 'customCategory' over detected 'category'
+        const category = place.userSelection?.customCategory || place.category || 'general';
         const interestId = resolveInterestId(category);
         
         if (interestId) {
@@ -120,7 +122,7 @@ export const prepareChefredakteurPayload = (
         return {
             id: place.id,
             titel: place.name,
-            typ: place.category,
+            typ: category, // Pass effective category (custom or original)
             // Hier übergeben wir die Ergebnisse vom Anreicherer:
             facts: {
                 address: place.address || "N/A",
@@ -129,7 +131,8 @@ export const prepareChefredakteurPayload = (
                 description: place.description, // Der kurze Faktentext vom Anreicherer
                 // ADDED: Logistics & Price for Template V2 (if available)
                 logistics: place.logistics,
-                price_estimate: place.price_estimate
+                price_estimate: place.price_estimate,
+                originalCategory: place.category // Context for AI if needed
             },
             anweisung: instructions
         };
@@ -148,4 +151,4 @@ export const prepareChefredakteurPayload = (
         }
     };
 };
-// --- END OF FILE 135 Zeilen ---
+// --- END OF FILE 140 Zeilen ---
