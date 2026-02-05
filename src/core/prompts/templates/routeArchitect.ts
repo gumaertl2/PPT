@@ -1,4 +1,5 @@
 // 02.02.2026 10:15 - PROMPT UPDATE: Implemented "Strict vs. Smart" Logic.
+// 06.02.2026 22:15 - FIX: Pass Explicit User Itinerary for Strict Mirroring.
 // Route 1 obeys strict user constraints, Routes 2&3 offer optimized alternatives.
 // src/core/prompts/templates/routeArchitect.ts
 
@@ -14,6 +15,15 @@ export const buildRouteArchitectPrompt = (project: TripProject): string => {
 
   // 2. USER ROUTE PREFERENCES
   const roundtripOptions = logistics.roundtripOptions || {};
+  const userStops = logistics.roundtrip?.stops || [];
+
+  // FIX: Pre-Calculate User Itinerary for AI
+  let explicitUserItinerary = "None";
+  if (userStops.length > 0) {
+      explicitUserItinerary = userStops.map((s: any, i: number) => 
+          `${i+1}. ${s.location} (${s.duration} nights)`
+      ).join(' -> ');
+  }
 
   // Context for AI
   const contextData = {
@@ -26,7 +36,8 @@ export const buildRouteArchitectPrompt = (project: TripProject): string => {
     roundtrip_constraints: logistics.mode === 'mobil' ? logistics.roundtrip : null,
     // User Constraints
     user_waypoints: roundtripOptions.waypoints || "None",
-    is_strict_route: roundtripOptions.strictRoute || false
+    is_strict_route: roundtripOptions.strictRoute || false,
+    explicit_user_itinerary: explicitUserItinerary // NEW FIELD
   };
 
   // ROLE: English for better reasoning performance
@@ -40,12 +51,16 @@ The options must differ in "Vibe" (e.g., "The Classic", "Nature Pure", "Culture 
 
 # LOGISTICS RULES (THE GOLDEN LAWS)
 1. **Start & End:** Strictly observe fixed start/end points if defined in constraints.
-2. **User Waypoints (STRICT VS SMART):** If "user_waypoints" are present:
-   - If "is_strict_route" = true:
-     * **Route Option 1:** You MUST execute the user's waypoints EXACTLY as requested (Compliance Check). Do not optimize away stops.
-     * **Route Option 2 & 3:** You MAY suggest a better flow (e.g. reordering stops, swapping a stop for a better nearby hub) to demonstrate optimization potential.
-   - If "is_strict_route" = false:
-     * Treat waypoints as a "Wishlist". Integrate them logically but prioritize flow for all routes.
+2. **User Waypoints (STRICT VS SMART):**
+   - **If "is_strict_route" = true:**
+     * **Route Option 1 (The Mirror):** You MUST copy the "explicit_user_itinerary" EXACTLY 1:1.
+       - Use the EXACT locations.
+       - Use the EXACT number of nights.
+       - Do NOT optimize or reorder Route 1. It is the user's explicit wish.
+     * **Route Option 2 & 3:** Here you are allowed to optimize (better flow, logic, or alternatives).
+   - **If "is_strict_route" = false:**
+     * Treat "explicit_user_itinerary" or "user_waypoints" as a wishlist.
+     * Integrate them logically but prioritize efficient flow for ALL routes.
 
 3. **Pace & Flow:** Plan realistic driving distances. Max 4 hours pure driving time per leg/transfer.
 4. **Duration Match:** The sum of 'nights' across all stages MUST exactly match 'total_duration_days'.
@@ -115,4 +130,4 @@ Each option needs:
     .withSelfCheck(['basic', 'planning'])
     .build();
 };
-// --- END OF FILE 131 Zeilen ---
+// --- END OF FILE 140 Zeilen ---
