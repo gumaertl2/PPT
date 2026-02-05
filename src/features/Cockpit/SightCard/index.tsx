@@ -1,5 +1,7 @@
+// 06.02.2026 17:30 - FIX: RESTORED INDEX LAYOUT + LIVE DATA SYNC.
+// - Reverted to original 253-line structure (ViewControls, Layout).
+// - Connected to Store (SSOT) via 'livePlace' to enable immediate updates.
 // 05.02.2026 19:25 - FEAT: Added 'Selective Regeneration' logic (handleRegenerate).
-// 01.02.2026 14:45 - FIX: Passing 't' prop to Meta component for i18n buttons.
 // src/features/Cockpit/SightCard/index.tsx
 
 import React, { useState, useEffect, useRef } from 'react'; 
@@ -27,6 +29,12 @@ type ViewLevel = typeof VIEW_LEVELS[number];
 
 export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selection', showPriorityControls = true }) => {
   const { t, i18n } = useTranslation(); 
+  
+  // FIX: Fetch live data from store if available to avoid stale props
+  const livePlace = useTripStore(s => (id && s.project?.data?.places?.[id]) ? s.project.data.places[id] : null);
+  // Use live data if found, otherwise fall back to passed prop
+  const activeData = livePlace || data;
+
   const { uiState, updatePlace, deletePlace, setUIState, project, assignHotelToLogistics } = useTripStore(); 
   const cardRef = useRef<HTMLDivElement>(null);
   const [viewLevel, setViewLevel] = useState<ViewLevel>('kompakt');
@@ -42,11 +50,11 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   // ADDED: State for regeneration
   const [isRegenerating, setIsRegenerating] = useState(false);
 
-  // Derivation of Values
-  const name = data.name || 'Unbekannter Ort';
-  const category = data.category || 'Allgemein'; 
+  // Derivation of Values (Using activeData)
+  const name = activeData.name || activeData.official_name || activeData.name_official || 'Unbekannter Ort';
+  const category = activeData.category || 'Allgemein'; 
   const isHotel = category === 'Hotel' || category === 'accommodation';
-  const userSelection = data.userSelection || {};
+  const userSelection = activeData.userSelection || {};
   const priority = userSelection.priority ?? 0; 
   
   // NEW: Calculate Selection State from Logistics (SSOT)
@@ -73,8 +81,8 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
       setIsRegenerating(true);
       try {
           // Trigger Orchestrator for THIS single ID only
-          // We pass [id] as the inputData, which our modified Orchestrator now understands as a selective update list.
-          await TripOrchestrator.executeTask('chefredakteur', undefined, [id]);
+          // We pass [activeData] to ensure the Orchestrator has the latest context
+          await TripOrchestrator.executeTask('details', undefined, [activeData]);
       } catch (error) {
           console.error("Regeneration failed:", error);
       } finally {
@@ -105,7 +113,8 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   const resolveCategoryLabel = (catId: string): string => {
     if (!catId) return "Allgemein";
     const currentLang = i18n.language.substring(0, 2) as LanguageCode;
-    const def = INTEREST_DATA[catId];
+    // RESTORED ORIGINAL ACCESS (Dictionary Style)
+    const def = (INTEREST_DATA as any)[catId]; 
     if (def && def.label) {
         return (def.label as any)[currentLang] || (def.label as any)['de'] || catId;
     }
@@ -220,7 +229,7 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   if (priority === 2) borderClass = 'border-blue-400 border-l-4';
   if (priority === -1) borderClass = 'border-gray-100 opacity-60';
   const isSpecial = category === 'special';
-  if (isSpecial) borderClass = data.details?.specialType === 'sunny' ? 'border-amber-400 border-l-4' : 'border-blue-400 border-l-4';
+  if (isSpecial) borderClass = activeData.details?.specialType === 'sunny' ? 'border-amber-400 border-l-4' : 'border-blue-400 border-l-4';
   
   if (isHotel) {
       if (isSelected) {
@@ -233,6 +242,7 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   return (
     <>
       <div ref={cardRef} className={`bg-white rounded-lg shadow-sm border p-3 mb-3 transition-all hover:shadow-md ${borderClass}`}>
+        {/* HEADER: Passing props individually to match restored Header component */}
         <SightCardHeader 
             name={name} 
             isHotel={isHotel} 
@@ -241,47 +251,49 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
             renderViewControls={renderViewControls} 
         />
         
+        {/* META: Passing live activeData */}
         <SightCardMeta 
-            data={data}
+            data={activeData}
             customCategory={userSelection.customCategory || category}
-            customDuration={userSelection.customDuration || data.duration}
+            customDuration={userSelection.customDuration || activeData.duration}
             isSpecial={isSpecial}
-            specialType={data.details?.specialType}
-            rating={data.rating || 0}
-            userRatingsTotal={data.user_ratings_total || data.rating_count || 0}
+            specialType={activeData.details?.specialType}
+            rating={activeData.rating || 0}
+            userRatingsTotal={activeData.user_ratings_total || activeData.rating_count || 0}
             isHotel={isHotel}
-            priceEstimate={data.price_estimate || (data.cost ? `${data.cost} ${data.currency || '€'}` : null)}
-            bookingUrl={data.bookingUrl}
-            sourceUrl={data.source_url}
-            websiteUrl={data.website}
+            priceEstimate={activeData.price_estimate || (activeData.cost ? `${activeData.cost} ${activeData.currency || '€'}` : null)}
+            bookingUrl={activeData.bookingUrl}
+            sourceUrl={activeData.source_url}
+            websiteUrl={activeData.website}
             isSelected={isSelected}
             displayCategory={resolveCategoryLabel(userSelection.customCategory || category)}
             onCategoryChange={(e) => updatePlace(id, { userSelection: { ...userSelection, customCategory: e.target.value } })}
             onDurationChange={(e) => updatePlace(id, { userSelection: { ...userSelection, customDuration: parseInt(e.target.value) || 0 } })}
             onHotelSelect={handleHotelSelect}
             onShowMap={(e) => { e.stopPropagation(); setUIState({ selectedPlaceId: id, viewMode: 'map' }); }}
+            onToggleSelection={handleHotelSelect} 
             ensureAbsoluteUrl={ensureAbsoluteUrl}
-            t={t} // FIX: Pass t to Meta
+            t={t} 
         />
 
-        {data.userSelection?.fixedDate && (
+        {activeData.userSelection?.fixedDate && (
           <div className="flex items-center gap-2 bg-indigo-50 px-2 py-1 rounded text-[10px] mb-1">
             <span className="font-bold text-indigo-800">Fixtermin:</span>
-            <input type="date" value={data.userSelection.fixedDate} onChange={(e) => updatePlace(id, { userSelection: { ...userSelection, fixedDate: e.target.value } })} className="bg-transparent border-none p-0 h-4 text-indigo-900 focus:ring-0" />
-            <input type="time" value={data.userSelection.fixedTime} onChange={(e) => updatePlace(id, { userSelection: { ...userSelection, fixedTime: e.target.value } })} className="bg-transparent border-none p-0 h-4 text-indigo-900 focus:ring-0" />
+            <input type="date" value={activeData.userSelection.fixedDate} onChange={(e) => updatePlace(id, { userSelection: { ...userSelection, fixedDate: e.target.value } })} className="bg-transparent border-none p-0 h-4 text-indigo-900 focus:ring-0" />
+            <input type="time" value={activeData.userSelection.fixedTime} onChange={(e) => updatePlace(id, { userSelection: { ...userSelection, fixedTime: e.target.value } })} className="bg-transparent border-none p-0 h-4 text-indigo-900 focus:ring-0" />
           </div>
         )}
 
         {renderPriorityControls()}
         
+        {/* BODY: Passing live activeData */}
         <SightCardBody 
-            data={data}
+            data={activeData}
             isHotel={isHotel}
             isStandardOrHigher={isStandardOrHigher}
             isDetailed={isDetailed}
             highlightText={highlightText}
             t={t}
-            // ADDED: Pass regeneration props to Body
             onRegenerate={handleRegenerate}
             isRegenerating={isRegenerating}
             onCloseDetails={() => {
@@ -295,11 +307,11 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
            <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
               <div className="flex justify-between items-center p-4 border-b"><h3 className="font-bold text-lg">JSON Data: {name}</h3><button onClick={() => setShowDebug(false)} className="text-gray-500 hover:text-black"><X className="w-6 h-6" /></button></div>
-              <div className="p-4 overflow-auto bg-slate-50 font-mono text-xs"><pre>{JSON.stringify(data, null, 2)}</pre></div>
+              <div className="p-4 overflow-auto bg-slate-50 font-mono text-xs"><pre>{JSON.stringify(activeData, null, 2)}</pre></div>
            </div>
         </div>
       )}
     </>
   );
 };
-// --- END OF FILE 253 Zeilen ---
+// --- END OF FILE 259 Zeilen ---

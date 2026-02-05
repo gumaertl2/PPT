@@ -1,9 +1,10 @@
-// 06.02.2026 21:15 - FEATURE: Added Rating & Review Count display.
-// 05.02.2026 21:00 - FEATURE: Added 'Planungs-Hinweis' & 'Preis' display (PDF Style).
+// 06.02.2026 18:00 - FEATURE: BODY WITH RATINGS & LOGISTICS.
+// - Integrates Rating (Stars) and Review Count.
+// - Adds 'Planungs-Hinweis' & 'Price' blocks (PDF Style).
+// - Preserves original layout structure (WalkRoute, Details).
 // src/features/Cockpit/SightCard/SightCardBody.tsx
 
 import React from 'react';
-// FIX: Added Star icon
 import { CheckCircle2, ChefHat, Utensils, Sparkles, Trophy, Phone, Footprints, Map as MapIcon, ChevronUp, RefreshCw, MapPin, Clock, Wallet, Info, Banknote, Star } from 'lucide-react';
 
 interface SightCardBodyProps {

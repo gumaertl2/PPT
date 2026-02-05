@@ -1,12 +1,10 @@
-// 04.02.2026 18:30 - FEATURE: Connected Category Select to SSOT (interests.ts).
-// 02.02.2026 15:00 - FIX: Removed hardcoded 'Sri Lanka' fallback in Google Search Query.
-// 03.02.2026 17:15 - FIX: Added Wildcard Support.
+// 06.02.2026 18:40 - FIX: RESTORE SPECIAL DAY BADGES ("Sondertage").
+// - Reverted to static Badges for Rainy/Sunny/Wildcard (User Requirement).
+// - Kept Smart Link & Guide Link functionality.
 // src/features/Cockpit/SightCard/SightCardMeta.tsx
 
 import React from 'react';
-import { useTranslation } from 'react-i18next'; // ADDED: For dynamic labels
 import { Star, Sun, CloudRain, CreditCard, ExternalLink, Check, BookOpen, Globe, Search, Map as MapIcon, Sparkles } from 'lucide-react';
-// ADDED: Import SSOT Data
 import { VALID_POI_CATEGORIES, INTEREST_DATA } from '../../../data/interests';
 
 interface SightCardMetaProps {
@@ -54,38 +52,29 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
   ensureAbsoluteUrl,
   t
 }) => {
-  // ADDED: Resolve current language for labels
-  const { i18n } = useTranslation();
-  const currentLang = (i18n.language && i18n.language.startsWith('en')) ? 'en' : 'de';
 
-  const renderStars = () => {
-    if (!rating) return null;
-    return (
-      <div className="flex items-center gap-1 text-amber-500 text-xs font-medium whitespace-nowrap" title={`Google Rating: ${rating} (${userRatingsTotal})`}>
-        <Star className="w-3 h-3 fill-amber-500" />
-        <span>{rating}</span>
-        {userRatingsTotal > 0 && <span className="text-gray-400 font-normal">({userRatingsTotal})</span>}
-      </div>
-    );
-  };
-
-  // HELPER: Build specific Google Search Query
+  // SMART LINK LOGIC: Name + City + Awards
   const getGoogleSearchQuery = () => {
-    const parts = [
-      data.name,
-      data.address,
-      data.city,
-      data.country
-    ];
-    return parts.filter(p => p && typeof p === 'string' && p.trim().length > 0).join(', ');
+    const name = data.name || data.official_name || data.name_official || '';
+    const city = data.city || '';
+    
+    // Awards handling (Array or String)
+    let awardsStr = "";
+    if (Array.isArray(data.awards)) {
+        awardsStr = data.awards.join(' ');
+    } else if (typeof data.awards === 'string') {
+        awardsStr = data.awards;
+    }
+
+    return `${name} ${city} ${awardsStr}`.trim();
   };
 
-  // HELPER: Render Special Badge (Sunny / Rainy / Wildcard)
+  // HELPER: Render Special Badge (Original Logic restored)
   const renderSpecialBadge = () => {
       if (specialType === 'wildcard') {
           return (
               <div className="flex items-center gap-1 font-bold text-purple-600">
-                  <Sparkles className="w-3 h-3" />
+                  <Sparkles className="w-3.5 h-3.5" />
                   <span>Wildcard</span>
               </div>
           );
@@ -93,7 +82,7 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
       if (specialType === 'sunny') {
           return (
               <div className="flex items-center gap-1 font-bold text-amber-600">
-                  <Sun className="w-3 h-3" />
+                  <Sun className="w-3.5 h-3.5" />
                   <span>Sonnentag</span>
               </div>
           );
@@ -101,110 +90,149 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
       // Default: Rainy
       return (
           <div className="flex items-center gap-1 font-bold text-blue-600">
-              <CloudRain className="w-3 h-3" />
+              <CloudRain className="w-3.5 h-3.5" />
               <span>Regentag</span>
           </div>
       );
   };
 
-  return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 mb-1">
-      {isSpecial ? (
-        renderSpecialBadge()
-      ) : (
-        <select 
-          value={customCategory} 
-          onChange={onCategoryChange}
-          className="bg-transparent border-none p-0 pr-4 text-xs font-medium text-gray-700 focus:ring-0 cursor-pointer hover:text-blue-600 py-0.5"
-        >
-          {/* Default Option (Current Original) */}
-          <option value={data.category}>{displayCategory}</option>
-          
-          {/* SSOT Options: Render valid categories dynamically */}
-          {VALID_POI_CATEGORIES.map((catId) => {
-             // Safety check if category exists in INTEREST_DATA
-             const label = INTEREST_DATA[catId]?.label[currentLang] || catId;
-             // Don't render if it's the same as the current data.category (avoid duplicates)
-             if (catId === data.category) return null;
-             
-             return (
-               <option key={catId} value={catId}>
-                 {label}
-               </option>
-             );
-          })}
-        </select>
-      )}
-      <span className="text-gray-300">|</span>
-      <div className="flex items-center gap-1">
-        <input
-          type="number"
-          step="15"
-          value={customDuration || ''}
-          onChange={onDurationChange}
-          className="w-10 bg-transparent border-b border-gray-300 p-0 text-center text-xs focus:border-blue-500 focus:ring-0"
-        />
-        <span>min</span>
-      </div>
-      <span className="text-gray-300">|</span>
-      {!isSpecial && renderStars()}
-      
-      {isHotel && priceEstimate && (
-        <>
-          <span className="text-gray-300">|</span>
-          <span className="flex items-center gap-1 text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
-            <CreditCard className="w-3 h-3" />
-            {priceEstimate}
-          </span>
-        </>
-      )}
+  // Resolve Guide Link: Prefer explicit 'guide_link', fallback to 'source_url' for non-hotels
+  const guideLink = data.guide_link || (!isHotel ? sourceUrl : null);
 
-      <div className="flex items-center gap-2 ml-auto no-print">
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 mb-1">
+        
+        {/* CATEGORY OR SPECIAL BADGE */}
+        {isSpecial ? (
+            renderSpecialBadge()
+        ) : (
+            <div className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                <select 
+                    value={customCategory} 
+                    onChange={(e) => { e.stopPropagation(); onCategoryChange(e); }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="bg-transparent border-none p-0 text-xs font-medium text-gray-600 focus:ring-0 cursor-pointer hover:text-indigo-600 truncate max-w-[120px]"
+                >
+                    {VALID_POI_CATEGORIES.map(cat => (
+                    <option key={cat} value={cat}>
+                        {(INTEREST_DATA as any)[cat]?.label?.[t('lang', { defaultValue: 'de' })] || cat}
+                    </option>
+                    ))}
+                    <option value="custom">{t('categories.other', { defaultValue: 'Sonstiges' })}</option>
+                </select>
+            </div>
+        )}
+
+        {/* Duration Input */}
+        <div className="flex items-center gap-1" title={t('sights.duration_hint', { defaultValue: 'Dauer in Stunden' })}>
+           <span className="text-gray-400">|</span>
+           <span className="text-gray-400">⏱</span>
+           <input 
+             type="number" 
+             min="0" 
+             step="0.5"
+             value={customDuration || 0}
+             onChange={(e) => { e.stopPropagation(); onDurationChange(e); }}
+             onClick={(e) => e.stopPropagation()}
+             className="w-8 bg-transparent border-b border-gray-300 p-0 text-center text-xs focus:border-indigo-500 focus:ring-0"
+           />
+           <span>h</span>
+        </div>
+
+        {/* Price Level / Hotel Stars */}
+        {priceEstimate && (
+           <>
+             <span className="text-gray-400">|</span>
+             <div className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-1.5 rounded">
+                <CreditCard className="w-3 h-3" />
+                <span>{priceEstimate}</span>
+             </div>
+           </>
+        )}
+
+        {/* Spacer */}
+        <div className="flex-1"></div>
+
+        {/* 1. Map Button */}
+        <button 
+          onClick={onShowMap} 
+          className="text-gray-400 hover:text-indigo-600 transition-colors mr-1" 
+          title={t('sights.show_on_map', { defaultValue: 'Auf Karte zeigen' })}
+        >
+          <MapIcon className="w-3.5 h-3.5" />
+        </button>
+
+        {/* Hotel Booking & Select */}
         {isHotel && (
           <div className="flex items-center gap-1 mr-2">
-            {bookingUrl && (
-              <a href={ensureAbsoluteUrl(bookingUrl)} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-800 p-1 hover:bg-emerald-50 rounded" title="Zum Angebot">
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            )}
-            <button 
-              onClick={onHotelSelect}
-              className={`
-                flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border transition-all
-                ${isSelected 
-                  ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700 shadow-sm' 
-                  : 'bg-white text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300'}
-              `}
-            >
-              {isSelected ? (
-                <><Check className="w-3 h-3" /> {t('sights.selected', { defaultValue: 'Ausgewählt' })}</>
-              ) : (
-                t('sights.select', { defaultValue: 'Wählen' })
-              )}
+             {bookingUrl && (
+                <a 
+                    href={ensureAbsoluteUrl(bookingUrl)} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="flex items-center gap-1 text-[10px] font-bold text-white bg-blue-600 hover:bg-blue-700 px-2 py-0.5 rounded shadow-sm transition-colors"
+                >
+                    Booking <ExternalLink className="w-3 h-3" />
+                </a>
+             )}
+             <button 
+                onClick={onHotelSelect}
+                className={`
+                    flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-all shadow-sm
+                    ${isSelected 
+                    ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700' 
+                    : 'bg-white text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300'}
+                `}
+                >
+                {isSelected ? (
+                    <><Check className="w-3 h-3" /> {t('sights.selected', { defaultValue: 'Ausgewählt' })}</>
+                ) : (
+                    t('sights.select', { defaultValue: 'Wählen' })
+                )}
             </button>
           </div>
         )}
         
-        {sourceUrl && !isHotel && (
-          <a href={ensureAbsoluteUrl(sourceUrl)} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:text-indigo-700" title="Zum Guide Eintrag"><BookOpen className="w-3.5 h-3.5" /></a>
+        {/* LINKS */}
+        
+        {/* A. Guide Link (Book Icon) */}
+        {guideLink && (
+             <a 
+               href={ensureAbsoluteUrl(guideLink)} 
+               target="_blank" 
+               rel="noopener noreferrer" 
+               className="text-amber-500 hover:text-amber-700 transition-colors" 
+               title="Zum Guide Eintrag"
+             >
+               <BookOpen className="w-3.5 h-3.5" />
+             </a>
         )}
+
+        {/* B. Official Website (Globe) */}
         {websiteUrl && (
-          <a href={ensureAbsoluteUrl(websiteUrl)} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-600" title="Zur Website"><Globe className="w-3.5 h-3.5" /></a>
+          <a 
+            href={ensureAbsoluteUrl(websiteUrl)} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="text-indigo-500 hover:text-indigo-700 transition-colors" 
+            title="Zur Website"
+          >
+            <Globe className="w-3.5 h-3.5" />
+          </a>
         )}
         
+        {/* C. Smart Google Search (Search Icon) */}
         <a 
           href={`https://www.google.com/search?q=${encodeURIComponent(getGoogleSearchQuery())}`} 
           target="_blank" 
           rel="noopener noreferrer" 
-          className="text-gray-400 hover:text-blue-600"
+          className="text-gray-400 hover:text-blue-600 transition-colors"
           title={`Suche: ${getGoogleSearchQuery()}`}
         >
           <Search className="w-3.5 h-3.5" />
         </a>
-
-        <button onClick={onShowMap} className="text-gray-400 hover:text-blue-600 transition-colors"><MapIcon className="w-3.5 h-3.5" /></button>
-      </div>
     </div>
   );
 };
-// --- END OF FILE 190 Zeilen ---
+// --- END OF FILE 160 Zeilen ---
