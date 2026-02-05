@@ -1,6 +1,7 @@
-// 06.02.2026 22:30 - FIX: Name Mapping & Smart Search Query.
-// - Fixed wrong key 'official_name' -> 'name_official'.
-// - Hardened Smart Link generation to ensure awards are included.
+// 06.02.2026 15:00 - FIX: ULTRA-ROBUST HEADER (No Crash, Smart Links).
+// - Added Guard Clause against undefined data.
+// - Resolves Name from 4 possible keys.
+// - Handles Awards as Array or String.
 // src/features/Cockpit/SightCard/SightCardHeader.tsx
 
 import React from 'react';
@@ -13,30 +14,33 @@ interface SightCardHeaderProps {
 }
 
 export const SightCardHeader: React.FC<SightCardHeaderProps> = ({ data, onClose, isHotel }) => {
-  // CRITICAL FIX: Safety Check
+  // 1. SAFETY FIRST: Prevent Crash if data is missing
   if (!data) return null;
 
   const categoryColor = isHotel ? 'text-emerald-600' : 'text-blue-600';
   const categoryBg = isHotel ? 'bg-emerald-50' : 'bg-blue-50';
 
-  // FIX: Accurate Name Mapping (JSON uses name_official or name)
-  const name = data.name || data.name_official || "Unbekannter Ort";
+  // 2. NAME RESOLUTION (Priority List)
+  const name = data.name_official || data.official_name || data.name || data.original_name || "Unbekannter Ort";
   const city = data.city || '';
   
-  // FIX: Awards Extraction for the Link
-  const awardsArray = Array.isArray(data.awards) ? data.awards : [];
-  const awardsString = awardsArray.join(' ');
-  
-  // 1. SMART GOOGLE LINK (The "Reputation Check")
-  // We combine Name + City + Awards for the perfect search query
-  const query = `${name} ${city} ${awardsString}`.trim().replace(/\s+/g, ' ');
-  const smartGoogleLink = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+  // 3. SMART LINK GENERATION
+  // Awards can be String ("Michelin, Gault") or Array (["Michelin", "Gault"])
+  let awardsText = "";
+  if (Array.isArray(data.awards)) {
+      awardsText = data.awards.join(' ');
+  } else if (typeof data.awards === 'string') {
+      awardsText = data.awards;
+  }
 
-  // 2. GUIDE LINK (Direct proof from AI)
-  const guideLink = data.guide_link;
-  
-  // 3. WEBSITE
-  const website = data.website;
+  // Query: "Noma Kopenhagen Michelin World's 50 Best"
+  const queryParts = [name, city, awardsText].filter(Boolean); // Remove empty strings
+  const queryString = queryParts.join(' ').trim();
+  const smartGoogleLink = `https://www.google.com/search?q=${encodeURIComponent(queryString)}`;
+
+  // 4. EXTERNAL LINKS
+  const guideLink = data.guide_link; // Direct proof from AI
+  const website = data.website || data.source_url; // Official site
 
   return (
     <div className="flex items-start justify-between p-4 pb-2">
@@ -51,7 +55,7 @@ export const SightCardHeader: React.FC<SightCardHeaderProps> = ({ data, onClose,
           {name}
         </h3>
         
-        {/* Subtitle (City/Region) */}
+        {/* Subtitle */}
         {city && (
              <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
                  <MapPin className="w-3 h-3" />
@@ -63,26 +67,26 @@ export const SightCardHeader: React.FC<SightCardHeaderProps> = ({ data, onClose,
       {/* Action Buttons */}
       <div className="flex items-center gap-1 shrink-0">
          
-         {/* A: GUIDE LINK (Only if AI found one) */}
+         {/* A: GUIDE LINK (The Proof) */}
          {guideLink && (
              <a 
                href={guideLink} 
                target="_blank" 
                rel="noopener noreferrer"
                className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-full transition-colors"
-               title="Zum Guide-Eintrag (Originalquelle)"
+               title="Zum Guide-Eintrag"
              >
                <BookOpen className="w-4 h-4" />
              </a>
          )}
 
-         {/* B: SMART GOOGLE SEARCH (Reputation Link) */}
+         {/* B: SMART GOOGLE SEARCH (Reputation) */}
          <a 
            href={smartGoogleLink} 
            target="_blank" 
            rel="noopener noreferrer"
            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
-           title={`Google Reputation: ${query}`}
+           title={`Google Reputation Check: ${queryString}`}
          >
            <Search className="w-4 h-4" />
          </a>
@@ -102,7 +106,7 @@ export const SightCardHeader: React.FC<SightCardHeaderProps> = ({ data, onClose,
 
          <div className="w-px h-4 bg-slate-200 mx-1"></div>
 
-         {/* Close Button */}
+         {/* Close */}
          <button 
            onClick={onClose}
            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
@@ -113,4 +117,4 @@ export const SightCardHeader: React.FC<SightCardHeaderProps> = ({ data, onClose,
     </div>
   );
 };
-// --- END OF FILE 102 Zeilen ---
+// --- END OF FILE 105 Zeilen ---
