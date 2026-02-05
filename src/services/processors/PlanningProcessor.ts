@@ -1,5 +1,5 @@
 // 05.02.2026 16:30 - REFACTOR: PLANNING PROCESSOR.
-// 06.02.2026 18:00 - FEATURE: Apply Geography Correction (inferred_country) to Logistics.
+// 06.02.2026 18:10 - FIX: TS2345 Solved. Direct State Update for 'target_countries'.
 // Handles Strategy, Routes, Special Days, Content and Tours.
 // src/services/processors/PlanningProcessor.ts
 
@@ -13,7 +13,7 @@ export const PlanningProcessor = {
     // --- STRATEGY & ROUTES ---
     processAnalysis: (step: string, data: any) => {
         const store = useTripStore.getState();
-        const { setAnalysisResult, updateLogistics } = store; // ACCESS updateLogistics
+        const { setAnalysisResult } = store; 
         
         if (data) {
             setAnalysisResult(step as any, data);
@@ -27,7 +27,21 @@ export const PlanningProcessor = {
                 // If we don't have a structured country yet, use the inferred one
                 if (currentCountries.length === 0 || (currentCountries.length === 1 && !currentCountries[0])) {
                     console.log(`[PlanningProcessor] applying inferred country: ${inferredCountry}`);
-                    updateLogistics('target_countries', [inferredCountry]);
+                    
+                    // FIX: updateLogistics type is too strict ('roundtrip'|'stationary'). 
+                    // We use direct state manipulation for root fields.
+                    useTripStore.setState((state) => ({
+                        project: {
+                            ...state.project,
+                            userInputs: {
+                                ...state.project.userInputs,
+                                logistics: {
+                                    ...state.project.userInputs.logistics,
+                                    target_countries: [inferredCountry]
+                                }
+                            }
+                        }
+                    }));
                 }
             }
         }
@@ -150,4 +164,4 @@ export const PlanningProcessor = {
         }
     }
 };
-// --- END OF FILE 153 Zeilen ---
+// --- END OF FILE 162 Zeilen ---
