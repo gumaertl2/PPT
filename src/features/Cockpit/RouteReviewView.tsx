@@ -1,4 +1,5 @@
 // 20.01.2026 19:40 - FIX: Verified RouteReviewView migration to V40 English Keys.
+// 06.02.2026 17:45 - FIX: Pass 'countryContext' to Google Maps to prevent ambiguous routing (e.g. Galle -> Germany).
 // src/features/Cockpit/RouteReviewView.tsx
 
 import React, { useState, useEffect } from 'react';
@@ -144,6 +145,11 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
                    project.userInputs.logistics.roundtrip.region || 
                    "";
 
+  // FIX: Extract Country Context for Disambiguation
+  const countryContext = project.userInputs.logistics.roundtrip.region || 
+                         project.userInputs.logistics.target_countries?.[0] || 
+                         "";
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       
@@ -250,7 +256,8 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
                     ? [startLoc, ...stages.map(c => c.location_name), startLoc] 
                     : stages.map(c => c.location_name);
                 
-                const url = generateGoogleMapsRouteUrl(mapLocs);
+                // FIX: Pass countryContext to prevent ambiguity
+                const url = generateGoogleMapsRouteUrl(mapLocs, 'driving', countryContext);
 
                 return (
                   <td key={i} className={`p-4 border-l border-slate-100 align-top ${selectedRouteIndex === i ? 'bg-blue-50/30' : ''}`}>
@@ -355,4 +362,4 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
     </div>
   );
 };
-// --- END OF FILE 330 Zeilen ---
+// --- END OF FILE 336 Zeilen ---
