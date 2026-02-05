@@ -1,7 +1,6 @@
-// 06.02.2026 18:00 - FEATURE: BODY WITH RATINGS & LOGISTICS.
-// - Integrates Rating (Stars) and Review Count.
-// - Adds 'Planungs-Hinweis' & 'Price' blocks (PDF Style).
-// - Preserves original layout structure (WalkRoute, Details).
+// 06.02.2026 20:15 - FIX: CRASH PROTECTION & DESCRIPTION FALLBACK.
+// - Added safety checks for 'detailContent' split to prevent crash.
+// - Added 'summary' and 'editorial_summary' as description fallbacks.
 // src/features/Cockpit/SightCard/SightCardBody.tsx
 
 import React from 'react';
@@ -31,6 +30,17 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
   isRegenerating = false
 }) => {
   if (!isStandardOrHigher) return null;
+
+  // HELPER: Resolve Description safely (checks multiple Google standard fields)
+  const resolveDescription = () => {
+      return data.description || 
+             data.shortDesc || 
+             data.summary || 
+             data.editorial_summary?.overview || 
+             "";
+  };
+  
+  const descriptionText = resolveDescription();
 
   const renderWalkRoute = () => {
     if (!data.waypoints || !Array.isArray(data.waypoints) || data.waypoints.length < 2) return null;
@@ -97,7 +107,7 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
           </div>
       )}
 
-      {/* NEW: RATING DISPLAY (Google Style) */}
+      {/* RATING DISPLAY (Google Style) */}
       {data.rating && (
           <div className="flex items-center gap-1 mb-2">
               <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
@@ -123,7 +133,10 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
           </div>
       )}
 
-      <p className={`${isDetailed ? '' : 'line-clamp-2'} leading-snug text-xs mb-2`}>{highlightText(data.description || data.shortDesc)}</p>
+      {/* DESCRIPTION (Safe fallback) */}
+      <p className={`${isDetailed ? '' : 'line-clamp-2'} leading-snug text-xs mb-2`}>
+        {highlightText(descriptionText)}
+      </p>
       
       {data.reasoning && (<p className="text-[10px] text-indigo-600 italic mb-2 border-l-2 border-indigo-200 pl-2 leading-tight">"{highlightText(data.reasoning)}"</p>)}
       
@@ -139,7 +152,7 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
         </div>
       )}
 
-      {/* NEW: Logistics & Price Section (PDF Style) */}
+      {/* Logistics & Price Section (PDF Style) */}
       {(data.logistics || data.price_estimate) && (
         <div className="mt-2 mb-2 space-y-1.5 bg-slate-50/80 p-2 rounded border border-slate-100">
             {/* Logistik / Planungs-Hinweis */}
@@ -211,8 +224,10 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
             </div>
           )}
 
+          {/* FIX: CRASH PROTECTION & FALLBACK */}
+          {/* We use resolved descriptionText as fallback if detailContent is missing */}
           <div className="space-y-3 text-[13px] leading-relaxed text-slate-800 px-1">
-              {(data.detailContent || data.description).split(/\n\n/).map((section: string, idx: number) => {
+              {(data.detailContent || descriptionText || "").split(/\n\n/).map((section: string, idx: number) => {
                 const content = section.trim();
                 if (!content) return null;
                 const isHeader = content.length < 100 && (content.startsWith('###') || content.toLowerCase().startsWith('teil') || (content.toLowerCase().includes('top 5') && content.length < 50) || (content.toLowerCase().includes('fakten') && content.length < 50));
@@ -241,4 +256,4 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
     </div>
   );
 };
-// --- END OF FILE 210 Zeilen ---
+// --- END OF FILE 225 Zeilen ---

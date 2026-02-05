@@ -1,10 +1,11 @@
-// 06.02.2026 18:40 - FIX: RESTORE SPECIAL DAY BADGES ("Sondertage").
-// - Reverted to static Badges for Rainy/Sunny/Wildcard (User Requirement).
-// - Kept Smart Link & Guide Link functionality.
+// 06.02.2026 19:15 - FIX: VERCEL BUILD ERRORS (UNUSED PROPS).
+// - Removed unused 'Star' import.
+// - Removed unused props (rating, userRatingsTotal, displayCategory, onToggleSelection) from interface & destructuring.
 // src/features/Cockpit/SightCard/SightCardMeta.tsx
 
 import React from 'react';
-import { Star, Sun, CloudRain, CreditCard, ExternalLink, Check, BookOpen, Globe, Search, Map as MapIcon, Sparkles } from 'lucide-react';
+// FIX: Removed 'Star' from imports
+import { Sun, CloudRain, CreditCard, ExternalLink, Check, BookOpen, Globe, Search, Map as MapIcon, Sparkles } from 'lucide-react';
 import { VALID_POI_CATEGORIES, INTEREST_DATA } from '../../../data/interests';
 
 interface SightCardMetaProps {
@@ -13,20 +14,19 @@ interface SightCardMetaProps {
   customDuration: number;
   isSpecial: boolean;
   specialType: string;
-  rating: number;
-  userRatingsTotal: number;
+  // Removed rating, userRatingsTotal, displayCategory as they are shown in Body now
   isHotel: boolean;
   priceEstimate: string | null;
   bookingUrl: string | null;
   sourceUrl: string | null;
   websiteUrl: string | null;
   isSelected: boolean;
-  displayCategory: string;
   onCategoryChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
   onDurationChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onHotelSelect: (e: React.MouseEvent) => void;
   onShowMap: (e: React.MouseEvent) => void;
   ensureAbsoluteUrl: (url: string | undefined) => string | undefined;
+  // Removed onToggleSelection as only Hotels are selectable here
   t: any;
 }
 
@@ -36,20 +36,19 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
   customDuration,
   isSpecial,
   specialType,
-  rating,
-  userRatingsTotal,
+  // Removed destructured rating, userRatingsTotal, displayCategory
   isHotel,
   priceEstimate,
   bookingUrl,
   sourceUrl,
   websiteUrl,
   isSelected,
-  displayCategory,
   onCategoryChange,
   onDurationChange,
   onHotelSelect,
   onShowMap,
   ensureAbsoluteUrl,
+  // Removed onToggleSelection
   t
 }) => {
 

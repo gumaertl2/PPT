@@ -1,6 +1,6 @@
-// 05.02.2026 20:40 - REFACTOR: Generalized 'price_estimate' for all Places (not just Hotels).
-// 05.02.2026 17:30 - REFACTOR: DOMAIN MODELS.
-// Project structure, User Inputs, Analysis Results.
+// 06.02.2026 20:50 - FIX: ADDED MISSING PLACE FIELDS.
+// - Added 'summary' and 'editorial_summary' to Place interface.
+// 05.02.2026 20:40 - REFACTOR: Generalized 'price_estimate'.
 // src/core/types/models.ts
 
 import type { LanguageCode } from './shared';
@@ -231,6 +231,8 @@ export interface Place {
   // Content
   shortDesc?: string;
   description?: string; 
+  summary?: string; // NEW
+  editorial_summary?: { overview?: string }; // NEW
   detailContent?: string; 
   openingHours?: string[] | string; 
   website?: string; 
@@ -239,7 +241,7 @@ export interface Place {
   logistics?: string; 
   priceLevel?: string; 
   duration?: number; 
-  price_estimate?: string; // Moved here (General use)
+  price_estimate?: string; 
   
   // Special Fields
   waypoints?: Array<{ name: string; address: string; }>;
@@ -252,7 +254,6 @@ export interface Place {
   
   // Hotel Specifics
   location_match?: string;
-  // price_estimate removed from here
   bookingUrl?: string;
   pros?: string[];
 
@@ -267,6 +268,9 @@ export interface Place {
 
   visited?: boolean;
   googlePlaceId?: string; 
+  
+  // Enriched Links
+  guide_link?: string;
 }
 
 export interface ChunkingContext {
@@ -317,4 +321,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 250 Zeilen ---
+// --- END OF FILE 255 Zeilen ---

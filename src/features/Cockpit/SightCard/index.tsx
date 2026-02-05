@@ -1,7 +1,7 @@
-// 06.02.2026 17:30 - FIX: RESTORED INDEX LAYOUT + LIVE DATA SYNC.
-// - Reverted to original 253-line structure (ViewControls, Layout).
-// - Connected to Store (SSOT) via 'livePlace' to enable immediate updates.
-// 05.02.2026 19:25 - FEAT: Added 'Selective Regeneration' logic (handleRegenerate).
+// 06.02.2026 19:30 - FIX: TYPESCRIPT CLEANUP & LIVE DATA.
+// - Removed props passed to Meta that are no longer in its interface (onToggleSelection, rating, etc.).
+// - Connected to Store (SSOT) via 'livePlace'.
+// 06.02.2026 17:30 - FIX: RESTORED INDEX LAYOUT.
 // src/features/Cockpit/SightCard/index.tsx
 
 import React, { useState, useEffect, useRef } from 'react'; 
@@ -81,7 +81,6 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
       setIsRegenerating(true);
       try {
           // Trigger Orchestrator for THIS single ID only
-          // We pass [activeData] to ensure the Orchestrator has the latest context
           await TripOrchestrator.executeTask('details', undefined, [activeData]);
       } catch (error) {
           console.error("Regeneration failed:", error);
@@ -242,7 +241,6 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   return (
     <>
       <div ref={cardRef} className={`bg-white rounded-lg shadow-sm border p-3 mb-3 transition-all hover:shadow-md ${borderClass}`}>
-        {/* HEADER: Passing props individually to match restored Header component */}
         <SightCardHeader 
             name={name} 
             isHotel={isHotel} 
@@ -251,27 +249,23 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
             renderViewControls={renderViewControls} 
         />
         
-        {/* META: Passing live activeData */}
+        {/* META: Passing live activeData. Removed unused props: rating, userRatingsTotal, displayCategory, onToggleSelection */}
         <SightCardMeta 
             data={activeData}
             customCategory={userSelection.customCategory || category}
             customDuration={userSelection.customDuration || activeData.duration}
             isSpecial={isSpecial}
             specialType={activeData.details?.specialType}
-            rating={activeData.rating || 0}
-            userRatingsTotal={activeData.user_ratings_total || activeData.rating_count || 0}
             isHotel={isHotel}
             priceEstimate={activeData.price_estimate || (activeData.cost ? `${activeData.cost} ${activeData.currency || '€'}` : null)}
             bookingUrl={activeData.bookingUrl}
             sourceUrl={activeData.source_url}
             websiteUrl={activeData.website}
             isSelected={isSelected}
-            displayCategory={resolveCategoryLabel(userSelection.customCategory || category)}
             onCategoryChange={(e) => updatePlace(id, { userSelection: { ...userSelection, customCategory: e.target.value } })}
             onDurationChange={(e) => updatePlace(id, { userSelection: { ...userSelection, customDuration: parseInt(e.target.value) || 0 } })}
             onHotelSelect={handleHotelSelect}
             onShowMap={(e) => { e.stopPropagation(); setUIState({ selectedPlaceId: id, viewMode: 'map' }); }}
-            onToggleSelection={handleHotelSelect} 
             ensureAbsoluteUrl={ensureAbsoluteUrl}
             t={t} 
         />
@@ -286,7 +280,6 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
 
         {renderPriorityControls()}
         
-        {/* BODY: Passing live activeData */}
         <SightCardBody 
             data={activeData}
             isHotel={isHotel}

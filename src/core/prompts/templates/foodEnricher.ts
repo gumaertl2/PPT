@@ -1,5 +1,6 @@
-// 06.02.2026 12:00 - FIX: REQUEST SPECIFIC GUIDE LINK.
-// - Added 'guide_link' to schema to capture the provenance URL directly from AI.
+// 06.02.2026 21:00 - FIX: RESTORE LOGISTICS FIELD.
+// - Added 'logistics' to prompt instructions and schema.
+// - Ensures AI provides reservation hints (e.g. "Book weeks in advance").
 // src/core/prompts/templates/foodEnricher.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -52,9 +53,11 @@ For every valid candidate, find and fill:
 - **details:** - Opening Hours (compact string)
     - Price Level (1-4: €-€€€€)
     - Cuisine Style (e.g. "Modern Nordic", "Italian Fine Dining")
+- **logistics:** Practical advice (e.g. "Reservierung 2 Wochen im Voraus nötig", "Mittags Walk-in möglich").
 - **rating:** The Google Maps Rating (e.g. 4.7).
 - **user_ratings_total:** Number of reviews (e.g. 1250).
 - **vibe:** 3 keywords describing the atmosphere.
+- **description:** A short, engaging summary (max 2 sentences) describing the food and atmosphere.
 - **signature_dish:** The most famous dish or menu type.
 - **awards:** List ANY guide mentions from this allowed list: **[${allowedGuides}]**.
 - **guide_link:** Provide a DIRECT URL to the listing in the guide (e.g. guide.michelin.com/.../restaurant-name). 
@@ -88,12 +91,14 @@ ${candidatesString}
               "openingHours": "String (e.g. 'Tue-Sat 18-24')",
               "priceLevel": "String (€, €€, €€€, €€€€)",
               "cuisine": "String",
+              "description": "String (Short summary)",
+              "logistics": "String (Reservation advice)", // RESTORED
               "rating": "Number (float)",
               "user_ratings_total": "Number (integer)",
               "vibe": ["String"],
               "signature_dish": "String",
               "awards": ["String"],
-              "guide_link": "String (The proof link)", // NEW FIELD
+              "guide_link": "String (The proof link)", 
               "verification_status": "String ('verified' or 'rejected')"
           }
       ]
@@ -101,4 +106,4 @@ ${candidatesString}
 
   return builder.build();
 };
-// --- END OF FILE 101 Zeilen ---
+// --- END OF FILE 105 Zeilen ---
