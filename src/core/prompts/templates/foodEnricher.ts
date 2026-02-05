@@ -1,85 +1,104 @@
-// 02.02.2026 17:10 - FIX: STRICT GUIDES ONLY (No Google Ratings allowed).
-// - Removed unauthorized "Top-Favorit" loophole.
-// - Enforced strict "No Guide = No Entry" policy.
-// - Kept technical field mapping (Phone, Website, Vibe).
+// 06.02.2026 12:00 - FIX: REQUEST SPECIFIC GUIDE LINK.
+// - Added 'guide_link' to schema to capture the provenance URL directly from AI.
 // src/core/prompts/templates/foodEnricher.ts
 
 import { PromptBuilder } from '../PromptBuilder';
 
 export const buildFoodEnricherPrompt = (payload: any): string => {
   const { context, instructions } = payload;
-  const inputListJSON = JSON.stringify(context.candidates_list || []);
-  const targetCountry = context.target_country || "Deutschland";
-  const allowedGuides = context.allowed_guides || "Michelin, Gault&Millau, Varta, Schlemmer Atlas, Feinschmecker, Gusto, Slow Food";
-
-  const role = instructions.role || "Du bist ein strenger Restaurant-Kritiker, Recherche-Profi und Daten-Auditor.";
-
-  const mainInstruction = `
-  Ich gebe dir eine Liste von potenziellen Restaurants ("Raw Candidates").
-  Deine Aufgabe ist die harte Validierung ("The Auditor") und die maximale Datenanreicherung.
-
-  TARGET COUNTRY: **${targetCountry}**
-  ALLOWED GUIDES: **[${allowedGuides}]**
-
-  SCHRITT 1: PRÜFUNG (Inverted Search - The Filter)
-  - Existiert das Restaurant wirklich in ${targetCountry}?
-  - Ist es in einem der oben genannten Guides gelistet?
-  - **DISCARD RULE:** Falls es in KEINEM Guide steht -> **Lösche es aus der Liste!** Es darf nicht im Output erscheinen.
-
-  SCHRITT 2: TIEFEN-RECHERCHE (Die "Goldenen" Daten)
-  Fülle für jeden verbleibenden Kandidaten ALLE folgenden Felder:
   
-  1. **Kontakt:**
-     - **Phone:** Die Telefonnummer für Reservierungen (Format international: +49...).
-     - **Website:** Die OFFIZIELLE Homepage (nicht Facebook, nicht Tripadvisor, außer es gibt nichts anderes).
-  
-  2. **Details:**
-     - **Opening Hours:** Ein String oder Array mit den Zeiten (z.B. "Di-so 18-23 Uhr").
-     - **Signature Dish:** Das berühmteste Gericht oder eine Spezialität des Hauses.
-     - **Vibe:** Liste 2-3 Adjektive zur Atmosphäre (z.B. ["Romantisch", "Traditionell", "Laut"]).
-     - **Awards:** In welchen Guides steht es genau? (z.B. ["Michelin Stern", "Gault&Millau 2 Hauben"]).
+  const candidates = context.candidates_list || [];
+  const targetArea = context.target_country || "Destination";
+  const allowedGuides = context.allowed_guides || "Michelin, Gault&Millau";
+  const searchTools = context.guide_tools || "";
 
-  3. **Basis-Daten (Pflicht):**
-     - **Location:** Exakte Lat/Lng Koordinaten.
-     - **URL:** Baue zusätzlich den Google-Link: \`https://www.google.com/search?q={Name}+{Stadt}+${targetCountry}\`
+  // Serialize candidates safely
+  const candidatesString = JSON.stringify(candidates.map((c: any) => ({
+      id: c.id,
+      name: c.name || c.official_name,
+      city: c.city || c.ort || "Unknown",
+      description: c.description
+  })));
 
-  Input Liste: ${inputListJSON}
-  `;
+  const builder = new PromptBuilder();
 
-  // Full Schema mapping to src/core/types.ts -> Place
-  const outputSchema = {
-    "_thought_process": "String (Audit Log: Found website? Found phone? Which guide?)",
-    "candidates": [
-      {
-        "name_official": "String (Offizieller Name)",
-        "city": "String (Ort)",
-        "address": "String (Volle Adresse)",
-        "location": { "lat": "Number (Pflicht!)", "lng": "Number (Pflicht!)" },
-        
-        // Extended Data
-        "phone": "String (oder null)",
-        "website": "String (Offizielle URL oder null)",
-        "openingHours": ["String (z.B. 'Mo-Fr 12-14')"],
-        "signature_dish": "String (Spezialität)",
-        "vibe": ["String (Atmosphäre Keywords)"],
-        "awards": ["String (Guide Namen)"], // Mapped to 'awards' in Store
-        
-        "source_url": "String (Google Search Link)",
-        "description": "String (Marketing Text)",
-        "cuisine": "String (Küchenstil)",
-        "priceLevel": "String (€-€€€)",
-        "rating": "Number (4.0-5.0)",
-        "user_ratings_total": "Number (Integer - geschätzt)",
-        "verification_status": "String ('verified')"
-      }
-    ]
-  };
+  builder.withRole(instructions.role || "You are the 'Gourmet Auditor'. You verify restaurant candidates and enrich them with premium data.");
 
-  return new PromptBuilder()
-    .withOS()
-    .withRole(role)
-    .withInstruction(mainInstruction)
-    .withOutputSchema(outputSchema)
-    .build();
+  builder.withContext({
+      target_area: targetArea,
+      candidates_count: candidates.length,
+      allowed_guides: allowedGuides,
+      research_tools: `\n${searchTools}` 
+  });
+
+  builder.withInstruction(`
+# MISSION
+Audit the provided list of "Raw Candidates". Validate them and enrich them with high-quality data.
+
+# STEP 1: VALIDATION (THE FILTER)
+Check each candidate:
+1. **Existence:** Does this place actually exist in **${targetArea}** (or its Metropolitan Area)?
+2. **Relevance:** Is it a proper restaurant (No Fast Food chains, no pure Take-Away)?
+3. **Status:** Is it currently OPEN (not permanently closed)?
+
+-> If a candidate fails these checks, exclude it from the output.
+
+# STEP 2: ENRICHMENT (THE DATA)
+For every valid candidate, find and fill:
+- **official_name:** Correct spelling.
+- **address:** Full navigable address.
+- **location:** Exact Lat/Lng coordinates.
+- **contact:** Phone number & Official Website.
+- **details:** - Opening Hours (compact string)
+    - Price Level (1-4: €-€€€€)
+    - Cuisine Style (e.g. "Modern Nordic", "Italian Fine Dining")
+- **rating:** The Google Maps Rating (e.g. 4.7).
+- **user_ratings_total:** Number of reviews (e.g. 1250).
+- **vibe:** 3 keywords describing the atmosphere.
+- **signature_dish:** The most famous dish or menu type.
+- **awards:** List ANY guide mentions from this allowed list: **[${allowedGuides}]**.
+- **guide_link:** Provide a DIRECT URL to the listing in the guide (e.g. guide.michelin.com/.../restaurant-name). 
+  *FALLBACK:* If no direct guide link is found, create a specific Google Search link: "https://www.google.com/search?q=[Restaurant Name]+[City]+[Guide Name]"
+
+# STEP 3: QUALITY GATEKEEPER
+1. **Has Guide Award?** -> **KEEP IT.**
+2. **No Guide Award?** -> Check Google Rating.
+   - IF **rating > 4.5**: Mark "awards" as ["Local Favorite"]. -> **KEEP IT.**
+   - IF **rating <= 4.5**: -> **DISCARD IT.**
+
+# REFERENCE TOOLS
+${searchTools}
+
+# INPUT DATA
+${candidatesString}
+`);
+
+  // Define Schema
+  builder.withOutputSchema({
+      "_thought_process": "String (Audit log: Why did you accept/reject?)",
+      "candidates": [
+          {
+              "id": "String (KEEP ORIGINAL ID)",
+              "name_official": "String",
+              "city": "String",
+              "address": "String",
+              "location": { "lat": "Number", "lng": "Number" },
+              "phone": "String | null",
+              "website": "String | null",
+              "openingHours": "String (e.g. 'Tue-Sat 18-24')",
+              "priceLevel": "String (€, €€, €€€, €€€€)",
+              "cuisine": "String",
+              "rating": "Number (float)",
+              "user_ratings_total": "Number (integer)",
+              "vibe": ["String"],
+              "signature_dish": "String",
+              "awards": ["String"],
+              "guide_link": "String (The proof link)", // NEW FIELD
+              "verification_status": "String ('verified' or 'rejected')"
+          }
+      ]
+  });
+
+  return builder.build();
 };
-// --- END OF FILE 86 Lines ---
+// --- END OF FILE 101 Zeilen ---

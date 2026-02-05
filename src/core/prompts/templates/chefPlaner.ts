@@ -1,6 +1,5 @@
+// 06.02.2026 21:20 - FEATURE: Added Geography Correction (City -> Country inference).
 // 01.02.2026 17:20 - REFACTOR: Merged "Smart Brain" Logic with Legacy Features.
-// Added Reality Check (Season, Group) while keeping Appointments & Hotel Validation.
-// Fully compliant with Payload Pattern and V40 Schema.
 // src/core/prompts/templates/chefPlaner.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -9,12 +8,10 @@ export const buildChefPlanerPrompt = (payload: any): string => {
   const { context, meta } = payload;
 
   // 1. ROLE DEFINITION
-  // Enhanced Persona: Not just an Architect, but a Reality-Checker.
   const role = `You are the **Lead Travel Architect** ("Chef-Planer").
 Your task is to analyze the trip inputs, fix errors, validate feasibility (Reality Check), and establish a strategic foundation.${meta.feedbackSection || ''}`;
 
   // 2. INSTRUCTIONS
-  // Merged: New "Reality Check" + Original "Critical Logistics"
   const instructions = `# PHASE 1: REALITY CHECK & SEASONAL VALIDATION
 Before planning, verify the fundamental logic:
 1. **Season vs. Destination**: Check if the travel dates make sense for the destination (e.g. no beach holiday in winter, no hiking in monsoon).
@@ -31,17 +28,19 @@ You must strictly adhere to the 'logistics_briefing':
 
 # PHASE 3: WORKFLOW STEPS
 1. **ERROR SCAN**: Check for typos in destination names.
-2. **VALIDATION**: Research official names for user-provided hotels or fixed appointments.
-3. **STRATEGY**: Write specific instructions (field 'strategic_briefing') for the "Collector" agent (e.g. "Focus on Indoor due to rain").
+2. **GEOGRAPHY FIX**: Check if the user entered a **City** (e.g. "Kopenhagen", "Munich") but the system expects a **Country**.
+   - IF destination is a City, identify the correct Country (e.g. "Dänemark") and fill 'inferred_country'.
+3. **VALIDATION**: Research official names for user-provided hotels or fixed appointments.
+4. **STRATEGY**: Write specific instructions (field 'strategic_briefing') for the "Collector" agent.
 
 # LANGUAGE
 Generate ALL user-facing text in **${meta.targetLanguageName}**.`;
 
-  // 3. OUTPUT SCHEMA (Merged: V40 Smart Brain + Legacy Validation)
+  // 3. OUTPUT SCHEMA
   const outputSchema = {
     "_thought_process": [
       "String (Step 1: Reality Check - Season & Group...)", 
-      "String (Step 2: Verify Logistics & Constraints...)",
+      "String (Step 2: Verify Logistics & Geography Check...)",
       "String (Step 3: Define Strategy...)"
     ],
     "plausibility_check": "String (Assessment: Is the route/base feasible? Mention Season/Weather risks here) | null",
@@ -49,17 +48,17 @@ Generate ALL user-facing text in **${meta.targetLanguageName}**.`;
     "corrections": {
       "destination_typo_found": "Boolean",
       "corrected_destination": "String | null",
+      "inferred_country": "String (The correct country if missing, e.g. 'Dänemark') | null",
+      "inferred_region": "String (The region/state if relevant, e.g. 'Hovedstaden') | null",
       "notes": [ "String" ]
     },
 
-    // CRITICAL: Kept this existing feature
     "validated_appointments": [
       {
         "original_input": "String", "official_name": "String", "address": "String",
         "estimated_duration_min": "Integer"
       }
     ],
-    // CRITICAL: Kept this existing feature
     "validated_hotels": [
       { "station": "String", "official_name": "String", "address": "String" }
     ],
@@ -85,4 +84,4 @@ Generate ALL user-facing text in **${meta.targetLanguageName}**.`;
     .withSelfCheck(['basic', 'planning'])
     .build();
 };
-// --- END OF FILE 98 Zeilen ---
+// --- END OF FILE 105 Zeilen ---

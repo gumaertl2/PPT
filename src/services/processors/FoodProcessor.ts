@@ -1,5 +1,5 @@
-// 05.02.2026 16:30 - REFACTOR: FOOD PROCESSOR.
-// Handles Restaurants and Hotels.
+// 06.02.2026 13:35 - REFACTOR: SIMPLE LINK STORAGE.
+// - Removed complex link generation. Now acts as a dumb pipe for 'guide_link'.
 // src/services/processors/FoodProcessor.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -10,9 +10,24 @@ import { countryGuideConfig, type GuideDef } from '../../data/countries';
 export const FoodProcessor = {
     processFoodOrHotel: (data: any, step: string, debug: boolean) => {
         const { updatePlace, project } = useTripStore.getState();
-        const extractedItems = extractItems(data, false);
         
-        const systemCategory = ['foodScout', 'foodEnricher'].includes(step) ? 'Restaurant' : 'Hotel';
+        // 1. Unboxing (Standard)
+        let itemsToProcess = data;
+        if (data && typeof data === 'object' && Array.isArray(data.candidates)) {
+            itemsToProcess = data.candidates;
+            if (debug) console.log(`[FoodProcessor] Unboxed ${itemsToProcess.length} items from 'candidates' property.`);
+        }
+
+        // 2. Extraction
+        let extractedItems: any[] = [];
+        if (Array.isArray(itemsToProcess)) {
+            extractedItems = itemsToProcess;
+        } else {
+            extractedItems = extractItems(itemsToProcess, false);
+        }
+        
+        // 3. Category
+        const systemCategory = ['food', 'foodScout', 'foodEnricher'].includes(step) ? 'Restaurant' : 'Hotel';
 
         if (extractedItems.length > 0) {
             const rawCandidates: any[] = []; 
@@ -30,7 +45,7 @@ export const FoodProcessor = {
 
                     // Smart Match
                     const resolvedId = resolvePlaceId({ ...item, name }, existingPlaces, false, systemCategory);
-                    const id = resolvedId || uuidv4();
+                    const id = resolvedId || item.id || uuidv4(); 
                     const existingPlace = existingPlaces[id];
 
                     // SSOT Protection
@@ -38,20 +53,14 @@ export const FoodProcessor = {
                     const existingIsEnriched = existingPlace && isEnrichedItem(existingPlace);
                     if (existingIsEnriched && !incomingIsEnriched) return; 
 
-                    // Hard Gatekeeper (FoodEnricher Rule)
-                    if (step === 'foodEnricher') {
-                         const hasAwards = (item.awards && item.awards.length > 0);
-                         const hasGuides = (item.guides && item.guides.length > 0);
-                         const isVerified = item.verification_status === 'verified';
-                         if (!hasAwards && !hasGuides && !isVerified) {
-                             if (debug) console.warn(`[FoodProcessor] Dropped Enriched candidate "${name}" (No Awards/Guides).`);
-                             return; 
-                         }
-                    }
-                    
                     const finalName = item.name_official || name;
-                    const { category: _aiCategory, source_url: _aiUrl, ...cleanItem } = item;
-                    const cleanSourceUrl = sanitizeUrl(item.source_url, item);
+                    
+                    // --- SIMPLE LINK LOGIC ---
+                    // Just sanitize and store. UI handles the "Smart Link".
+                    const cleanGuideLink = sanitizeUrl(item.guide_link, item);
+                    const cleanSourceUrl = sanitizeUrl(item.source_url || item.website, item);
+
+                    const { category: _aiCategory, source_url: _unused, guide_link: _unused2, ...cleanItem } = item;
 
                     updatePlace(id, {
                         id,
@@ -65,6 +74,12 @@ export const FoodProcessor = {
                         signature_dish: item.signature_dish,
                         cuisine: item.cuisine,
                         priceLevel: item.priceLevel,
+                        
+                        // New Fields
+                        rating: item.rating,
+                        user_ratings_total: item.user_ratings_total,
+                        guide_link: cleanGuideLink, // Store the AI proof
+                        
                         source_url: cleanSourceUrl,
                         ...cleanItem 
                     });
@@ -82,7 +97,7 @@ export const FoodProcessor = {
                 }
             });
 
-            // Handover to Store (for FoodEnricher to pick up)
+            // Handover to Store (Scout Mode)
             if (step === 'foodScout' && rawCandidates.length > 0) {
                 console.log(`[FoodProcessor] 🤝 Handing over ${rawCandidates.length} candidates.`);
                 useTripStore.setState((s) => ({
@@ -98,14 +113,16 @@ export const FoodProcessor = {
                     }
                 }));
 
-                // Guide Harvester Logic
                 handleGuideHarvesting(extractedItems, project);
             }
             console.log(`[${systemCategory}] Stored/Updated ${savedCount} items.`);
+        } else {
+            if (debug) console.warn(`[FoodProcessor] Warning: No items extracted from data.`, data);
         }
     }
 };
 
+// ... (handleGuideHarvesting logic preserved below, same as before) ...
 function handleGuideHarvesting(items: any[], project: any) {
     const foundGuides = new Set<string>();
     items.forEach((item: any) => {
@@ -150,4 +167,4 @@ function handleGuideHarvesting(items: any[], project: any) {
         }
     }
 }
-// --- END OF FILE 141 Zeilen ---
+// --- END OF FILE 162 Zeilen ---

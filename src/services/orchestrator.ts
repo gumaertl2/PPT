@@ -1,8 +1,6 @@
-// 05.02.2026 19:15 - FIX: ID INJECTION SAFETY & SELECTIVE REFRESH.
-// - Implements "Inverted Search" logic.
-// - Solves the "0 Items" bug by bypassing Store-Lookup.
-// - Adds ID generation to final results to prevent UI crashes.
-// - Enable Selective Run for specific IDs.
+// 06.02.2026 10:00 - FIX: RESTORED COUNTRY SCOUT PIPELINE.
+// - Automatically runs CountryScout if guides are unknown.
+// - Injects discovered guides into FoodEnricher via Feedback channel.
 // src/services/orchestrator.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -13,6 +11,7 @@ import { useTripStore } from '../store/useTripStore';
 import { ResultProcessor } from './ResultProcessor'; 
 import { CONFIG } from '../data/config';
 import { APPENDIX_ONLY_INTERESTS } from '../data/constants'; 
+import { getGuidesForCountry } from '../data/countries'; // IMPORT ADDED
 import { 
   dayPlanSchema, geoAnalystSchema, foodSchema, hotelSchema, chefPlanerSchema,
   routeArchitectSchema, ideenScoutSchema, chefredakteurSchema, infoAutorSchema,
@@ -118,7 +117,6 @@ export const TripOrchestrator = {
              chunkIndex: i, limit: limit, totalChunks: totalChunks, candidates: inputData 
          });
 
-         // --- DATA LOSS INSPECTION (LOOP) ---
          if (task === 'foodEnricher' && i === 1) {
              try {
                  if (inputData && Array.isArray(inputData) && inputData.length > 0) {
@@ -146,7 +144,6 @@ export const TripOrchestrator = {
 
  async _executeSingleStep(task: TaskKey, feedback?: string, skipSave: boolean = false, inputData?: any): Promise<any> {
      const store = useTripStore.getState();
-     // FIX: Pass inputData to PayloadBuilder options
      const prompt = PayloadBuilder.buildPrompt(task, feedback, { candidates: inputData });
      const modelId = resolveModelId(task);
      
@@ -178,8 +175,35 @@ export const TripOrchestrator = {
         try {
             store.setChunkingState({ isActive: true, currentChunk: 0, totalChunks: 3, results: [] });
             
-            // --- PHASE 0: GEO EXPANSION (The "Surveyor") ---
-            console.log("[Orchestrator] Phase 0: Geo Expansion (Resolving Towns)");
+            // --- PHASE 0.5: GUIDE CHECK (The "Librarian") ---
+            // Determine Target Country
+            const targetLoc = store.project.userInputs.logistics.target_countries?.[0] 
+                              || store.project.userInputs.logistics.stationary?.destination 
+                              || "Europe";
+            
+            const existingGuides = getGuidesForCountry(targetLoc);
+            let dynamicGuides = "";
+
+            if (!existingGuides || existingGuides.length === 0) {
+                 console.log(`[Orchestrator] Unknown Culinary Region '${targetLoc}'. Triggering CountryScout...`);
+                 try {
+                     // Trigger CountryScout to find guides for this unknown region
+                     const scoutResult = await this._executeSingleStep('countryScout', undefined, false, { country: targetLoc });
+                     
+                     if (scoutResult && scoutResult.recommended_guides) {
+                         dynamicGuides = scoutResult.recommended_guides.join(', ');
+                         console.log(`[Orchestrator] CountryScout found NEW guides: ${dynamicGuides}`);
+                         // Note: The ResultProcessor for 'countryScout' handles the file download prompt automatically.
+                     }
+                 } catch (e) {
+                     console.warn("[Orchestrator] CountryScout failed or skipped. Using defaults.", e);
+                 }
+            } else {
+                console.log(`[Orchestrator] Guides found for '${targetLoc}': ${existingGuides.length} known sources.`);
+            }
+
+            // --- PHASE 1: GEO EXPANSION (The "Surveyor") ---
+            console.log("[Orchestrator] Phase 1: Geo Expansion (Resolving Towns)");
             let townList: string[] = [];
             
             const geoResult = await this._executeSingleStep('geoExpander', feedback, true);
@@ -189,22 +213,15 @@ export const TripOrchestrator = {
                 console.log(`[Orchestrator] GeoExpander found ${townList.length} towns.`);
             } else if (Array.isArray(geoResult)) {
                  townList = geoResult;
-            } else {
-                console.warn("[Orchestrator] GeoExpander returned invalid data. Falling back.");
             }
 
-            // --- PHASE 1: SCOUT (The "Collector") ---
+            // --- PHASE 2: SCOUT (The "Collector") ---
             store.setChunkingState({ currentChunk: 1 });
-            console.log("[Orchestrator] Phase 1: Scanner (AI) - With Explicit Town List");
+            console.log("[Orchestrator] Phase 2: Scanner (AI) - With Explicit Town List");
             
-            // Pass town list -> Scout returns RAW candidates (Broad Recall)
             const scoutResult = await this._executeSingleStep('foodScout', feedback, true, townList); 
             let candidates = scoutResult.candidates || [];
-            
-            // ID Injection (RAM)
             candidates = candidates.map((c: any) => ({ ...c, id: c.id || uuidv4() }));
-            
-            // Overwrite candidates in result for next step
             scoutResult.candidates = candidates;
             console.log(`[Orchestrator] Scanner found ${candidates.length} raw candidates. Sending to Auditor...`);
 
@@ -213,37 +230,31 @@ export const TripOrchestrator = {
                  return;
             }
 
-            // --- PHASE 2: ENRICHER (The "Auditor") ---
+            // --- PHASE 3: ENRICHER (The "Auditor") ---
             store.setChunkingState({ currentChunk: 2 });
-            console.log("[Orchestrator] Phase 2: Enricher (AI) - The Auditor");
+            console.log("[Orchestrator] Phase 3: Enricher (AI) - The Auditor");
             
-            // Execute Enricher (Chunks handled internally)
-            const enricherResult = await this.executeTask('foodEnricher', undefined, candidates); 
+            // INJECTION: Pass the dynamically found guides to the Enricher via Feedback String
+            // This works because we updated prepareFoodEnricherPayload to parse 'GUIDES:...'
+            let enricherFeedback = feedback || "";
+            if (dynamicGuides) {
+                enricherFeedback = enricherFeedback ? `${enricherFeedback}|GUIDES:${dynamicGuides}` : `GUIDES:${dynamicGuides}`;
+            }
+
+            const enricherResult = await this.executeTask('foodEnricher', enricherFeedback, candidates); 
             
-            // --- PHASE 3: RESULT EXTRACTION (NO GEO-FILTER) ---
-            // We trust the Auditor. We just grab the result.
             console.log(`[Orchestrator] Pipeline Finished. Trusting Auditor Results.`);
             
-            // Extract the list from the result object
             let finalCandidates: any[] = [];
-            
             if (enricherResult.enriched_candidates) finalCandidates = enricherResult.enriched_candidates;
             else if (enricherResult.candidates) finalCandidates = enricherResult.candidates;
             else if (enricherResult.places) finalCandidates = Object.values(enricherResult.places);
             else if (Array.isArray(enricherResult)) finalCandidates = enricherResult;
 
-            // Optional: Filter out items explicitly marked as 'rejected' by the Auditor
             let validCandidates = finalCandidates.filter((c: any) => c.verification_status !== 'rejected');
+            validCandidates = validCandidates.map((c: any) => ({ ...c, id: c.id || uuidv4() }));
 
-            // NEW: SAFETY ID INJECTION
-            // Ensure every candidate has an ID, otherwise UI might crash
-            validCandidates = validCandidates.map((c: any) => ({
-                ...c,
-                id: c.id || uuidv4()
-            }));
-
-            console.log(`[Orchestrator] Final Result: ${validCandidates.length} validated places (from Auditor).`);
-            
+            console.log(`[Orchestrator] Final Result: ${validCandidates.length} validated places.`);
             return { candidates: validCandidates };
 
         } catch (err) {
@@ -254,7 +265,7 @@ export const TripOrchestrator = {
         }
     }
 
-    // --- STANDARD CHUNKING LOGIC (Unchanged) ---
+    // --- STANDARD CHUNKING LOGIC ---
     const chunkableTasks: TaskKey[] = [
         'anreicherer', 'chefredakteur', 'infoAutor', 'foodEnricher', 'chefPlaner',
         'dayplan', 'initialTagesplaner', 'infos', 'details', 'basis', 'hotelScout', 'ideenScout'
@@ -266,9 +277,6 @@ export const TripOrchestrator = {
         let limit = getTaskLimit(task, isManual);
 
         if (['anreicherer', 'chefredakteur', 'details'].includes(task)) {
-            // FIX: Allow Single-Item Refresh (Selective Run)
-            // If inputData (e.g. array of IDs) is provided, use its length.
-            // Otherwise default to full store count.
             if (inputData && Array.isArray(inputData) && inputData.length > 0) {
                 totalItems = inputData.length;
             } else {
@@ -315,4 +323,4 @@ export const TripOrchestrator = {
     return this._executeSingleStep(task, feedback, false, inputData);
   }
 };
-// --- END OF FILE 402 Zeilen ---
+// --- END OF FILE 462 Zeilen ---

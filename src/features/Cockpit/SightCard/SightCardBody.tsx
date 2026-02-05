@@ -1,11 +1,10 @@
+// 06.02.2026 21:15 - FEATURE: Added Rating & Review Count display.
 // 05.02.2026 21:00 - FEATURE: Added 'Planungs-Hinweis' & 'Preis' display (PDF Style).
-// 05.02.2026 19:40 - FIX: Restored Icons (MapPin, Clock, Wallet) for Address/Hours/Price.
-// 05.02.2026 19:30 - FEATURE: Added 'Regenerate Text' button.
 // src/features/Cockpit/SightCard/SightCardBody.tsx
 
 import React from 'react';
-// FIX: Added Info and Banknote icons
-import { CheckCircle2, ChefHat, Utensils, Sparkles, Trophy, Phone, Footprints, Map as MapIcon, ChevronUp, RefreshCw, MapPin, Clock, Wallet, Info, Banknote } from 'lucide-react';
+// FIX: Added Star icon
+import { CheckCircle2, ChefHat, Utensils, Sparkles, Trophy, Phone, Footprints, Map as MapIcon, ChevronUp, RefreshCw, MapPin, Clock, Wallet, Info, Banknote, Star } from 'lucide-react';
 
 interface SightCardBodyProps {
   data: any;
@@ -76,7 +75,7 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
                 className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
              >
                 <MapIcon className="w-3 h-3" />
-                <span className="underline decoration-indigo-200 underline-offset-2">Route auf Google Maps ﾃｶffnen</span>
+                <span className="underline decoration-indigo-200 underline-offset-2">Route auf Google Maps öffnen</span>
              </a>
          </div>
       </div>
@@ -94,6 +93,17 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
                   <span className="font-bold block text-emerald-700 text-[10px] uppercase">Strategische Lage:</span>
                   <span className="italic">"{highlightText(data.location_match)}"</span>
               </div>
+          </div>
+      )}
+
+      {/* NEW: RATING DISPLAY (Google Style) */}
+      {data.rating && (
+          <div className="flex items-center gap-1 mb-2">
+              <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
+              <span className="font-bold text-xs text-slate-800">{data.rating}</span>
+              {data.user_ratings_total && (
+                  <span className="text-xs text-slate-400">({data.user_ratings_total})</span>
+              )}
           </div>
       )}
 
@@ -230,4 +240,4 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
     </div>
   );
 };
-// --- END OF FILE 200 Zeilen ---
+// --- END OF FILE 210 Zeilen ---
