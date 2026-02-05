@@ -1,7 +1,7 @@
 // 06.02.2026 10:00 - FIX: RESTORED COUNTRY SCOUT PIPELINE.
-// 07.02.2026 11:00 - FIX: SEQUENTIAL FOOD SCOUTING & SAFETY DELAYS.
-// - Implemented town-by-town loop for FoodScout to handle complex roundtrips.
-// - Added safetyDelay to prevent Store Race Conditions (Basis -> Anreicherer).
+// 07.02.2026 11:30 - FIX: REMOVED LEGACY 'sightCollector' TYPE CHECK.
+// - Solves TS2367: 'sightCollector' is not a valid TaskKey.
+// - Kept sequential food scouting & safety delays.
 // src/services/orchestrator.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -164,7 +164,8 @@ export const TripOrchestrator = {
      if (!skipSave) {
          ResultProcessor.process(task, validatedData);
          // FIX: Critical Wait after saving single step results (e.g. Basis)
-         if (task === 'basis' || task === 'sightCollector') {
+         // FIX: Removed invalid 'sightCollector' check
+         if (task === 'basis') {
              console.log("[Orchestrator] Waiting for store consistency after Basis...");
              await safetyDelay(2000);
          }
@@ -206,11 +207,9 @@ export const TripOrchestrator = {
             else if (Array.isArray(geoResult)) townList = geoResult;
 
             // FIX: SEQUENTIAL SCOUTING (PHASE 2)
-            // Instead of one big call, we loop through towns to prevent data loss.
             console.log(`[Orchestrator] Starting Sequential Food Scouting for ${townList.length} towns...`);
             let allScoutCandidates: any[] = [];
             
-            // Re-calc chunks: Towns + 1 (Enricher)
             const totalSteps = townList.length + 1;
             
             for (let i = 0; i < townList.length; i++) {
@@ -229,7 +228,7 @@ export const TripOrchestrator = {
                         }));
                         allScoutCandidates.push(...tagged);
                     }
-                    await safetyDelay(500); // Breathe
+                    await safetyDelay(500); 
                 } catch (e) {
                     console.warn(`[Orchestrator] Failed to scout food for ${town}`, e);
                 }
@@ -244,7 +243,6 @@ export const TripOrchestrator = {
             let enricherFeedback = feedback || "";
             if (dynamicGuides) enricherFeedback = enricherFeedback ? `${enricherFeedback}|GUIDES:${dynamicGuides}` : `GUIDES:${dynamicGuides}`;
 
-            // Pass ALL candidates. executeTask('foodEnricher') will handle chunking internally if list is too large.
             const enricherResult = await this.executeTask('foodEnricher', enricherFeedback, allScoutCandidates); 
             
             let finalCandidates: any[] = [];
@@ -291,7 +289,8 @@ export const TripOrchestrator = {
             totalItems = raw.length; 
         }
         else if (task === 'chefPlaner') totalItems = project.userInputs.dates.fixedEvents?.length || 0;
-        else if (['basis', 'sightCollector'].includes(task)) totalItems = project.userInputs.selectedInterests.length;
+        // FIX: Removed invalid 'sightCollector' check
+        else if (task === 'basis') totalItems = project.userInputs.selectedInterests.length;
         else if (['dayplan', 'initialTagesplaner'].includes(task)) totalItems = project.userInputs.dates.duration || 1;
         else if (['infos', 'infoAutor'].includes(task)) {
             const appendixInterests = project.userInputs.selectedInterests.filter(id => APPENDIX_ONLY_INTERESTS.includes(id));
