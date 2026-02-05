@@ -1,6 +1,6 @@
 // 05.02.2026 14:15 - FIX: ROUNDTRIP SUPPORT.
-// - Now collects ALL stops for roundtrips (Start, Stops, End).
-// - Prioritizes RouteArchitect stages if available.
+// 07.02.2026 12:00 - FIX: SUPPORT 'mobil' MODE ALIAS.
+// - Fixed GeoExpander failing for roundtrips because it missed the 'mobil' mode key.
 // src/core/prompts/preparers/prepareGeoExpanderPayload.ts
 
 import type { TripProject } from '../../types';
@@ -33,8 +33,8 @@ export const prepareGeoExpanderPayload = (
             if (log.mode === 'stationaer' && log.stationary?.destination) {
                 center = log.stationary.destination;
             } 
-            // CASE B: ROUNDTRIP (FIX: Collect ALL Stations)
-            else if (log.mode === 'roundtrip') {
+            // CASE B: ROUNDTRIP (FIX: Support 'mobil' alias used in UI)
+            else if (log.mode === 'roundtrip' || log.mode === 'mobil') {
                 // Option 1: Use calculated route stages (Most Accurate)
                 if (analysis?.routeArchitect?.routes?.[0]?.stages) {
                     const stages = analysis.routeArchitect.routes[0].stages;
