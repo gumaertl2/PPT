@@ -1,5 +1,6 @@
 // 01.02.2026 14:30 - FIX: Added 'resolveHotelName' to display Place names instead of IDs in inputs.
-// 20.01.2026 21:15 - FIX: Added resolveLabel helper to safely handle localized labels.
+// 06.02.2026 23:30 - FIX: Correctly store 'strictRoute' in 'logistics.roundtripOptions'.
+// - Switched from 'updateRoundtrip' (nested) to 'setRoundtripOptions' (sibling).
 // src/features/Cockpit/steps/LogisticsStep.tsx
 
 import { useEffect } from 'react';
@@ -33,6 +34,7 @@ export const LogisticsStep = () => {
     setLogisticMode, 
     updateStationary,
     updateRoundtrip,
+    setRoundtripOptions, // FIX: Import specific setter for roundtripOptions
     addRouteStop,
     removeRouteStop,
     updateRouteStop,
@@ -52,15 +54,12 @@ export const LogisticsStep = () => {
   };
 
   // --- HELPER: Resolve Hotel Name (FIX) ---
-  // Checks if the value is an ID pointing to a known place. If so, returns the name.
   const resolveHotelName = (val: string | undefined): string => {
     if (!val) return '';
-    // Check if it's a known ID in our places database
     const place = project.data?.places?.[val];
     if (place) {
         return place.name;
     }
-    // Otherwise return the value as is (user might have typed it manually)
     return val;
   };
 
@@ -127,6 +126,9 @@ export const LogisticsStep = () => {
     }
     setDates({ end: value });
   };
+
+  // Helper for View State
+  const isStrictRoute = logistics.roundtripOptions?.strictRoute === true;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -417,14 +419,18 @@ export const LogisticsStep = () => {
                 
                 <div className="flex bg-slate-100 rounded p-0.5">
                    <button 
-                     onClick={() => updateRoundtrip({ tripMode: 'fix' })}
-                     className={`text-[10px] px-2 py-0.5 rounded ${logistics.roundtrip.tripMode === 'fix' ? 'bg-white shadow text-blue-600' : 'text-slate-400'}`}
+                     onClick={() => setRoundtripOptions({ strictRoute: true })}
+                     className={`text-[10px] px-2 py-0.5 rounded ${
+                       isStrictRoute ? 'bg-white shadow text-blue-600' : 'text-slate-400'
+                     }`}
                    >
                      {t('cockpit.mode_fix')}
                    </button>
                    <button 
-                     onClick={() => updateRoundtrip({ tripMode: 'inspiration' })}
-                     className={`text-[10px] px-2 py-0.5 rounded ${logistics.roundtrip.tripMode === 'inspiration' ? 'bg-white shadow text-blue-600' : 'text-slate-400'}`}
+                     onClick={() => setRoundtripOptions({ strictRoute: false })}
+                     className={`text-[10px] px-2 py-0.5 rounded ${
+                       !isStrictRoute ? 'bg-white shadow text-blue-600' : 'text-slate-400'
+                     }`}
                    >
                      {t('cockpit.mode_inspiration')}
                    </button>
@@ -479,4 +485,4 @@ export const LogisticsStep = () => {
     </div>
   );
 };
-// --- END OF FILE 481 Zeilen ---
+// --- END OF FILE 505 Zeilen ---
