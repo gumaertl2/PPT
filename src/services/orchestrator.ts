@@ -1,6 +1,7 @@
 // 06.02.2026 10:00 - FIX: RESTORED COUNTRY SCOUT PIPELINE.
-// 07.02.2026 10:30 - FIX: ASYNC STORE RACE CONDITION.
-// - Added delay after processing results to ensure Store updates before next task reads data.
+// 07.02.2026 11:00 - FIX: SEQUENTIAL FOOD SCOUTING & SAFETY DELAYS.
+// - Implemented town-by-town loop for FoodScout to handle complex roundtrips.
+// - Added safetyDelay to prevent Store Race Conditions (Basis -> Anreicherer).
 // src/services/orchestrator.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -177,18 +178,18 @@ export const TripOrchestrator = {
 
     // --- FOOD PIPELINE (V40.5) ---
     if (task === 'foodScout' || task === 'food') {
-        // ... (Existing Food Logic kept intact) ...
         console.log(`[Orchestrator] Detected Food Task. Starting INVERTED SEARCH PIPELINE V40.5`);
         try {
-            store.setChunkingState({ isActive: true, currentChunk: 0, totalChunks: 3, results: [] });
+            // Setup Progress
+            store.setChunkingState({ isActive: true, currentChunk: 0, totalChunks: 4, results: [] });
             
             const targetLoc = store.project.userInputs.logistics.target_countries?.[0] 
                               || store.project.userInputs.logistics.stationary?.destination 
                               || "Europe";
             
+            // PHASE 0: GUIDES
             const existingGuides = getGuidesForCountry(targetLoc);
             let dynamicGuides = "";
-
             if (!existingGuides || existingGuides.length === 0) {
                  try {
                      const scoutResult = await this._executeSingleStep('countryScout', undefined, false, { country: targetLoc });
@@ -198,23 +199,53 @@ export const TripOrchestrator = {
                  } catch (e) { console.warn("CountryScout failed", e); }
             }
 
+            // PHASE 1: GEO
             let townList: string[] = [];
             const geoResult = await this._executeSingleStep('geoExpander', feedback, true);
             if (geoResult && Array.isArray(geoResult.candidates)) townList = geoResult.candidates;
             else if (Array.isArray(geoResult)) townList = geoResult;
 
-            store.setChunkingState({ currentChunk: 1 });
-            const scoutResult = await this._executeSingleStep('foodScout', feedback, true, townList); 
-            let candidates = scoutResult.candidates || [];
-            candidates = candidates.map((c: any) => ({ ...c, id: c.id || uuidv4() }));
+            // FIX: SEQUENTIAL SCOUTING (PHASE 2)
+            // Instead of one big call, we loop through towns to prevent data loss.
+            console.log(`[Orchestrator] Starting Sequential Food Scouting for ${townList.length} towns...`);
+            let allScoutCandidates: any[] = [];
+            
+            // Re-calc chunks: Towns + 1 (Enricher)
+            const totalSteps = townList.length + 1;
+            
+            for (let i = 0; i < townList.length; i++) {
+                const town = townList[i];
+                store.setChunkingState({ isActive: true, currentChunk: i + 1, totalChunks: totalSteps });
+                console.log(`[Orchestrator] FoodScout Scanning Town ${i+1}/${townList.length}: ${town}`);
+                
+                try {
+                    // Call Scout for SINGLE town
+                    const stepResult = await this._executeSingleStep('foodScout', feedback, true, [town]);
+                    if (stepResult && Array.isArray(stepResult.candidates)) {
+                        const tagged = stepResult.candidates.map((c: any) => ({
+                            ...c,
+                            city: town,
+                            id: c.id || uuidv4()
+                        }));
+                        allScoutCandidates.push(...tagged);
+                    }
+                    await safetyDelay(500); // Breathe
+                } catch (e) {
+                    console.warn(`[Orchestrator] Failed to scout food for ${town}`, e);
+                }
+            }
 
-            if (candidates.length === 0) return;
+            if (allScoutCandidates.length === 0) return;
 
-            store.setChunkingState({ currentChunk: 2 });
+            // PHASE 3: ENRICHER (Bulk/Chunked)
+            store.setChunkingState({ isActive: true, currentChunk: totalSteps, totalChunks: totalSteps });
+            console.log(`[Orchestrator] Sending ${allScoutCandidates.length} candidates to Auditor...`);
+
             let enricherFeedback = feedback || "";
             if (dynamicGuides) enricherFeedback = enricherFeedback ? `${enricherFeedback}|GUIDES:${dynamicGuides}` : `GUIDES:${dynamicGuides}`;
 
-            const enricherResult = await this.executeTask('foodEnricher', enricherFeedback, candidates); 
+            // Pass ALL candidates. executeTask('foodEnricher') will handle chunking internally if list is too large.
+            const enricherResult = await this.executeTask('foodEnricher', enricherFeedback, allScoutCandidates); 
             
             let finalCandidates: any[] = [];
             if (enricherResult.enriched_candidates) finalCandidates = enricherResult.enriched_candidates;
@@ -225,6 +256,7 @@ export const TripOrchestrator = {
             let validCandidates = finalCandidates.filter((c: any) => c.verification_status !== 'rejected');
             validCandidates = validCandidates.map((c: any) => ({ ...c, id: c.id || uuidv4() }));
             return { candidates: validCandidates };
+
         } catch (err) {
             console.error("[Orchestrator] Food Sequence Failed", err);
             throw err;
@@ -248,7 +280,6 @@ export const TripOrchestrator = {
             if (inputData && Array.isArray(inputData) && inputData.length > 0) {
                 totalItems = inputData.length;
             } else {
-                // FIX: Log what we are looking for
                 const places = project.data.places || {};
                 const keys = Object.keys(places);
                 console.log(`[Orchestrator] ${task}: Found ${keys.length} places in store.`);
@@ -295,4 +326,4 @@ export const TripOrchestrator = {
     return this._executeSingleStep(task, feedback, false, inputData);
   }
 };
-// --- END OF FILE 485 Zeilen ---
+// --- END OF FILE 505 Zeilen ---
