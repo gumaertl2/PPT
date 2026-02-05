@@ -1,10 +1,9 @@
-// 06.02.2026 19:15 - FIX: VERCEL BUILD ERRORS (UNUSED PROPS).
-// - Removed unused 'Star' import.
-// - Removed unused props (rating, userRatingsTotal, displayCategory, onToggleSelection) from interface & destructuring.
+// 06.02.2026 22:30 - FIX: ROBUST FOOD CATEGORY DETECTION.
+// - Fixed bug where 'Restaurant' (capitalized) was not recognized as locked category.
+// - Check is now case-insensitive.
 // src/features/Cockpit/SightCard/SightCardMeta.tsx
 
 import React from 'react';
-// FIX: Removed 'Star' from imports
 import { Sun, CloudRain, CreditCard, ExternalLink, Check, BookOpen, Globe, Search, Map as MapIcon, Sparkles } from 'lucide-react';
 import { VALID_POI_CATEGORIES, INTEREST_DATA } from '../../../data/interests';
 
@@ -14,7 +13,6 @@ interface SightCardMetaProps {
   customDuration: number;
   isSpecial: boolean;
   specialType: string;
-  // Removed rating, userRatingsTotal, displayCategory as they are shown in Body now
   isHotel: boolean;
   priceEstimate: string | null;
   bookingUrl: string | null;
@@ -26,7 +24,6 @@ interface SightCardMetaProps {
   onHotelSelect: (e: React.MouseEvent) => void;
   onShowMap: (e: React.MouseEvent) => void;
   ensureAbsoluteUrl: (url: string | undefined) => string | undefined;
-  // Removed onToggleSelection as only Hotels are selectable here
   t: any;
 }
 
@@ -36,7 +33,6 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
   customDuration,
   isSpecial,
   specialType,
-  // Removed destructured rating, userRatingsTotal, displayCategory
   isHotel,
   priceEstimate,
   bookingUrl,
@@ -48,27 +44,23 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
   onHotelSelect,
   onShowMap,
   ensureAbsoluteUrl,
-  // Removed onToggleSelection
   t
 }) => {
 
-  // SMART LINK LOGIC: Name + City + Awards
+  // SMART LINK LOGIC
   const getGoogleSearchQuery = () => {
     const name = data.name || data.official_name || data.name_official || '';
     const city = data.city || '';
-    
-    // Awards handling (Array or String)
     let awardsStr = "";
     if (Array.isArray(data.awards)) {
         awardsStr = data.awards.join(' ');
     } else if (typeof data.awards === 'string') {
         awardsStr = data.awards;
     }
-
     return `${name} ${city} ${awardsStr}`.trim();
   };
 
-  // HELPER: Render Special Badge (Original Logic restored)
+  // HELPER: Render Special Badge (Static)
   const renderSpecialBadge = () => {
       if (specialType === 'wildcard') {
           return (
@@ -86,7 +78,6 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
               </div>
           );
       }
-      // Default: Rainy
       return (
           <div className="flex items-center gap-1 font-bold text-blue-600">
               <CloudRain className="w-3.5 h-3.5" />
@@ -95,33 +86,65 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
       );
   };
 
-  // Resolve Guide Link: Prefer explicit 'guide_link', fallback to 'source_url' for non-hotels
+  // HELPER: Check for Food/Restaurant Category (Case-Insensitive Fix)
+  const isFood = 
+    (customCategory && ['food', 'restaurant'].includes(customCategory.toLowerCase())) || 
+    (data.category && ['food', 'restaurant'].includes(data.category.toLowerCase()));
+
+  // HELPER: Render Category Logic
+  const renderCategory = () => {
+      // 1. Special Days (Static)
+      if (isSpecial) return renderSpecialBadge();
+
+      // 2. Hotel (Static - Locked)
+      if (isHotel) {
+          return (
+            <div className="flex items-center gap-1 text-emerald-700 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span>Hotel</span>
+            </div>
+          );
+      }
+
+      // 3. Restaurant (Static - Locked)
+      if (isFood) {
+          return (
+            <div className="flex items-center gap-1 text-orange-700 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+                <span>Restaurant</span>
+            </div>
+          );
+      }
+
+      // 4. Default: Editable Dropdown for Sights
+      return (
+        <div className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+            <select 
+                value={customCategory} 
+                onChange={(e) => { e.stopPropagation(); onCategoryChange(e); }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-transparent border-none p-0 text-xs font-medium text-gray-600 focus:ring-0 cursor-pointer hover:text-indigo-600 truncate max-w-[120px]"
+            >
+                {VALID_POI_CATEGORIES.map(cat => (
+                <option key={cat} value={cat}>
+                    {(INTEREST_DATA as any)[cat]?.label?.[t('lang', { defaultValue: 'de' })] || cat}
+                </option>
+                ))}
+                <option value="custom">{t('categories.other', { defaultValue: 'Sonstiges' })}</option>
+            </select>
+        </div>
+      );
+  };
+
+  // Resolve Guide Link
   const guideLink = data.guide_link || (!isHotel ? sourceUrl : null);
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 mb-1">
         
-        {/* CATEGORY OR SPECIAL BADGE */}
-        {isSpecial ? (
-            renderSpecialBadge()
-        ) : (
-            <div className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-                <select 
-                    value={customCategory} 
-                    onChange={(e) => { e.stopPropagation(); onCategoryChange(e); }}
-                    onClick={(e) => e.stopPropagation()}
-                    className="bg-transparent border-none p-0 text-xs font-medium text-gray-600 focus:ring-0 cursor-pointer hover:text-indigo-600 truncate max-w-[120px]"
-                >
-                    {VALID_POI_CATEGORIES.map(cat => (
-                    <option key={cat} value={cat}>
-                        {(INTEREST_DATA as any)[cat]?.label?.[t('lang', { defaultValue: 'de' })] || cat}
-                    </option>
-                    ))}
-                    <option value="custom">{t('categories.other', { defaultValue: 'Sonstiges' })}</option>
-                </select>
-            </div>
-        )}
+        {/* CATEGORY SECTION (Now handles Locked vs Editable) */}
+        {renderCategory()}
 
         {/* Duration Input */}
         <div className="flex items-center gap-1" title={t('sights.duration_hint', { defaultValue: 'Dauer in Stunden' })}>
@@ -234,4 +257,4 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
     </div>
   );
 };
-// --- END OF FILE 160 Zeilen ---
+// --- END OF FILE 183 Zeilen ---

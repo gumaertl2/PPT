@@ -1,16 +1,15 @@
-// 06.02.2026 19:30 - FIX: TYPESCRIPT CLEANUP & LIVE DATA.
-// - Removed props passed to Meta that are no longer in its interface (onToggleSelection, rating, etc.).
-// - Connected to Store (SSOT) via 'livePlace'.
-// 06.02.2026 17:30 - FIX: RESTORED INDEX LAYOUT.
+// 06.02.2026 21:30 - FIX: REMOVE DEAD CODE (Vercel Cleanup).
+// - Removed unused 'resolveCategoryLabel' function.
+// - Removed unused imports (INTEREST_DATA, LanguageCode) and 'i18n'.
 // src/features/Cockpit/SightCard/index.tsx
 
 import React, { useState, useEffect, useRef } from 'react'; 
 import { useTripStore } from '../../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
-import { INTEREST_DATA } from '../../../data/interests'; 
-import type { LanguageCode } from '../../../core/types';
+// FIX: Removed unused imports
+// import { INTEREST_DATA } from '../../../data/interests'; 
+// import type { LanguageCode } from '../../../core/types';
 import { Database, Trash2, Plus, Minus, X } from 'lucide-react';
-// ADDED: Import Orchestrator for regeneration
 import { TripOrchestrator } from '../../../services/orchestrator';
 
 import { SightCardHeader } from './SightCardHeader';
@@ -28,7 +27,8 @@ const VIEW_LEVELS = ['kompakt', 'standard', 'details'] as const;
 type ViewLevel = typeof VIEW_LEVELS[number];
 
 export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selection', showPriorityControls = true }) => {
-  const { t, i18n } = useTranslation(); 
+  // FIX: Removed 'i18n' as it was only used in the deleted function
+  const { t } = useTranslation(); 
   
   // FIX: Fetch live data from store if available to avoid stale props
   const livePlace = useTripStore(s => (id && s.project?.data?.places?.[id]) ? s.project.data.places[id] : null);
@@ -47,7 +47,6 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   const isDetailed = viewLevel === 'details';
   const currentLevelIndex = VIEW_LEVELS.indexOf(viewLevel);
   const [showDebug, setShowDebug] = useState(false);
-  // ADDED: State for regeneration
   const [isRegenerating, setIsRegenerating] = useState(false);
 
   // Derivation of Values (Using activeData)
@@ -57,13 +56,12 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   const userSelection = activeData.userSelection || {};
   const priority = userSelection.priority ?? 0; 
   
-  // NEW: Calculate Selection State from Logistics (SSOT)
+  // Selection State from Logistics (SSOT)
   const isSelectedInLogistics = () => {
       const logistics = project.userInputs.logistics;
       if (logistics.mode === 'stationaer') {
           return logistics.stationary.hotel === id;
       } else {
-          // Check all stops
           return logistics.roundtrip.stops?.some((s: any) => s.hotel === id);
       }
   };
@@ -74,13 +72,10 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     assignHotelToLogistics(id);
   };
 
-  // --- Handlers & Helpers ---
-
-  // ADDED: Handler for single item regeneration
+  // Handler for single item regeneration
   const handleRegenerate = async () => {
       setIsRegenerating(true);
       try {
-          // Trigger Orchestrator for THIS single ID only
           await TripOrchestrator.executeTask('details', undefined, [activeData]);
       } catch (error) {
           console.error("Regeneration failed:", error);
@@ -109,16 +104,7 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     );
   };
 
-  const resolveCategoryLabel = (catId: string): string => {
-    if (!catId) return "Allgemein";
-    const currentLang = i18n.language.substring(0, 2) as LanguageCode;
-    // RESTORED ORIGINAL ACCESS (Dictionary Style)
-    const def = (INTEREST_DATA as any)[catId]; 
-    if (def && def.label) {
-        return (def.label as any)[currentLang] || (def.label as any)['de'] || catId;
-    }
-    return catId.charAt(0).toUpperCase() + catId.slice(1).replace(/_/g, ' ');
-  };
+  // FIX: REMOVED resolveCategoryLabel() - Dead Code
 
   const ensureAbsoluteUrl = (url: string | undefined): string | undefined => {
       if (!url) return undefined;
@@ -249,7 +235,6 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
             renderViewControls={renderViewControls} 
         />
         
-        {/* META: Passing live activeData. Removed unused props: rating, userRatingsTotal, displayCategory, onToggleSelection */}
         <SightCardMeta 
             data={activeData}
             customCategory={userSelection.customCategory || category}
@@ -307,4 +292,4 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     </>
   );
 };
-// --- END OF FILE 259 Zeilen ---
+// --- END OF FILE 253 Zeilen ---
