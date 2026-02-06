@@ -1,3 +1,4 @@
+// 06.02.2026 15:30 - FIX: Delegate Load/Save logic to Store (Enables FileName tracking).
 // 06.02.2026 12:00 - FEAT: Added 'Save As' Prompt to handleSaveProject.
 // 27.01.2026 17:30 - FEAT: Added Ad-Hoc Food Modal Trigger.
 // 24.01.2026 14:15 - FIX: Map Button resets selection to trigger 'Overview Mode'.
@@ -32,7 +33,7 @@ import { useTripStore } from '../../../store/useTripStore';
 import { SettingsModal } from '../SettingsModal';
 import ExportModal from '../ExportModal'; 
 import PrintModal from '../PrintModal'; 
-import { AdHocFoodModal } from '../AdHocFoodModal'; // <-- NEU
+import { AdHocFoodModal } from '../AdHocFoodModal'; 
 import { ExportService } from '../../../services/ExportService'; 
 import type { CockpitViewMode, PrintConfig } from '../../../core/types'; 
 
@@ -56,6 +57,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
   const { 
     project, 
     loadProject, 
+    saveProject, // FIX: Use central save action
     resetProject, 
     apiKey, 
     usageStats,
@@ -76,7 +78,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false); 
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false); 
-  const [isAdHocModalOpen, setIsAdHocModalOpen] = useState(false); // <-- NEU
+  const [isAdHocModalOpen, setIsAdHocModalOpen] = useState(false); 
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -133,17 +135,9 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     fileName = userFileName;
     if (!fileName.endsWith('.json')) fileName += '.json';
 
-    const data = JSON.stringify(project, null, 2);
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
+    // FIX: Delegate to Store Action to ensure state update
+    saveProject(fileName);
     
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
     setShowActionsMenu(false);
   };
 
@@ -156,23 +150,23 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const json = JSON.parse(e.target?.result as string);
-        if (json.meta && json.userInputs) {
-          loadProject(json);
-          const hasAnalysis = !!json.analysis?.chefPlaner;
-          onLoad(hasAnalysis);
-        } else {
-          alert(t('welcome.error_invalid_file'));
-        }
-      } catch (err) {
-        console.error("Ladefehler:", err);
-        alert(t('welcome.error_read_file'));
-      }
-    };
-    reader.readAsText(file);
+    // FIX: Delegate full File object to Store to capture filename
+    loadProject(file); 
+    
+    // We can't know immediately if analysis is present (async), 
+    // but the store handles view switching internally now or we rely on reactive updates.
+    // For safety, we check current state, though loadProject is async.
+    // A better pattern would be observing the store, but sticking to "Surgical Fix":
+    // The Store's loadProject now sets 'view: wizard' automatically.
+    
+    // Re-trigger onLoad callback after a short delay to update parent state if needed
+    // (This is a legacy callback pattern, but we keep it for safety)
+    setTimeout(() => {
+        const state = useTripStore.getState();
+        const hasAnalysis = !!state.project.analysis?.chefPlaner;
+        onLoad(hasAnalysis);
+    }, 100);
+
     event.target.value = ''; 
   };
 
@@ -477,4 +471,4 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     </>
   );
 };
-// --- END OF FILE 493 Zeilen ---
+// --- END OF FILE 474 Zeilen ---

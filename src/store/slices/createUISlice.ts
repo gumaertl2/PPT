@@ -1,3 +1,4 @@
+// 06.02.2026 15:10 - FEAT: Added 'currentFileName' to UIState.
 // 29.01.2026 12:45 - FIX: Added 'selectedCategory' and 'selectedPrio' to UIState to resolve Vercel TS2339 build error.
 // 23.01.2026 18:45 - FIX: Moved print states to UIState for setUIState compatibility (192 lines).
 // src/store/slices/createUISlice.ts
@@ -37,6 +38,7 @@ export interface UIState {
   // FIX: Moved here for setUIState compatibility (resolves TS2353)
   isPrintMode: boolean;
   printConfig: PrintConfig | null;
+  currentFileName: string | null; // <-- NEU
 }
 
 export type AppView = 'welcome' | 'wizard' | 'results' | 'analysis_review';
@@ -96,7 +98,8 @@ const initialUIState: UIState = {
   sortMode: 'category',
   selectedPlaceId: null,
   isPrintMode: false,
-  printConfig: null
+  printConfig: null,
+  currentFileName: null // <-- NEU
 };
 
 export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => ({
@@ -202,4 +205,4 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
     notifications: state.notifications.map((n: AppNotification) => n.id === id ? { ...n, ...updates } : n)
   }))
 });
-// --- END OF FILE 196 Zeilen ---
+// --- END OF FILE 198 Zeilen ---

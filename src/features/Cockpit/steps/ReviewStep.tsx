@@ -1,3 +1,4 @@
+// 06.02.2026 15:20 - FEAT: Display currentFileName in Review Step.
 // 20.01.2026 21:10 - FIX: Robust resolveLabel and Safety Checks for missing data.
 // src/features/Cockpit/steps/ReviewStep.tsx
 
@@ -31,7 +32,7 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
   
-  const { project } = useTripStore();
+  const { project, uiState } = useTripStore(); // FIX: Added uiState access
   const { userInputs } = project;
   const { logistics, travelers, dates, selectedInterests, notes, customPreferences, pace, budget, vibe, strategyId, aiOutputLanguage } = userInputs;
 
@@ -247,6 +248,16 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
             icon={FileText}
             isValid={true}
           >
+            {/* NEW: Show Filename if available */}
+            {uiState.currentFileName && (
+                <div className="mb-4 pb-4 border-b border-slate-100">
+                   <InfoRow 
+                     label={t('review.label_filename', 'Dateiname')} 
+                     value={uiState.currentFileName} 
+                   />
+                </div>
+            )}
+            
             <div className="mb-4 pb-4 border-b border-slate-100">
                <InfoRow 
                  label={t('misc.output_lang_label', 'Sprache für den KI-Reiseplan')} 
@@ -270,4 +281,4 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
     </div>
   );
 };
-// --- END OF FILE 250 Zeilen ---
+// --- END OF FILE 266 Zeilen ---

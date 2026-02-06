@@ -1,3 +1,4 @@
+// 06.02.2026 15:15 - FEAT: Updates 'currentFileName' in UIState on Load/Save.
 // 06.02.2026 12:05 - FEAT: Updated saveProject to accept optional fileName.
 // 05.02.2026 18:00 - REFACTOR: PROJECT CORE SLICE.
 // - Reduced to Core Project IO (Load/Save/Reset).
@@ -98,6 +99,7 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
   loadProject: async (fileOrProject) => {
     try {
       let data: any;
+      let filenameToSet: string | null = null;
 
       if (
         fileOrProject && 
@@ -108,6 +110,7 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
           data = fileOrProject;
       } 
       else if (fileOrProject instanceof File) {
+          filenameToSet = fileOrProject.name; // <-- Capture Filename
           const text = await new Promise<string>((resolve, reject) => {
              const reader = new FileReader();
              reader.onload = (e) => resolve(e.target?.result as string);
@@ -127,6 +130,11 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
         },
         view: 'wizard' 
       }));
+
+      // Set filename in UI State if available
+      if (filenameToSet && get().setUIState) {
+        get().setUIState({ currentFileName: filenameToSet });
+      }
 
       if (get().addNotification) {
         get().addNotification({ type: 'success', message: 'Projekt geladen.' });
@@ -165,6 +173,11 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
         fileName = `${safeName}_${new Date().toISOString().slice(0,10)}.json`;
     }
     
+    // Set filename in UI State
+    if (get().setUIState) {
+        get().setUIState({ currentFileName: fileName });
+    }
+    
     const blob = new Blob([projectData], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -180,10 +193,17 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     }
   },
 
-  resetProject: () => set({ project: createInitialProject(), view: 'welcome', blockingError: null }),
+  resetProject: () => {
+    // Reset Project AND Filename
+    const { setUIState } = get();
+    if (setUIState) {
+        setUIState({ currentFileName: null });
+    }
+    set({ project: createInitialProject(), view: 'welcome', blockingError: null });
+  },
 
   setLanguage: (lang) => set((state: any) => ({
     project: { ...state.project, meta: { ...state.project.meta, language: lang } }
   })),
 });
-// --- END OF FILE 142 Zeilen ---
+// --- END OF FILE 164 Zeilen ---
