@@ -1,6 +1,5 @@
+// 06.02.2026 21:40 - FIX: Strict null check for href compatibility.
 // 06.02.2026 21:00 - FIX: Google Maps Link now uses 'generateGoogleMapsRouteUrl' with country context.
-// 06.02.2026 20:45 - FIX: Compact Route Layout & Corrected Maps Link.
-// 06.02.2026 20:30 - FIX: Allow 'mobil' mode to trigger Route Block (Legacy compatibility).
 // src/features/Cockpit/PlanView.tsx
 
 import React, { useMemo } from 'react';
@@ -26,7 +25,6 @@ import {
   PACE_OPTIONS,
   INTEREST_DATA
 } from '../../data/staticData';
-// FIX: Import the utility to ensure consistent link generation with RouteReviewView
 import { generateGoogleMapsRouteUrl } from './utils';
 
 export const PlanView: React.FC = () => {
@@ -206,22 +204,27 @@ export const PlanView: React.FC = () => {
     const stops = roundtrip.stops || [];
 
     // CORRECTED MAPS LINK GENERATION
-    const generateMapsLink = () => {
+    // FIX: Explicit return type to avoid 'string | null' vs 'string | undefined' issues
+    const generateMapsLink = (): string | undefined => {
        // 1. Prefer existing link from analysis
-       if (routeAnalysis?.googleMapsLink) return routeAnalysis.googleMapsLink;
+       if (routeAnalysis?.googleMapsLink) {
+           return routeAnalysis.googleMapsLink;
+       }
        
-       // 2. Fallback: Use utility with Context to prevent Ambiguity
+       // 2. Fallback: Use utility with Context
        const locations = [
            roundtrip.startLocation,
            ...stops.map(s => s.name || s.location),
            roundtrip.endLocation
        ].filter(Boolean) as string[];
 
-       // Determine Country Context (same logic as in RouteReviewView)
        const countryContext = logistics.roundtrip.region || (logistics as any).target_countries?.[0] || "";
 
+       // generateGoogleMapsRouteUrl returns string
        return generateGoogleMapsRouteUrl(locations, 'driving', countryContext);
     };
+
+    const mapsLink = generateMapsLink();
 
     return (
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -304,16 +307,18 @@ export const PlanView: React.FC = () => {
 
          {/* MAPS ACTION */}
          <div className="pt-4 border-t border-slate-50 flex justify-center">
-            <a 
-               href={generateMapsLink()} 
-               target="_blank" 
-               rel="noopener noreferrer"
-               className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg group"
-            >
-               <MapIcon size={18} />
-               {t('actions.openMaps', { defaultValue: 'Route auf Google Maps öffnen' })}
-               <ExternalLink size={14} className="opacity-70 group-hover:translate-x-0.5 transition-transform" />
-            </a>
+            {mapsLink && (
+                <a 
+                href={mapsLink} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg group"
+                >
+                <MapIcon size={18} />
+                {t('actions.openMaps', { defaultValue: 'Route auf Google Maps öffnen' })}
+                <ExternalLink size={14} className="opacity-70 group-hover:translate-x-0.5 transition-transform" />
+                </a>
+            )}
          </div>
       </div>
     );
@@ -327,4 +332,4 @@ export const PlanView: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 290 Zeilen ---
+// --- END OF FILE 295 Zeilen ---

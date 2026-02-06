@@ -1,5 +1,5 @@
+// 06.02.2026 21:40 - FIX: Consolidate PrintConfig and ensure Route fields exist.
 // 06.02.2026 21:15 - FIX: Added missing fields for RouteStop and RouteArchitectResult to fix build errors.
-// 06.02.2026 20:50 - FIX: ADDED MISSING PLACE FIELDS.
 // src/core/types/models.ts
 
 import type { LanguageCode } from './shared';
@@ -10,7 +10,7 @@ export interface RouteStop {
   location: string;
   duration: number; 
   hotel?: string;
-  name?: string; // FIX: Added missing property
+  name?: string; // Essential for PlanView
 }
 
 export interface CalendarEvent {
@@ -285,7 +285,7 @@ export interface ChunkingContext {
 export type DetailLevel = 'compact' | 'standard' | 'details';
 
 export interface PrintConfig {
-  detailLevel: DetailLevel; // Essential for PrintModal
+  detailLevel: DetailLevel; 
   sections: {
     briefing: boolean;
     analysis: boolean;
@@ -293,6 +293,9 @@ export interface PrintConfig {
     categories: boolean;
     infos: boolean;
   };
+  // FIX: Added missing properties from earlier versions
+  layout: 'standard' | 'compact';
+  showImages: boolean;
 }
 
 // --- ROOT PROJECT ---
@@ -323,4 +326,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 260 Zeilen ---
+// --- END OF FILE 266 Zeilen ---

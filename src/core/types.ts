@@ -1,5 +1,5 @@
+// 06.02.2026 21:40 - FIX: Removed duplicate PrintConfig to use definition from models.ts.
 // 06.02.2026 19:30 - FEAT: Added 'plan' to CockpitViewMode.
-// 21.01.2026 13:30 - FIX: ProjectCore Types (Barrel File).
 // src/core/types.ts
 
 // --- SHARED TYPES & ENUMS ---
@@ -25,20 +25,7 @@ export * from './types/workflow';
 export * from './types/shared';
 
 // --- COCKPIT TYPES ---
-export type CockpitViewMode = 'wizard' | 'analysis' | 'sights' | 'info' | 'routeArchitect' | 'plan'; // FIX: Added 'plan'
-
-// --- PRINT CONFIG ---
-export interface PrintConfig {
-  sections: {
-    briefing: boolean;
-    analysis: boolean;
-    tours: boolean;
-    categories: boolean;
-    infos: boolean;
-  };
-  layout: 'standard' | 'compact';
-  showImages: boolean;
-}
+export type CockpitViewMode = 'wizard' | 'analysis' | 'sights' | 'info' | 'routeArchitect' | 'plan'; 
 
 // --- PROJECT ROOT ---
 import type { TripProject } from './types/models';
@@ -48,4 +35,4 @@ export interface ProjectState {
   isLoading: boolean;
   error: AppError | null;
 }
-// --- END OF FILE 39 Zeilen ---
+// --- END OF FILE 33 Zeilen ---
