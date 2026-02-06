@@ -1,5 +1,5 @@
+// 06.02.2026 18:25 - FIX: Made 'onNext' optional for PrintReport compatibility (TS2741).
 // 26.01.2026 10:45 - FIX: Sync Suggestion Count to SearchSettings.
-// Ensures the Collector (Basis) receives the value shown in the UI (User Input or Smart Recommendation).
 // src/features/Cockpit/AnalysisReviewView.tsx
 
 import React, { useState, useEffect } from 'react';
@@ -20,7 +20,7 @@ import { useTripStore } from '../../store/useTripStore';
 import { useTripGeneration } from '../../hooks/useTripGeneration';
 
 interface AnalysisReviewViewProps {
-  onNext: () => void;
+  onNext?: () => void; // FIX: Optional for Print Mode
 }
 
 export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }) => {
@@ -230,7 +230,12 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
           type="button" 
           onClick={(e) => {
              e.preventDefault(); 
-             isMobil ? onNext() : setWorkflowModalOpen(true);
+             // FIX: Safety check for optional prop
+             if (isMobil && onNext) {
+                 onNext();
+             } else if (!isMobil) {
+                 setWorkflowModalOpen(true);
+             }
           }}
           className={`w-full group flex items-center justify-center gap-3 p-4 rounded-xl shadow-md hover:shadow-lg hover:scale-[1.01] transition transform ${
              isMobil 
@@ -257,4 +262,4 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
     </div>
   );
 };
-// --- END OF FILE 200 Zeilen ---
+// --- END OF FILE 205 Zeilen ---

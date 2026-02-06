@@ -1,7 +1,6 @@
-// 06.02.2026 15:30 - FIX: Delegate Load/Save logic to Store (Enables FileName tracking).
-// 06.02.2026 12:00 - FEAT: Added 'Save As' Prompt to handleSaveProject.
-// 27.01.2026 17:30 - FEAT: Added Ad-Hoc Food Modal Trigger.
-// 24.01.2026 14:15 - FIX: Map Button resets selection to trigger 'Overview Mode'.
+// 06.02.2026 18:55 - FIX: Added 'await' to loadProject to ensure filename is set before UI updates.
+// 06.02.2026 18:45 - FIX: Pass printConfig to PrintReport and wrap in 'print-only' container.
+// 06.02.2026 18:25 - FIX: Corrected PrintReport import to Named Import (TS2613).
 // src/features/Cockpit/Layout/CockpitHeader.tsx
 
 import React, { useState, useRef } from 'react';
@@ -57,7 +56,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
   const { 
     project, 
     loadProject, 
-    saveProject, // FIX: Use central save action
+    saveProject,
     resetProject, 
     apiKey, 
     usageStats,
@@ -135,7 +134,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     fileName = userFileName;
     if (!fileName.endsWith('.json')) fileName += '.json';
 
-    // FIX: Delegate to Store Action to ensure state update
+    // Delegate to Store Action
     saveProject(fileName);
     
     setShowActionsMenu(false);
@@ -146,26 +145,23 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     setShowActionsMenu(false);
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // FIX: Async handler to wait for file loading
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // FIX: Delegate full File object to Store to capture filename
-    loadProject(file); 
-    
-    // We can't know immediately if analysis is present (async), 
-    // but the store handles view switching internally now or we rely on reactive updates.
-    // For safety, we check current state, though loadProject is async.
-    // A better pattern would be observing the store, but sticking to "Surgical Fix":
-    // The Store's loadProject now sets 'view: wizard' automatically.
-    
-    // Re-trigger onLoad callback after a short delay to update parent state if needed
-    // (This is a legacy callback pattern, but we keep it for safety)
-    setTimeout(() => {
+    try {
+        // FIX: await ensures store is updated (including filename) BEFORE we proceed
+        await loadProject(file); 
+        
+        // Check state immediately after await
         const state = useTripStore.getState();
         const hasAnalysis = !!state.project.analysis?.chefPlaner;
         onLoad(hasAnalysis);
-    }, 100);
+    } catch (e) {
+        console.error("File load failed", e);
+        alert(t('welcome.error_read_file'));
+    }
 
     event.target.value = ''; 
   };
@@ -180,7 +176,15 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
 
   const handlePrintConfirm = (config: PrintConfig) => {
     setIsPrintModalOpen(false);
-    ExportService.triggerPrint(config);
+    // Write config to store so PrintReport component picks it up
+    setUIState({ printConfig: config });
+    
+    // Slight delay to allow render, then print
+    setTimeout(() => {
+        window.print();
+        // Optional: clear config after print if desired, but keeping it allows re-print
+        // setUIState({ printConfig: null }); 
+    }, 500);
   };
 
   const renderAutoManualButton = () => {
@@ -471,4 +475,4 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     </>
   );
 };
-// --- END OF FILE 474 Zeilen ---
+// --- END OF FILE 481 Zeilen ---

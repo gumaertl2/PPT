@@ -1,12 +1,10 @@
+// 06.02.2026 18:40 - FIX: Added Safety Check for 'config' to prevent Runtime Crash.
 // 06.02.2026 18:05 - FIX: Reverted BriefingView import to Named Import.
-// 06.02.2026 17:40 - FIX: Corrected BriefingView import (Default Export). Added FileName to Header.
-// 06.02.2026 17:25 - FIX: Implemented correct Print Sections (Tours, Categories, Route).
-// 23.01.2026 18:45 - FEAT: Added PrintReport component for WYSIWYG printing.
 // src/features/Cockpit/PrintReport.tsx
 
 import React from 'react';
 import { useTripStore } from '../../store/useTripStore';
-// FIX: Changed back to named import to match BriefingView update
+// FIX: Named import ensures compatibility
 import { BriefingView } from './BriefingView'; 
 import { AnalysisReviewView } from './AnalysisReviewView';
 import { RouteReviewView } from './RouteReviewView';
@@ -21,9 +19,11 @@ interface PrintReportProps {
 
 export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
   const { t } = useTranslation();
-  // FEAT: Added uiState to access currentFileName
   const { project, uiState } = useTripStore();
   const { logistics } = project.userInputs;
+
+  // SAFETY GUARD: Prevent crash if config is missing (Fixes TypeError: config is undefined)
+  if (!config) return null;
 
   // Helper für saubere Seitenumbrüche
   const PageBreak = () => <div className="break-before-page" style={{ pageBreakBefore: 'always' }} />;
@@ -43,7 +43,7 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
          <p className="text-slate-500 uppercase tracking-widest text-sm">
             {new Date().toLocaleDateString()} • Papatours V40
          </p>
-         {/* NEW: Show Filename if available */}
+         {/* Show Filename if available */}
          {uiState.currentFileName && (
              <p className="text-xs text-slate-400 mt-1 font-mono">
                 Datei: {uiState.currentFileName}
@@ -123,4 +123,4 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
     </div>
   );
 };
-// --- END OF FILE 115 Zeilen ---
+// --- END OF FILE 119 Zeilen ---

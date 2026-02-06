@@ -1,23 +1,24 @@
+// 06.02.2026 18:45 - FIX: Pass printConfig to PrintReport and wrap in 'print-only' container.
+// 06.02.2026 18:25 - FIX: Corrected PrintReport import to Named Import (TS2613).
 // 23.01.2026 15:55 - FIX: Integrated PrintReport for multi-page WYSIWYG printing.
-// 21.01.2026 13:30 - FIX: Verified import type for CockpitViewMode (Zero-Error Check).
 // src/features/Cockpit/CockpitWizard.tsx
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTripStore } from '../../store/useTripStore'; 
 import { useTripGeneration } from '../../hooks/useTripGeneration';
-import type { WorkflowStepId, CockpitViewMode } from '../../core/types'; // FIX: import type used
+import type { WorkflowStepId, CockpitViewMode } from '../../core/types'; 
 
 // Components
 import { AnalysisReviewView } from './AnalysisReviewView';
 import { RouteReviewView } from './RouteReviewView';
 import { SightsView } from './SightsView';
-import { InfoView } from '../info/InfoView'; // NEW IMPORT
+import { InfoView } from '../info/InfoView'; 
 import { ConfirmModal } from './ConfirmModal';
 import { InfoModal } from '../Welcome/InfoModal';
 import { ManualPromptModal } from './ManualPromptModal'; 
 import { WorkflowSelectionModal } from '../Workflow/WorkflowSelectionModal';
-import PrintReport from './PrintReport'; // FIX: Surgical addition for printing
+import { PrintReport } from './PrintReport'; 
 
 // Layout Components
 import { CockpitHeader } from './Layout/CockpitHeader'; 
@@ -54,7 +55,8 @@ export const CockpitWizard = () => {
       project, 
       setView, 
       isWorkflowModalOpen, 
-      setWorkflowModalOpen 
+      setWorkflowModalOpen,
+      uiState // FIX: Added uiState to access printConfig
   } = useTripStore(); 
   
   const { userInputs } = project;
@@ -70,7 +72,6 @@ export const CockpitWizard = () => {
   } = useTripGeneration();
 
   // Local State
-  // FIX: Using central CockpitViewMode
   const [viewMode, setViewMode] = useState<CockpitViewMode>('wizard');
   const [currentStep, setCurrentStep] = useState(0);
   
@@ -90,7 +91,7 @@ export const CockpitWizard = () => {
 
   const hasAnalysisResult = !!project.analysis.chefPlaner;
   
-  // --- NAVIGATION (ALL ORIGINAL LOGIC PRESERVED) ---
+  // --- NAVIGATION ---
 
   const jumpToStep = (index: number) => {
     if (status === 'generating') return;
@@ -267,7 +268,6 @@ export const CockpitWizard = () => {
       )}
 
       <main className="max-w-4xl mx-auto px-4 py-8 relative">
-        {/* FIX: MAIN SWITCH INTEGRITY PRESERVED, ADDED INFOVIEW */}
         {viewMode === 'analysis' ? (
           <AnalysisReviewView onNext={handleContinueFromAnalysis} />
         ) : viewMode === 'routeArchitect' ? (
@@ -325,10 +325,14 @@ export const CockpitWizard = () => {
         onStart={handleStartSelectedWorkflows}
       />
 
-      {/* FIX: Surgical addition for printing multi-page reports */}
-      <PrintReport />
+      {/* FIX: Conditional Rendering for PrintReport with Config */}
+      {uiState.printConfig && (
+        <div className="print-only">
+           <PrintReport config={uiState.printConfig} />
+        </div>
+      )}
 
     </div>
   );
 };
-// --- END OF FILE 358 Zeilen ---
+// --- END OF FILE 362 Zeilen ---

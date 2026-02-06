@@ -1,8 +1,5 @@
+// 06.02.2026 18:55 - FIX: Confirmed async loadProject logic for file reading.
 // 06.02.2026 15:15 - FEAT: Updates 'currentFileName' in UIState on Load/Save.
-// 06.02.2026 12:05 - FEAT: Updated saveProject to accept optional fileName.
-// 05.02.2026 18:00 - REFACTOR: PROJECT CORE SLICE.
-// - Reduced to Core Project IO (Load/Save/Reset).
-// - Logic for Wizard inputs moved to 'createWizardSlice'.
 // src/store/slices/createProjectSlice.ts
 
 import type { StateCreator } from 'zustand';
@@ -132,6 +129,7 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
       }));
 
       // Set filename in UI State if available
+      // NOTE: get().setUIState comes from the merged store (UISlice)
       if (filenameToSet && get().setUIState) {
         get().setUIState({ currentFileName: filenameToSet });
       }
