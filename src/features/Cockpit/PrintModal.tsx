@@ -1,4 +1,4 @@
-// 06.02.2026 21:55 - FIX: Added missing properties to onConfirm to satisfy PrintConfig interface (TS2345).
+// 06.02.2026 22:15 - FIX: Pass required 'layout' and 'showImages' to onConfirm (TS2345).
 // 23.01.2026 17:35 - i18n: Replaced hardcoded strings using useTranslation (137 lines base).
 // src/features/Cockpit/PrintModal.tsx
 
@@ -129,13 +129,13 @@ const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onConfirm }) =
           <p className="text-[10px] text-slate-400 font-medium max-w-[200px]">
             {t('print.footer_tip')}
           </p>
-          {/* FIX: Passed missing properties layout and showImages to satisfy PrintConfig */}
+          {/* FIX: Ensure config object matches PrintConfig interface by providing missing fields */}
           <button 
             onClick={() => onConfirm({ 
               detailLevel, 
               sections,
-              layout: 'standard', // Default
-              showImages: true    // Default
+              layout: 'standard', // Added missing property
+              showImages: true    // Added missing property
             })}
             className="px-8 py-3 bg-slate-900 text-white font-bold rounded-2xl hover:bg-blue-600 transition-all active:scale-95 shadow-xl shadow-slate-200 flex items-center gap-2"
           >

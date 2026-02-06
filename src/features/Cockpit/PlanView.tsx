@@ -1,4 +1,4 @@
-// 06.02.2026 21:55 - FIX: Strict null handling for maps link (TS2322).
+// 06.02.2026 22:15 - FIX: Strict null handling for maps link generation (TS2322).
 // 06.02.2026 21:00 - FIX: Google Maps Link now uses 'generateGoogleMapsRouteUrl' with country context.
 // src/features/Cockpit/PlanView.tsx
 
@@ -204,6 +204,7 @@ export const PlanView: React.FC = () => {
     const stops = roundtrip.stops || [];
 
     // FIX: Strict null check and type safety
+    // Uses || undefined to convert potential null values to undefined
     const generateMapsLink = (): string | undefined => {
        if (routeAnalysis?.googleMapsLink) {
            return routeAnalysis.googleMapsLink || undefined;
@@ -217,7 +218,7 @@ export const PlanView: React.FC = () => {
 
        const countryContext = logistics.roundtrip.region || (logistics as any).target_countries?.[0] || "";
 
-       return generateGoogleMapsRouteUrl(locations, 'driving', countryContext);
+       return generateGoogleMapsRouteUrl(locations, 'driving', countryContext) || undefined;
     };
 
     const mapsLink = generateMapsLink();
