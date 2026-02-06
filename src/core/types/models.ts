@@ -1,6 +1,5 @@
+// 06.02.2026 21:15 - FIX: Added missing fields for RouteStop and RouteArchitectResult to fix build errors.
 // 06.02.2026 20:50 - FIX: ADDED MISSING PLACE FIELDS.
-// - Added 'summary' and 'editorial_summary' to Place interface.
-// 05.02.2026 20:40 - REFACTOR: Generalized 'price_estimate'.
 // src/core/types/models.ts
 
 import type { LanguageCode } from './shared';
@@ -10,7 +9,8 @@ export interface RouteStop {
   id: string;
   location: string;
   duration: number; 
-  hotel?: string;   
+  hotel?: string;
+  name?: string; // FIX: Added missing property
 }
 
 export interface CalendarEvent {
@@ -169,6 +169,8 @@ export interface RouteProposal {
 
 export interface RouteArchitectResult {
   routes: RouteProposal[]; 
+  googleMapsLink?: string; // FIX: Added missing property
+  route_reasoning?: string; // FIX: Added missing property
 }
 
 export interface GeoAnalystResult {
@@ -231,8 +233,8 @@ export interface Place {
   // Content
   shortDesc?: string;
   description?: string; 
-  summary?: string; // NEW
-  editorial_summary?: { overview?: string }; // NEW
+  summary?: string; 
+  editorial_summary?: { overview?: string }; 
   detailContent?: string; 
   openingHours?: string[] | string; 
   website?: string; 
@@ -283,7 +285,7 @@ export interface ChunkingContext {
 export type DetailLevel = 'compact' | 'standard' | 'details';
 
 export interface PrintConfig {
-  detailLevel: DetailLevel;
+  detailLevel: DetailLevel; // Essential for PrintModal
   sections: {
     briefing: boolean;
     analysis: boolean;
@@ -321,4 +323,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 255 Zeilen ---
+// --- END OF FILE 260 Zeilen ---
