@@ -1,6 +1,5 @@
+// 06.02.2026 19:35 - FEAT: Added 'plan' viewMode handling.
 // 06.02.2026 18:45 - FIX: Pass printConfig to PrintReport and wrap in 'print-only' container.
-// 06.02.2026 18:25 - FIX: Corrected PrintReport import to Named Import (TS2613).
-// 23.01.2026 15:55 - FIX: Integrated PrintReport for multi-page WYSIWYG printing.
 // src/features/Cockpit/CockpitWizard.tsx
 
 import { useState } from 'react';
@@ -14,6 +13,7 @@ import { AnalysisReviewView } from './AnalysisReviewView';
 import { RouteReviewView } from './RouteReviewView';
 import { SightsView } from './SightsView';
 import { InfoView } from '../info/InfoView'; 
+import { PlanView } from './PlanView'; // NEW IMPORT
 import { ConfirmModal } from './ConfirmModal';
 import { InfoModal } from '../Welcome/InfoModal';
 import { ManualPromptModal } from './ManualPromptModal'; 
@@ -56,7 +56,7 @@ export const CockpitWizard = () => {
       setView, 
       isWorkflowModalOpen, 
       setWorkflowModalOpen,
-      uiState // FIX: Added uiState to access printConfig
+      uiState 
   } = useTripStore(); 
   
   const { userInputs } = project;
@@ -276,6 +276,8 @@ export const CockpitWizard = () => {
           <SightsView /> 
         ) : viewMode === 'info' ? (
           <InfoView /> 
+        ) : viewMode === 'plan' ? ( // FIX: Added PlanView case
+          <PlanView />
         ) : (
           <CurrentComponent onEdit={jumpToStep} />
         )}
@@ -335,4 +337,4 @@ export const CockpitWizard = () => {
     </div>
   );
 };
-// --- END OF FILE 362 Zeilen ---
+// --- END OF FILE 366 Zeilen ---

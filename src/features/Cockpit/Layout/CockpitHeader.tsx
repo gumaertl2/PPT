@@ -1,6 +1,5 @@
+// 06.02.2026 19:35 - FEAT: Wired 'Plan' button to switch viewMode to 'plan'.
 // 06.02.2026 18:55 - FIX: Added 'await' to loadProject to ensure filename is set before UI updates.
-// 06.02.2026 18:45 - FIX: Pass printConfig to PrintReport and wrap in 'print-only' container.
-// 06.02.2026 18:25 - FIX: Corrected PrintReport import to Named Import (TS2613).
 // src/features/Cockpit/Layout/CockpitHeader.tsx
 
 import React, { useState, useRef } from 'react';
@@ -240,7 +239,15 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
               <Home className="w-6 h-6" />
             </button>
             
-             <button onClick={() => alert("Plan View placeholder")} className="flex flex-col items-center px-2 py-1 text-slate-500 hover:bg-slate-100 rounded transition-colors">
+             {/* FIX: Wired up 'Plan' button */}
+             <button 
+                onClick={() => setViewMode('plan')} 
+                className={`flex flex-col items-center px-2 py-1 rounded transition-colors ${
+                   viewMode === 'plan' 
+                     ? 'text-blue-600 bg-blue-50' 
+                     : 'text-slate-500 hover:bg-slate-100'
+                }`}
+             >
                <Edit3 className="w-4 h-4 lg:w-5 lg:h-5 mb-0.5" />
                <span className="text-[10px] font-bold uppercase tracking-wide hidden md:inline">{t('wizard.toolbar.plan')}</span>
              </button>
@@ -475,4 +482,4 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     </>
   );
 };
-// --- END OF FILE 481 Zeilen ---
+// --- END OF FILE 487 Zeilen ---
