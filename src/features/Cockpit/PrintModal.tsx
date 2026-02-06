@@ -1,8 +1,9 @@
+// 06.02.2026 21:55 - FIX: Added missing properties to onConfirm to satisfy PrintConfig interface (TS2345).
 // 23.01.2026 17:35 - i18n: Replaced hardcoded strings using useTranslation (137 lines base).
 // src/features/Cockpit/PrintModal.tsx
 
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next'; // FIX: i18n import
+import { useTranslation } from 'react-i18next';
 import { 
   X, 
   Printer, 
@@ -22,7 +23,7 @@ interface PrintModalProps {
 }
 
 const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onConfirm }) => {
-  const { t } = useTranslation(); // FIX: hook added
+  const { t } = useTranslation();
   const [detailLevel, setDetailLevel] = useState<DetailLevel>('standard');
   const [sections, setSections] = useState({
     briefing: true,
@@ -128,8 +129,14 @@ const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onConfirm }) =
           <p className="text-[10px] text-slate-400 font-medium max-w-[200px]">
             {t('print.footer_tip')}
           </p>
+          {/* FIX: Passed missing properties layout and showImages to satisfy PrintConfig */}
           <button 
-            onClick={() => onConfirm({ detailLevel, sections })}
+            onClick={() => onConfirm({ 
+              detailLevel, 
+              sections,
+              layout: 'standard', // Default
+              showImages: true    // Default
+            })}
             className="px-8 py-3 bg-slate-900 text-white font-bold rounded-2xl hover:bg-blue-600 transition-all active:scale-95 shadow-xl shadow-slate-200 flex items-center gap-2"
           >
             <Printer size={18} /> {t('print.btn_start')}
@@ -142,4 +149,4 @@ const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onConfirm }) =
 
 export default PrintModal;
 
-// --- END OF FILE 139 Zeilen ---
+// --- END OF FILE 145 Zeilen ---

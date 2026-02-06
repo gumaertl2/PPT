@@ -1,4 +1,4 @@
-// 06.02.2026 21:40 - FIX: Strict null check for href compatibility.
+// 06.02.2026 21:55 - FIX: Strict null handling for maps link (TS2322).
 // 06.02.2026 21:00 - FIX: Google Maps Link now uses 'generateGoogleMapsRouteUrl' with country context.
 // src/features/Cockpit/PlanView.tsx
 
@@ -203,15 +203,12 @@ export const PlanView: React.FC = () => {
     const roundtrip = logistics.roundtrip;
     const stops = roundtrip.stops || [];
 
-    // CORRECTED MAPS LINK GENERATION
-    // FIX: Explicit return type to avoid 'string | null' vs 'string | undefined' issues
+    // FIX: Strict null check and type safety
     const generateMapsLink = (): string | undefined => {
-       // 1. Prefer existing link from analysis
        if (routeAnalysis?.googleMapsLink) {
-           return routeAnalysis.googleMapsLink;
+           return routeAnalysis.googleMapsLink || undefined;
        }
        
-       // 2. Fallback: Use utility with Context
        const locations = [
            roundtrip.startLocation,
            ...stops.map(s => s.name || s.location),
@@ -220,7 +217,6 @@ export const PlanView: React.FC = () => {
 
        const countryContext = logistics.roundtrip.region || (logistics as any).target_countries?.[0] || "";
 
-       // generateGoogleMapsRouteUrl returns string
        return generateGoogleMapsRouteUrl(locations, 'driving', countryContext);
     };
 
