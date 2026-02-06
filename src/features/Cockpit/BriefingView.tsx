@@ -1,3 +1,4 @@
+// 06.02.2026 18:00 - FIX: Switched to Named Export to resolve 'star export' syntax error.
 // 23.01.2026 12:20 - NEW: BriefingView combining User Inputs and AI Strategy for Report/Print.
 // src/features/Cockpit/BriefingView.tsx
 
@@ -6,7 +7,6 @@ import {
   ClipboardCheck, 
   Users, 
   Calendar, 
-  // Fix MapPin removed  
   Zap, 
   CheckCircle2, 
   AlertCircle, 
@@ -16,9 +16,9 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useTripStore } from '../../store/useTripStore';
 
-const BriefingView: React.FC = () => {
-  // Fix const { t } removed  
-  useTranslation();
+// FIX: Changed to Named Export
+export const BriefingView: React.FC = () => {
+  useTranslation(); // Hook call kept for consistency, though 't' is currently unused in this static view
   const { project } = useTripStore();
   const { userInputs, analysis } = project;
   const chefPlaner = analysis.chefPlaner;
@@ -187,7 +187,4 @@ const BriefingView: React.FC = () => {
     </div>
   );
 };
-
-export default BriefingView;
-
 // --- END OF FILE 168 Zeilen ---

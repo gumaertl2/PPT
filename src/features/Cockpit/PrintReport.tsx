@@ -1,85 +1,126 @@
-/* 23.01.2026 18:30 - FIX: Resolved TS6133 (Unused variable detailLevel). */
-/* src/features/Cockpit/PrintReport.tsx */
+// 06.02.2026 18:05 - FIX: Reverted BriefingView import to Named Import.
+// 06.02.2026 17:40 - FIX: Corrected BriefingView import (Default Export). Added FileName to Header.
+// 06.02.2026 17:25 - FIX: Implemented correct Print Sections (Tours, Categories, Route).
+// 23.01.2026 18:45 - FEAT: Added PrintReport component for WYSIWYG printing.
+// src/features/Cockpit/PrintReport.tsx
 
 import React from 'react';
 import { useTripStore } from '../../store/useTripStore';
-import BriefingView from './BriefingView';
+// FIX: Changed back to named import to match BriefingView update
+import { BriefingView } from './BriefingView'; 
 import { AnalysisReviewView } from './AnalysisReviewView';
+import { RouteReviewView } from './RouteReviewView';
 import { SightsView } from './SightsView';
 import { InfoView } from '../info/InfoView';
+import type { PrintConfig } from '../../core/types';
+import { useTranslation } from 'react-i18next';
 
-const PrintReport: React.FC = () => {
-  const { uiState, project } = useTripStore();
-  // FIX: Removed unused detailLevel from destructuring to resolve TS6133
-  const { isPrintMode, printConfig } = uiState; 
+interface PrintReportProps {
+  config: PrintConfig;
+}
 
-  // Nur rendern, wenn der Druckmodus aktiv ist
-  if (!isPrintMode || !printConfig) return null;
+export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
+  const { t } = useTranslation();
+  // FEAT: Added uiState to access currentFileName
+  const { project, uiState } = useTripStore();
+  const { logistics } = project.userInputs;
 
-  const { sections } = printConfig;
+  // Helper für saubere Seitenumbrüche
+  const PageBreak = () => <div className="break-before-page" style={{ pageBreakBefore: 'always' }} />;
+
+  const SectionHeader = ({ title }: { title: string }) => (
+    <div className="border-b-2 border-slate-800 mb-6 pb-2 mt-8 print:break-after-avoid">
+        <h2 className="text-2xl font-black uppercase tracking-wider text-slate-900">{title}</h2>
+    </div>
+  );
 
   return (
-    <div className={`print-only print-container detail-${printConfig.detailLevel} w-full bg-white text-slate-900 p-8`}>
+    <div className="print-report font-sans text-slate-900 bg-white max-w-[210mm] mx-auto">
       
-      {/* Titel des Berichts */}
-      <div className="mb-12 border-b-4 border-slate-900 pb-4">
-        <h1 className="text-4xl font-black uppercase tracking-tighter">
-          {project.meta.name || 'Reisebericht'}
-        </h1>
-        <p className="text-sm text-slate-500 font-bold mt-2">
-          Erstellt mit Papatours am {new Date().toLocaleDateString('de-DE')}
-        </p>
+      {/* 1. HEADER (Immer sichtbar auf Seite 1) */}
+      <div className="mb-12 text-center border-b border-slate-200 pb-8">
+         <h1 className="text-4xl font-black text-slate-900 mb-2">{project.meta.name}</h1>
+         <p className="text-slate-500 uppercase tracking-widest text-sm">
+            {new Date().toLocaleDateString()} • Papatours V40
+         </p>
+         {/* NEW: Show Filename if available */}
+         {uiState.currentFileName && (
+             <p className="text-xs text-slate-400 mt-1 font-mono">
+                Datei: {uiState.currentFileName}
+             </p>
+         )}
       </div>
 
-      {/* 1. Briefing & Strategie */}
-      {sections.briefing && (
-        <section className="print-section mb-12">
-          <div className="mb-6 border-b-2 border-slate-200 pb-2">
-            <h2 className="text-2xl font-bold uppercase text-blue-900">Briefing & Strategie</h2>
-          </div>
-          <BriefingView />
+      {/* 2. SECTIONS BASED ON CONFIG */}
+
+      {/* A) BRIEFING & STRATEGIE (Schritt 6 Start) */}
+      {config.sections.briefing && (
+        <section className="print-section mb-8">
+           <SectionHeader title={t('print.section_briefing', { defaultValue: 'Briefing & Strategie' })} />
+           <BriefingView />
         </section>
       )}
 
-      {/* 2. Fundament & Analyse */}
-      {sections.analysis && project.analysis.chefPlaner && (
-        <section className="print-section mb-12">
-          <div className="mb-6 border-b-2 border-slate-200 pb-2">
-            <h2 className="text-2xl font-bold uppercase text-blue-900">Fundament & Analyse</h2>
-          </div>
-          <AnalysisReviewView onNext={() => {}} />
-        </section>
+      {/* B) FUNDAMENT & ANALYSE (+ ROUTE) */}
+      {config.sections.analysis && (
+        <>
+          {config.sections.briefing && <PageBreak />}
+          <section className="print-section">
+             <SectionHeader title={t('print.section_analysis', { defaultValue: 'Fundament & Analyse' })} />
+             <AnalysisReviewView />
+             
+             {/* Rundreise-Route (falls vorhanden) */}
+             {logistics.mode === 'roundtrip' && (
+                <div className="mt-8 pt-8 border-t border-slate-200 break-inside-avoid">
+                   <h3 className="text-xl font-bold mb-4 uppercase">Routen-Verlauf</h3>
+                   <RouteReviewView />
+                </div>
+             )}
+          </section>
+        </>
       )}
 
-      {/* 3. Reiseführer (Orte/Kategorien) */}
-      {sections.categories && (
-        <section className="print-section mb-12">
-          <div className="mb-6 border-b-2 border-slate-200 pb-2">
-            <h2 className="text-2xl font-bold uppercase">Reiseführer: Orte & Sehenswürdigkeiten</h2>
-          </div>
-          <SightsView />
-        </section>
+      {/* C) REISEFÜHRER: TOUREN (Tagesplanung) */}
+      {config.sections.tours && (
+        <>
+           {(config.sections.briefing || config.sections.analysis) && <PageBreak />}
+           <section className="print-section">
+              <SectionHeader title={t('print.section_tours', { defaultValue: 'Reiseführer: Touren & Ablauf' })} />
+              {/* Force SightsView into Tour Sort Mode */}
+              <SightsView overrideSortMode="tour" />
+           </section>
+        </>
       )}
 
-      {/* 4. Reise-Infos A-Z */}
-      {sections.infos && project.analysis.infoAutor && (
-        <section className="print-section mb-12">
-          <div className="mb-6 border-b-2 border-slate-200 pb-2">
-            <h2 className="text-2xl font-bold uppercase">Reise-Infos (A-Z)</h2>
-          </div>
-          <InfoView />
-        </section>
+      {/* D) REISEFÜHRER: KATEGORIEN (Alle Orte) */}
+      {config.sections.categories && (
+        <>
+           {(config.sections.briefing || config.sections.analysis || config.sections.tours) && <PageBreak />}
+           <section className="print-section">
+              <SectionHeader title={t('print.section_categories', { defaultValue: 'Reiseführer: Kategorien' })} />
+              {/* Force SightsView into Category Sort Mode */}
+              <SightsView overrideSortMode="category" />
+           </section>
+        </>
       )}
 
-      {/* Footer für jede Seite (via CSS geregelt) */}
-      <div className="fixed bottom-0 left-0 right-0 hidden print:block text-[10px] text-slate-400 text-center pt-4 border-t border-slate-100">
-        Seite 1 von 1 — {project.meta.name} — Papatours Reiseplaner
+      {/* E) REISE-INFOS (A-Z, Anhang) */}
+      {config.sections.infos && (
+        <>
+           {(config.sections.briefing || config.sections.analysis || config.sections.tours || config.sections.categories) && <PageBreak />}
+           <section className="print-section">
+              <SectionHeader title={t('print.section_infos', { defaultValue: 'Reise-Informationen (A-Z)' })} />
+              <InfoView />
+           </section>
+        </>
+      )}
+
+      {/* FOOTER */}
+      <div className="mt-16 pt-4 border-t border-slate-100 text-center text-xs text-slate-400">
+         Generiert mit Papatours AI • {project.meta.id}
       </div>
 
     </div>
   );
 };
-
-export default PrintReport;
-
-// --- END OF FILE 80 Zeilen ---
+// --- END OF FILE 115 Zeilen ---

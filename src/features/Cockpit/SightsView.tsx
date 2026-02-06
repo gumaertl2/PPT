@@ -1,7 +1,8 @@
+// 06.02.2026 17:20 - FEAT: Added 'overrideSortMode' prop for Print Report flexibility.
+// 06.02.2026 17:15 - FIX: Print Optimization (Double-Instance-Fix & Clean Layout).
 // 02.02.2026 13:15 - FIX: Enforced City Grouping for 'Specials' in Tour Mode.
 // 06.02.2026 17:30 - FIX: Fulltext Search (Deep Search in all fields).
 // 07.02.2026 15:00 - FIX: IGNORE FILTERS IN PRINT MODE.
-// - In Print Mode, SightsView now ignores temporary UI filters (search, category) to print the full itinerary.
 // src/features/Cockpit/SightsView.tsx
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -27,7 +28,12 @@ const TRAVEL_PACE_CONFIG: Record<string, { startHour: number; endHour: number; b
   'relaxed': { startHour: 10, endHour: 16, breakMinutes: 90, bufferMinutes: 45 } 
 };
 
-export const SightsView: React.FC = () => {
+// NEW: Interface for Props
+interface SightsViewProps {
+  overrideSortMode?: 'category' | 'tour' | 'day' | 'alphabetical';
+}
+
+export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode }) => {
   const { t, i18n } = useTranslation(); 
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
 
@@ -44,8 +50,15 @@ export const SightsView: React.FC = () => {
 
   const [showPlanningMode, setShowPlanningMode] = useState(false);
 
+  // LOGIC: Determine effective sort mode (Prop > State)
+  const activeSortMode = overrideSortMode || (uiState.sortMode as string) || 'category';
+  const isTourMode = activeSortMode === 'tour';
+
   // FIX: AUTO-SCROLL LOGIC
   useEffect(() => {
+    // Disable auto-scroll if we are in override mode (Print)
+    if (overrideSortMode) return;
+
     if (uiState.viewMode === 'list' && uiState.selectedPlaceId) {
       setTimeout(() => {
         const element = document.getElementById(`card-${uiState.selectedPlaceId}`);
@@ -56,7 +69,7 @@ export const SightsView: React.FC = () => {
         }
       }, 150);
     }
-  }, [uiState.selectedPlaceId, uiState.viewMode]);
+  }, [uiState.selectedPlaceId, uiState.viewMode, overrideSortMode]);
   
   const resolveCategoryLabel = (catId: string): string => {
     if (!catId) return "";
@@ -129,11 +142,10 @@ export const SightsView: React.FC = () => {
           };
       }).filter((t: any) => t.count > 0);
 
-      // FIX: Manually add "Sondertage" as a Virtual Tour if items exist
       const specialPlaces = places.filter((p: any) => p.category === 'special');
       if (specialPlaces.length > 0) {
           mappedTours.push({
-              id: 'tour_special', // Unique ID for filter
+              id: 'tour_special', 
               label: 'Tour: Sondertage & Ideen',
               count: specialPlaces.length,
               placeIds: specialPlaces.map((p: any) => p.id)
@@ -175,16 +187,15 @@ export const SightsView: React.FC = () => {
     const reserveList: any[] = [];
     const specialList: any[] = []; 
 
-    // FIX: IGNORE FILTERS IN PRINT MODE
-    // In Print Mode, we want to show EVERYTHING (or follow print config), not transient UI filters.
-    const isPrint = uiState.isPrintMode;
+    // FIX: Use prop override or store state (Print vs Screen)
+    const isPrint = !!overrideSortMode || uiState.isPrintMode;
     
     const term = isPrint ? '' : (uiState.searchTerm || '').toLowerCase();
     const activeFilters = isPrint ? [] : (uiState.categoryFilter || []); 
-    const sortMode = (uiState.sortMode as string) || 'category';
     
-    // NOTE: We do NOT ignore selectedCategory in print mode if we want to allow printing a specific category view?
-    // Actually, usually a report should be complete. Let's ignore it for now to be safe.
+    // FIX: Use derived activeSortMode instead of uiState.sortMode
+    const sortMode = activeSortMode;
+    
     const selectedCategory = isPrint ? 'all' : uiState.selectedCategory;
 
     const ignoreList = APPENDIX_ONLY_INTERESTS || [];
@@ -196,7 +207,6 @@ export const SightsView: React.FC = () => {
       
       if (ignoreList.includes(cat)) return;
 
-      // FIX: FULL TEXT SEARCH ACROSS ALL RELEVANT FIELDS
       if (term) {
           const searchableText = [
               p.name,
@@ -214,7 +224,6 @@ export const SightsView: React.FC = () => {
           if (!searchableText.includes(term)) return;
       }
       
-      // FIX: selectedCategory is now part of UIState interface
       if (selectedCategory && selectedCategory !== 'all') {
           const pCat = p.userSelection?.customCategory || p.category;
           if (pCat !== selectedCategory) return;
@@ -245,7 +254,6 @@ export const SightsView: React.FC = () => {
       const rating = p.rating || 0;
       const duration = p.duration || p.min_duration_minutes || 0;
       
-      // FIX: Reserve Logic remains active even in print (we want to separate them visually)
       const isReserve = (p.userPriority === -1) || 
                         (duration < minDuration) || 
                         (rating > 0 && rating < minRating);
@@ -272,14 +280,15 @@ export const SightsView: React.FC = () => {
         reserve: reserveList.sort(sortFn),
         special: specialList.sort(sortFn)
     };
-  }, [places, uiState.searchTerm, uiState.categoryFilter, uiState.sortMode, uiState.selectedCategory, uiState.isPrintMode, userInputs.searchSettings, tourOptions, project.itinerary]);
+  }, [places, uiState.searchTerm, uiState.categoryFilter, activeSortMode, uiState.selectedCategory, uiState.isPrintMode, overrideSortMode, userInputs.searchSettings, tourOptions, project.itinerary]);
 
 
   // --- 4. RENDERER: GROUPED LIST ---
   const renderGroupedList = (list: any[], groupByOverride?: 'city') => {
     if (list.length === 0) return null; 
 
-    const sortMode = (uiState.sortMode as string) || 'category';
+    // FIX: Use derived activeSortMode
+    const sortMode = activeSortMode;
     const groups: Record<string, any[]> = {};
     
     // PRIORITY 1: OVERRIDE
@@ -352,13 +361,13 @@ export const SightsView: React.FC = () => {
     }
 
     return Object.entries(groups).map(([groupKey, items]) => (
-      <div key={groupKey} className="mb-6 last:mb-0">
-        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-100 pb-1 ml-1 flex justify-between">
+      <div key={groupKey} className="mb-6 last:mb-0 print:break-inside-avoid">
+        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-100 pb-1 ml-1 flex justify-between print:text-black print:border-slate-300">
           <span className="flex items-center gap-2">
               {groupByOverride === 'city' && <span className="text-lg">📍</span>} 
               {groupKey}
           </span>
-          <span className="text-xs text-gray-300">{items.length}</span>
+          <span className="text-xs text-gray-300 print:text-gray-500">{items.length}</span>
         </h3>
         <div className="space-y-3">
           {items.map(place => (
@@ -376,16 +385,13 @@ export const SightsView: React.FC = () => {
     ));
   };
 
-  // --- MAIN RENDER ---
-  const activeSortMode = (uiState.sortMode as string) || 'category';
-  const isTourMode = activeSortMode === 'tour';
-
   return (
-    <div className="pb-24">
+    // FIX: Added 'sights-view-root' for print control (hides background instance)
+    <div className="pb-24 sights-view-root print:pb-0">
       
-      {/* 1. TOP BAR (Budget/Planning) */}
+      {/* 1. TOP BAR (Budget/Planning) - HIDDEN IN PRINT */}
       {showPlanningMode && (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6 flex flex-col md:flex-row items-center justify-between gap-4 sticky top-20 z-10 animate-in fade-in slide-in-from-top-2">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6 flex flex-col md:flex-row items-center justify-between gap-4 sticky top-20 z-10 animate-in fade-in slide-in-from-top-2 print:hidden">
            <div className="flex items-center gap-6 w-full justify-center md:justify-start">
               <div className="flex flex-col items-center">
                  <span className="text-xs text-gray-500 uppercase font-bold">{t('sights.budget', { defaultValue: 'Budget' })}</span>
@@ -411,16 +417,16 @@ export const SightsView: React.FC = () => {
         </div>
       )}
 
-      {/* FIX: Conditional Rendering for Map View */}
-      {uiState.viewMode === 'map' ? (
-        <div className="mb-8">
+      {/* FIX: Conditional Rendering for Map View - Only if NOT printing */}
+      {uiState.viewMode === 'map' && !overrideSortMode ? (
+        <div className="mb-8 print:hidden">
             <SightsMapView places={[...filteredLists.main, ...filteredLists.reserve, ...filteredLists.special] as Place[]} />
         </div>
       ) : (
         <>
             {/* LIST 1: CANDIDATES (Main) */}
-            <div className="bg-white rounded-xl border-2 border-blue-600 shadow-sm p-4 md:p-6 mb-8 relative mx-4">
-                <div className="absolute -top-3 left-6 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1">
+            <div className="bg-white rounded-xl border-2 border-blue-600 shadow-sm p-4 md:p-6 mb-8 relative mx-4 print:border-none print:shadow-none print:p-0 print:mx-0 print:mb-4">
+                <div className="absolute -top-3 left-6 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1 print:hidden">
                     {showPlanningMode ? <Briefcase className="w-3 h-3" /> : <FileText className="w-3 h-3" />}
                     {t('sights.candidates', { defaultValue: 'KANDIDATEN' })} ({filteredLists.main.length})
                 </div>
@@ -430,8 +436,8 @@ export const SightsView: React.FC = () => {
 
                 {/* FIX: IN TOUR MODE, APPEND SPECIALS HERE AS A 'TOUR' */}
                 {isTourMode && filteredLists.special.length > 0 && (
-                    <div className="mt-8 pt-6 border-t border-slate-100">
-                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-100 pb-1 ml-1 flex justify-between">
+                    <div className="mt-8 pt-6 border-t border-slate-100 print:mt-4 print:border-none">
+                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-100 pb-1 ml-1 flex justify-between print:text-black">
                             <span>Tour: Sondertage & Ideen</span>
                             <span className="text-xs text-gray-300">{filteredLists.special.length}</span>
                         </h3>
@@ -445,22 +451,28 @@ export const SightsView: React.FC = () => {
 
             {/* LIST 2: RESERVE */}
             {filteredLists.reserve.length > 0 && (
-                <div className="bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 p-4 md:p-6 relative opacity-90 hover:opacity-100 transition-opacity mx-4 mb-8">
-                    <div className="absolute -top-3 left-6 bg-gray-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1">
+                <div className="bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 p-4 md:p-6 relative opacity-90 hover:opacity-100 transition-opacity mx-4 mb-8 print:border print:border-gray-200 print:bg-transparent print:mx-0">
+                    <div className="absolute -top-3 left-6 bg-gray-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1 print:hidden">
                     <Filter className="w-3 h-3" />
                     {t('sights.reserve', { defaultValue: 'RESERVE / WENIGER PASSEND' })} ({filteredLists.reserve.length})
                     </div>
+                    {/* Print Header replacement */}
+                    <div className="hidden print:block font-bold text-gray-500 border-b mb-2 pb-1 text-xs uppercase">Reserve / Weniger passend</div>
+                    
                     <div className="mt-2">{renderGroupedList(filteredLists.reserve)}</div>
                 </div>
             )}
 
             {/* LIST 3: SONDERTAGE (STANDARD MODE ONLY) */}
             {!isTourMode && filteredLists.special.length > 0 && (
-                <div className="bg-amber-50/50 rounded-xl border-2 border-amber-200 shadow-sm p-4 md:p-6 relative mx-4 mb-8">
-                    <div className="absolute -top-3 left-6 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1">
+                <div className="bg-amber-50/50 rounded-xl border-2 border-amber-200 shadow-sm p-4 md:p-6 relative mx-4 mb-8 print:border-none print:bg-transparent print:p-0 print:mx-0">
+                    <div className="absolute -top-3 left-6 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1 print:hidden">
                         <Layout className="w-3 h-3" />
                         SONDERTAGE & IDEEN ({filteredLists.special.length})
                     </div>
+                     {/* Print Header replacement */}
+                    <div className="hidden print:block font-bold text-black border-b mb-2 pb-1 text-sm uppercase mt-4">Sondertage & Ideen</div>
+
                     <div className="mt-2">
                         {renderGroupedList(filteredLists.special, 'city')}
                     </div>
@@ -484,4 +496,4 @@ export const SightsView: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 628 Zeilen ---
+// --- END OF FILE 650 Zeilen ---

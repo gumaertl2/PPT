@@ -1,4 +1,4 @@
-/* 23.01.2026 19:50 - FIX: Corrected print visibility logic to fix "blank page" issue. */
+/* 06.02.2026 17:00 - FIX: Robust Print Styles. Uses display:none to kill ghost layout space. */
 /* src/index.css */
 
 @tailwind base;
@@ -11,99 +11,103 @@ body {
 
 /* --- PRINT RULES (WYSIWYG) --- */
 @media print {
-  /* 1. Seite & Ränder optimieren */
+  /* 1. Reset Page & Root */
   @page {
-    margin: 0.5cm;
+    margin: 1.5cm;
     size: A4;
   }
 
-  /* 2. Seite zurücksetzen */
   html, body, #root {
+    width: 100% !important;
     height: auto !important;
-    min-height: 0 !important;
     overflow: visible !important;
-    position: static !important;
     background: white !important;
     margin: 0 !important;
     padding: 0 !important;
   }
 
-  /* 3. VISIBILITY HACK: "Kind im Bade retten"
-     Statt display:none auf Container (was Kinder tötet), nutzen wir visibility.
-     So können wir .print-only gezielt wieder sichtbar machen.
-  */
-  body * {
-    visibility: hidden;
-  }
-
-  /* 4. Den Druck-Container und ALLE seine Inhalte sichtbar schalten */
-  .print-only, .print-only * {
-    visibility: visible !important;
-  }
-
-  /* 5. Den Druck-Container absolut über alles legen */
-  .print-only {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 100% !important;
-    z-index: 9999 !important;
-    background: white !important;
-    display: block !important;
-  }
-
-  /* 6. Störende UI-Elemente sicherheitshalber display:none (falls sie Layer überlagern) */
-  header, nav, footer, .no-print, [role="dialog"], button, .fixed, .sticky, aside {
+  /* 2. KILL-SWITCH: Globale UI-Elemente entfernen */
+  /* display: none gibt den Platz frei -> Keine leeren Seiten mehr */
+  header, 
+  footer, 
+  nav, 
+  aside, 
+  .sticky, 
+  .fixed, 
+  .no-print, 
+  [role="dialog"], 
+  button {
     display: none !important;
   }
 
-  /* 7. Layout-Reset für Container */
-  .max-w-7xl, .container, main {
-    max-width: 100% !important;
-    width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    box-shadow: none !important;
-    border: none !important;
+  /* 3. VIEW-KILLER: Verhindert, dass die Hintergrund-View gedruckt wird */
+  /* Diese Klassen fügen wir gleich in den Views hinzu */
+  .info-view-root, 
+  .sights-view-root {
+    display: none !important;
   }
 
-  /* 8. Seitenumbrüche steuern */
+  /* 4. EXCEPTION: Ansichten IM Druckbericht wiederbeleben */
+  .print-only .info-view-root {
+    display: flex !important; /* InfoView braucht Flex */
+  }
+  .print-only .sights-view-root {
+    display: block !important;
+  }
+
+  /* 5. Der Druck-Container selbst */
+  .print-only {
+    display: block !important;
+    position: relative !important;
+    width: 100% !important;
+    height: auto !important;
+    z-index: 9999 !important;
+    background: white !important;
+    visibility: visible !important;
+    left: 0 !important;
+    top: 0 !important;
+  }
+  
+  .print-only * {
+    visibility: visible !important;
+  }
+
+  /* 6. Layout-Reset für Sections */
   section, .print-section {
-    page-break-inside: auto !important;
-    page-break-after: always;
+    page-break-inside: avoid;
+    page-break-after: auto;
     margin-bottom: 2rem;
     display: block !important;
   }
 
   h1, h2, h3 {
     page-break-after: avoid;
+    page-break-inside: avoid;
     color: #000 !important;
   }
 
-  /* 9. SightCard Print-Optik */
+  /* 7. Styling-Fixes */
   .print-container .bg-white {
     box-shadow: none !important;
-    border: 1px solid #e2e8f0 !important;
+    border: 1px solid #ccc !important;
     margin-bottom: 1rem !important;
     page-break-inside: avoid !important;
   }
-
-  /* 10. Farben erzwingen */
+  
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-    color-adjust: exact !important;
   }
 
-  img {
-    max-width: 100% !important;
-    page-break-inside: avoid;
+  /* Scroll-Container im Druck aufbrechen */
+  .overflow-y-auto, .overflow-x-auto {
+    overflow: visible !important;
+    height: auto !important;
   }
 }
 
-/* Verstecke Druck-Spezialelemente im Web-Modus */
+/* Web-Modus: Druck-Container verstecken */
 .print-only {
   display: none;
 }
-
-/* --- END OF FILE 105 Zeilen --- */
+/* --- END OF FILE 108 Zeilen --- */

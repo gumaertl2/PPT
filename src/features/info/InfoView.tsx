@@ -1,5 +1,6 @@
+// 06.02.2026 17:10 - FIX: Corrected File Path Header & Print Optimization.
 // 29.01.2026 12:30 - FIX: InfoView Layout Optimization. Always full text, Smart Titles, Reduced Spacing, Removed Main Header.
-// src/features/Cockpit/InfoView.tsx
+// src/features/info/InfoView.tsx
 
 import React, { useState, useMemo } from 'react';
 import { useTripStore } from '../../store/useTripStore';
@@ -196,28 +197,31 @@ export const InfoView: React.FC = () => {
   };
 
   return (
-    <div className="h-full flex flex-col bg-slate-50/50 overflow-y-auto p-4 pb-24">
+    // FIX: Added 'info-view-root' class for print control
+    // FIX: Added print modifiers to enable proper printing
+    <div className="h-full flex flex-col bg-slate-50/50 overflow-y-auto p-4 pb-24 info-view-root print:h-auto print:overflow-visible print:bg-white print:p-0 print:pb-0">
       
       {/* HEADER ENTFERNT - Direkt zur Liste */}
 
       {/* CONTENT LIST */}
       {infoItems.length === 0 ? (
-         <div className="flex flex-col items-center justify-center h-64 text-slate-400 border-2 border-dashed border-slate-200 rounded-xl bg-white">
+         <div className="flex flex-col items-center justify-center h-64 text-slate-400 border-2 border-dashed border-slate-200 rounded-xl bg-white print:border-none">
             <FileText className="w-12 h-12 mb-2 opacity-20" />
             <p>Keine Informationen gefunden.</p>
-            <p className="text-xs mt-2 text-slate-400">Prüfen Sie, ob der Workflow "Infos A-Z" ausgeführt wurde.</p>
+            <p className="text-xs mt-2 text-slate-400 print:hidden">Prüfen Sie, ob der Workflow "Infos A-Z" ausgeführt wurde.</p>
          </div>
       ) : (
-         <div className="space-y-6">
+         <div className="space-y-6 print:space-y-8">
             {infoItems.map((item: any, idx: number) => {
                 const itemId = item.id || `info_${idx}`;
                 const rawContent = item.content || item.description || '';
 
                 return (
-                  <div key={itemId} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
+                  // FIX: Print-specific styling for cards
+                  <div key={itemId} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow print:shadow-none print:border-b print:border-t-0 print:border-x-0 print:rounded-none print:mb-4 print:break-inside-avoid">
                       
                       {/* CARD HEADER */}
-                      <div className="bg-slate-50/50 p-3 border-b border-slate-100 flex justify-between items-start">
+                      <div className="bg-slate-50/50 p-3 border-b border-slate-100 flex justify-between items-start print:bg-white print:pl-0">
                           <div className="flex flex-col">
                               <h3 className="font-bold text-slate-800 flex items-center gap-2 text-lg">
                                   {item.isPlace ? <MapPin className="w-5 h-5 text-indigo-500" /> : <span className="text-indigo-500 text-xl">ℹ️</span>}
@@ -230,7 +234,7 @@ export const InfoView: React.FC = () => {
                               )}
                           </div>
                           
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 print:hidden">
                               <button 
                                 onClick={() => setDebugItem(item)}
                                 className="p-1.5 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
@@ -253,8 +257,8 @@ export const InfoView: React.FC = () => {
                       </div>
 
                       {/* CARD BODY - ALWAYS FULLY EXPANDED */}
-                      <div className="p-5 pt-2"> {/* pt-2 reduziert den Abstand zur Überschrift */}
-                          <div className="text-sm text-slate-600">
+                      <div className="p-5 pt-2 print:px-0"> {/* pt-2 reduziert den Abstand zur Überschrift */}
+                          <div className="text-sm text-slate-600 print:text-black">
                               {renderMarkdown(rawContent)}
                           </div>
                       </div>
@@ -264,9 +268,9 @@ export const InfoView: React.FC = () => {
          </div>
       )}
 
-      {/* DEBUG MODAL */}
+      {/* DEBUG MODAL - Hidden in Print via global CSS, but redundant check is safe */}
       {debugItem && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in print:hidden">
            <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col">
               <div className="flex justify-between items-center p-4 border-b">
                  <h3 className="font-bold text-lg truncate pr-4">JSON: {debugItem.displayTitle}</h3>
@@ -284,4 +288,4 @@ export const InfoView: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 228 Zeilen ---
+// --- END OF FILE 229 Zeilen ---
