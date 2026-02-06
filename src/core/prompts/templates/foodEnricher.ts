@@ -1,6 +1,7 @@
 // 06.02.2026 21:00 - FIX: RESTORE LOGISTICS FIELD.
-// - Added 'logistics' to prompt instructions and schema.
-// - Ensures AI provides reservation hints (e.g. "Book weeks in advance").
+// 07.02.2026 14:00 - FIX: STRICT RATING ENFORCEMENT (>= 4.5).
+// - Changed "Local Favorite" logic to include 4.5.
+// - Added STRICT instruction to purge candidates below threshold if no award exists.
 // src/core/prompts/templates/foodEnricher.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -63,11 +64,16 @@ For every valid candidate, find and fill:
 - **guide_link:** Provide a DIRECT URL to the listing in the guide (e.g. guide.michelin.com/.../restaurant-name). 
   *FALLBACK:* If no direct guide link is found, create a specific Google Search link: "https://www.google.com/search?q=[Restaurant Name]+[City]+[Guide Name]"
 
-# STEP 3: QUALITY GATEKEEPER
-1. **Has Guide Award?** -> **KEEP IT.**
-2. **No Guide Award?** -> Check Google Rating.
-   - IF **rating > 4.5**: Mark "awards" as ["Local Favorite"]. -> **KEEP IT.**
-   - IF **rating <= 4.5**: -> **DISCARD IT.**
+# STEP 3: QUALITY GATEKEEPER (STRICT ENFORCEMENT)
+You must apply this logic to deciding whether to KEEP or DISCARD a candidate.
+**Do not show mercy.**
+
+1. **Has Guide Award?** (Michelin, Gault&Millau, etc.) 
+   -> **KEEP IT.** (Rating does not matter).
+
+2. **No Guide Award?** -> CHECK GOOGLE RATING.
+   - IF **rating >= 4.5**: Mark "awards" as ["Local Favorite"]. -> **KEEP IT.**
+   - IF **rating < 4.5**: -> **DELETE THIS CANDIDATE.** (Do not include it in the output JSON. It failed the quality check.)
 
 # REFERENCE TOOLS
 ${searchTools}
@@ -92,7 +98,7 @@ ${candidatesString}
               "priceLevel": "String (€, €€, €€€, €€€€)",
               "cuisine": "String",
               "description": "String (Short summary)",
-              "logistics": "String (Reservation advice)", // RESTORED
+              "logistics": "String (Reservation advice)",
               "rating": "Number (float)",
               "user_ratings_total": "Number (integer)",
               "vibe": ["String"],
@@ -106,4 +112,4 @@ ${candidatesString}
 
   return builder.build();
 };
-// --- END OF FILE 105 Zeilen ---
+// --- END OF FILE 109 Zeilen ---

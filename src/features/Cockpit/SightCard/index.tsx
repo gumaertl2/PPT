@@ -1,15 +1,12 @@
 // 06.02.2026 21:30 - FIX: REMOVE DEAD CODE (Vercel Cleanup).
 // 06.02.2026 21:45 - FEATURE: Conditional Regenerate Button (Pass 'hasCategoryChanged').
-// - Removed unused 'resolveCategoryLabel' function.
-// - Removed unused imports (INTEREST_DATA, LanguageCode) and 'i18n'.
+// 07.02.2026 14:30 - FIX: PRINT DETAIL LEVEL BUG.
+// - SightCard now respects 'printConfig.detailLevel' when in print mode.
 // src/features/Cockpit/SightCard/index.tsx
 
 import React, { useState, useEffect, useRef } from 'react'; 
 import { useTripStore } from '../../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
-// FIX: Removed unused imports
-// import { INTEREST_DATA } from '../../../data/interests'; 
-// import type { LanguageCode } from '../../../core/types';
 import { Database, Trash2, Plus, Minus, X } from 'lucide-react';
 import { TripOrchestrator } from '../../../services/orchestrator';
 
@@ -28,7 +25,6 @@ const VIEW_LEVELS = ['kompakt', 'standard', 'details'] as const;
 type ViewLevel = typeof VIEW_LEVELS[number];
 
 export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selection', showPriorityControls = true }) => {
-  // FIX: Removed 'i18n' as it was only used in the deleted function
   const { t } = useTranslation(); 
   
   // FIX: Fetch live data from store if available to avoid stale props
@@ -38,11 +34,21 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
 
   const { uiState, updatePlace, deletePlace, setUIState, project, assignHotelToLogistics } = useTripStore(); 
   const cardRef = useRef<HTMLDivElement>(null);
-  const [viewLevel, setViewLevel] = useState<ViewLevel>('kompakt');
+
+  // FIX: Determine effective Detail Level (Print Override)
+  const getEffectiveViewLevel = (): ViewLevel => {
+      if (uiState.isPrintMode && uiState.printConfig?.detailLevel) {
+          return uiState.printConfig.detailLevel as ViewLevel;
+      }
+      return (uiState.detailLevel as ViewLevel) || 'kompakt';
+  };
+
+  const [viewLevel, setViewLevel] = useState<ViewLevel>(getEffectiveViewLevel);
   
+  // FIX: React to changes in View Mode OR Print Config
   useEffect(() => {
-    setViewLevel(uiState.detailLevel as ViewLevel);
-  }, [uiState.detailLevel]);
+    setViewLevel(getEffectiveViewLevel());
+  }, [uiState.detailLevel, uiState.isPrintMode, uiState.printConfig]);
 
   const isStandardOrHigher = viewLevel === 'standard' || viewLevel === 'details';
   const isDetailed = viewLevel === 'details';
@@ -107,8 +113,6 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
       </>
     );
   };
-
-  // FIX: REMOVED resolveCategoryLabel() - Dead Code
 
   const ensureAbsoluteUrl = (url: string | undefined): string | undefined => {
       if (!url) return undefined;
@@ -297,4 +301,4 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
     </>
   );
 };
-// --- END OF FILE 257 Zeilen ---
+// --- END OF FILE 269 Zeilen ---

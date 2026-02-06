@@ -1,5 +1,7 @@
 // 02.02.2026 13:15 - FIX: Enforced City Grouping for 'Specials' in Tour Mode.
 // 06.02.2026 17:30 - FIX: Fulltext Search (Deep Search in all fields).
+// 07.02.2026 15:00 - FIX: IGNORE FILTERS IN PRINT MODE.
+// - In Print Mode, SightsView now ignores temporary UI filters (search, category) to print the full itinerary.
 // src/features/Cockpit/SightsView.tsx
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -173,9 +175,17 @@ export const SightsView: React.FC = () => {
     const reserveList: any[] = [];
     const specialList: any[] = []; 
 
-    const term = (uiState.searchTerm || '').toLowerCase();
-    const activeFilters = uiState.categoryFilter || []; 
+    // FIX: IGNORE FILTERS IN PRINT MODE
+    // In Print Mode, we want to show EVERYTHING (or follow print config), not transient UI filters.
+    const isPrint = uiState.isPrintMode;
+    
+    const term = isPrint ? '' : (uiState.searchTerm || '').toLowerCase();
+    const activeFilters = isPrint ? [] : (uiState.categoryFilter || []); 
     const sortMode = (uiState.sortMode as string) || 'category';
+    
+    // NOTE: We do NOT ignore selectedCategory in print mode if we want to allow printing a specific category view?
+    // Actually, usually a report should be complete. Let's ignore it for now to be safe.
+    const selectedCategory = isPrint ? 'all' : uiState.selectedCategory;
 
     const ignoreList = APPENDIX_ONLY_INTERESTS || [];
     const minRating = userInputs.searchSettings?.minRating || 0;
@@ -205,9 +215,9 @@ export const SightsView: React.FC = () => {
       }
       
       // FIX: selectedCategory is now part of UIState interface
-      if (uiState.selectedCategory && uiState.selectedCategory !== 'all') {
+      if (selectedCategory && selectedCategory !== 'all') {
           const pCat = p.userSelection?.customCategory || p.category;
-          if (pCat !== uiState.selectedCategory) return;
+          if (pCat !== selectedCategory) return;
       }
 
       if (activeFilters.length > 0) {
@@ -234,6 +244,8 @@ export const SightsView: React.FC = () => {
 
       const rating = p.rating || 0;
       const duration = p.duration || p.min_duration_minutes || 0;
+      
+      // FIX: Reserve Logic remains active even in print (we want to separate them visually)
       const isReserve = (p.userPriority === -1) || 
                         (duration < minDuration) || 
                         (rating > 0 && rating < minRating);
@@ -260,7 +272,7 @@ export const SightsView: React.FC = () => {
         reserve: reserveList.sort(sortFn),
         special: specialList.sort(sortFn)
     };
-  }, [places, uiState.searchTerm, uiState.categoryFilter, uiState.sortMode, uiState.selectedCategory, userInputs.searchSettings, tourOptions, project.itinerary]);
+  }, [places, uiState.searchTerm, uiState.categoryFilter, uiState.sortMode, uiState.selectedCategory, uiState.isPrintMode, userInputs.searchSettings, tourOptions, project.itinerary]);
 
 
   // --- 4. RENDERER: GROUPED LIST ---
