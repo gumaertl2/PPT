@@ -1,3 +1,4 @@
+// 06.02.2026 12:05 - FEAT: Updated saveProject to accept optional fileName.
 // 05.02.2026 18:00 - REFACTOR: PROJECT CORE SLICE.
 // - Reduced to Core Project IO (Load/Save/Reset).
 // - Logic for Wizard inputs moved to 'createWizardSlice'.
@@ -18,7 +19,7 @@ export interface ProjectSlice {
   // Actions
   setProject: (project: TripProject) => void;
   loadProject: (fileOrProject: File | TripProject | any) => Promise<void> | void;
-  saveProject: () => void;
+  saveProject: (fileName?: string) => void;
   resetProject: () => void;
   setLanguage: (lang: LanguageCode) => void;
 }
@@ -139,26 +140,30 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     }
   },
 
-  saveProject: () => {
+  saveProject: (customFileName?: string) => {
     const state = get();
     const projectData = JSON.stringify(state.project, null, 2);
     
-    let baseName = "Papatours_Reise";
-    const { logistics } = state.project.userInputs;
-    
-    if (logistics.mode === 'stationaer') {
-        const dest = logistics.stationary.destination?.trim();
-        const reg = logistics.stationary.region?.trim();
-        if (dest && reg) baseName = `${dest}_${reg}`;
-        else if (dest) baseName = dest;
-        else if (reg) baseName = reg;
-    } else {
-        const reg = logistics.roundtrip.region?.trim();
-        if (reg) baseName = `Rundreise_${reg}`;
-    }
+    let fileName = customFileName;
 
-    const safeName = baseName.replace(/[^a-zA-Z0-9_-]/g, '_'); 
-    const fileName = `${safeName}_${new Date().toISOString().slice(0,10)}.json`;
+    if (!fileName) {
+        let baseName = "Papatours_Reise";
+        const { logistics } = state.project.userInputs;
+        
+        if (logistics.mode === 'stationaer') {
+            const dest = logistics.stationary.destination?.trim();
+            const reg = logistics.stationary.region?.trim();
+            if (dest && reg) baseName = `${dest}_${reg}`;
+            else if (dest) baseName = dest;
+            else if (reg) baseName = reg;
+        } else {
+            const reg = logistics.roundtrip.region?.trim();
+            if (reg) baseName = `Rundreise_${reg}`;
+        }
+
+        const safeName = baseName.replace(/[^a-zA-Z0-9_-]/g, '_'); 
+        fileName = `${safeName}_${new Date().toISOString().slice(0,10)}.json`;
+    }
     
     const blob = new Blob([projectData], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -181,4 +186,4 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     project: { ...state.project, meta: { ...state.project.meta, language: lang } }
   })),
 });
-// --- END OF FILE 135 Zeilen ---
+// --- END OF FILE 142 Zeilen ---

@@ -59,7 +59,7 @@ export const WORKFLOW_STEPS: WorkflowStepDef[] = [
   {
     id: 'foodScout',
     isMandatory: false,
-    requires: ['anreicherer'],
+    requires: ['chefPlaner'],
     label: { de: '6. Restaurants & Genuss', en: '6. Restaurants & Food' },
     description: { de: 'Sucht kulinarische Highlights passend zur Route.', en: 'Finds culinary highlights fitting the route.' }
   },
@@ -73,7 +73,7 @@ export const WORKFLOW_STEPS: WorkflowStepDef[] = [
   {
     id: 'ideenScout',
     isMandatory: false,
-    requires: ['anreicherer'], // FIX: Decoupled from TourGuide
+    requires: ['chefPlaner'],
     label: { de: '8. Flexibilität (Wetter)', en: '8. Flexibility (Weather)' },
     description: { de: 'Plant Optionen für Regen- oder reine Sonnentage.', en: 'Plans options for rainy or sunny days.' }
   },

@@ -1,3 +1,4 @@
+// 06.02.2026 12:00 - FEAT: Added 'Save As' Prompt to handleSaveProject.
 // 27.01.2026 17:30 - FEAT: Added Ad-Hoc Food Modal Trigger.
 // 24.01.2026 14:15 - FIX: Map Button resets selection to trigger 'Overview Mode'.
 // src/features/Cockpit/Layout/CockpitHeader.tsx
@@ -120,7 +121,17 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
         .replace(/ß/g, 'ss')
         .replace(/[^a-zA-Z0-9_-]/g, '_'); 
 
-    const fileName = `${safeName}_${new Date().toISOString().slice(0,10)}.json`;
+    let fileName = `${safeName}_${new Date().toISOString().slice(0,10)}.json`;
+
+    // Prompt User for filename
+    const userFileName = window.prompt("Dateiname für Speicherstand:", fileName);
+    if (!userFileName) {
+        setShowActionsMenu(false);
+        return; // Cancelled
+    }
+    
+    fileName = userFileName;
+    if (!fileName.endsWith('.json')) fileName += '.json';
 
     const data = JSON.stringify(project, null, 2);
     const blob = new Blob([data], { type: 'application/json' });
@@ -466,4 +477,4 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     </>
   );
 };
-// --- END OF FILE 485 Zeilen ---
+// --- END OF FILE 493 Zeilen ---
