@@ -1,6 +1,5 @@
+// 08.02.2026 19:15 - FEAT: Added Smart Mode Selection UI.
 // 05.02.2026 17:15 - REFACTOR: UI VIEW COMPONENT.
-// - Logic delegates to useWorkflowSelection hook.
-// - Pure presentation layer.
 // src/features/Workflow/WorkflowSelectionModal.tsx
 
 import React, { useState } from 'react';
@@ -16,13 +15,17 @@ import {
   Unlock,
   Play,
   Settings2,
-  RotateCcw 
+  RotateCcw,
+  Sparkles,      // NEW
+  RefreshCw,     // NEW
+  PlusCircle     // NEW
 } from 'lucide-react';
 
 interface WorkflowSelectionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onStart: (selectedSteps: WorkflowStepId[]) => void;
+  // FIX: Extended signature to support options
+  onStart: (selectedSteps: WorkflowStepId[], options?: { mode: 'smart' | 'force' }) => void;
 }
 
 export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({ 
@@ -32,6 +35,8 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
 }) => {
   const { project } = useTripStore();
   const [showConfirm, setShowConfirm] = useState(false);
+  // NEW: State for Smart Mode
+  const [showSmartConfirm, setShowSmartConfirm] = useState(false);
   
   // LOGIC HOOK INJECTION
   const { selectedSteps, toggleStep, getStepStatus, isStationary } = useWorkflowSelection(isOpen);
@@ -41,6 +46,23 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
   // HANDLERS (UI specific)
   const handleStartRequest = () => {
     if (selectedSteps.length === 0) return;
+    
+    // Check for Chefredakteur Smart Mode opportunity
+    const isChefredakteurSelected = selectedSteps.includes('chefredakteur');
+    const chefredakteurStatus = getStepStatus('chefredakteur');
+    
+    // Check if we have places missing content
+    const places = project.data.places || {};
+    const missingCount = Object.values(places).filter((p: any) => !p.detailContent || p.detailContent.length < 50).length;
+    const hasPlaces = Object.keys(places).length > 0;
+
+    // Trigger Smart Dialog IF: Chefredakteur selected AND it's already "done" (has some data) AND there are gaps
+    if (isChefredakteurSelected && chefredakteurStatus === 'done' && missingCount > 0 && missingCount < Object.keys(places).length) {
+        setShowSmartConfirm(true);
+        return;
+    }
+
+    // Standard Confirm Logic
     const isRerunningDoneSteps = selectedSteps.some(stepId => getStepStatus(stepId) === 'done');
 
     if (isRerunningDoneSteps) {
@@ -50,13 +72,18 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
     }
   };
 
-  const executeStart = () => {
-    onStart(selectedSteps);
+  const executeStart = (options?: { mode: 'smart' | 'force' }) => {
+    onStart(selectedSteps, options);
     onClose();
     setShowConfirm(false);
+    setShowSmartConfirm(false);
   };
 
   if (!isOpen) return null;
+
+  // Helper for Smart Dialog
+  const totalPlaces = Object.keys(project.data.places || {}).length;
+  const missingPlaces = Object.values(project.data.places || {}).filter((p: any) => !p.detailContent || p.detailContent.length < 50).length;
 
   return (
     <>
@@ -211,10 +238,65 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
           : 'Some selected steps have already been executed. If you continue, existing data for these steps will be overwritten. Do you really want to proceed?'}
         confirmText={lang === 'de' ? 'Ja, überschreiben' : 'Yes, overwrite'} 
         cancelText={lang === 'de' ? 'Abbrechen' : 'Cancel'} 
-        onConfirm={executeStart}
+        onConfirm={() => executeStart({ mode: 'force' })}
         onCancel={() => setShowConfirm(false)}
       />
+
+      {/* NEW: Smart Update Confirmation Dialog */}
+      {showSmartConfirm && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
+                <div className="p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="p-3 bg-blue-100 text-blue-600 rounded-full">
+                            <Sparkles size={24} />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-lg text-slate-900">
+                                {lang === 'de' ? 'Smart-Update verfügbar' : 'Smart Update Available'}
+                            </h3>
+                            <p className="text-sm text-slate-500">
+                                {lang === 'de' ? 'Für "Chefredakteur" Inhalte' : 'For "Editor-in-Chief" content'}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <p className="text-slate-600 text-sm mb-6 leading-relaxed">
+                        {lang === 'de' 
+                           ? `Es sind bereits Texte vorhanden. Möchtest du nur die ${missingPlaces} fehlenden Texte ergänzen oder alle ${totalPlaces} Texte neu generieren?`
+                           : `Content already exists. Do you want to only fill the ${missingPlaces} missing texts or regenerate all ${totalPlaces} texts?`
+                        }
+                    </p>
+
+                    <div className="grid grid-cols-1 gap-3">
+                        <button 
+                            onClick={() => executeStart({ mode: 'smart' })}
+                            className="flex items-center justify-center gap-2 p-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
+                        >
+                            <PlusCircle size={18} />
+                            {lang === 'de' ? 'Nur fehlende ergänzen (Smart)' : 'Fill missing only (Smart)'}
+                        </button>
+                        
+                        <button 
+                            onClick={() => executeStart({ mode: 'force' })}
+                            className="flex items-center justify-center gap-2 p-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-medium hover:bg-slate-50 transition-colors"
+                        >
+                            <RefreshCw size={18} />
+                            {lang === 'de' ? 'Alle neu generieren (Langsamer)' : 'Regenerate all (Slower)'}
+                        </button>
+                    </div>
+
+                    <button 
+                        onClick={() => setShowSmartConfirm(false)}
+                        className="w-full mt-4 text-xs text-slate-400 font-medium hover:text-slate-600"
+                    >
+                        {lang === 'de' ? 'Abbrechen' : 'Cancel'}
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
     </>
   );
 };
-// --- END OF FILE 190 Zeilen ---
+// --- END OF FILE 270 Zeilen ---

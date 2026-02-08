@@ -1,7 +1,7 @@
+// 08.02.2026 20:00 - FIX: Removed invalid APP_CONFIG usage. Restored standard CONFIG access.
+// 08.02.2026 18:30 - FEAT: Added Smart Mode logic.
 // 06.02.2026 10:00 - FIX: RESTORED COUNTRY SCOUT PIPELINE.
 // 07.02.2026 11:30 - FIX: REMOVED LEGACY 'sightCollector' TYPE CHECK.
-// - Solves TS2367: 'sightCollector' is not a valid TaskKey.
-// - Kept sequential food scouting & safety delays.
 // src/services/orchestrator.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -10,7 +10,7 @@ import { GeminiService } from './gemini';
 import { PayloadBuilder } from '../core/prompts/PayloadBuilder';
 import { useTripStore } from '../store/useTripStore';
 import { ResultProcessor } from './ResultProcessor'; 
-import { CONFIG } from '../data/config';
+import { CONFIG } from '../data/config'; // FIX: Removed APP_CONFIG
 import { APPENDIX_ONLY_INTERESTS } from '../data/constants'; 
 import { getGuidesForCountry } from '../data/countries'; 
 import { 
@@ -40,6 +40,8 @@ const getTaskLimit = (task: TaskKey, isManual: boolean): number => {
     const mode = isManual ? 'manual' : 'auto';
     const taskOverride = aiSettings.chunkOverrides?.[task]?.[mode];
     if (taskOverride) return taskOverride;
+    
+    // FIX: Reverted to standard CONFIG usage (APP_CONFIG does not exist)
     const globalLimit = aiSettings.chunkLimits?.[mode];
     const configDefault = CONFIG.taskRouting.chunkDefaults?.[task]?.[mode];
     if (configDefault) return configDefault;
@@ -173,9 +175,26 @@ export const TripOrchestrator = {
      return validatedData;
  },
 
- async executeTask(task: TaskKey, feedback?: string, inputData?: any): Promise<any> {
+ // FIX: Added 'options' parameter for Smart Mode
+ async executeTask(task: TaskKey, feedback?: string, inputData?: any, options?: { mode: 'smart' | 'force' }): Promise<any> {
     const store = useTripStore.getState();
     const { project, chunkingState, setChunkingState, apiKey } = store;
+
+    // --- SMART MODE PRE-PROCESSING ---
+    if (options?.mode === 'smart' && task === 'chefredakteur') {
+        const places = project.data.places || {};
+        const missingItems = Object.values(places).filter((p: any) => 
+            !p.detailContent || p.detailContent.length < 50
+        );
+        
+        if (missingItems.length === 0) {
+            console.log("[Orchestrator] Smart Mode: No items missing content. Skipping.");
+            return { skipped: true, message: "Nothing to do" };
+        }
+        
+        console.log(`[Orchestrator] Smart Mode: Filtered to ${missingItems.length} items (from ${Object.keys(places).length}).`);
+        inputData = missingItems; // Override inputData with filtered list
+    }
 
     // --- FOOD PIPELINE (V40.5) ---
     if (task === 'foodScout' || task === 'food') {
@@ -325,4 +344,4 @@ export const TripOrchestrator = {
     return this._executeSingleStep(task, feedback, false, inputData);
   }
 };
-// --- END OF FILE 505 Zeilen ---
+// --- END OF FILE 523 Zeilen ---

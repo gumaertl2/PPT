@@ -1,17 +1,19 @@
+// 08.02.2026 19:00 - FIX: RESTORED ORIGINAL LOGIC & ADDED SMART MODE HANDLER.
 // 05.02.2026 18:15 - FIX: INFINITE SELECTION LOOP.
 // 06.02.2026 17:15 - FIX: DEFAULT SELECTION OPT-OUT FOR DAY PLANNER.
-// - Added logic to exclude 'initialTagesplaner' from default auto-selection.
 // src/hooks/useWorkflowSelection.ts
 
 import { useState, useEffect, useCallback } from 'react';
 import { useTripStore } from '../store/useTripStore';
 import { WORKFLOW_STEPS } from '../core/Workflow/steps';
+import { TripOrchestrator } from '../services/orchestrator'; // NEW IMPORT
 import type { WorkflowStepId } from '../core/types';
 
 type StepStatus = 'locked' | 'available' | 'done';
 
+// FIX: Extended return type to include the new handler
 export const useWorkflowSelection = (isOpen: boolean) => {
-    const { project } = useTripStore();
+    const { project, setUIState } = useTripStore(); // Added setUIState
     const [selectedSteps, setSelectedSteps] = useState<WorkflowStepId[]>([]);
 
     // 1. GLOBAL CONTEXT
@@ -23,7 +25,6 @@ export const useWorkflowSelection = (isOpen: boolean) => {
     }, [selectedSteps]);
 
     // 3. CORE LOGIC: STATUS CALCULATION
-    // Note: This logic is reactive. It updates as the user clicks items.
     const getStepStatus = useCallback((stepId: WorkflowStepId): StepStatus => {
         // Data Presence Checks
         const places = project.data.places || {};
@@ -99,8 +100,7 @@ export const useWorkflowSelection = (isOpen: boolean) => {
         }
     }, [project, isStationary, isSelected]);
 
-    // 4. SMART AUTO-SELECTION (On Open)
-    // FIX: Removed 'getStepStatus' from dependency array to prevent infinite loop on selection change.
+    // 4. SMART AUTO-SELECTION
     useEffect(() => {
         if (isOpen) {
             const defaults: WorkflowStepId[] = [];
@@ -108,7 +108,6 @@ export const useWorkflowSelection = (isOpen: boolean) => {
             const hasPlaces = Object.keys(places).length > 0;
 
             WORKFLOW_STEPS.forEach(step => {
-                // Scenario: Fresh Start (Special Logic)
                 if (!hasPlaces) {
                     if (['basis', 'anreicherer', 'foodScout', 'ideenScout', 'infoAutor'].includes(step.id)) {
                          defaults.push(step.id);
@@ -116,20 +115,16 @@ export const useWorkflowSelection = (isOpen: boolean) => {
                     }
                 }
 
-                // Standard Logic using CURRENT status (Snapshot at open time)
                 const status = getStepStatus(step.id);
                 
                 if (status === 'done') return;
                 
                 if (status === 'available') {
-                    // FIX: Opt-in only for DayPlanner. User must select it manually.
                     if (step.id === 'initialTagesplaner') return;
-
                     defaults.push(step.id);
                 }
             });
             
-            // Final Filter
             const validDefaults = defaults.filter(id => {
                 if (id === 'routeArchitect' && isStationary) return false;
                 if (id === 'transferPlanner' && isStationary) return false;
@@ -138,28 +133,39 @@ export const useWorkflowSelection = (isOpen: boolean) => {
 
             setSelectedSteps(validDefaults);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isOpen, project, isStationary]); // Explicitly excluded getStepStatus
+    }, [isOpen, project, isStationary]); 
 
     // 5. ACTIONS
     const toggleStep = (id: WorkflowStepId) => {
-        // If I click a selected item to DESELECT it:
         if (selectedSteps.includes(id)) {
             setSelectedSteps(prev => prev.filter(s => s !== id));
             return;
         }
 
-        // If I click an unselected item to SELECT it:
         if (getStepStatus(id) === 'locked') return;
 
         setSelectedSteps(prev => [...prev, id]);
     };
 
+    // NEW: Handle direct execution with options (Smart Mode)
+    const handleWorkflowSelect = useCallback(async (stepId: string, options?: { mode: 'smart' | 'force' }) => {
+        console.log(`[Workflow] Direct Select: ${stepId}`, options);
+        
+        if (stepId === 'routeArchitect') {
+            setUIState({ viewMode: 'map' });
+        }
+
+        // Trigger Orchestrator directly
+        await TripOrchestrator.executeTask(stepId as any, undefined, undefined, options);
+        
+    }, [setUIState]);
+
     return {
         selectedSteps,
         toggleStep,
         getStepStatus,
-        isStationary
+        isStationary,
+        handleWorkflowSelect // Export new handler
     };
 };
-// --- END OF FILE 142 Zeilen ---
+// --- END OF FILE 160 Zeilen ---

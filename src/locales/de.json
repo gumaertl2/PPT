@@ -455,5 +455,13 @@
     "mode_stars_desc": "Michelin Sterne, Hauben, Fine Dining. Das kulinarische Erlebnis.",
     "btn_cancel": "Abbrechen",
     "btn_search": "Suche starten"
+  },
+  "workflow": {
+    "smart_title": "Smart-Update verfügbar",
+    "smart_context": "Für \"{{step}}\" Inhalte",
+    "smart_description": "Es sind bereits Texte vorhanden. Möchtest du nur die {{missing}} fehlenden Texte ergänzen oder alle {{total}} Texte neu generieren?",
+    "btn_smart": "Nur fehlende ergänzen (Smart)",
+    "btn_force": "Alle neu generieren (Langsamer)",
+    "cancel": "Abbrechen"
   }
 }

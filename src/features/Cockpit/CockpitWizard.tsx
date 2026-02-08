@@ -1,3 +1,4 @@
+// 08.02.2026 21:00 - FIX: Pass 'options' (Smart Mode) to startWorkflow.
 // 06.02.2026 19:35 - FEAT: Added 'plan' viewMode handling.
 // 06.02.2026 18:45 - FIX: Pass printConfig to PrintReport and wrap in 'print-only' container.
 // src/features/Cockpit/CockpitWizard.tsx
@@ -13,7 +14,7 @@ import { AnalysisReviewView } from './AnalysisReviewView';
 import { RouteReviewView } from './RouteReviewView';
 import { SightsView } from './SightsView';
 import { InfoView } from '../info/InfoView'; 
-import { PlanView } from './PlanView'; // NEW IMPORT
+import { PlanView } from './PlanView'; 
 import { ConfirmModal } from './ConfirmModal';
 import { InfoModal } from '../Welcome/InfoModal';
 import { ManualPromptModal } from './ManualPromptModal'; 
@@ -162,10 +163,11 @@ export const CockpitWizard = () => {
       setWorkflowModalOpen(true);
   };
 
-  const handleStartSelectedWorkflows = async (selectedSteps: WorkflowStepId[]) => {
+  // FIX: Added 'options' parameter to pass Smart Mode
+  const handleStartSelectedWorkflows = async (selectedSteps: WorkflowStepId[], options?: { mode: 'smart' | 'force' }) => {
       setWorkflowModalOpen(false); 
       if (selectedSteps.length > 0) {
-          await startWorkflow(selectedSteps);
+          await startWorkflow(selectedSteps, options); // Pass options to hook
           setViewMode('sights');
           window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -276,7 +278,7 @@ export const CockpitWizard = () => {
           <SightsView /> 
         ) : viewMode === 'info' ? (
           <InfoView /> 
-        ) : viewMode === 'plan' ? ( // FIX: Added PlanView case
+        ) : viewMode === 'plan' ? ( 
           <PlanView />
         ) : (
           <CurrentComponent onEdit={jumpToStep} />
@@ -327,7 +329,6 @@ export const CockpitWizard = () => {
         onStart={handleStartSelectedWorkflows}
       />
 
-      {/* FIX: Conditional Rendering for PrintReport with Config */}
       {uiState.printConfig && (
         <div className="print-only">
            <PrintReport config={uiState.printConfig} />
