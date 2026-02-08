@@ -1,5 +1,5 @@
+// 08.02.2026 16:15 - FIX: Critical Data Loss Bug. Geocoding now uses ALL places from store.
 // 08.02.2026 12:00 - FIX: Direct import from 'models' to resolve binding error.
-// 08.02.2026 11:45 - FIX: Merged Geocoding Service into existing advanced Map View (Colors, Legends).
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -101,7 +101,7 @@ const createCustomIcon = (color: string, isSelected: boolean) => {
 };
 
 interface SightsMapViewProps {
-  places: Place[];
+  places: Place[]; // This contains FILTERED places for display
 }
 
 const MapStyles = () => (
@@ -206,22 +206,27 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
   const [isUpdatingCoords, setIsUpdatingCoords] = useState(false);
   const [updateProgress, setUpdateProgress] = useState({ current: 0, total: 0 });
 
+  // Access COMPLETE dataset from store for geocoding logic
+  // FIX: Using 'places' prop (filtered) would cause data loss on save.
+  const allPlacesFromStore = useMemo(() => Object.values(project.data.places), [project.data.places]);
+
   // NEW: Background Geocoding Service
   useEffect(() => {
     const runGeocoding = async () => {
-        const needsValidation = places.some(p => !p.coordinatesValidated);
+        // FIX: Check ALL places, not just filtered ones
+        const needsValidation = allPlacesFromStore.some(p => !p.coordinatesValidated);
         
         if (needsValidation && !isUpdatingCoords) {
             setIsUpdatingCoords(true);
             try {
-                // Run Batch Update
+                // Run Batch Update on ALL places
                 const { updatedPlaces, hasChanges } = await GeocodingService.enrichPlacesWithCoordinates(
-                    places, 
+                    allPlacesFromStore, 
                     (curr, total) => setUpdateProgress({ current: curr, total })
                 );
 
                 if (hasChanges) {
-                    // Re-Construct Data Object
+                    // Re-Construct Data Object from ALL places
                     const newPlacesRecord = updatedPlaces.reduce((acc, p) => {
                         acc[p.id] = p;
                         return acc;
@@ -231,7 +236,7 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
                         ...project,
                         data: {
                             ...project.data,
-                            places: newPlacesRecord
+                            places: newPlacesRecord // FIX: Now contains all 55 places, not just 3
                         }
                     });
                 }
@@ -246,7 +251,7 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
     // Small delay to let map render first
     const timer = setTimeout(runGeocoding, 1000);
     return () => clearTimeout(timer);
-  }, [places.length]); 
+  }, [allPlacesFromStore.length]); // Re-run if total place count changes
 
   useEffect(() => {
     if (uiState.selectedPlaceId && markerRefs.current[uiState.selectedPlaceId]) {
@@ -344,4 +349,4 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
     </div>
   );
 };
-// --- END OF FILE 325 Zeilen ---
+// --- END OF FILE 332 Zeilen ---

@@ -1,4 +1,4 @@
-// src/core/prompts/templates/chefredakteur.ts
+// 08.02.2026 13:30 - FIX: Added CRITICAL EXECUTION RULES to prevent skipping IDs.
 // 01.02.2026 22:00 - PROMPT HYBRID: Merged V40 Structure with Legacy Logic.
 // Retains 'findSightData' fallback & supports both Project-based and Payload-based calls.
 // src/core/prompts/templates/chefredakteur.ts
@@ -84,7 +84,11 @@ export const buildChefredakteurPrompt = (
     };
 
     // 4. INSTRUCTIONS
-    const instructions = `# EDITORIAL STYLE (BINDING)
+    const instructions = `# CRITICAL EXECUTION RULES
+1. **COMPLETE COVERAGE:** You MUST generate an article for EVERY single ID listed in "TASKS TO PROCESS". Do NOT skip any item.
+2. **NO OMISSIONS:** If data is missing or the place is minor, write a generic inspiring text based on the name/type. Never return an empty result.
+
+# EDITORIAL STYLE (BINDING)
 - **Style:** Factual, detailed, informative.
 - **Strategy:** Consider the "strategic_guideline".
 - **Depth:** Enrich with background stories, historical facts, and entertaining anecdotes.
@@ -146,4 +150,4 @@ Structure:
 
     return builder.build();
 };
-// --- END OF FILE 136 Zeilen ---
+// --- END OF FILE 141 Zeilen ---
