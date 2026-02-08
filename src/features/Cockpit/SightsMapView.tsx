@@ -1,15 +1,16 @@
-// 31.01.2026 22:00 - FIX: Added missing categories (Camping, Gastronomy) to Color Palette.
-// 29.01.2026 12:50 - FIX: Removed unused Lucide icons (Sun, CloudRain) to resolve Vercel TS6133 error.
-// 28.01.2026 22:00 - FEAT: Added 'Special Day' markers (Sunny/Rainy colors) to Map View.
+// 08.02.2026 12:00 - FIX: Direct import from 'models' to resolve binding error.
+// 08.02.2026 11:45 - FIX: Merged Geocoding Service into existing advanced Map View (Colors, Legends).
 // src/features/Cockpit/SightsMapView.tsx
 
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useTripStore } from '../../store/useTripStore';
-import type { Place } from '../../core/types';
-import { ExternalLink } from 'lucide-react';
+// FIX: Direct import to avoid SyntaxError with barrel files
+import type { Place } from '../../core/types/models';
+import { ExternalLink, RefreshCw } from 'lucide-react'; 
+import { GeocodingService } from '../../services/GeocodingService'; 
 
 // --- HIGH CONTRAST PALETTE ---
 
@@ -119,7 +120,7 @@ const MapStyles = () => (
         transform: scale(1);
       }
     }
-     
+      
     .marker-pulse > div {
       animation: pulse-black 1.5s infinite;
       z-index: 9999 !important;
@@ -198,8 +199,54 @@ const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
 
 export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
   const defaultCenter: [number, number] = [48.1351, 11.5820]; 
-  const { uiState, setUIState } = useTripStore();
+  const { uiState, setUIState, project, setProject } = useTripStore(); 
   const markerRefs = useRef<Record<string, L.Marker | null>>({});
+
+  // NEW: State for Background Update
+  const [isUpdatingCoords, setIsUpdatingCoords] = useState(false);
+  const [updateProgress, setUpdateProgress] = useState({ current: 0, total: 0 });
+
+  // NEW: Background Geocoding Service
+  useEffect(() => {
+    const runGeocoding = async () => {
+        const needsValidation = places.some(p => !p.coordinatesValidated);
+        
+        if (needsValidation && !isUpdatingCoords) {
+            setIsUpdatingCoords(true);
+            try {
+                // Run Batch Update
+                const { updatedPlaces, hasChanges } = await GeocodingService.enrichPlacesWithCoordinates(
+                    places, 
+                    (curr, total) => setUpdateProgress({ current: curr, total })
+                );
+
+                if (hasChanges) {
+                    // Re-Construct Data Object
+                    const newPlacesRecord = updatedPlaces.reduce((acc, p) => {
+                        acc[p.id] = p;
+                        return acc;
+                    }, {} as Record<string, Place>);
+
+                    setProject({
+                        ...project,
+                        data: {
+                            ...project.data,
+                            places: newPlacesRecord
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error("Background Geocoding failed", e);
+            } finally {
+                setIsUpdatingCoords(false);
+            }
+        }
+    };
+
+    // Small delay to let map render first
+    const timer = setTimeout(runGeocoding, 1000);
+    return () => clearTimeout(timer);
+  }, [places.length]); 
 
   useEffect(() => {
     if (uiState.selectedPlaceId && markerRefs.current[uiState.selectedPlaceId]) {
@@ -214,6 +261,17 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
 
   return (
     <div className="h-[600px] w-full rounded-[2rem] overflow-hidden shadow-inner border border-slate-200 z-0 relative bg-slate-100">
+      
+      {/* NEW: Update Indicator */}
+      {isUpdatingCoords && (
+          <div className="absolute top-4 right-4 z-[1000] bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-md border border-slate-200 flex items-center gap-3 text-xs font-medium text-slate-600 animate-in slide-in-from-top-2">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-500" />
+              <span>
+                  Optimiere Koordinaten... ({updateProgress.current}/{updateProgress.total})
+              </span>
+          </div>
+      )}
+
       <MapStyles />
       <MapContainer 
         center={defaultCenter} 
@@ -286,4 +344,4 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
     </div>
   );
 };
-// --- END OF FILE 270 Zeilen ---
+// --- END OF FILE 325 Zeilen ---

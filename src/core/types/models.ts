@@ -1,5 +1,5 @@
+// 08.02.2026 11:15 - FEAT: Added 'coordinatesValidated' flag to Place interface.
 // 06.02.2026 21:40 - FIX: Consolidate PrintConfig and ensure Route fields exist.
-// 06.02.2026 21:15 - FIX: Added missing fields for RouteStop and RouteArchitectResult to fix build errors.
 // src/core/types/models.ts
 
 import type { LanguageCode } from './shared';
@@ -10,7 +10,7 @@ export interface RouteStop {
   location: string;
   duration: number; 
   hotel?: string;
-  name?: string; // Essential for PlanView
+  name?: string; 
 }
 
 export interface CalendarEvent {
@@ -169,8 +169,8 @@ export interface RouteProposal {
 
 export interface RouteArchitectResult {
   routes: RouteProposal[]; 
-  googleMapsLink?: string; // FIX: Added missing property
-  route_reasoning?: string; // FIX: Added missing property
+  googleMapsLink?: string; 
+  route_reasoning?: string; 
 }
 
 export interface GeoAnalystResult {
@@ -224,6 +224,7 @@ export interface Place {
   address?: string;
   vicinity?: string;
   location?: { lat: number; lng: number };
+  coordinatesValidated?: boolean; // NEW: Flag for Nominatim Validation
   
   // Metadata
   userPriority?: number; 
@@ -293,7 +294,6 @@ export interface PrintConfig {
     categories: boolean;
     infos: boolean;
   };
-  // FIX: Added missing properties from earlier versions
   layout: 'standard' | 'compact';
   showImages: boolean;
 }
@@ -326,4 +326,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 266 Zeilen ---
+// --- END OF FILE 271 Zeilen ---
