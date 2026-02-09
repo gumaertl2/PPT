@@ -1,4 +1,5 @@
-// 08.02.2026 19:15 - FEAT: Added Smart Mode Selection UI.
+// 09.02.2026 09:55 - FIX: Removed unused 'hasPlaces' variable to fix Build Error TS6133.
+// 08.02.2026 21:00 - FIX: Pass 'options' (Smart Mode) to startWorkflow.
 // 05.02.2026 17:15 - REFACTOR: UI VIEW COMPONENT.
 // src/features/Workflow/WorkflowSelectionModal.tsx
 
@@ -16,9 +17,9 @@ import {
   Play,
   Settings2,
   RotateCcw,
-  Sparkles,      // NEW
-  RefreshCw,     // NEW
-  PlusCircle     // NEW
+  Sparkles,      
+  RefreshCw,     
+  PlusCircle     
 } from 'lucide-react';
 
 interface WorkflowSelectionModalProps {
@@ -54,8 +55,8 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
     // Check if we have places missing content
     const places = project.data.places || {};
     const missingCount = Object.values(places).filter((p: any) => !p.detailContent || p.detailContent.length < 50).length;
-    const hasPlaces = Object.keys(places).length > 0;
-
+    // FIX: Removed unused 'hasPlaces' variable (TS6133)
+    
     // Trigger Smart Dialog IF: Chefredakteur selected AND it's already "done" (has some data) AND there are gaps
     if (isChefredakteurSelected && chefredakteurStatus === 'done' && missingCount > 0 && missingCount < Object.keys(places).length) {
         setShowSmartConfirm(true);
