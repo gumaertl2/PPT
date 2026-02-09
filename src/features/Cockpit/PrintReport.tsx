@@ -1,3 +1,4 @@
+// 09.02.2026 12:55 - FIX: Added 'overrideDetailLevel' to support Print Settings (Strict User Base).
 // 06.02.2026 18:40 - FIX: Added Safety Check for 'config' to prevent Runtime Crash.
 // 06.02.2026 18:05 - FIX: Reverted BriefingView import to Named Import.
 // src/features/Cockpit/PrintReport.tsx
@@ -64,7 +65,7 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
       {/* B) FUNDAMENT & ANALYSE (+ ROUTE) */}
       {config.sections.analysis && (
         <>
-          {config.sections.briefing && <PageBreak />}
+          {(config.sections.briefing) && <PageBreak />}
           <section className="print-section">
              <SectionHeader title={t('print.section_analysis', { defaultValue: 'Fundament & Analyse' })} />
              <AnalysisReviewView />
@@ -86,8 +87,11 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
            {(config.sections.briefing || config.sections.analysis) && <PageBreak />}
            <section className="print-section">
               <SectionHeader title={t('print.section_tours', { defaultValue: 'Reiseführer: Touren & Ablauf' })} />
-              {/* Force SightsView into Tour Sort Mode */}
-              <SightsView overrideSortMode="tour" />
+              {/* Force SightsView into Tour Sort Mode & Apply Detail Level */}
+              <SightsView 
+                  overrideSortMode="tour" 
+                  overrideDetailLevel={config.detailLevel} 
+              />
            </section>
         </>
       )}
@@ -98,8 +102,11 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
            {(config.sections.briefing || config.sections.analysis || config.sections.tours) && <PageBreak />}
            <section className="print-section">
               <SectionHeader title={t('print.section_categories', { defaultValue: 'Reiseführer: Kategorien' })} />
-              {/* Force SightsView into Category Sort Mode */}
-              <SightsView overrideSortMode="category" />
+              {/* Force SightsView into Category Sort Mode & Apply Detail Level */}
+              <SightsView 
+                  overrideSortMode="category" 
+                  overrideDetailLevel={config.detailLevel} 
+              />
            </section>
         </>
       )}
@@ -123,4 +130,4 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
     </div>
   );
 };
-// --- END OF FILE 119 Zeilen ---
+// --- END OF FILE 130 Zeilen ---

@@ -1,7 +1,7 @@
+// 09.02.2026 13:00 - FIX: SightCard now accepts explicit 'detailLevel' prop for Print Override.
 // 06.02.2026 21:30 - FIX: REMOVE DEAD CODE (Vercel Cleanup).
 // 06.02.2026 21:45 - FEATURE: Conditional Regenerate Button (Pass 'hasCategoryChanged').
 // 07.02.2026 14:30 - FIX: PRINT DETAIL LEVEL BUG.
-// - SightCard now respects 'printConfig.detailLevel' when in print mode.
 // src/features/Cockpit/SightCard/index.tsx
 
 import React, { useState, useEffect, useRef } from 'react'; 
@@ -14,17 +14,26 @@ import { SightCardHeader } from './SightCardHeader';
 import { SightCardMeta } from './SightCardMeta';
 import { SightCardBody } from './SightCardBody';
 
+// NEW: Added DetailLevel Type Definition locally or import if available
+type ViewLevel = 'kompakt' | 'standard' | 'details';
+const VIEW_LEVELS = ['kompakt', 'standard', 'details'] as const;
+
 interface SightCardProps {
   id: string;
   data: any; 
   mode?: 'selection' | 'view'; 
   showPriorityControls?: boolean;
+  // FIX: Added explicit prop to allow override from parents (e.g. PrintReport -> SightsView -> SightCard)
+  detailLevel?: ViewLevel;
 }
 
-const VIEW_LEVELS = ['kompakt', 'standard', 'details'] as const;
-type ViewLevel = typeof VIEW_LEVELS[number];
-
-export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selection', showPriorityControls = true }) => {
+export const SightCard: React.FC<SightCardProps> = ({ 
+  id, 
+  data, 
+  mode = 'selection', 
+  showPriorityControls = true,
+  detailLevel: overrideDetailLevel // Destructure new prop
+}) => {
   const { t } = useTranslation(); 
   
   // FIX: Fetch live data from store if available to avoid stale props
@@ -35,20 +44,26 @@ export const SightCard: React.FC<SightCardProps> = ({ id, data, mode = 'selectio
   const { uiState, updatePlace, deletePlace, setUIState, project, assignHotelToLogistics } = useTripStore(); 
   const cardRef = useRef<HTMLDivElement>(null);
 
-  // FIX: Determine effective Detail Level (Print Override)
+  // FIX: Determine effective Detail Level with Priority: Prop > PrintConfig > ScreenState
   const getEffectiveViewLevel = (): ViewLevel => {
+      // 1. Priority: Explicit Prop (passed from PrintReport)
+      if (overrideDetailLevel) return overrideDetailLevel;
+
+      // 2. Priority: Global Print Mode (if active)
       if (uiState.isPrintMode && uiState.printConfig?.detailLevel) {
           return uiState.printConfig.detailLevel as ViewLevel;
       }
+
+      // 3. Priority: Screen State
       return (uiState.detailLevel as ViewLevel) || 'kompakt';
   };
 
   const [viewLevel, setViewLevel] = useState<ViewLevel>(getEffectiveViewLevel);
   
-  // FIX: React to changes in View Mode OR Print Config
+  // FIX: React to changes in Prop OR Store
   useEffect(() => {
     setViewLevel(getEffectiveViewLevel());
-  }, [uiState.detailLevel, uiState.isPrintMode, uiState.printConfig]);
+  }, [uiState.detailLevel, uiState.isPrintMode, uiState.printConfig, overrideDetailLevel]);
 
   const isStandardOrHigher = viewLevel === 'standard' || viewLevel === 'details';
   const isDetailed = viewLevel === 'details';

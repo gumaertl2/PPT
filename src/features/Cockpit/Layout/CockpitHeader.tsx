@@ -1,4 +1,4 @@
-// 09.02.2026 11:15 - FIX: Restored full UI features and added filename persistence.
+// 09.02.2026 11:35 - FIX: Added filename persistence (Strict User Code Base).
 // 06.02.2026 19:35 - FEAT: Wired 'Plan' button to switch viewMode to 'plan'.
 // 06.02.2026 18:55 - FIX: Added 'await' to loadProject to ensure filename is set before UI updates.
 // src/features/Cockpit/Layout/CockpitHeader.tsx
@@ -102,7 +102,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
   };
 
   const handleSaveProject = () => {
-    // FIX: Check for existing filename first
+    // FIX START: Prefer existing filename if available
     if (uiState.currentFileName) {
         const currentName = uiState.currentFileName.replace(/\.json$/i, '');
         const userFileName = window.prompt("Dateiname für Speicherstand:", currentName);
@@ -118,8 +118,8 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
         setShowActionsMenu(false);
         return;
     }
+    // FIX END
 
-    // Fallback: Generate new name if no file loaded
     let baseName = "Papatours_Reise";
     const { logistics } = project.userInputs;
     
@@ -501,4 +501,4 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     </>
   );
 };
-// --- END OF FILE 505 Zeilen ---
+// --- END OF FILE 522 Zeilen ---

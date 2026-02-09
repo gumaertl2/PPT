@@ -1,3 +1,4 @@
+// 09.02.2026 12:00 - FIX: Added 'overrideDetailLevel' prop to support Print Settings.
 // 06.02.2026 17:20 - FEAT: Added 'overrideSortMode' prop for Print Report flexibility.
 // 06.02.2026 17:15 - FIX: Print Optimization (Double-Instance-Fix & Clean Layout).
 // 02.02.2026 13:15 - FIX: Enforced City Grouping for 'Specials' in Tour Mode.
@@ -12,7 +13,7 @@ import { SightFilterModal } from './SightFilterModal';
 import { useTranslation } from 'react-i18next';
 import { INTEREST_DATA } from '../../data/interests'; 
 import { APPENDIX_ONLY_INTERESTS } from '../../data/constants';
-import type { LanguageCode, Place } from '../../core/types'; 
+import type { LanguageCode, Place, DetailLevel } from '../../core/types'; // FIX: Added DetailLevel
 import { SightsMapView } from './SightsMapView';
 
 import { 
@@ -31,9 +32,10 @@ const TRAVEL_PACE_CONFIG: Record<string, { startHour: number; endHour: number; b
 // NEW: Interface for Props
 interface SightsViewProps {
   overrideSortMode?: 'category' | 'tour' | 'day' | 'alphabetical';
+  overrideDetailLevel?: DetailLevel; // FIX: Added overrideDetailLevel prop
 }
 
-export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode }) => {
+export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overrideDetailLevel }) => {
   const { t, i18n } = useTranslation(); 
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
 
@@ -377,6 +379,7 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode }) => {
                    data={place} 
                    mode="selection" 
                    showPriorityControls={showPlanningMode}
+                   detailLevel={overrideDetailLevel} // FIX: Pass override level to card
                 />
             </div>
           ))}
@@ -496,4 +499,4 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode }) => {
     </div>
   );
 };
-// --- END OF FILE 650 Zeilen ---
+// --- END OF FILE 656 Zeilen ---
