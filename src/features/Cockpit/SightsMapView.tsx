@@ -1,5 +1,6 @@
+// 09.02.2026 19:50 - FEAT: Added Progress Toast for Background Live Check.
+// 09.02.2026 19:40 - FEAT: Auto-start LiveScout (max 50) when Map View opens.
 // 08.02.2026 16:15 - FIX: Critical Data Loss Bug. Geocoding now uses ALL places from store.
-// 08.02.2026 12:00 - FIX: Direct import from 'models' to resolve binding error.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -9,8 +10,9 @@ import 'leaflet/dist/leaflet.css';
 import { useTripStore } from '../../store/useTripStore';
 // FIX: Direct import to avoid SyntaxError with barrel files
 import type { Place } from '../../core/types/models';
-import { ExternalLink, RefreshCw } from 'lucide-react'; 
+import { ExternalLink, RefreshCw, Zap } from 'lucide-react'; 
 import { GeocodingService } from '../../services/GeocodingService'; 
+import { LiveScout } from '../../services/LiveScout'; 
 
 // --- HIGH CONTRAST PALETTE ---
 
@@ -202,18 +204,19 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
   const { uiState, setUIState, project, setProject } = useTripStore(); 
   const markerRefs = useRef<Record<string, L.Marker | null>>({});
 
-  // NEW: State for Background Update
+  // NEW: State for Background Updates
   const [isUpdatingCoords, setIsUpdatingCoords] = useState(false);
   const [updateProgress, setUpdateProgress] = useState({ current: 0, total: 0 });
 
+  const [isCheckingLive, setIsCheckingLive] = useState(false);
+  const [liveCheckProgress, setLiveCheckProgress] = useState({ current: 0, total: 0 });
+
   // Access COMPLETE dataset from store for geocoding logic
-  // FIX: Using 'places' prop (filtered) would cause data loss on save.
   const allPlacesFromStore = useMemo(() => Object.values(project.data.places), [project.data.places]);
 
   // NEW: Background Geocoding Service
   useEffect(() => {
     const runGeocoding = async () => {
-        // FIX: Check ALL places, not just filtered ones
         const needsValidation = allPlacesFromStore.some(p => !p.coordinatesValidated);
         
         if (needsValidation && !isUpdatingCoords) {
@@ -226,7 +229,6 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
                 );
 
                 if (hasChanges) {
-                    // Re-Construct Data Object from ALL places
                     const newPlacesRecord = updatedPlaces.reduce((acc, p) => {
                         acc[p.id] = p;
                         return acc;
@@ -236,7 +238,7 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
                         ...project,
                         data: {
                             ...project.data,
-                            places: newPlacesRecord // FIX: Now contains all 55 places, not just 3
+                            places: newPlacesRecord 
                         }
                     });
                 }
@@ -248,10 +250,40 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
         }
     };
 
-    // Small delay to let map render first
     const timer = setTimeout(runGeocoding, 1000);
     return () => clearTimeout(timer);
-  }, [allPlacesFromStore.length]); // Re-run if total place count changes
+  }, [allPlacesFromStore.length]);
+
+  // NEW: Background Live Check on Map View (Max 50)
+  useEffect(() => {
+    const runLiveCheck = () => {
+        // Prevent double run
+        if (isCheckingLive) return;
+
+        const uncheckedPlaces = allPlacesFromStore
+            .filter(p => !p.liveStatus && p.category !== 'internal');
+        
+        if (uncheckedPlaces.length > 0) {
+            // "Sofort max. 50"
+            const candidates = uncheckedPlaces.slice(0, 50).map(p => p.id);
+            
+            if (candidates.length > 0) {
+                setIsCheckingLive(true);
+                setLiveCheckProgress({ current: 0, total: candidates.length });
+
+                LiveScout.verifyBatch(candidates, (curr, total) => {
+                    setLiveCheckProgress({ current: curr, total });
+                })
+                .catch(e => console.error("LiveCheck error", e))
+                .finally(() => setIsCheckingLive(false));
+            }
+        }
+    };
+
+    // Delay to start after geocoding has likely started
+    const timer = setTimeout(runLiveCheck, 2000);
+    return () => clearTimeout(timer);
+  }, []); // Run once on mount
 
   useEffect(() => {
     if (uiState.selectedPlaceId && markerRefs.current[uiState.selectedPlaceId]) {
@@ -267,12 +299,22 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
   return (
     <div className="h-[600px] w-full rounded-[2rem] overflow-hidden shadow-inner border border-slate-200 z-0 relative bg-slate-100">
       
-      {/* NEW: Update Indicator */}
+      {/* 1. Geocoding Indicator */}
       {isUpdatingCoords && (
           <div className="absolute top-4 right-4 z-[1000] bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-md border border-slate-200 flex items-center gap-3 text-xs font-medium text-slate-600 animate-in slide-in-from-top-2">
               <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-500" />
               <span>
                   Optimiere Koordinaten... ({updateProgress.current}/{updateProgress.total})
+              </span>
+          </div>
+      )}
+
+      {/* 2. Live Check Indicator (Stacked below Geocoding) */}
+      {isCheckingLive && (
+          <div className={`absolute right-4 z-[1000] bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-md border border-slate-200 flex items-center gap-3 text-xs font-medium text-slate-600 animate-in slide-in-from-top-2 ${isUpdatingCoords ? 'top-16' : 'top-4'}`}>
+              <Zap className="w-3.5 h-3.5 animate-pulse text-amber-500 fill-current" />
+              <span>
+                  Live-Check... ({liveCheckProgress.current}/{liveCheckProgress.total})
               </span>
           </div>
       )}
@@ -349,4 +391,4 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
     </div>
   );
 };
-// --- END OF FILE 332 Zeilen ---
+// --- END OF FILE 397 Zeilen ---

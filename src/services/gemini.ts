@@ -1,3 +1,4 @@
+// 09.02.2026 19:10 - FIX: Removed 'responseMimeType: application/json' when Google Search Tool is active (API constraint).
 // 09.02.2026 17:00 - FEAT: Added Google Search Grounding support via 'tools'.
 // 28.01.2026 18:30 - FIX: Applied 'Thinking Config' correctly when user overrides model to 'Flash+' (thinking).
 // src/services/gemini.ts
@@ -251,10 +252,10 @@ export const GeminiService = {
 
     if (!modelEndpoint && modelIdOverride) modelEndpoint = modelIdOverride;
 
-    // FORCE SEARCH: If search is requested, ensure we use a model that supports it (Flash usually)
-    // Actually Pro and Flash both support it, but Flash is faster.
-    if (enableGoogleSearch && !userHasSpecificOverride) {
-        // Just keep selected model, but we add tools below
+    // FIX: Google Search Grounding does NOT support JSON Mode.
+    // We must rely on our robust 'extractJsonBlock' for parsing.
+    if (enableGoogleSearch) {
+        delete generationConfig.responseMimeType;
     }
 
     RateLimiter.checkRateLimit(selectedModelKey);
@@ -420,4 +421,4 @@ export const GeminiService = {
     return promise;
   }
 };
-// --- END OF FILE 475 Zeilen ---
+// --- END OF FILE 482 Zeilen ---

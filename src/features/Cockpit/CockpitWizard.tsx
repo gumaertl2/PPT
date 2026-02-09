@@ -1,3 +1,4 @@
+// 09.02.2026 19:20 - FIX: Disabled global background worker (useLiveStatusWorker removed).
 // 08.02.2026 21:00 - FIX: Pass 'options' (Smart Mode) to startWorkflow.
 // 06.02.2026 19:35 - FEAT: Added 'plan' viewMode handling.
 // 06.02.2026 18:45 - FIX: Pass printConfig to PrintReport and wrap in 'print-only' container.
@@ -7,6 +8,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTripStore } from '../../store/useTripStore'; 
 import { useTripGeneration } from '../../hooks/useTripGeneration';
+// import { useLiveStatusWorker } from '../../hooks/useLiveStatusWorker'; // DISABLED for now to save quota
 import type { WorkflowStepId, CockpitViewMode } from '../../core/types'; 
 
 // Components
@@ -60,6 +62,9 @@ export const CockpitWizard = () => {
       uiState 
   } = useTripStore(); 
   
+  // DISABLED: Background Worker is currently OFF by default to save API calls.
+  // usage: useLiveStatusWorker(true);
+
   const { userInputs } = project;
   
   const { 
@@ -338,4 +343,4 @@ export const CockpitWizard = () => {
     </div>
   );
 };
-// --- END OF FILE 366 Zeilen ---
+// --- END OF FILE 370 Zeilen ---
