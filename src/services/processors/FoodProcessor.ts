@@ -1,3 +1,4 @@
+// 09.02.2026 14:15 - FIX: Integrated 'Rejected' Filter into User's Custom FoodProcessor.
 // 06.02.2026 13:35 - REFACTOR: SIMPLE LINK STORAGE.
 // - Removed complex link generation. Now acts as a dumb pipe for 'guide_link'.
 // src/services/processors/FoodProcessor.ts
@@ -33,9 +34,20 @@ export const FoodProcessor = {
             const rawCandidates: any[] = []; 
             const existingPlaces = project.data?.places || {};
             let savedCount = 0;
+            let rejectedCount = 0; // Stats
 
             extractedItems.forEach((item: any) => {
                 if (typeof item === 'string') return;
+                
+                // FIX START: Reject Check (Anti-Hallucination)
+                // Wenn die KI selbst sagt "rejected" oder die Adresse "Rejected" enthält (vom Validator)
+                if (item.verification_status === 'rejected' || (item.address && item.address.includes('Rejected'))) {
+                    rejectedCount++;
+                    if (debug) console.warn(`[FoodProcessor] 🛡️ Blocked invalid candidate: "${item.name}"`);
+                    return; // SKIP THIS ITEM
+                }
+                // FIX END
+
                 const name = item.name || item.name_official || item.original_name;
                 
                 if (isGarbageName(name)) return;
@@ -115,7 +127,7 @@ export const FoodProcessor = {
 
                 handleGuideHarvesting(extractedItems, project);
             }
-            console.log(`[${systemCategory}] Stored/Updated ${savedCount} items.`);
+            console.log(`[${systemCategory}] Stored ${savedCount} valid items. Blocked ${rejectedCount} invalid items.`);
         } else {
             if (debug) console.warn(`[FoodProcessor] Warning: No items extracted from data.`, data);
         }
@@ -167,4 +179,4 @@ function handleGuideHarvesting(items: any[], project: any) {
         }
     }
 }
-// --- END OF FILE 162 Zeilen ---
+// --- END OF FILE 176 Zeilen ---

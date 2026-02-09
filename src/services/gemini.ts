@@ -1,5 +1,5 @@
+// 09.02.2026 17:00 - FEAT: Added Google Search Grounding support via 'tools'.
 // 28.01.2026 18:30 - FIX: Applied 'Thinking Config' correctly when user overrides model to 'Flash+' (thinking).
-// 22.01.2026 22:00 - FIX: Enhanced JSON Extraction to support Arrays [] correctly (fixes "1 item bug").
 // src/services/gemini.ts
 
 import { CONFIG } from '../data/config';
@@ -17,17 +17,14 @@ function extractJsonBlock(text: string): string {
   const arrayEnd = text.lastIndexOf(']');
 
   if (arrayStart !== -1 && arrayEnd !== -1 && arrayEnd > arrayStart) {
-      // Check if this array looks like the main container (and not just inside a text)
-      // Heuristic: If '[' comes before the first '{', it's likely the root.
+      // Check if this array looks like the main container
       const objectStart = text.indexOf('{');
       if (objectStart === -1 || arrayStart < objectStart) {
            const potentialJson = text.substring(arrayStart, arrayEnd + 1);
            try {
                JSON.parse(potentialJson);
-               return potentialJson; // Found a valid array!
-           } catch (e) {
-               // Array parsing failed, fall back to object search
-           }
+               return potentialJson; 
+           } catch (e) { }
       }
   }
 
@@ -40,8 +37,6 @@ function extractJsonBlock(text: string): string {
   }
 
   let currentStart = startIndex;
-  
-  // Smart Iterative Search for Objects
   while (currentStart !== -1 && currentStart < lastIndex) {
     const potentialJson = text.substring(currentStart, lastIndex + 1);
     try {
@@ -172,7 +167,8 @@ export const GeminiService = {
     taskKey: TaskKey | null = null,
     modelIdOverride?: string, 
     onRetryDelay?: (delay: number, msg: string) => void,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    enableGoogleSearch: boolean = false // NEW: Flag for Search Grounding
   ): Promise<T> {
     
     const store = useTripStore.getState();
@@ -182,8 +178,7 @@ export const GeminiService = {
     const { modelOverrides } = store.aiSettings;
 
     // --- DEDUPLICATION CHECK ---
-    // Generate a unique key based on task, strategy and prompt content
-    const requestKey = `${taskName}:${currentStrategy}:${prompt.length}:${prompt.substring(0, 50)}`; 
+    const requestKey = `${taskName}:${currentStrategy}:${prompt.length}:${prompt.substring(0, 50)}:${enableGoogleSearch}`; 
     
     if (GeminiService._activeRequests.has(requestKey)) {
         if (isDebug) console.log(`[GeminiService] Dedup: Reusing active request for ${taskName}`);
@@ -218,7 +213,7 @@ export const GeminiService = {
              if (forcedModel === 'pro') {
                  modelEndpoint = 'gemini-2.5-pro:generateContent';
                  selectedModelKey = 'pro';
-             } else if (forcedModel === 'thinking') { // FIX: Explicit handling for 'thinking' override
+             } else if (forcedModel === 'thinking') { 
                  modelEndpoint = 'gemini-2.5-flash:generateContent';
                  selectedModelKey = 'flash';
                  generationConfig = {
@@ -240,7 +235,6 @@ export const GeminiService = {
              } else {
                  modelEndpoint = 'gemini-2.5-flash:generateContent';
                  selectedModelKey = 'flash'; 
-                 // THINKING MODE REMAINS ACTIVE (USER CHOICE)
                  generationConfig = {
                       responseMimeType: 'application/json',
                       thinkingConfig: {
@@ -257,6 +251,12 @@ export const GeminiService = {
 
     if (!modelEndpoint && modelIdOverride) modelEndpoint = modelIdOverride;
 
+    // FORCE SEARCH: If search is requested, ensure we use a model that supports it (Flash usually)
+    // Actually Pro and Flash both support it, but Flash is faster.
+    if (enableGoogleSearch && !userHasSpecificOverride) {
+        // Just keep selected model, but we add tools below
+    }
+
     RateLimiter.checkRateLimit(selectedModelKey);
 
     let finalPrompt = prompt;
@@ -265,7 +265,7 @@ export const GeminiService = {
       store.logEvent({
         task: taskName,
         type: 'request',
-        model: `${selectedModelKey} (${currentStrategy}) [Thinking: ${!!generationConfig.thinkingConfig}]`, 
+        model: `${selectedModelKey} (${currentStrategy}) [Search: ${enableGoogleSearch}]`, 
         content: finalPrompt
       });
     }
@@ -279,8 +279,11 @@ export const GeminiService = {
         const INTERNAL_RETRIES = 1;
 
         if (import.meta.env.DEV) {
-          console.log(`>>> API CALL [${currentStrategy}] -> ${modelEndpoint}`, { apiUrl, generationConfig });
+          console.log(`>>> API CALL [${currentStrategy}] -> ${modelEndpoint}`, { apiUrl, enableGoogleSearch });
         }
+
+        // NEW: Construct Tools Payload
+        const toolsPayload = enableGoogleSearch ? [{ googleSearch: {} }] : undefined;
 
         for (let attempt = 0; attempt <= INTERNAL_RETRIES; attempt++) {
           try {
@@ -292,7 +295,8 @@ export const GeminiService = {
               body: JSON.stringify({ 
                 contents: [{ parts: [{ text: finalPrompt }] }],
                 safetySettings: CONFIG.api.safetySettings,
-                generationConfig: generationConfig 
+                generationConfig: generationConfig,
+                tools: toolsPayload // Inject Tools if needed
               }),
               signal: signal
             });
@@ -319,7 +323,6 @@ export const GeminiService = {
             const parts = data.candidates[0].content.parts || [];
             const rawText = parts.map((p: any) => p.text).join('');
             
-            // FIX: Use enhanced extractor that understands Arrays []
             const cleanText = extractJsonBlock(rawText);
 
             const validation = validateJson<T>(cleanText, [], (msg) => console.warn(msg));
@@ -328,6 +331,12 @@ export const GeminiService = {
               RateLimiter.recordCall(selectedModelKey);
               const tokens = data.usageMetadata?.totalTokenCount || 0;
               (store as any).addUsageStats(tokens, selectedModelKey);
+
+              // CHECK GROUNDING METADATA (Optional Debug Info)
+              const groundingMetadata = data.candidates[0].groundingMetadata;
+              if (isDebug && groundingMetadata) {
+                  console.log("[GeminiService] Grounding Metadata:", groundingMetadata);
+              }
 
               if (isDebug) {
                 store.logEvent({
@@ -339,7 +348,8 @@ export const GeminiService = {
                     finishReason: data.candidates[0].finishReason,
                     tokens: data.usageMetadata, 
                     thinkingConfig: generationConfig.thinkingConfig,
-                    rawResponseSnippet: rawText.substring(0, 100) + "..."
+                    rawResponseSnippet: rawText.substring(0, 100) + "...",
+                    grounding: groundingMetadata
                   }
                 });
               }
@@ -399,12 +409,10 @@ export const GeminiService = {
         throw new Error("Unbekannter Fehler im API-Loop.");
     };
 
-    // --- START REQUEST & MANAGE DEDUP MAP ---
     const promise = executeRequest();
     
     GeminiService._activeRequests.set(requestKey, promise);
     
-    // Clean up map when finished (success or fail)
     promise.finally(() => {
         GeminiService._activeRequests.delete(requestKey);
     });
@@ -412,4 +420,4 @@ export const GeminiService = {
     return promise;
   }
 };
-// --- END OF FILE 462 Zeilen ---
+// --- END OF FILE 475 Zeilen ---

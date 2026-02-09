@@ -1,3 +1,5 @@
+// 09.02.2026 18:00 - FIX: Added 'LiveStatus' interface (with corrected status) to Place model.
+// 09.02.2026 16:50 - FEAT: Added 'liveStatus' to Place model for Google Search Grounding results.
 // 08.02.2026 11:15 - FEAT: Added 'coordinatesValidated' flag to Place interface.
 // 06.02.2026 21:40 - FIX: Consolidate PrintConfig and ensure Route fields exist.
 // src/core/types/models.ts
@@ -215,6 +217,17 @@ export interface IdeenScoutResult {
 // --- PLACES & CONTENT ---
 export type PlaceCategory = 'sight' | 'food' | 'accommodation' | 'hidden-gem' | string;
 
+// NEW: Live Verification Status (Google Grounding)
+export interface LiveStatus {
+  lastChecked: string; // ISO timestamp
+  status: 'open' | 'closed' | 'permanently_closed' | 'corrected' | 'unknown';
+  operational: boolean; // true = open/active, false = permanently closed/non-existent
+  nextOpen?: string; // e.g. "Morgen 09:00"
+  openingHoursToday?: string; // e.g. "09:00 - 18:00"
+  note?: string; // AI Summary e.g. "Wird dauerhaft als geschlossen gemeldet."
+  rating?: number; // Latest Google Rating if found
+}
+
 export interface Place {
   id: string;
   name: string;
@@ -224,8 +237,11 @@ export interface Place {
   address?: string;
   vicinity?: string;
   location?: { lat: number; lng: number };
-  coordinatesValidated?: boolean; // NEW: Flag for Nominatim Validation
+  coordinatesValidated?: boolean; // Flag for Nominatim Validation
   
+  // NEW: Live Check Data
+  liveStatus?: LiveStatus;
+
   // Metadata
   userPriority?: number; 
   rating?: number;
@@ -326,4 +342,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 271 Zeilen ---
+// --- END OF FILE 300 Zeilen ---

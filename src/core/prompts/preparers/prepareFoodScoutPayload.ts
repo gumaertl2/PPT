@@ -1,3 +1,4 @@
+// 09.02.2026 14:35 - FIX: Added Country Context to Dumb Collector to prevent Hallucinations.
 // 05.02.2026 14:45 - FIX: LINTING & LOBOTOMIZED SCOUT.
 // - Prefixed unused 'modeInput' parameter.
 // - The Scout is a "Dumb Collector" that only knows WHERE to look (Towns).
@@ -35,12 +36,22 @@ export const prepareFoodScoutPayload = (
         if (match) searchLocation = match[1].trim();
     }
 
+    // FIX START: Extract Country to prevent Ambiguity (e.g. Antigua Guatemala vs Spain)
+    const country = userInputs?.logistics?.stationary?.country || 
+                    userInputs?.logistics?.roundtrip?.startLocation || 
+                    "Spain"; // Fallback
+    
+    // Combine for unambiguous search context
+    const fullLocationString = `${searchLocation}, ${country}`;
+    // FIX END
+
     // --- 2. PREPARE CONTEXT (MINIMALIST) ---
     // No Guides. No Rules. Just Geography.
     
     return {
         context: {
-            location_name: searchLocation,
+            location_name: fullLocationString, // Adjusted to include Country
+            country: country, // Explicit Field
             town_list: townList, // The only map he needs
         },
         instructions: {
@@ -51,4 +62,4 @@ export const prepareFoodScoutPayload = (
         }
     };
 };
-// --- END OF FILE 52 Lines ---
+// --- END OF FILE 62 Lines ---
