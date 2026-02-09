@@ -1,3 +1,4 @@
+// 09.02.2026 13:30 - FIX: Strict Queue Management & Safety Delay to prevent workflow stalls.
 // 08.02.2026 20:30 - FEAT: Support 'options' in startWorkflow/startSingleTask for Smart Mode.
 // 05.02.2026 16:00 - FIX: Solved Race Condition in Workflow Loop (Timeout wrapper).
 // src/hooks/useTripGeneration.ts
@@ -29,11 +30,9 @@ interface UseTripGenerationReturn {
   manualPrompt: string | null;
   submitManualResult: (jsonResult: any) => Promise<void>;
 
-  // FIX: Added options parameter
   startWorkflow: (steps: WorkflowStepId[], options?: { mode: 'smart' | 'force' }) => void;
   resumeWorkflow: () => void;
   cancelWorkflow: () => void;
-  // FIX: Added options parameter
   startSingleTask: (task: TaskKey, feedback?: string, options?: { mode: 'smart' | 'force' }) => Promise<void>;
 }
 
@@ -101,7 +100,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
   const initialQueueLength = useRef<number>(0);
   const isExecutingRef = useRef<boolean>(false);
-  // NEW: Store options for current workflow execution
   const workflowOptionsRef = useRef<{ mode: 'smart' | 'force' } | undefined>(undefined);
 
   const progress = initialQueueLength.current > 0 
@@ -115,13 +113,11 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     setManualMode(null, null);
     resetChunking(); 
     isExecutingRef.current = false;
-    workflowOptionsRef.current = undefined; // Reset options
+    workflowOptionsRef.current = undefined; 
     if (aiSettings.debug) logEvent({ task: 'workflow_manager', type: 'system', content: 'Workflow CANCELLED' });
   }, [aiSettings.debug, logEvent, setManualMode, resetChunking]);
 
-  // --- RESULT PROCESSING DELEGATION ---
   const processResult = useCallback((step: WorkflowStepId | TaskKey, data: any) => {
-      // Delegate entire logic to Service
       ResultProcessor.process(step, data);
   }, []); 
 
@@ -130,7 +126,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     let isMounted = true;
 
     const executeNextStep = async () => {
-      // GUARD: Prevent parallel execution or re-entry if already running
+      // GUARD: Prevent parallel execution
       if (isExecutingRef.current) return;
       
       if (status !== 'generating' || queue.length === 0) {
@@ -144,18 +140,14 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
       const nextStepId = queue[0];
 
-      // --- DEPENDENCY GUARD (PHASE LOCK) - SOFTENED ---
-      // FIX: Warn but DO NOT STOP. Let the agents handle raw data or skip it.
+      // --- DEPENDENCY GUARD ---
       if (['chefredakteur', 'tourGuide'].includes(nextStepId)) {
         const currentPlaces = Object.values(useTripStore.getState().project.data.places || {});
-        // Check for raw 'Sight' candidates that should have been enriched
         const hasRawCandidates = currentPlaces.some((p: any) => p.category === 'Sight' || p.category === 'Sightseeing');
-        
         if (hasRawCandidates) {
             console.warn(`[DependencyGuard] Warning: Raw candidates detected before ${nextStepId}. Proceeding anyway.`);
         }
       }
-      // -------------------------------------
 
       // LOCK
       isExecutingRef.current = true;
@@ -170,7 +162,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       setCurrentStep(nextStepId);
       const stepLabel = stepDef?.label[lang] || nextStepId;
       
-      // UX UPGRADE: Add Chunk Progress Info
       let progressSuffix = "";
       const liveChunkState = useTripStore.getState().chunkingState;
       if (liveChunkState.isActive && liveChunkState.totalChunks > 1) {
@@ -192,6 +183,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
       try {
         const apiKey = useTripStore.getState().apiKey;
+        const isAutoMode = !!apiKey; // Capture this flag for logic split below
         
         if (!apiKey) {
             const payload = PayloadBuilder.buildPrompt(nextStepId as TaskKey); 
@@ -202,28 +194,39 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
             return;
         }
 
-        // FIX: Pass stored options to executeTask
         const result = await TripOrchestrator.executeTask(
             nextStepId as TaskKey, 
             undefined, 
             undefined, 
-            workflowOptionsRef.current // Pass the options!
+            workflowOptionsRef.current 
         );
         
         dismissNotification(loadingId);
         if (isMounted) {
             processResult(nextStepId, result);
             
+            // FIX: SAFETY DELAY & STRICT QUEUE ADVANCEMENT
+            // Wait for store to settle and prevent race conditions (especially after bulk operations)
+            await new Promise(r => setTimeout(r, 1000));
+
             setTimeout(() => {
               if (!isMounted) return;
               
-              const liveState = useTripStore.getState().chunkingState;
-
-              if (liveState.isActive && liveState.currentChunk < liveState.totalChunks) {
-                setChunkingState({ currentChunk: liveState.currentChunk + 1 });
+              if (isAutoMode) {
+                  // AUTO MODE: Force next step!
+                  // Since Orchestrator.executeTask awaits all chunks in auto-mode, 
+                  // we are definitely done with this task.
+                  resetChunking(); 
+                  setQueue(prev => prev.slice(1));
               } else {
-                setQueue(prev => prev.slice(1));
-                resetChunking();
+                  // MANUAL MODE: Check for chunks logic
+                  const liveState = useTripStore.getState().chunkingState;
+                  if (liveState.isActive && liveState.currentChunk < liveState.totalChunks) {
+                    setChunkingState({ currentChunk: liveState.currentChunk + 1 });
+                  } else {
+                    setQueue(prev => prev.slice(1));
+                    resetChunking();
+                  }
               }
             }, 0);
         }
@@ -262,20 +265,19 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     
     return () => { isMounted = false; };
   }, [
-    queue, status, chunkingState.currentChunk, // Needs to react to chunks
+    queue, status, chunkingState.currentChunk, 
     aiSettings.debug, logEvent, processResult, addNotification, 
     dismissNotification, cancelWorkflow, t, lang, setManualMode, setChunkingState, resetChunking
   ]);
 
-  // FIX: Accept options and store them
   const startWorkflow = useCallback((steps: WorkflowStepId[], options?: { mode: 'smart' | 'force' }) => {
     if (steps.length === 0) return;
     initialQueueLength.current = steps.length;
-    workflowOptionsRef.current = options; // Store options
+    workflowOptionsRef.current = options; 
     setQueue(steps);
     setStatus('generating');
     setError(null);
-    isExecutingRef.current = false; // Reset lock
+    isExecutingRef.current = false; 
   }, []);
 
   const resumeWorkflow = useCallback(() => {
@@ -296,9 +298,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     } catch (e) { setStatus('error'); }
   }, [manualStepId, processResult, queue.length, setManualMode]);
 
-  // FIX: Accept options and pass them
   const startSingleTask = useCallback(async (task: TaskKey, feedback?: string, options?: { mode: 'smart' | 'force' }) => {
-      // SINGLE TASK MODE - ALSO GUARDED
       if (isExecutingRef.current) return;
       isExecutingRef.current = true;
 
@@ -308,9 +308,8 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       const stepDef = WORKFLOW_STEPS.find(s => s.id === task);
       const stepLabel = stepDef?.label[lang] || task;
 
-      // UX UPGRADE: Chunk Info for Single Tasks (if applicable)
-      const currentChunkState = useTripStore.getState().chunkingState;
       let progressSuffix = "";
+      const currentChunkState = useTripStore.getState().chunkingState;
       if (currentChunkState.isActive && currentChunkState.totalChunks > 1) {
           progressSuffix = ` (${currentChunkState.currentChunk}/${currentChunkState.totalChunks})`;
       }
@@ -339,7 +338,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
               return; 
           }
 
-          // FIX: Pass options to executeTask
           const result = await TripOrchestrator.executeTask(task, feedback, undefined, options);
 
           dismissNotification(loadingId);
@@ -363,4 +361,4 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
   return { status, currentStep, queue, error, progress, manualPrompt, submitManualResult, startWorkflow, resumeWorkflow, cancelWorkflow, startSingleTask };
 };
-// --- END OF FILE 365 Zeilen ---
+// --- END OF FILE 390 Zeilen ---

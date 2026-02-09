@@ -1,7 +1,5 @@
+// 09.02.2026 13:15 - FIX: Aligned ViewLevel types with global types ('compact' instead of 'kompakt').
 // 09.02.2026 13:00 - FIX: SightCard now accepts explicit 'detailLevel' prop for Print Override.
-// 06.02.2026 21:30 - FIX: REMOVE DEAD CODE (Vercel Cleanup).
-// 06.02.2026 21:45 - FEATURE: Conditional Regenerate Button (Pass 'hasCategoryChanged').
-// 07.02.2026 14:30 - FIX: PRINT DETAIL LEVEL BUG.
 // src/features/Cockpit/SightCard/index.tsx
 
 import React, { useState, useEffect, useRef } from 'react'; 
@@ -14,9 +12,9 @@ import { SightCardHeader } from './SightCardHeader';
 import { SightCardMeta } from './SightCardMeta';
 import { SightCardBody } from './SightCardBody';
 
-// NEW: Added DetailLevel Type Definition locally or import if available
-type ViewLevel = 'kompakt' | 'standard' | 'details';
-const VIEW_LEVELS = ['kompakt', 'standard', 'details'] as const;
+// FIX: Aligned type with global DetailLevel ('compact' instead of 'kompakt')
+type ViewLevel = 'compact' | 'standard' | 'details';
+const VIEW_LEVELS = ['compact', 'standard', 'details'] as const;
 
 interface SightCardProps {
   id: string;
@@ -51,11 +49,13 @@ export const SightCard: React.FC<SightCardProps> = ({
 
       // 2. Priority: Global Print Mode (if active)
       if (uiState.isPrintMode && uiState.printConfig?.detailLevel) {
+          // Safety cast if printConfig uses same strings
           return uiState.printConfig.detailLevel as ViewLevel;
       }
 
       // 3. Priority: Screen State
-      return (uiState.detailLevel as ViewLevel) || 'kompakt';
+      // Fallback to 'compact' to match type definition
+      return (uiState.detailLevel as ViewLevel) || 'compact';
   };
 
   const [viewLevel, setViewLevel] = useState<ViewLevel>(getEffectiveViewLevel);
