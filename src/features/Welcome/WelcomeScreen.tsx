@@ -1,11 +1,11 @@
+// 09.02.2026 10:45 - FIX: Delegate file loading to store to capture 'filename'.
 // src/features/Welcome/WelcomeScreen.tsx
-// 13.01.2026 17:50 - FIX: Fixed case-sensitive import path for 'data/Texts'.
 
 import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTripStore } from '../../store/useTripStore';
 import { Key, Upload, Plus, AlertCircle, Settings, FileText, HelpCircle, Book, Database, Globe } from 'lucide-react';
-import type { TripProject, LanguageCode } from '../../core/types';
+import type { LanguageCode } from '../../core/types';
 import { InfoModal } from './InfoModal';
 
 // NEU: Import der dedizierten Modals
@@ -49,26 +49,23 @@ export const WelcomeScreen = () => {
     setView('wizard');
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const json = JSON.parse(e.target?.result as string);
-        if (json.meta && json.userInputs) {
-            // Wenn lokal ein Key eingegeben war, diesen präferieren
-            if (localKey) setApiKey(localKey);
-            loadProject(json as TripProject);
-        } else {
-            setError(t('welcome.error_invalid_file', 'Ungültiges Dateiformat.'));
-        }
-      } catch (err) {
-        setError(t('welcome.error_read_file', 'Fehler beim Lesen der Datei.'));
-      }
-    };
-    reader.readAsText(file);
+    // FIX: Apply API key first if entered locally
+    if (localKey) setApiKey(localKey);
+
+    // FIX: Pass the FILE object directly to store. 
+    // This allows the store to extract 'file.name' into uiState.currentFileName.
+    try {
+        await loadProject(file);
+        // On success, store handles view switch to 'wizard'
+    } catch (err) {
+        console.error(err);
+        setError(t('welcome.error_invalid_file', 'Ungültiges Dateiformat.'));
+    }
+    
     event.target.value = ''; // Reset input
   };
 
@@ -232,4 +229,4 @@ export const WelcomeScreen = () => {
     </div>
   );
 };
-// --- END OF FILE 164 Zeilen ---
+// --- END OF FILE 155 Zeilen ---

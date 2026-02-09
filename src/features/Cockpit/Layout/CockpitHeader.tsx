@@ -1,3 +1,4 @@
+// 09.02.2026 11:15 - FIX: Restored full UI features and added filename persistence.
 // 06.02.2026 19:35 - FEAT: Wired 'Plan' button to switch viewMode to 'plan'.
 // 06.02.2026 18:55 - FIX: Added 'await' to loadProject to ensure filename is set before UI updates.
 // src/features/Cockpit/Layout/CockpitHeader.tsx
@@ -24,7 +25,7 @@ import {
   Edit3,
   Home,
   Search, 
-  X         
+  X           
 } from 'lucide-react';
 
 import { useTripStore } from '../../../store/useTripStore';
@@ -58,12 +59,12 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     saveProject,
     resetProject, 
     apiKey, 
-    usageStats,
-    downloadFlightRecorder,
+    usageStats, 
+    downloadFlightRecorder, 
     setWorkflowModalOpen, 
     setView, 
     toggleSightFilter, 
-    isSightFilterOpen,    
+    isSightFilterOpen,     
     uiState, 
     setUIState
   } = useTripStore();
@@ -101,6 +102,24 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
   };
 
   const handleSaveProject = () => {
+    // FIX: Check for existing filename first
+    if (uiState.currentFileName) {
+        const currentName = uiState.currentFileName.replace(/\.json$/i, '');
+        const userFileName = window.prompt("Dateiname für Speicherstand:", currentName);
+        
+        if (!userFileName) {
+            setShowActionsMenu(false);
+            return;
+        }
+        
+        let finalName = userFileName;
+        if (!finalName.endsWith('.json')) finalName += '.json';
+        saveProject(finalName);
+        setShowActionsMenu(false);
+        return;
+    }
+
+    // Fallback: Generate new name if no file loaded
     let baseName = "Papatours_Reise";
     const { logistics } = project.userInputs;
     
@@ -482,4 +501,4 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     </>
   );
 };
-// --- END OF FILE 487 Zeilen ---
+// --- END OF FILE 505 Zeilen ---
