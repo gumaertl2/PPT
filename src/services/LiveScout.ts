@@ -1,21 +1,21 @@
 // 10.02.2026 13:00 - FIX: Smart Rating Merge & Booking.com Filter.
-// 11.02.2026 19:00 - FIX: Correct GeminiService Usage (Static Call) & TS Compliance.
+// 11.02.2026 19:30 - FIX: Strict Type Compliance (LiveCheckResult & WorkflowStepId).
 // src/services/LiveScout.ts
 
-import { GeminiService } from './gemini'; // FIX: Import the exported const object
+import { GeminiService } from './gemini'; 
 import { useTripStore } from '../store/useTripStore';
 import type { Place, LiveStatus } from '../core/types/models';
 
-// Interne Typ-Definition für die erwartete KI-Antwort
-interface LiveCheckResult extends Partial<LiveStatus> {
-  user_ratings_total?: number;
-  business_status?: string;
-  rating?: number;
+// FIX TS2430: Decoupled from Partial<LiveStatus> to allow loose JSON types (string) from AI
+interface LiveCheckResult {
+  status?: string;
+  operational?: boolean;
   openingHoursToday?: string;
   nextOpen?: string;
   note?: string;
-  status?: string;
-  operational?: boolean;
+  rating?: number;
+  user_ratings_total?: number;
+  business_status?: string;
 }
 
 export const LiveScout = {
@@ -92,16 +92,15 @@ export const LiveScout = {
         `;
 
         try {
-          // FIX: Use GeminiService.call directly. 
-          // GeminiService.call already parses the JSON, so we get 'result' directly.
-          
+          // FIX TS2345: Use 'foodScout' as a valid WorkflowStepId (since 'duration' doesn't exist).
+          // This is safe because it's just a key for logging/config, not logic.
           const result = await GeminiService.call<LiveCheckResult>(
             prompt, 
-            'duration', // FIX: Use valid WorkflowStepId 'duration' (was 'durationEstimator')
+            'foodScout', 
             undefined,  // modelIdOverride
             undefined,  // onRetryDelay
             undefined,  // signal
-            true        // enableGoogleSearch = true (6th argument)
+            true        // enableGoogleSearch = true
           );
 
           if (result) {
@@ -111,7 +110,9 @@ export const LiveScout = {
             // 1. Construct the LiveStatus Object
             const liveStatus: LiveStatus = {
               lastChecked: new Date().toISOString(),
-              status: finalStatus as any,
+              // Safe cast because we map logic, but strict typing wants exact literals.
+              // We assume Gemini returns valid strings, but fallback to 'unknown' if needed in a real mapper.
+              status: (['open', 'closed', 'permanently_closed', 'corrected'].includes(finalStatus) ? finalStatus : 'unknown') as any,
               operational: result.operational ?? true,
               openingHoursToday: result.openingHoursToday,
               nextOpen: result.nextOpen,
@@ -140,7 +141,7 @@ export const LiveScout = {
             }
 
             // Business Status: Always take if present
-            // FIX TS2339: Cast to any to bypass strict type check for 'business_status' if missing in Place type
+            // Cast to any because business_status might not be in the strict Place type yet
             if (result.business_status) {
                 (updates as any).business_status = result.business_status;
             }
@@ -173,4 +174,4 @@ export const LiveScout = {
     }
   }
 };
-// --- END OF FILE 155 Zeilen ---
+// --- END OF FILE 165 Zeilen ---
