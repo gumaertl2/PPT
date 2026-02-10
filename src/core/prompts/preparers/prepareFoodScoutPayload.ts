@@ -1,5 +1,5 @@
+// 10.02.2026 15:00 - FIX: Robust Input Handling for town_list to prevent TypeError in Template.
 // 10.02.2026 14:10 - FIX: Resolved TS Error 'country' missing on stationary type.
-// 09.02.2026 14:35 - FIX: Added Country Context to Dumb Collector to prevent Hallucinations.
 // src/core/prompts/preparers/prepareFoodScoutPayload.ts
 
 import type { TripProject, FoodSearchMode } from '../../types';
@@ -24,7 +24,10 @@ export const prepareFoodScoutPayload = (
     const { userInputs } = project;
     
     // --- 1. DETECT INPUT MODE ---
-    const townList: string[] = Array.isArray(options?.candidates) ? options.candidates : [];
+    // FIX: Ensure townList is ALWAYS an array to prevent "undefined" access later
+    const townList: string[] = (options && Array.isArray(options.candidates)) 
+                               ? options.candidates 
+                               : [];
     
     // Fallback Location Name
     let searchLocation = userInputs?.logistics?.stationary?.destination || "Target Region";
@@ -33,26 +36,22 @@ export const prepareFoodScoutPayload = (
         if (match) searchLocation = match[1].trim();
     }
 
-    // FIX START: Extract Country correctly from 'target_countries' (Type Safe)
-    // We cast to 'any' briefly if needed, but better to use optional chaining on known types
+    // Extract Country safely
     const logistics = userInputs?.logistics;
-    
-    // Safe Access Chain
     const country = logistics?.target_countries?.[0] || 
-                    (logistics?.stationary as any)?.region || // Type cast for safety if type definition is strict
+                    (logistics?.stationary as any)?.region || 
                     logistics?.stationary?.destination ||
                     "Europe"; 
     
-    // Combine for unambiguous search context
     const fullLocationString = `${searchLocation}, ${country}`;
-    // FIX END
 
-    // --- 2. PREPARE CONTEXT (MINIMALIST) ---
+    // --- 2. PREPARE CONTEXT ---
     return {
         context: {
             location_name: fullLocationString, 
             country: country, 
-            town_list: townList, 
+            town_list: townList, // Now guaranteed to be string[]
+            guides: ["Michelin", "Gault&Millau", "Feinschmecker", "Varta Führer"]
         },
         instructions: {
             role: "Du bist ein Datenbank-Crawler für Standort-Daten."
@@ -62,4 +61,4 @@ export const prepareFoodScoutPayload = (
         }
     };
 };
-// --- END OF FILE 65 Lines ---
+// --- END OF FILE 58 Zeilen ---

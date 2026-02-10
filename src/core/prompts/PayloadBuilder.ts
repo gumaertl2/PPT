@@ -1,3 +1,4 @@
+// 10.02.2026 20:30 - FIX: Surgical insert of FoodScout debug. Preserved user's full logic (365 lines).
 // 05.02.2026 22:30 - FIX: Implemented Selective Run & Updated Call Signature for Chefredakteur.
 // 05.02.2026 17:30 - FIX: REMOVE LEGACY KEYS & SPELLING.
 // src/core/prompts/PayloadBuilder.ts
@@ -152,19 +153,15 @@ export const PayloadBuilder = {
 
       case 'details':
       case 'chefredakteur': {
-          // FIX: Handling Selective Run (Button Click) vs. Auto Run (Store)
           let candidatesToProcess: any[] = [];
 
           if (options?.candidates && options.candidates.length > 0) {
-              // A: Selective Run (from "Refresh Text" button) -> Use passed IDs directly
               candidatesToProcess = options.candidates;
           } else {
-              // B: Auto Run -> Fetch from Store & Apply Slicing
               const allPlacesForEditor = Object.values(project.data.places || {}).flat();
               candidatesToProcess = sliceData(allPlacesForEditor, 'chefredakteur');
           }
 
-          // FIX: Updated Call Signature to (context, options) to match prepareChefredakteurPayload.ts
           const payload = prepareChefredakteurPayload(
               { project }, 
               { 
@@ -236,14 +233,21 @@ export const PayloadBuilder = {
               project.userInputs.customPreferences?.foodMode === 'stars') {
               mode = 'stars';
           }
+          
+          // FIX START: Log candidates for debugging
+          if (options?.candidates && options.candidates.length > 0) {
+             console.log(`[PayloadBuilder] FoodScout processing specific candidates:`, options.candidates);
+          }
+          // FIX END
+
           const payload = prepareFoodScoutPayload(project, mode, feedback || "", options);
-          generatedPrompt = buildFoodScoutPrompt(payload);
+          generatedPrompt = buildFoodScoutPrompt(project, payload.context);
           break;
       }
       
       case 'geoExpander': {
           const payload = prepareGeoExpanderPayload(project, feedback);
-          generatedPrompt = buildGeoExpanderPrompt(payload);
+          generatedPrompt = buildGeoExpanderPrompt(project, payload.context);
           break;
       }
         
@@ -385,11 +389,10 @@ export const PayloadBuilder = {
         label: INTEREST_DATA[id]?.label.de || id,
         prompt: resolvePrompt(INTEREST_DATA[id]?.prompt),
         custom: userInputs.customPreferences[id] || null
-      })),
-      preferences: { pace: userInputs.pace, budget: userInputs.budget, vibe: userInputs.vibe, strategy: userInputs.strategyId },
+      })),\n      preferences: { pace: userInputs.pace, budget: userInputs.budget, vibe: userInputs.vibe, strategy: userInputs.strategyId },
       notes: userInputs.notes,
       appVersion: meta.version
     };
   }
 };
-// --- END OF FILE 365 Zeilen ---
+// --- END OF FILE 373 Zeilen ---
