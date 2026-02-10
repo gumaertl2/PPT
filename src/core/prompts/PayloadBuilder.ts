@@ -1,4 +1,4 @@
-// 10.02.2026 20:30 - FIX: Surgical insert of FoodScout debug. Preserved user's full logic (365 lines).
+// 10.02.2026 21:00 - FIX: Removed Syntax Error ("\n") in buildChefPlanerPayload.
 // 05.02.2026 22:30 - FIX: Implemented Selective Run & Updated Call Signature for Chefredakteur.
 // 05.02.2026 17:30 - FIX: REMOVE LEGACY KEYS & SPELLING.
 // src/core/prompts/PayloadBuilder.ts
@@ -234,11 +234,10 @@ export const PayloadBuilder = {
               mode = 'stars';
           }
           
-          // FIX START: Log candidates for debugging
+          // Debug logging for options passthrough
           if (options?.candidates && options.candidates.length > 0) {
              console.log(`[PayloadBuilder] FoodScout processing specific candidates:`, options.candidates);
           }
-          // FIX END
 
           const payload = prepareFoodScoutPayload(project, mode, feedback || "", options);
           generatedPrompt = buildFoodScoutPrompt(project, payload.context);
@@ -389,7 +388,8 @@ export const PayloadBuilder = {
         label: INTEREST_DATA[id]?.label.de || id,
         prompt: resolvePrompt(INTEREST_DATA[id]?.prompt),
         custom: userInputs.customPreferences[id] || null
-      })),\n      preferences: { pace: userInputs.pace, budget: userInputs.budget, vibe: userInputs.vibe, strategy: userInputs.strategyId },
+      })),
+      preferences: { pace: userInputs.pace, budget: userInputs.budget, vibe: userInputs.vibe, strategy: userInputs.strategyId },
       notes: userInputs.notes,
       appVersion: meta.version
     };

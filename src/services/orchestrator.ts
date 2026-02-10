@@ -1,5 +1,5 @@
-// 10.02.2026 18:30 - FIX: Re-Enabled Live Search & Added Town Name Cleaning (remove parens).
-// 10.02.2026 16:30 - FIX: Disable Live-Search for FoodScout (Return to Memory-Based Scouting).
+// 10.02.2026 22:30 - FIX: ReferenceError in executeTask. variable 'enableSearch' was undefined scope.
+// 10.02.2026 22:15 - FIX: REMOVED ILLEGAL COUNTRYSCOUT CALL. Restored Architecture compliance.
 // src/services/orchestrator.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -215,21 +215,9 @@ export const TripOrchestrator = {
         try {
             store.setChunkingState({ isActive: true, currentChunk: 0, totalChunks: 4, results: [] });
             
-            const targetLoc = store.project.userInputs.logistics.target_countries?.[0] 
-                              || store.project.userInputs.logistics.stationary?.destination 
-                              || "Europe";
-            
-            // PHASE 0: GUIDES
-            const existingGuides = getGuidesForCountry(targetLoc);
-            let dynamicGuides = "";
-            if (!existingGuides || existingGuides.length === 0) {
-                 try {
-                     const scoutResult = await this._executeSingleStep('countryScout', undefined, false, { country: targetLoc });
-                     if (scoutResult && scoutResult.recommended_guides) {
-                         dynamicGuides = scoutResult.recommended_guides.join(', ');
-                     }
-                 } catch (e) { console.warn("CountryScout failed", e); }
-            }
+            // Guides Logic (Static)
+            const existingGuides = getGuidesForCountry(store.project.userInputs.logistics.target_countries?.[0] || "Europe");
+            let dynamicGuides = existingGuides ? existingGuides.join(', ') : "";
 
             // PHASE 1: GEO
             let townList: string[] = [];
@@ -244,15 +232,13 @@ export const TripOrchestrator = {
             
             for (let i = 0; i < townList.length; i++) {
                 const rawTown = townList[i];
-                // CLEAN TOWN NAME HERE AS WELL FOR LOGGING
                 const town = cleanTownName(rawTown); 
                 
                 store.setChunkingState({ isActive: true, currentChunk: i + 1, totalChunks: totalSteps });
                 console.log(`[Orchestrator] FoodScout Scanning Town ${i+1}/${townList.length}: ${town}`);
                 
                 try {
-                    // FIX: ENABLE SEARCH = TRUE (So it doesn't hallucinate!)
-                    // Pass cleaned town name in array
+                    // ENABLE SEARCH = TRUE
                     const stepResult = await this._executeSingleStep('foodScout', feedback, true, [town], true);
                     
                     if (stepResult && Array.isArray(stepResult.candidates)) {
@@ -355,8 +341,8 @@ export const TripOrchestrator = {
         }
     }
     
-    // Default enableSearch to false unless specified
-    return this._executeSingleStep(task, feedback, false, inputData, enableSearch);
+    // Default enableSearch to false unless specified (FIX: Removed undefined 'enableSearch')
+    return this._executeSingleStep(task, feedback, false, inputData, false);
   }
 };
-// --- END OF FILE 550 Lines ---
+// --- END OF FILE 525 Lines ---

@@ -1,19 +1,22 @@
+// 10.02.2026 22:00 - FIX: Signature Mismatch. Updated to (project, context) pattern.
 // 05.02.2026 18:30 - NEW STRATEGY: GEOGRAPHIC FUNNEL (STEP 1).
-// - Implements the "GIS Assistant" Logic.
-// - Focus: Create relevant clusters instead of random lists.
 // src/core/prompts/templates/geoExpander.ts
 
 import { PromptBuilder } from '../PromptBuilder';
+import type { TripProject } from '../../types';
 
-export const buildGeoExpanderPrompt = (payload: any): string => {
-  const { context } = payload;
-  const center = context.center || "Unknown Location";
-  // We interpret radius broadly (20-25km) as per your prompt logic
+// FIX: Changed signature to match PayloadBuilder call (project, context)
+export const buildGeoExpanderPrompt = (project: TripProject, context: any): string => {
+  // Safe access guard
+  const safeContext = context || {};
+  const center = safeContext.center || "Europe";
+  const country = safeContext.country || "";
+  const radius = safeContext.radius || 20;
   
   const role = `Du bist ein GIS-Assistent (Geographic Information System).`;
 
   const instruction = `
-  Ich gebe dir einen Ausgangsort. Erstelle eine Liste der relevantesten Städte, Gemeinden und wichtigen Ortsteile im Radius von ca. 20-25 km, die gastronomisch relevant sein könnten.
+  Ich gebe dir einen Ausgangsort. Erstelle eine Liste der relevantesten Städte, Gemeinden und wichtigen Ortsteile im Radius von ca. ${radius} km um "${center}"${country ? ' (' + country + ')' : ''}, die gastronomisch relevant sein könnten.
   Ignoriere winzige Weiler, konzentriere dich auf Orte mit Infrastruktur.
 
   Input Ort: "${center}"`;
@@ -30,3 +33,4 @@ export const buildGeoExpanderPrompt = (payload: any): string => {
     .withOutputSchema(outputSchema)
     .build();
 };
+// --- END OF FILE 33 Zeilen ---

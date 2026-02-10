@@ -1,5 +1,6 @@
-// 10.02.2026 18:45 - FIX: Final "Zero Hallucination" Doctrine. Strict Geo-Fencing & Schema Fix.
-// 10.02.2026 17:45 - FIX: Final Template Logic. Dynamic Guides & Strict Geo-Fencing.
+// 10.02.2026 22:45 - FIX: CONTEXT PRIORITY & SEARCH QUERY.
+// - Fix: Prioritize 'target_country' (AdHoc) over 'country' (Project).
+// - Fix: Search Query includes "surroundings" to find districts (Rottbach).
 // src/core/prompts/templates/foodScout.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -11,14 +12,32 @@ export const buildFoodScoutPrompt = (project: TripProject, context: any): string
   // DEFENSIVE GUARD: Ensure context exists
   const safeContext = context || {};
   
-  // Prioritize the specific town from the list if available (Sequential Loop Mode)
+  // Prioritize the specific town from the list if available
   let searchArea = "the region";
   let targetCity = "";
   
+  // LOGIC FIX: Handle AdHoc Country correctly inside town_list loop
   if (safeContext.town_list && Array.isArray(safeContext.town_list) && safeContext.town_list.length > 0) {
       targetCity = safeContext.town_list[0];
-      // Search context includes country to prevent ambiguous matches (e.g. "Paris, Texas")
-      searchArea = `${targetCity}, ${safeContext.country || ''}`;
+      
+      // 1. Try explicit location_name (e.g. "Maisach, Deutschland")
+      if (safeContext.location_name && safeContext.location_name.includes(targetCity)) {
+          searchArea = safeContext.location_name;
+      } 
+      // 2. Try target_country (from AdHoc Modal -> "Deutschland")
+      else if (safeContext.target_country) {
+          searchArea = `${targetCity}, ${safeContext.target_country}`;
+      }
+      // 3. Fallback to project country, but avoid "Europe"
+      else {
+          const country = safeContext.country || '';
+          if (country === 'Europe' || country === 'Europa') {
+             searchArea = `${targetCity} and surroundings`;
+          } else {
+             searchArea = `${targetCity}, ${country}`;
+          }
+      }
+
   } else if (safeContext.location_name) {
       targetCity = safeContext.location_name.split(',')[0]; 
       searchArea = safeContext.location_name;
@@ -27,22 +46,21 @@ export const buildFoodScoutPrompt = (project: TripProject, context: any): string
       searchArea = safeContext.destination;
   }
 
-  // Use Dynamic Guides from Context (SSOT) or fallback to generic major ones
+  // SSOT Guides
   const validGuides = safeContext.guides || ["Michelin", "Gault&Millau", "Feinschmecker", "Varta Führer", "Slow Food", "Falstaff"];
 
   builder.withOS();
 
   builder.withRole(`
-    You are the 'Gourmet Scout' with DIRECT INTERNET ACCESS.
-    Your mission is to find the best dining spots in ${searchArea}.
+    You are the 'Gourmet Scout' (Hard Fact Collector).
+    Your mission is to find the best dining spots in **${searchArea}**.
     
-    ### PRIME DIRECTIVE (READ CAREFULLY):
-    It is **FAR WORSE** to hallucinate a restaurant that doesn't exist (or is permanently closed) than to overlook a good one.
-    **Zero Results is an acceptable and expected outcome** for small towns.
+    ### PRIME DIRECTIVE:
+    1. **FIND** valid candidates in **${targetCity}** AND its districts (e.g. Rottbach, Gernlinden, Überacker).
+    2. **EXTRACT** Hard Facts (Address, Phone, Website, Status).
+    3. **VERIFY** location strictly (< 6km radius).
     
-    You must execute a TWO-STAGE PROCESS:
-    1. SEARCH BROADLY to find candidates.
-    2. VERIFY STRICTLY against the target location and prestigious guides (${validGuides.join(', ')}).
+    **NO FLUFF:** Do not write long marketing descriptions. Focus on data accuracy.
   `);
 
   builder.withContext({
@@ -55,47 +73,44 @@ export const buildFoodScoutPrompt = (project: TripProject, context: any): string
   builder.withInstruction(`
     EXECUTE THE FOLLOWING STEPS SEQUENTIALLY:
 
-    ### STEP 1: DISCOVERY (Broad Search)
-    Search for "Best restaurants in ${searchArea}" and "Restaurants in ${searchArea} recommended".
-    Generate a list of potential candidates.
-
-    ### STEP 2: VERIFICATION & FILTERING (The Audit)
-    For EACH candidate from Step 1, perform a specific check:
+    ### STEP 1: DISCOVERY & DATA EXTRACTION
+    Search for "Best restaurants in ${searchArea}" and "Gasthöfe in ${targetCity}".
+    For each candidate found:
     
-    A. **LOCATION CHECK (The "Zip Code Guard"):**
-       Check the real address found in the search result. 
-       Is it physically in **${targetCity}** or immediate surroundings (< 5km)?
-       - IF NO (e.g. restaurant is in Munich, Berlin, or >10km away): **DISCARD IMMEDIATELY.**
-       - IF YES: Proceed to B.
+    A. **GET HARD FACTS:**
+       - **Address:** Must be the real street address.
+       - **Phone:** Official number (if visible).
+       - **Website:** Official URL (if visible).
+       - **Status:** Check if Open/Closed.
 
-    B. **GUIDE CROSS-REFERENCE:**
-       Search if the restaurant is mentioned in: ${validGuides.join(', ')}.
-       - IF YES: Keep it. Add the guide name to 'awards' list.
-       - IF NO: Check Google Rating. 
-         - Rating > 4.6? -> Keep it (Local Gem).
-         - Rating < 4.6? -> DISCARD.
+    B. **LOCATION CHECK (The "Zip Code Guard"):**
+       Is the address physically in **${targetCity}** or immediate surroundings (< 6km)?
+       - NOTE: Includes districts like Rottbach.
+       - IF NO: **DISCARD IMMEDIATELY.**
 
-    C. **STATUS CHECK:**
-       Is it 'Permanently Closed'? -> DISCARD.
+    C. **GUIDE & RATING CHECK:**
+       - Is it in: ${validGuides.join(', ')}? -> KEEP.
+       - OR: Is Google Rating > 4.6? -> KEEP.
+       - Else -> DISCARD.
 
-    ### STEP 3: OUTPUT GENERATION
-    Return ONLY the candidates that survived ALL checks in Step 2.
-    - 'awards': Must be an ARRAY of strings (e.g. ["Michelin Bib Gourmand", "Slow Food"]).
-    - 'verification_status': Set to "verified".
-    - 'liveStatus': Create a status object based on your findings to prevent re-checking.
-
-    **FINAL WARNING:** If no restaurant survives the audit in ${targetCity}, return an EMPTY list ([]). DO NOT invent entries to fill the list.
+    ### STEP 2: OUTPUT GENERATION
+    Return ONLY the candidates that survived.
+    - 'awards': Must be an ARRAY of strings.
+    - 'liveStatus': Fill based on your findings.
+    - **IMPORTANT:** Provide the address, phone, and website exactly as found.
   `);
 
   builder.withOutputSchema({
     candidates: [
       {
         name: "Restaurant Name",
+        address: "Musterstraße 1, 80331 Stadt", // Hard Fact
+        phone: "+49 89 123456", // Hard Fact
+        website: "https://www.restaurant.com", // Hard Fact
         cuisine: "Regional / Modern / ...",
         awards: ["Michelin 1 Star", "Gault&Millau 16 Pkt"], 
         rating: 4.8,
         user_ratings_total: 150,
-        reason: "Innovative tasting menu...",
         verification_status: "verified",
         liveStatus: {
             status: "open",
@@ -110,4 +125,4 @@ export const buildFoodScoutPrompt = (project: TripProject, context: any): string
 
   return builder.build();
 };
-// --- END OF FILE 110 Zeilen ---
+// --- END OF FILE 125 Zeilen ---
