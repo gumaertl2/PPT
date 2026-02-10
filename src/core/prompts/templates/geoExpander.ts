@@ -1,11 +1,10 @@
-// 10.02.2026 17:00 - FIX: Smart Geo-Clustering & Radius Logic.
-// 11.02.2026 18:00 - FIX: TS6133 Unused variable '_project'.
+// 10.02.2026 22:00 - FIX: Signature Mismatch. Updated to (project, context) pattern.
+// 11.02.2026 20:00 - FIX: Output Schema must be 'candidates' (Array), NOT 'towns'.
 // src/core/prompts/templates/geoExpander.ts
 
 import { PromptBuilder } from '../PromptBuilder';
 import type { TripProject } from '../../types';
 
-// FIX: Renamed 'project' to '_project' to satisfy TypeScript
 export const buildGeoExpanderPrompt = (_project: TripProject, context: any): string => {
   const builder = new PromptBuilder();
   
@@ -13,7 +12,7 @@ export const buildGeoExpanderPrompt = (_project: TripProject, context: any): str
   const isAdHoc = !!context.location_name;
   const locations = isAdHoc ? [context.location_name] : (context.stops || []);
   const center = isAdHoc ? context.location_name : "the route stops";
-  const radius = context.radius || 20; // Default 20km if not set
+  const radius = context.radius || 20;
 
   builder.withOS();
 
@@ -24,7 +23,7 @@ export const buildGeoExpanderPrompt = (_project: TripProject, context: any): str
     1. **Valid Towns Only:** List real towns or districts that are worth visiting or have infrastructure (Restaurants/Hotels).
     2. **Radius Check:** Strictly adhere to the ${radius} km limit.
     3. **Duplicates:** Remove duplicates.
-    4. **Output:** Return a JSON array of strings.
+    4. **Output:** Return a JSON object with a 'candidates' array.
   `);
 
   builder.withContext({
@@ -38,10 +37,11 @@ export const buildGeoExpanderPrompt = (_project: TripProject, context: any): str
     Return them as a simple list of names (e.g. ["Maisach", "Fürstenfeldbruck", "Olching"]).
   `);
 
+  // FIX: Schema must match Orchestrator expectation: 'candidates'
   builder.withOutputSchema({
-    towns: ["String", "String", "String"]
+    candidates: ["String", "String", "String"]
   });
 
   return builder.build();
 };
-// --- END OF FILE 42 Zeilen ---
+// --- END OF FILE 45 Zeilen ---

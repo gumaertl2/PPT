@@ -1,5 +1,5 @@
 // 10.02.2026 22:30 - FIX: ReferenceError in executeTask. variable 'enableSearch' was undefined scope.
-// 10.02.2026 22:15 - FIX: REMOVED ILLEGAL COUNTRYSCOUT CALL. Restored Architecture compliance.
+// 11.02.2026 20:00 - FIX: Imported geoExpanderSchema from validation.ts to sync with prompt.
 // src/services/orchestrator.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -14,14 +14,11 @@ import { getGuidesForCountry } from '../data/countries';
 import { 
   dayPlanSchema, geoAnalystSchema, foodSchema, hotelSchema, chefPlanerSchema,
   routeArchitectSchema, ideenScoutSchema, chefredakteurSchema, infoAutorSchema,
-  tourGuideSchema, transferPlannerSchema
+  tourGuideSchema, transferPlannerSchema, geoExpanderSchema // FIX: Import here
 } from './validation';
 import type { TaskKey } from '../core/types';
 
-const geoExpanderSchema = z.object({
-    _thought_process: z.string().optional(),
-    candidates: z.array(z.string())
-});
+// REMOVED: Local definition of geoExpanderSchema to prevent mismatch.
 
 const SCHEMA_MAP: Partial<Record<TaskKey, z.ZodType<any>>> = {
   dayplan: dayPlanSchema, initialTagesplaner: dayPlanSchema, geoAnalyst: geoAnalystSchema,
@@ -345,4 +342,4 @@ export const TripOrchestrator = {
     return this._executeSingleStep(task, feedback, false, inputData, false);
   }
 };
-// --- END OF FILE 525 Lines ---
+// --- END OF FILE 522 Lines ---
