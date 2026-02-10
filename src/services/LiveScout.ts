@@ -1,11 +1,18 @@
+// 10.02.2026 13:00 - FIX: Smart Rating Merge & Booking.com Filter (1-5 Scale Enforcement).
+// 10.02.2026 12:15 - FEAT: Added 'rating', 'user_ratings_total', 'business_status' to LiveUpdate.
 // 09.02.2026 19:50 - FEAT: Added 'onProgress' callback to verifyBatch for UI feedback.
 // 09.02.2026 19:15 - FEAT: Added 'verifyBatch' for optimized chunk processing (5 items/call).
-// 09.02.2026 18:00 - FIX: Smart Travel-Date Aware Checks (Green/Orange/Red).
 // src/services/LiveScout.ts
 
 import { GeminiService } from './gemini';
 import { useTripStore } from '../store/useTripStore';
 import type { Place, LiveStatus } from '../core/types/models';
+
+// Interne Typ-Definition für die erwartete KI-Antwort (Erweitert LiveStatus)
+interface LiveCheckResult extends Partial<LiveStatus> {
+  user_ratings_total?: number;
+  business_status?: string;
+}
 
 export const LiveScout = {
   
@@ -13,7 +20,7 @@ export const LiveScout = {
    * Prüft einen einzelnen Ort.
    */
   async verifyPlace(placeId: string): Promise<void> {
-     return this.verifyBatch([placeId]);
+      return this.verifyBatch([placeId]);
   },
 
   /**
@@ -59,6 +66,8 @@ export const LiveScout = {
           3. Compare REAL opening hours with STORED_DATA_HOURS. 
              - Are they roughly the same? (Ignore minor format diffs) -> MATCH
              - Are they significantly different? -> MISMATCH
+          4. Extract current GOOGLE MAPS RATING (1.0 - 5.0) and REVIEW COUNT.
+             IMPORTANT: Ignore Booking.com or TripAdvisor scores (scale 1-10). ONLY use Google Maps 5-star scale.
           
           OUTPUT JSON (LiveStatus):
           {
@@ -66,7 +75,9 @@ export const LiveScout = {
             "operational": boolean,
             "openingHoursToday": "e.g. '09:00 - 18:00' or 'Closed now'",
             "note": "Short reason (e.g. 'Data confirmed', 'Hours changed: Closed Mon', 'Seasonal closure until April')",
-            "rating": number (Google Rating)
+            "rating": number (Google Rating 1.0-5.0),
+            "user_ratings_total": number (Total count of reviews),
+            "business_status": "OPERATIONAL" | "CLOSED_TEMPORARILY" | "CLOSED_PERMANENTLY"
           }
 
           RULES FOR STATUS:
@@ -77,7 +88,7 @@ export const LiveScout = {
         `;
 
         try {
-          const result = await GeminiService.call<Partial<LiveStatus>>(
+          const result = await GeminiService.call<LiveCheckResult>(
             prompt, 
             'durationEstimator', // Light model
             undefined, 
@@ -90,6 +101,7 @@ export const LiveScout = {
             let finalStatus = result.status || 'unknown';
             if (result.operational === false) finalStatus = 'closed';
             
+            // 1. Construct the LiveStatus Object
             const liveStatus: LiveStatus = {
               lastChecked: new Date().toISOString(),
               status: finalStatus as any,
@@ -97,12 +109,40 @@ export const LiveScout = {
               openingHoursToday: result.openingHoursToday,
               nextOpen: result.nextOpen,
               note: result.note,
-              rating: result.rating
+              rating: result.rating // Keep raw result in history
             };
 
-            // Update Store immediately for UI feedback
-            store.updatePlace(placeId, { liveStatus });
-            console.log(`[LiveScout] Verified ${place.name}: ${finalStatus}`);
+            // 2. SMART MERGE: Prepare the root update object
+            // Only overwrite fields if the new data is BETTER/VALID.
+            const updates: Partial<Place> = { liveStatus };
+
+            // Rating Guard: Only accept 1.0 - 5.0. 
+            // Reject 0, null, or > 5.0 (Booking.com leaks).
+            if (
+                typeof result.rating === 'number' && 
+                result.rating > 0 && 
+                result.rating <= 5.0
+            ) {
+                updates.rating = result.rating;
+            }
+
+            // Count Guard: Only accept positive numbers
+            if (
+                typeof result.user_ratings_total === 'number' && 
+                result.user_ratings_total > 0
+            ) {
+                updates.user_ratings_total = result.user_ratings_total;
+            }
+
+            // Business Status: Always take if present
+            if (result.business_status) {
+                updates.business_status = result.business_status;
+            }
+
+            // 3. Commit to Store
+            store.updatePlace(placeId, updates);
+            
+            console.log(`[LiveScout] Verified ${place.name}: ${finalStatus} (Rating: ${result.rating ?? 'N/A'})`);
           }
         } catch (error) {
           console.error(`[LiveScout] Error verifying ${place.name}:`, error);
@@ -127,4 +167,4 @@ export const LiveScout = {
     }
   }
 };
-// --- END OF FILE 124 Zeilen ---
+// --- END OF FILE 155 Zeilen ---

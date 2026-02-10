@@ -1,3 +1,4 @@
+// 10.02.2026 12:00 - DOCS: Added LiveUpdate Service & Safety Protocols.
 // 01.02.2026 15:00 - DOCS: Updated Architecture (SightCard Split, SSOT Logistics, Path Fixes).
 // 27.01.2026 16:00 - DOCS: FINAL SYSTEM LAW.
 // 1. Added Section 10 "The Orchestrator Core".
@@ -264,6 +265,8 @@ Die monolithischen Services wurden in spezialisierte Module zerlegt.
 | \`src/services/processors/PlaceProcessor.ts\` | 🆕 New | **POI Logic.** Validiert Orte, generiert UUIDs, verhindert Duplikate (Fuzzy Match). |
 | \`src/services/processors/FoodProcessor.ts\` | 🆕 New | **Gastro Logic.** Verarbeitet "Inverted Search" Ergebnisse (Scout vs. Enricher). |
 | \`src/services/processors/PlanningProcessor.ts\`| 🆕 New | **Itinerary Logic.** Verarbeitet Tagespläne und Routen. |
+| \`src/services/LiveScout.ts\` | 🆕 New | **Realtime Service.** Prüft im Hintergrund Status-Updates (z.B. Bilder-Generierung). |
+| \`src/hooks/useLiveStatusWorker.ts\` | 🆕 New | **Polling Hook.** Verbindet UI mit LiveScout. |
 
 ### B. Prompt Engineering (The Interface)
 Infrastruktur für typ-sichere KI-Interaktion.
@@ -345,6 +348,12 @@ Das System verarbeitet große Datenmengen (z.B. 50 Sights) stabil durch "Smart C
 * **Model Matrix:** Dynamische Wahl des Modells (Pro vs. Flash) basierend auf Task-Komplexität und User-Settings.
 * **Zod Firewall:** Jede KI-Antwort wird *nach* dem Empfang gegen das \`validation.ts\` Schema geprüft. Invalide Daten erreichen niemals den Store.
 
+**D. Timing & Stability Protocol (Safety Delays)**
+Um Race-Conditions zwischen React-State und API zu verhindern, gelten harte physikalische Wartezeiten:
+1.  **Chunking Delay (500ms):** Zwischen zwei KI-Calls in einer Schleife. Schützt die API-Rate-Limits.
+2.  **Consistency Delay (2000ms):** Exklusiv nach dem \`basis\` Task.
+    * *Grund:* Der Store benötigt Zeit, um hunderte von IDs zu indizieren, bevor der nächste Task darauf zugreifen kann.
+
 ---
 
 ### 11. Gemini Developer Protocols (Strict Implementation Rules)
@@ -386,4 +395,4 @@ Merk dir, dass ich für das Papatours Projekt immer unter dem Strict Code Integr
 `
   }
 };
-// --- END OF FILE 805 Zeilen ---
+// --- END OF FILE 827 Zeilen ---

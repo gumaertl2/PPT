@@ -1,7 +1,5 @@
+// 10.02.2026 14:10 - FIX: Resolved TS Error 'country' missing on stationary type.
 // 09.02.2026 14:35 - FIX: Added Country Context to Dumb Collector to prevent Hallucinations.
-// 05.02.2026 14:45 - FIX: LINTING & LOBOTOMIZED SCOUT.
-// - Prefixed unused 'modeInput' parameter.
-// - The Scout is a "Dumb Collector" that only knows WHERE to look (Towns).
 // src/core/prompts/preparers/prepareFoodScoutPayload.ts
 
 import type { TripProject, FoodSearchMode } from '../../types';
@@ -26,40 +24,42 @@ export const prepareFoodScoutPayload = (
     const { userInputs } = project;
     
     // --- 1. DETECT INPUT MODE ---
-    // The Orchestrator passes the "Clusters" (Town List) in options.candidates
     const townList: string[] = Array.isArray(options?.candidates) ? options.candidates : [];
     
-    // Fallback Location Name (for the prompt title mostly)
+    // Fallback Location Name
     let searchLocation = userInputs?.logistics?.stationary?.destination || "Target Region";
     if (feedback && feedback.includes('LOC:')) {
         const match = feedback.match(/LOC:([^|]+)/);
         if (match) searchLocation = match[1].trim();
     }
 
-    // FIX START: Extract Country to prevent Ambiguity (e.g. Antigua Guatemala vs Spain)
-    const country = userInputs?.logistics?.stationary?.country || 
-                    userInputs?.logistics?.roundtrip?.startLocation || 
-                    "Spain"; // Fallback
+    // FIX START: Extract Country correctly from 'target_countries' (Type Safe)
+    // We cast to 'any' briefly if needed, but better to use optional chaining on known types
+    const logistics = userInputs?.logistics;
+    
+    // Safe Access Chain
+    const country = logistics?.target_countries?.[0] || 
+                    (logistics?.stationary as any)?.region || // Type cast for safety if type definition is strict
+                    logistics?.stationary?.destination ||
+                    "Europe"; 
     
     // Combine for unambiguous search context
     const fullLocationString = `${searchLocation}, ${country}`;
     // FIX END
 
     // --- 2. PREPARE CONTEXT (MINIMALIST) ---
-    // No Guides. No Rules. Just Geography.
-    
     return {
         context: {
-            location_name: fullLocationString, // Adjusted to include Country
-            country: country, // Explicit Field
-            town_list: townList, // The only map he needs
+            location_name: fullLocationString, 
+            country: country, 
+            town_list: townList, 
         },
         instructions: {
-            role: "Du bist ein Datenbank-Crawler für Standort-Daten." // Sehr nüchterne Rolle
+            role: "Du bist ein Datenbank-Crawler für Standort-Daten."
         },
         userInputs: { 
-             selectedInterests: [] // Irrelevant for the collector
+             selectedInterests: [] 
         }
     };
 };
-// --- END OF FILE 62 Lines ---
+// --- END OF FILE 65 Lines ---

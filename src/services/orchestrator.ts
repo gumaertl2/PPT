@@ -1,3 +1,4 @@
+// 10.02.2026 13:30 - FIX: Enable Google Search for FoodScout (Live Research).
 // 08.02.2026 21:30 - FIX: Slice inputData for chunks to prevent processing full list in every chunk.
 // 08.02.2026 20:00 - FIX: Removed invalid APP_CONFIG usage. Restored standard CONFIG access.
 // src/services/orchestrator.ts
@@ -150,14 +151,15 @@ export const TripOrchestrator = {
      return mergeResults(collectedResults, task);
  },
 
- async _executeSingleStep(task: TaskKey, feedback?: string, skipSave: boolean = false, inputData?: any): Promise<any> {
+ async _executeSingleStep(task: TaskKey, feedback?: string, skipSave: boolean = false, inputData?: any, enableSearch: boolean = false): Promise<any> {
      const store = useTripStore.getState();
      const prompt = PayloadBuilder.buildPrompt(task, feedback, { candidates: inputData });
      const modelId = resolveModelId(task);
      
      if (store.aiSettings.debug) console.log(`[Orchestrator] Single Step: ${task} -> Model: ${modelId === CONFIG.api.models.pro ? 'PRO' : 'FLASH'} ${skipSave ? '(NO SAVE)' : ''}`);
 
-     const rawResult = await GeminiService.call(prompt, task, modelId);
+     // FIX: Pass enableSearch to GeminiService
+     const rawResult = await GeminiService.call(prompt, task, modelId, undefined, undefined, enableSearch);
      const schema = SCHEMA_MAP[task];
      let validatedData = rawResult;
      if (schema) {
@@ -173,7 +175,6 @@ export const TripOrchestrator = {
      if (!skipSave) {
          ResultProcessor.process(task, validatedData);
          // FIX: Critical Wait after saving single step results (e.g. Basis)
-         // FIX: Removed invalid 'sightCollector' check
          if (task === 'basis') {
              console.log("[Orchestrator] Waiting for store consistency after Basis...");
              await safetyDelay(2000);
@@ -227,6 +228,7 @@ export const TripOrchestrator = {
 
             // PHASE 1: GEO
             let townList: string[] = [];
+            // FIX: Pass true for enableSearch to geoExpander if needed, currently false
             const geoResult = await this._executeSingleStep('geoExpander', feedback, true);
             if (geoResult && Array.isArray(geoResult.candidates)) townList = geoResult.candidates;
             else if (Array.isArray(geoResult)) townList = geoResult;
@@ -243,8 +245,8 @@ export const TripOrchestrator = {
                 console.log(`[Orchestrator] FoodScout Scanning Town ${i+1}/${townList.length}: ${town}`);
                 
                 try {
-                    // Call Scout for SINGLE town
-                    const stepResult = await this._executeSingleStep('foodScout', feedback, true, [town]);
+                    // Call Scout for SINGLE town with ENABLED SEARCH
+                    const stepResult = await this._executeSingleStep('foodScout', feedback, true, [town], true);
                     if (stepResult && Array.isArray(stepResult.candidates)) {
                         const tagged = stepResult.candidates.map((c: any) => ({
                             ...c,
@@ -314,7 +316,6 @@ export const TripOrchestrator = {
             totalItems = raw.length; 
         }
         else if (task === 'chefPlaner') totalItems = project.userInputs.dates.fixedEvents?.length || 0;
-        // FIX: Removed invalid 'sightCollector' check
         else if (task === 'basis') totalItems = project.userInputs.selectedInterests.length;
         else if (['dayplan', 'initialTagesplaner'].includes(task)) totalItems = project.userInputs.dates.duration || 1;
         else if (['infos', 'infoAutor'].includes(task)) {
@@ -347,7 +348,8 @@ export const TripOrchestrator = {
         }
     }
     
-    return this._executeSingleStep(task, feedback, false, inputData);
+    // FIX: Default enableSearch to false unless specified
+    return this._executeSingleStep(task, feedback, false, inputData, false);
   }
 };
-// --- END OF FILE 534 Zeilen ---
+// --- END OF FILE 536 Zeilen ---
