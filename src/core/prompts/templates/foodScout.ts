@@ -1,12 +1,12 @@
 // 10.02.2026 22:45 - FIX: CONTEXT PRIORITY & SEARCH QUERY.
-// - Fix: Prioritize 'target_country' (AdHoc) over 'country' (Project).
-// - Fix: Search Query includes "surroundings" to find districts (Rottbach).
+// 11.02.2026 18:00 - FIX: TS6133 Unused variable '_project'.
 // src/core/prompts/templates/foodScout.ts
 
 import { PromptBuilder } from '../PromptBuilder';
 import type { TripProject } from '../../types';
 
-export const buildFoodScoutPrompt = (project: TripProject, context: any): string => {
+// FIX: Renamed 'project' to '_project' to satisfy TypeScript unused variable check
+export const buildFoodScoutPrompt = (_project: TripProject, context: any): string => {
   const builder = new PromptBuilder();
   
   // DEFENSIVE GUARD: Ensure context exists
@@ -28,10 +28,11 @@ export const buildFoodScoutPrompt = (project: TripProject, context: any): string
       else if (safeContext.target_country) {
           searchArea = `${targetCity}, ${safeContext.target_country}`;
       }
-      // 3. Fallback to project country, but avoid "Europe"
+      // 3. Fallback to project country, but avoid "Europe" if possible
       else {
           const country = safeContext.country || '';
           if (country === 'Europe' || country === 'Europa') {
+             // Force "surroundings" to help Google find districts like Rottbach
              searchArea = `${targetCity} and surroundings`;
           } else {
              searchArea = `${targetCity}, ${country}`;

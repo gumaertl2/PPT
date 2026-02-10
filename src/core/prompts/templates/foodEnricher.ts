@@ -1,7 +1,6 @@
-// 10.02.2026 23:00 - FIX: PRESERVE LIVE STATUS.
-// - Problem: Enricher dropped 'liveStatus' from Scout, causing UI to re-trigger checks.
-// - Fix: Added 'liveStatus' to Pass-Through fields (Input & Schema).
-// - Context: 'awards' are also preserved strictly.
+// 10.02.2026 23:30 - FIX: GUIDE LINK & TS COMPLIANCE.
+// - Fix: Explicitly instruct better Google Search URL for guide_link.
+// - Context: 'awards' and 'liveStatus' are passed through.
 // src/core/prompts/templates/foodEnricher.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -9,20 +8,17 @@ import { PromptBuilder } from '../PromptBuilder';
 export const buildFoodEnricherPrompt = (payload: any): string => {
   const { context, instructions } = payload;
   
-  // Input: Validated Candidates from Scout (containing Hard Facts & Live Status)
   const candidates = context.candidates_list || [];
   
-  // Serialize candidates safely
-  // We MUST include the Hard Facts AND liveStatus here so the LLM can pass them through
   const candidatesString = JSON.stringify(candidates.map((c: any) => ({
       id: c.id,
       name: c.name,
       cuisine: c.cuisine,
-      address: c.address, // Hard Fact (Pass-through)
-      phone: c.phone,     // Hard Fact (Pass-through)
-      website: c.website, // Hard Fact (Pass-through)
-      awards: c.awards,   // Hard Fact (Pass-through)
-      liveStatus: c.liveStatus, // CRITICAL: Pass-through to prevent re-checking
+      address: c.address, 
+      phone: c.phone,     
+      website: c.website, 
+      awards: c.awards,   // Pass-through
+      liveStatus: c.liveStatus, // Pass-through
       rating: c.rating    
   })));
 
@@ -48,33 +44,32 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
     A. **'description' (The List View Teaser):**
        - **Strict Limit:** Max 150 characters.
        - **Style:** Catchy, inviting, summary of the style.
-       - *Example:* "Modernes Bistro mit kreativer Alpenküche und toller Weinkarte."
 
     B. **'detailContent' (The Chief Editor Story):**
        - **Format:** Use Markdown (### for headlines, ** for bold).
        - **Structure:**
          1. **### Kulinarisches Erlebnis:** Describe the food, the philosophy, and the chef's style.
          2. **### Atmosphäre:** Describe the interior, the vibe, and the crowd.
-         3. **### Insider-Tipp:** A specific recommendation (Dish or Seat).
+         3. **### Insider-Tipp:** A specific recommendation.
        - **Tone:** Passionate, knowledgeable, premium.
 
     # STEP 2: SOFT SKILLS ENRICHMENT
-    A. **Vibe:** - 3 keywords (e.g., "Romantic", "Lively", "Traditional").
+    A. **Vibe:** - 3 keywords.
+    B. **Signature Dish:** Infer strictly from cuisine if not known.
+    C. **Logistics:** One practical tip.
+    D. **Meta:** Estimate 'priceLevel' and 'openingHours'.
 
-    B. **Signature Dish:**
-       - Infer strictly from cuisine if not known (e.g. Italian -> "Hausgemachte Pasta").
+    # STEP 3: GUIDE LINK (URL OPTIMIZATION)
+    - **guide_link:** If you find a DIRECT URL to the Michelin/Gault&Millau page, use it.
+    - **FALLBACK:** If no direct link, construct a SMART SEARCH URL:
+      "https://www.google.com/search?q=" + Name + " " + City + " " + (First Award Name OR "Restaurant")
+      *Example:* "https://www.google.com/search?q=Gasthof%20Widmann%20Maisach%20Guide%20Michelin"
+      *Goal:* The user should find the award entry immediately.
 
-    C. **Logistics:** - One practical tip (e.g., "Reservierung empfohlen").
-
-    D. **Meta:**
-       - Estimate 'priceLevel' (€-€€€€).
-       - Format 'openingHours' as compact string.
-
-    # STEP 3: OUTPUT
+    # STEP 4: OUTPUT
     Return the JSON. 
-    - **COPY** the Hard Facts (id, address, phone, website, awards) exactly.
-    - **COPY** the 'liveStatus' object exactly (do not change it).
-    - **FILL** the 'detailContent' and 'description' fields.
+    - **COPY** Hard Facts & liveStatus exactly.
+    - **FILL** detailContent, description, and guide_link.
 
     # INPUT DATA
     ${candidatesString}
@@ -85,30 +80,25 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
       {
         id: "String (KEEP ORIGINAL ID)",
         name: "String (KEEP ORIGINAL)",
-        address: "String (PASS THROUGH FROM INPUT)",
-        phone: "String (PASS THROUGH FROM INPUT)",
-        website: "String (PASS THROUGH FROM INPUT)",
-        awards: ["String (PASS THROUGH FROM INPUT)"], 
+        address: "String (PASS THROUGH)",
+        phone: "String (PASS THROUGH)",
+        website: "String (PASS THROUGH)",
+        awards: ["String (PASS THROUGH)"], 
         liveStatus: {
-            // PASS THROUGH THE WHOLE OBJECT
             status: "String",
             operational: "Boolean",
             lastChecked: "String",
             rating: "Number",
             note: "String"
         },
-        
-        // The Dual-Text Layer:
-        description: "String (Short Teaser, max 150 chars)",
-        detailContent: "String (Long Markdown Story - ### Headlines)", 
-        
-        // Soft Skills:
-        vibe: ["String", "String"],
+        description: "String (Short)",
+        detailContent: "String (Long Markdown)", 
+        vibe: ["String"],
         signature_dish: "String",
         logistics: "String",
-        priceLevel: "String (€, €€, €€€, €€€€)",
+        priceLevel: "String",
         openingHours: "String",
-        
+        guide_link: "String (Smart URL)", // Optimized Link
         verification_status: "enriched"
       }
     ]
@@ -116,4 +106,4 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
 
   return builder.build();
 };
-// --- END OF FILE 120 Zeilen ---
+// --- END OF FILE 125 Zeilen ---

@@ -1,5 +1,5 @@
-// 09.02.2026 18:05 - FEAT: Traffic Light UI for Live Check (Green/Orange/Red).
-// 09.02.2026 17:35 - FEAT: Added 'Live Check' Button (Google Grounding) to SightCardMeta.
+// 09.02.2026 18:05 - FEAT: Traffic Light UI for Live Check.
+// 11.02.2026 19:15 - FIX: Smart Links (Search & Guide) with Award Context.
 // src/features/Cockpit/SightCard/SightCardMeta.tsx
 
 import React, { useState } from 'react';
@@ -48,11 +48,33 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
 }) => {
   const [isChecking, setIsChecking] = useState(false);
 
+  // FIX: Smart Search Query now includes Awards context
   const getGoogleSearchQuery = () => {
     const name = data.name || data.official_name || data.name_official || '';
-    const city = data.city || '';
-    return `${name} ${city}`.trim();
+    const city = data.city || (data.address ? data.address.split(',').pop()?.trim() : '') || '';
+    
+    // Check for Awards (e.g. "Michelin", "Gault&Millau")
+    const awardContext = data.awards && data.awards.length > 0 ? data.awards[0] : '';
+    const context = awardContext || 'Restaurant';
+
+    return `${name} ${city} ${context}`.trim();
   };
+
+  // FIX: Smart Guide Link Fallback
+  // If no explicit guide_link exists, generate a Google Search specific to the award/guide.
+  const getSmartGuideLink = () => {
+      if (data.guide_link) return data.guide_link;
+      
+      // Fallback: Build a search URL specific to the awards
+      if (data.awards && data.awards.length > 0) {
+          return `https://www.google.com/search?q=${encodeURIComponent(getGoogleSearchQuery())}`;
+      }
+      
+      // Fallback for Hotels or if nothing else exists (legacy behavior)
+      return !isHotel ? sourceUrl : null;
+  };
+
+  const guideLink = getSmartGuideLink();
 
   const handleLiveCheck = async (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -102,8 +124,6 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
       );
   };
 
-  const guideLink = data.guide_link || (!isHotel ? sourceUrl : null);
-
   // --- TRAFFIC LIGHT LOGIC ---
   const renderLiveStatus = () => {
       const status = data.liveStatus;
@@ -113,21 +133,17 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
       }
 
       if (status) {
-          // Determine Color & Icon
           let colorClass = 'text-gray-500';
           let Icon = Zap;
           let label = status.openingHoursToday || 'Geprüft';
 
           if (status.status === 'open') {
-              // GREEN: Verified & Open
               colorClass = 'text-green-600 bg-green-50';
               Icon = CheckCircle;
           } else if (status.status === 'corrected') {
-              // ORANGE: Open but Data Changed
               colorClass = 'text-amber-600 bg-amber-50';
               Icon = Info;
           } else if (status.status === 'closed' || status.status === 'permanently_closed') {
-              // RED: Closed
               colorClass = 'text-red-600 bg-red-50';
               Icon = AlertTriangle;
               label = 'Geschlossen';
@@ -173,7 +189,7 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
 
         <span className="text-gray-200">|</span>
 
-        {/* MAP BUTTON - Also Triggers Check in Background via Parent Logic if desired, but button is explicit here */}
+        {/* MAP BUTTON */}
         <button onClick={onShowMap} className="text-gray-400 hover:text-indigo-600 transition-colors mr-1" title={t('sights.show_on_map', { defaultValue: 'Auf Karte zeigen' })}>
           <MapIcon className="w-3.5 h-3.5" />
         </button>
@@ -187,10 +203,19 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
           </div>
         )}
         
-        {guideLink && (<a href={ensureAbsoluteUrl(guideLink)} target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:text-amber-700 transition-colors" title="Zum Guide Eintrag"><BookOpen className="w-3.5 h-3.5" /></a>)}
+        {/* GUIDE LINK BUTTON - Now Smart */}
+        {guideLink && (
+            <a href={ensureAbsoluteUrl(guideLink)} target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:text-amber-700 transition-colors" title={data.awards && data.awards.length > 0 ? `Suche im Guide: ${data.awards[0]}` : "Zum Guide Eintrag"}>
+                <BookOpen className="w-3.5 h-3.5" />
+            </a>
+        )}
+
+        {/* WEBSITE BUTTON */}
         {websiteUrl && (<a href={ensureAbsoluteUrl(websiteUrl)} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:text-indigo-700 transition-colors" title="Zur Website"><Globe className="w-3.5 h-3.5" /></a>)}
+        
+        {/* SEARCH BUTTON - Now Smart */}
         <a href={`https://www.google.com/search?q=${encodeURIComponent(getGoogleSearchQuery())}`} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-600 transition-colors" title={`Suche: ${getGoogleSearchQuery()}`}><Search className="w-3.5 h-3.5" /></a>
     </div>
   );
 };
-// --- END OF FILE 164 Zeilen ---
+// --- END OF FILE 190 Zeilen ---

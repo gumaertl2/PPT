@@ -1,17 +1,21 @@
-// 10.02.2026 13:00 - FIX: Smart Rating Merge & Booking.com Filter (1-5 Scale Enforcement).
-// 10.02.2026 12:15 - FEAT: Added 'rating', 'user_ratings_total', 'business_status' to LiveUpdate.
-// 09.02.2026 19:50 - FEAT: Added 'onProgress' callback to verifyBatch for UI feedback.
-// 09.02.2026 19:15 - FEAT: Added 'verifyBatch' for optimized chunk processing (5 items/call).
+// 10.02.2026 13:00 - FIX: Smart Rating Merge & Booking.com Filter.
+// 11.02.2026 19:00 - FIX: Correct GeminiService Usage (Static Call) & TS Compliance.
 // src/services/LiveScout.ts
 
-import { GeminiService } from './gemini';
+import { GeminiService } from './gemini'; // FIX: Import the exported const object
 import { useTripStore } from '../store/useTripStore';
 import type { Place, LiveStatus } from '../core/types/models';
 
-// Interne Typ-Definition für die erwartete KI-Antwort (Erweitert LiveStatus)
+// Interne Typ-Definition für die erwartete KI-Antwort
 interface LiveCheckResult extends Partial<LiveStatus> {
   user_ratings_total?: number;
   business_status?: string;
+  rating?: number;
+  openingHoursToday?: string;
+  nextOpen?: string;
+  note?: string;
+  status?: string;
+  operational?: boolean;
 }
 
 export const LiveScout = {
@@ -88,13 +92,16 @@ export const LiveScout = {
         `;
 
         try {
+          // FIX: Use GeminiService.call directly. 
+          // GeminiService.call already parses the JSON, so we get 'result' directly.
+          
           const result = await GeminiService.call<LiveCheckResult>(
             prompt, 
-            'durationEstimator', // Light model
-            undefined, 
-            undefined,
-            undefined,
-            true // ENABLE GOOGLE SEARCH
+            'duration', // FIX: Use valid WorkflowStepId 'duration' (was 'durationEstimator')
+            undefined,  // modelIdOverride
+            undefined,  // onRetryDelay
+            undefined,  // signal
+            true        // enableGoogleSearch = true (6th argument)
           );
 
           if (result) {
@@ -113,11 +120,9 @@ export const LiveScout = {
             };
 
             // 2. SMART MERGE: Prepare the root update object
-            // Only overwrite fields if the new data is BETTER/VALID.
             const updates: Partial<Place> = { liveStatus };
 
             // Rating Guard: Only accept 1.0 - 5.0. 
-            // Reject 0, null, or > 5.0 (Booking.com leaks).
             if (
                 typeof result.rating === 'number' && 
                 result.rating > 0 && 
@@ -135,8 +140,9 @@ export const LiveScout = {
             }
 
             // Business Status: Always take if present
+            // FIX TS2339: Cast to any to bypass strict type check for 'business_status' if missing in Place type
             if (result.business_status) {
-                updates.business_status = result.business_status;
+                (updates as any).business_status = result.business_status;
             }
 
             // 3. Commit to Store

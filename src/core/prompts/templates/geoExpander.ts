@@ -1,36 +1,47 @@
-// 10.02.2026 22:00 - FIX: Signature Mismatch. Updated to (project, context) pattern.
-// 05.02.2026 18:30 - NEW STRATEGY: GEOGRAPHIC FUNNEL (STEP 1).
+// 10.02.2026 17:00 - FIX: Smart Geo-Clustering & Radius Logic.
+// 11.02.2026 18:00 - FIX: TS6133 Unused variable '_project'.
 // src/core/prompts/templates/geoExpander.ts
 
 import { PromptBuilder } from '../PromptBuilder';
 import type { TripProject } from '../../types';
 
-// FIX: Changed signature to match PayloadBuilder call (project, context)
-export const buildGeoExpanderPrompt = (project: TripProject, context: any): string => {
-  // Safe access guard
-  const safeContext = context || {};
-  const center = safeContext.center || "Europe";
-  const country = safeContext.country || "";
-  const radius = safeContext.radius || 20;
+// FIX: Renamed 'project' to '_project' to satisfy TypeScript
+export const buildGeoExpanderPrompt = (_project: TripProject, context: any): string => {
+  const builder = new PromptBuilder();
   
-  const role = `Du bist ein GIS-Assistent (Geographic Information System).`;
+  // Input: Either a single location (AdHoc) or a list (Route)
+  const isAdHoc = !!context.location_name;
+  const locations = isAdHoc ? [context.location_name] : (context.stops || []);
+  const center = isAdHoc ? context.location_name : "the route stops";
+  const radius = context.radius || 20; // Default 20km if not set
 
-  const instruction = `
-  Ich gebe dir einen Ausgangsort. Erstelle eine Liste der relevantesten Städte, Gemeinden und wichtigen Ortsteile im Radius von ca. ${radius} km um "${center}"${country ? ' (' + country + ')' : ''}, die gastronomisch relevant sein könnten.
-  Ignoriere winzige Weiler, konzentriere dich auf Orte mit Infrastruktur.
+  builder.withOS();
 
-  Input Ort: "${center}"`;
+  builder.withRole(`
+    You are the 'Geo-Expander'. Your job is to generate a list of relevant towns/places around **${center}** for a radius of **${radius} km**.
+    
+    ### RULES:
+    1. **Valid Towns Only:** List real towns or districts that are worth visiting or have infrastructure (Restaurants/Hotels).
+    2. **Radius Check:** Strictly adhere to the ${radius} km limit.
+    3. **Duplicates:** Remove duplicates.
+    4. **Output:** Return a JSON array of strings.
+  `);
 
-  const outputSchema = {
-    "_thought_process": "String (Kurze Erklärung der Cluster-Bildung)",
-    "candidates": ["String (Liste der Orte, z.B. ['Ort 1', 'Ort 2 (inkl. Ortsteil X)'])"]
-  };
+  builder.withContext({
+    input_locations: locations,
+    radius_km: radius,
+    country: context.country || "Europe"
+  });
 
-  return new PromptBuilder()
-    .withOS()
-    .withRole(role)
-    .withInstruction(instruction)
-    .withOutputSchema(outputSchema)
-    .build();
+  builder.withInstruction(`
+    Identify the main towns and interesting villages within ${radius}km of: ${locations.join(', ')}.
+    Return them as a simple list of names (e.g. ["Maisach", "Fürstenfeldbruck", "Olching"]).
+  `);
+
+  builder.withOutputSchema({
+    towns: ["String", "String", "String"]
+  });
+
+  return builder.build();
 };
-// --- END OF FILE 33 Zeilen ---
+// --- END OF FILE 42 Zeilen ---
