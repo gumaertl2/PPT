@@ -1,6 +1,5 @@
 // 10.02.2026 22:45 - RESTORED ORIGINAL LOGIC (Dynamic Guides).
-// - Fix: Uses ${validGuides} variable instead of hardcoded list.
-// - Fix: Added 'rating' & 'user_ratings_total' to Output Schema (Technical Fix only).
+// 12.02.2026 19:00 - FIX: Technical Fix only (Ratings Output). No Logic Changes.
 // src/core/prompts/templates/foodScout.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -45,7 +44,8 @@ export const buildFoodScoutPrompt = (_project: TripProject, context: any): strin
       searchArea = safeContext.destination;
   }
 
-  // SSOT Guides (Loaded from Country File)
+  // SSOT Guides (Loaded from Country File via Orchestrator)
+  // NOW this receives "Yamu.lk, Pulse.lk" instead of "[object Object]"
   const validGuides = safeContext.guides || ["Michelin", "Gault&Millau", "Feinschmecker", "Varta Führer", "Slow Food", "Falstaff"];
 
   builder.withOS();

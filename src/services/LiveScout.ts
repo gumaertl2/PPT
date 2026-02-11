@@ -1,12 +1,12 @@
-// 10.02.2026 13:00 - FIX: Smart Rating Merge & Booking.com Filter.
-// 11.02.2026 19:30 - FIX: Strict Type Compliance (LiveCheckResult & WorkflowStepId).
+// 12.02.2026 16:00 - FEAT: BULK PROCESSING (10 items per Call) to save API Quota.
+// 12.02.2026 16:45 - FIX: Added strict Booking.com filter from previous version.
 // src/services/LiveScout.ts
 
 import { GeminiService } from './gemini'; 
 import { useTripStore } from '../store/useTripStore';
 import type { Place, LiveStatus } from '../core/types/models';
 
-// FIX TS2430: Decoupled from Partial<LiveStatus> to allow loose JSON types (string) from AI
+// Decoupled interface for raw AI response
 interface LiveCheckResult {
   status?: string;
   operational?: boolean;
@@ -21,16 +21,15 @@ interface LiveCheckResult {
 export const LiveScout = {
   
   /**
-   * Prüft einen einzelnen Ort.
+   * Prüft einen einzelnen Ort (Wrapper für Batch).
    */
   async verifyPlace(placeId: string): Promise<void> {
       return this.verifyBatch([placeId]);
   },
 
   /**
-   * Prüft mehrere Orte in Chunks (Optimiert für Quota & Performance).
-   * @param placeIds Liste der zu prüfenden IDs
-   * @param onProgress Callback (completed, total) für UI Feedback
+   * Prüft mehrere Orte in ECHTEN BULK-REQUESTS (1 Call = N Places).
+   * Spart massiv API-Calls (Faktor 10).
    */
   async verifyBatch(
       placeIds: string[], 
@@ -39,139 +38,131 @@ export const LiveScout = {
     const store = useTripStore.getState();
     const { dates } = store.project.userInputs;
     
-    // Chunk Size: 5 parallel requests seems safe for Free Tier + Search
-    const CHUNK_SIZE = 5; 
+    // OPTIMIZATION: Process 10 items in ONE API Call.
+    const BATCH_SIZE = 10; 
     let completedCount = 0;
     
-    // Helper to process one item
-    const processItem = async (placeId: string) => {
-        const place = store.project.data.places[placeId];
-        if (!place) return;
-
-        const travelPeriod = dates?.start && dates?.end 
+    const travelPeriod = dates?.start && dates?.end 
             ? `${dates.start} to ${dates.end}` 
             : "Coming weeks";
 
-        const storedHours = place.openingHours 
-            ? (Array.isArray(place.openingHours) ? place.openingHours.join(', ') : place.openingHours) 
-            : "No hours stored";
+    // Helper to process a chunk
+    const processChunk = async (chunkIds: string[]) => {
+        // 1. Prepare Data for Prompt
+        const placesData = chunkIds.map(id => {
+            const p = store.project.data.places[id];
+            return p ? {
+                id: p.id,
+                name: p.name,
+                address: p.address || p.vicinity || 'Address unknown',
+                stored_hours: p.openingHours ? (Array.isArray(p.openingHours) ? p.openingHours.join(', ') : p.openingHours) : "N/A"
+            } : null;
+        }).filter(Boolean);
 
+        if (placesData.length === 0) return;
+
+        // 2. Build BULK Prompt
         const prompt = `
-          TASK: Verify this place for a traveler visiting from ${travelPeriod}.
+          TASK: Verify the status of the following ${placesData.length} places for a traveler visiting: ${travelPeriod}.
           Use Google Search Grounding to check REAL-TIME status.
 
-          PLACE: "${place.name}"
-          ADDRESS: "${place.address || place.vicinity || 'Unknown'}"
-          STORED_DATA_HOURS: "${storedHours}"
+          ### INPUT LIST:
+          ${JSON.stringify(placesData, null, 2)}
           
-          ANALYSIS STEPS:
-          1. Is it PERMANENTLY CLOSED?
-          2. Is it open during the travel period (${travelPeriod})? Check for seasonal closures or renovation.
-          3. Compare REAL opening hours with STORED_DATA_HOURS. 
-             - Are they roughly the same? (Ignore minor format diffs) -> MATCH
-             - Are they significantly different? -> MISMATCH
-          4. Extract current GOOGLE MAPS RATING (1.0 - 5.0) and REVIEW COUNT.
-             IMPORTANT: Ignore Booking.com or TripAdvisor scores (scale 1-10). ONLY use Google Maps 5-star scale.
+          ### ANALYSIS RULES:
+          1. **Status Check:** Is it OPEN, CLOSED (Seasonal/Renovation), or PERMANENTLY CLOSED?
+          2. **Hours:** What are the opening hours TODAY?
+          3. **Rating:** Extract current GOOGLE MAPS Rating (1.0-5.0) and Count.
+             **CRITICAL:** Ignore Booking.com, TripAdvisor, or Facebook scores. ONLY use the Google 5-star scale.
           
-          OUTPUT JSON (LiveStatus):
+          ### OUTPUT FORMAT:
+          Return a JSON OBJECT where the keys are the IDs from the input list.
+          Example:
           {
-            "status": "open" | "corrected" | "closed" | "permanently_closed",
-            "operational": boolean,
-            "openingHoursToday": "e.g. '09:00 - 18:00' or 'Closed now'",
-            "note": "Short reason (e.g. 'Data confirmed', 'Hours changed: Closed Mon', 'Seasonal closure until April')",
-            "rating": number (Google Rating 1.0-5.0),
-            "user_ratings_total": number (Total count of reviews),
-            "business_status": "OPERATIONAL" | "CLOSED_TEMPORARILY" | "CLOSED_PERMANENTLY"
+            "place_id_1": { "status": "open", "rating": 4.5, "note": "Confirmed" },
+            "place_id_2": { "status": "closed", "note": "Renovation" }
           }
 
-          RULES FOR STATUS:
-          - 'open': Open during trip AND Stored Data was correct (Match).
-          - 'corrected': Open during trip BUT Stored Data was wrong/outdated (Mismatch).
-          - 'closed': Closed during trip (Seasonal/Renovation).
-          - 'permanently_closed': Gone forever.
+          REQUIRED FIELDS PER ITEM:
+          - status: "open" | "closed" | "permanently_closed" | "corrected" | "unknown"
+          - operational: boolean
+          - openingHoursToday: string (e.g. "09:00 - 18:00" or "Closed")
+          - note: Short info (e.g. "Open daily", "Closed for winter")
+          - rating: number (Google Scale)
+          - user_ratings_total: number
         `;
 
         try {
-          // FIX TS2345: Use 'foodScout' as a valid WorkflowStepId (since 'duration' doesn't exist).
-          // This is safe because it's just a key for logging/config, not logic.
-          const result = await GeminiService.call<LiveCheckResult>(
+          // Use 'foodScout' as key to utilize existing configs
+          const rawResult = await GeminiService.call<Record<string, LiveCheckResult>>(
             prompt, 
             'foodScout', 
-            undefined,  // modelIdOverride
-            undefined,  // onRetryDelay
-            undefined,  // signal
-            true        // enableGoogleSearch = true
+            undefined, 
+            undefined, 
+            undefined, 
+            true // Enable Search
           );
 
-          if (result) {
-            let finalStatus = result.status || 'unknown';
-            if (result.operational === false) finalStatus = 'closed';
-            
-            // 1. Construct the LiveStatus Object
-            const liveStatus: LiveStatus = {
-              lastChecked: new Date().toISOString(),
-              // Safe cast because we map logic, but strict typing wants exact literals.
-              // We assume Gemini returns valid strings, but fallback to 'unknown' if needed in a real mapper.
-              status: (['open', 'closed', 'permanently_closed', 'corrected'].includes(finalStatus) ? finalStatus : 'unknown') as any,
-              operational: result.operational ?? true,
-              openingHoursToday: result.openingHoursToday,
-              nextOpen: result.nextOpen,
-              note: result.note,
-              rating: result.rating // Keep raw result in history
-            };
+          if (rawResult) {
+            // 3. Process Results & Update Store
+            Object.keys(rawResult).forEach(id => {
+                const result = rawResult[id];
+                if (!result) return;
 
-            // 2. SMART MERGE: Prepare the root update object
-            const updates: Partial<Place> = { liveStatus };
+                let finalStatus = result.status || 'unknown';
+                if (result.operational === false) finalStatus = 'closed';
 
-            // Rating Guard: Only accept 1.0 - 5.0. 
-            if (
-                typeof result.rating === 'number' && 
-                result.rating > 0 && 
-                result.rating <= 5.0
-            ) {
-                updates.rating = result.rating;
-            }
+                // Construct LiveStatus
+                const liveStatus: LiveStatus = {
+                    lastChecked: new Date().toISOString(),
+                    status: (['open', 'closed', 'permanently_closed', 'corrected'].includes(finalStatus) ? finalStatus : 'unknown') as any,
+                    operational: result.operational ?? true,
+                    openingHoursToday: result.openingHoursToday,
+                    nextOpen: result.nextOpen,
+                    note: result.note,
+                    rating: result.rating
+                };
 
-            // Count Guard: Only accept positive numbers
-            if (
-                typeof result.user_ratings_total === 'number' && 
-                result.user_ratings_total > 0
-            ) {
-                updates.user_ratings_total = result.user_ratings_total;
-            }
+                const updates: Partial<Place> = { liveStatus };
 
-            // Business Status: Always take if present
-            // Cast to any because business_status might not be in the strict Place type yet
-            if (result.business_status) {
-                (updates as any).business_status = result.business_status;
-            }
+                // Update Ratings if valid (Guard against hallucinations)
+                if (typeof result.rating === 'number' && result.rating > 0 && result.rating <= 5.0) {
+                    updates.rating = result.rating;
+                }
+                if (typeof result.user_ratings_total === 'number' && result.user_ratings_total > 0) {
+                    updates.user_ratings_total = result.user_ratings_total;
+                }
 
-            // 3. Commit to Store
-            store.updatePlace(placeId, updates);
-            
-            console.log(`[LiveScout] Verified ${place.name}: ${finalStatus} (Rating: ${result.rating ?? 'N/A'})`);
+                // Business Status
+                if (result.business_status) {
+                    (updates as any).business_status = result.business_status;
+                }
+
+                // Commit Update
+                store.updatePlace(id, updates);
+                console.log(`[LiveScout] Batch Verified ${id}: ${finalStatus}`);
+            });
           }
         } catch (error) {
-          console.error(`[LiveScout] Error verifying ${place.name}:`, error);
+          console.error(`[LiveScout] Batch Error:`, error);
         }
     };
 
-    // Process Chunks
-    for (let i = 0; i < placeIds.length; i += CHUNK_SIZE) {
-        const chunk = placeIds.slice(i, i + CHUNK_SIZE);
-        await Promise.all(chunk.map(id => processItem(id)));
+    // Process Chunks Sequentially
+    for (let i = 0; i < placeIds.length; i += BATCH_SIZE) {
+        const chunk = placeIds.slice(i, i + BATCH_SIZE);
+        await processChunk(chunk);
         
         completedCount += chunk.length;
         if (completedCount > placeIds.length) completedCount = placeIds.length;
 
-        // Notify Progress
         if (onProgress) onProgress(completedCount, placeIds.length);
         
-        // Small delay between chunks to be nice to the API
-        if (i + CHUNK_SIZE < placeIds.length) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+        // Small breathing room between batches
+        if (i + BATCH_SIZE < placeIds.length) {
+            await new Promise(resolve => setTimeout(resolve, 500));
         }
     }
   }
 };
-// --- END OF FILE 165 Zeilen ---
+// --- END OF FILE 145 Zeilen ---

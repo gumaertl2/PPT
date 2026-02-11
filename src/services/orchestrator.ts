@@ -1,5 +1,5 @@
-// 10.02.2026 22:30 - FIX: ReferenceError in executeTask. variable 'enableSearch' was undefined scope.
-// 12.02.2026 12:45 - FIX: RESTORED 2-STAGE PIPELINE (Scout -> Enricher). Manual LOC Extraction included.
+// 10.02.2026 22:30 - FIX: ReferenceError in executeTask.
+// 12.02.2026 19:00 - FIX: CRITICAL GUIDE NAME EXTRACTION (Fixes [object Object] bug).
 // src/services/orchestrator.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -18,7 +18,6 @@ import {
 } from './validation';
 import type { TaskKey } from '../core/types';
 
-// Definition lokal behalten (User-Wunsch)
 const geoExpanderSchema = z.object({
     _thought_process: z.string().optional(),
     candidates: z.array(z.string())
@@ -62,7 +61,6 @@ const resolveModelId = (task: TaskKey): string => {
 const mergeResults = (results: any[], task: TaskKey): any => {
     if (!results || results.length === 0) return null;
     if (results.length === 1) return results[0];
-    console.log(`[Orchestrator] Merging ${results.length} chunks for ${task}...`);
     
     if (['dayplan', 'initialTagesplaner'].includes(task)) {
         const merged = JSON.parse(JSON.stringify(results[0])); 
@@ -155,7 +153,12 @@ export const TripOrchestrator = {
          processedInput = inputData.map(item => typeof item === 'string' ? cleanTownName(item) : item);
      }
 
-     const prompt = PayloadBuilder.buildPrompt(task, feedback, { candidates: processedInput });
+     const payloadOptions: any = { candidates: processedInput };
+     if (task === 'geoExpander' && Array.isArray(processedInput) && processedInput.length > 0) {
+         payloadOptions.location_name = processedInput[0];
+     }
+
+     const prompt = PayloadBuilder.buildPrompt(task, feedback, payloadOptions);
      const modelId = resolveModelId(task);
      
      if (store.aiSettings.debug) console.log(`[Orchestrator] Single Step: ${task} -> Model: ${modelId === CONFIG.api.models.pro ? 'PRO' : 'FLASH'} ${skipSave ? '(NO SAVE)' : ''}`);
@@ -193,23 +196,25 @@ export const TripOrchestrator = {
             !p.detailContent || p.detailContent.length < 50
         );
         if (missingItems.length === 0) {
-            console.log("[Orchestrator] Smart Mode: No items missing content. Skipping.");
             return { skipped: true, message: "Nothing to do" };
         }
-        console.log(`[Orchestrator] Smart Mode: Filtered to ${missingItems.length} items.`);
         inputData = missingItems; 
     }
 
-    // --- FOOD PIPELINE (V40.5 - RESTORED 2-STAGE) ---
     if (task === 'foodScout' || task === 'food') {
         console.log(`[Orchestrator] Detected Food Task. Starting INVERTED SEARCH PIPELINE V40.5`);
         try {
             store.setChunkingState({ isActive: true, currentChunk: 0, totalChunks: 4, results: [] });
             
+            // CRITICAL FIX: Extract guide NAMES strictly as strings
+            // This prevents "[object Object]" from being sent to the AI
             const existingGuides = getGuidesForCountry(store.project.userInputs.logistics.target_countries?.[0] || "Europe");
-            let dynamicGuides = existingGuides ? existingGuides.join(', ') : "";
+            let dynamicGuides = "";
+            if (existingGuides && Array.isArray(existingGuides)) {
+                // Hier war der Fehler: .join ohne .map
+                dynamicGuides = existingGuides.map(g => g.name).join(', '); 
+            }
 
-            // PHASE 1: GEO (With Manual LOC Hack to satisfy GeoExpander)
             let townList: string[] = [];
             
             const locMatch = feedback?.match(/LOC:([^|]+)/);
@@ -221,7 +226,6 @@ export const TripOrchestrator = {
             if (geoResult && Array.isArray(geoResult.candidates)) townList = geoResult.candidates;
             else if (Array.isArray(geoResult)) townList = geoResult;
 
-            // PHASE 2: SEQUENTIAL SCOUTING (Live Search for Hard Facts)
             console.log(`[Orchestrator] Starting Sequential Food Scouting for ${townList.length} towns...`);
             let allScoutCandidates: any[] = [];
             const totalSteps = townList.length + 1;
@@ -234,7 +238,13 @@ export const TripOrchestrator = {
                 console.log(`[Orchestrator] FoodScout Scanning Town ${i+1}/${townList.length}: ${town}`);
                 
                 try {
-                    const stepResult = await this._executeSingleStep('foodScout', feedback, true, [town], true);
+                    // Inject GUIDES into feedback so PayloadBuilder picks them up
+                    let stepFeedback = feedback || "";
+                    if (dynamicGuides) {
+                        stepFeedback = stepFeedback ? `${stepFeedback}|GUIDES:${dynamicGuides}` : `GUIDES:${dynamicGuides}`;
+                    }
+
+                    const stepResult = await this._executeSingleStep('foodScout', stepFeedback, true, [town], true);
                     
                     if (stepResult && Array.isArray(stepResult.candidates)) {
                         const tagged = stepResult.candidates.map((c: any) => ({
@@ -253,11 +263,10 @@ export const TripOrchestrator = {
             if (allScoutCandidates.length === 0) return;
 
             // PHASE 3: ENRICHER (Content Generation)
-            // RESTORED: Calling the Enricher to write texts based on Scout data
             store.setChunkingState({ isActive: true, currentChunk: totalSteps, totalChunks: totalSteps });
-            console.log(`[Orchestrator] Sending ${allScoutCandidates.length} candidates to Auditor...`);
-
+            
             let enricherFeedback = feedback || "";
+            // Ensure Enricher also knows the guides for linking
             if (dynamicGuides) enricherFeedback = enricherFeedback ? `${enricherFeedback}|GUIDES:${dynamicGuides}` : `GUIDES:${dynamicGuides}`;
 
             const enricherResult = await this.executeTask('foodEnricher', enricherFeedback, allScoutCandidates); 
@@ -337,4 +346,4 @@ export const TripOrchestrator = {
     return this._executeSingleStep(task, feedback, false, inputData, false);
   }
 };
-// --- END OF FILE 533 Lines ---
+// --- END OF FILE 535 Lines ---
