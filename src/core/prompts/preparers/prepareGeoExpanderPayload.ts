@@ -1,4 +1,5 @@
 // 10.02.2026 14:10 - FIX: Added Country Context to resolve ambiguity.
+// 11.02.2026 21:45 - FIX: Map 'center' to 'location_name' to satisfy Template interface.
 // src/core/prompts/preparers/prepareGeoExpanderPayload.ts
 
 import type { TripProject } from '../../types';
@@ -54,13 +55,17 @@ export const prepareGeoExpanderPayload = (
         }
     }
 
-    // 3. Extract from Ad-Hoc String
+    // 3. Extract from Ad-Hoc String (HIGHEST PRIORITY)
     if (feedback) {
         const locMatch = feedback.match(/LOC:([^|]+)/);
         if (locMatch && locMatch[1].trim()) center = locMatch[1].trim();
 
         const radMatch = feedback.match(/RAD:(\d+)/);
         if (radMatch) radius = parseInt(radMatch[1]);
+        
+        // Extract country from feedback if present to help Google Search
+        const countryMatch = feedback.match(/COUNTRY:([^|]+)/);
+        if (countryMatch && countryMatch[1].trim()) countryContext = countryMatch[1].trim();
     }
 
     if (!center || center === "Europe") {
@@ -71,8 +76,12 @@ export const prepareGeoExpanderPayload = (
         context: {
             center, 
             radius,
-            country: countryContext // Explicit country for disambiguation
+            country: countryContext, // Explicit country for disambiguation
+            
+            // FIX: Map 'center' to 'location_name'.
+            // The Template (geoExpander.ts) expects 'location_name' to define the search target.
+            location_name: center 
         }
     };
 };
-// --- END OF FILE 90 Zeilen ---
+// --- END OF FILE 98 Zeilen ---

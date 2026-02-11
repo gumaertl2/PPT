@@ -1,5 +1,5 @@
 // 10.02.2026 22:00 - FIX: Signature Mismatch. Updated to (project, context) pattern.
-// 11.02.2026 20:00 - FIX: Output Schema must be 'candidates' (Array), NOT 'towns'.
+// 11.02.2026 21:30 - FIX: Redundant checks for location input.
 // src/core/prompts/templates/geoExpander.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -8,10 +8,24 @@ import type { TripProject } from '../../types';
 export const buildGeoExpanderPrompt = (_project: TripProject, context: any): string => {
   const builder = new PromptBuilder();
   
-  // Input: Either a single location (AdHoc) or a list (Route)
-  const isAdHoc = !!context.location_name;
-  const locations = isAdHoc ? [context.location_name] : (context.stops || []);
-  const center = isAdHoc ? context.location_name : "the route stops";
+  // FIX: Robustly detect input location.
+  // Priority 1: Direct location_name (Standard)
+  // Priority 2: candidates array (Manual injection fallback)
+  
+  let locations: string[] = [];
+  let center = "";
+  
+  if (context.location_name) {
+      locations = [context.location_name];
+      center = context.location_name;
+  } else if (context.candidates && Array.isArray(context.candidates) && context.candidates.length > 0) {
+      locations = context.candidates;
+      center = context.candidates[0];
+  } else {
+      locations = context.stops || [];
+      center = "the route stops";
+  }
+
   const radius = context.radius || 20;
 
   builder.withOS();
@@ -44,4 +58,4 @@ export const buildGeoExpanderPrompt = (_project: TripProject, context: any): str
 
   return builder.build();
 };
-// --- END OF FILE 45 Zeilen ---
+// --- END OF FILE 60 Zeilen ---

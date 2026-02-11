@@ -1,5 +1,5 @@
 // 10.02.2026 22:30 - FIX: ReferenceError in executeTask. variable 'enableSearch' was undefined scope.
-// 11.02.2026 20:00 - FIX: Imported geoExpanderSchema from validation.ts to sync with prompt.
+// 12.02.2026 12:45 - FIX: RESTORED 2-STAGE PIPELINE (Scout -> Enricher). Manual LOC Extraction included.
 // src/services/orchestrator.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -14,11 +14,15 @@ import { getGuidesForCountry } from '../data/countries';
 import { 
   dayPlanSchema, geoAnalystSchema, foodSchema, hotelSchema, chefPlanerSchema,
   routeArchitectSchema, ideenScoutSchema, chefredakteurSchema, infoAutorSchema,
-  tourGuideSchema, transferPlannerSchema, geoExpanderSchema // FIX: Import here
+  tourGuideSchema, transferPlannerSchema 
 } from './validation';
 import type { TaskKey } from '../core/types';
 
-// REMOVED: Local definition of geoExpanderSchema to prevent mismatch.
+// Definition lokal behalten (User-Wunsch)
+const geoExpanderSchema = z.object({
+    _thought_process: z.string().optional(),
+    candidates: z.array(z.string())
+});
 
 const SCHEMA_MAP: Partial<Record<TaskKey, z.ZodType<any>>> = {
   dayplan: dayPlanSchema, initialTagesplaner: dayPlanSchema, geoAnalyst: geoAnalystSchema,
@@ -44,9 +48,7 @@ const getTaskLimit = (task: TaskKey, isManual: boolean): number => {
 };
 
 const resolveModelId = (task: TaskKey): string => {
-    // FIX: FORCE PRO FOR BASIS (Stability)
     if (task === 'basis' || task === 'anreicherer') return CONFIG.api.models.pro;
-
     const aiSettings = useTripStore.getState().aiSettings;
     const taskOverride = aiSettings.modelOverrides?.[task];
     if (taskOverride === 'pro') return CONFIG.api.models.pro;
@@ -62,7 +64,6 @@ const mergeResults = (results: any[], task: TaskKey): any => {
     if (results.length === 1) return results[0];
     console.log(`[Orchestrator] Merging ${results.length} chunks for ${task}...`);
     
-    // Dayplan special merge logic
     if (['dayplan', 'initialTagesplaner'].includes(task)) {
         const merged = JSON.parse(JSON.stringify(results[0])); 
         for (let i = 1; i < results.length; i++) {
@@ -77,7 +78,6 @@ const mergeResults = (results: any[], task: TaskKey): any => {
         return merged;
     }
 
-    // Standard Object/Array Merge
     let merged: any = {};
     if (Array.isArray(results[0])) return results.flat();
     
@@ -96,10 +96,8 @@ const mergeResults = (results: any[], task: TaskKey): any => {
     return merged;
 };
 
-// HELPER: Safety Delay to prevent Race Conditions
 const safetyDelay = async (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// HELPER: Clean Town Name (Remove parens like "München (Pasing)")
 const cleanTownName = (name: string): string => {
     if (!name) return "";
     return name.split('(')[0].trim();
@@ -120,7 +118,6 @@ export const TripOrchestrator = {
          console.log(`[Orchestrator] Processing Chunk ${i}/${totalChunks}...`);
          store.setChunkingState({ isActive: true, currentChunk: i, totalChunks: totalChunks, results: collectedResults });
 
-         // FIX: SLICE INPUT DATA FOR EXPLICIT CANDIDATES (Smart Mode)
          let chunkCandidates = inputData;
          if (Array.isArray(inputData) && ['chefredakteur', 'anreicherer', 'details'].includes(task)) {
              const start = (i - 1) * limit;
@@ -153,7 +150,6 @@ export const TripOrchestrator = {
 
  async _executeSingleStep(task: TaskKey, feedback?: string, skipSave: boolean = false, inputData?: any, enableSearch: boolean = false): Promise<any> {
      const store = useTripStore.getState();
-     // FIX: CLEAN CANDIDATES IF FOODSCOUT
      let processedInput = inputData;
      if (task === 'foodScout' && Array.isArray(inputData)) {
          processedInput = inputData.map(item => typeof item === 'string' ? cleanTownName(item) : item);
@@ -164,7 +160,6 @@ export const TripOrchestrator = {
      
      if (store.aiSettings.debug) console.log(`[Orchestrator] Single Step: ${task} -> Model: ${modelId === CONFIG.api.models.pro ? 'PRO' : 'FLASH'} ${skipSave ? '(NO SAVE)' : ''}`);
 
-     // Pass enableSearch correctly
      const rawResult = await GeminiService.call(prompt, task, modelId, undefined, undefined, enableSearch);
      const schema = SCHEMA_MAP[task];
      let validatedData = rawResult;
@@ -192,7 +187,6 @@ export const TripOrchestrator = {
     const store = useTripStore.getState();
     const { project, chunkingState, setChunkingState, apiKey } = store;
 
-    // --- SMART MODE PRE-PROCESSING ---
     if (options?.mode === 'smart' && task === 'chefredakteur') {
         const places = project.data.places || {};
         const missingItems = Object.values(places).filter((p: any) => 
@@ -206,23 +200,28 @@ export const TripOrchestrator = {
         inputData = missingItems; 
     }
 
-    // --- FOOD PIPELINE (V40.5) ---
+    // --- FOOD PIPELINE (V40.5 - RESTORED 2-STAGE) ---
     if (task === 'foodScout' || task === 'food') {
         console.log(`[Orchestrator] Detected Food Task. Starting INVERTED SEARCH PIPELINE V40.5`);
         try {
             store.setChunkingState({ isActive: true, currentChunk: 0, totalChunks: 4, results: [] });
             
-            // Guides Logic (Static)
             const existingGuides = getGuidesForCountry(store.project.userInputs.logistics.target_countries?.[0] || "Europe");
             let dynamicGuides = existingGuides ? existingGuides.join(', ') : "";
 
-            // PHASE 1: GEO
+            // PHASE 1: GEO (With Manual LOC Hack to satisfy GeoExpander)
             let townList: string[] = [];
-            const geoResult = await this._executeSingleStep('geoExpander', feedback, true);
+            
+            const locMatch = feedback?.match(/LOC:([^|]+)/);
+            const manualLocation = locMatch ? locMatch[1] : undefined;
+            const geoInput = manualLocation ? [manualLocation] : undefined;
+
+            const geoResult = await this._executeSingleStep('geoExpander', feedback, true, geoInput);
+            
             if (geoResult && Array.isArray(geoResult.candidates)) townList = geoResult.candidates;
             else if (Array.isArray(geoResult)) townList = geoResult;
 
-            // PHASE 2: SEQUENTIAL SCOUTING
+            // PHASE 2: SEQUENTIAL SCOUTING (Live Search for Hard Facts)
             console.log(`[Orchestrator] Starting Sequential Food Scouting for ${townList.length} towns...`);
             let allScoutCandidates: any[] = [];
             const totalSteps = townList.length + 1;
@@ -235,7 +234,6 @@ export const TripOrchestrator = {
                 console.log(`[Orchestrator] FoodScout Scanning Town ${i+1}/${townList.length}: ${town}`);
                 
                 try {
-                    // ENABLE SEARCH = TRUE
                     const stepResult = await this._executeSingleStep('foodScout', feedback, true, [town], true);
                     
                     if (stepResult && Array.isArray(stepResult.candidates)) {
@@ -254,7 +252,8 @@ export const TripOrchestrator = {
 
             if (allScoutCandidates.length === 0) return;
 
-            // PHASE 3: ENRICHER (Bulk/Chunked)
+            // PHASE 3: ENRICHER (Content Generation)
+            // RESTORED: Calling the Enricher to write texts based on Scout data
             store.setChunkingState({ isActive: true, currentChunk: totalSteps, totalChunks: totalSteps });
             console.log(`[Orchestrator] Sending ${allScoutCandidates.length} candidates to Auditor...`);
 
@@ -281,7 +280,6 @@ export const TripOrchestrator = {
         }
     }
 
-    // --- STANDARD CHUNKING LOGIC ---
     const chunkableTasks: TaskKey[] = [
         'anreicherer', 'chefredakteur', 'infoAutor', 'foodEnricher', 'chefPlaner',
         'dayplan', 'initialTagesplaner', 'infos', 'details', 'basis', 'hotelScout', 'ideenScout'
@@ -293,12 +291,10 @@ export const TripOrchestrator = {
         let limit = getTaskLimit(task, isManual);
 
         if (['anreicherer', 'chefredakteur', 'details'].includes(task)) {
-            if (inputData && Array.isArray(inputData) && inputData.length > 0) {
-                totalItems = inputData.length;
-            } else {
+            if (inputData && Array.isArray(inputData) && inputData.length > 0) totalItems = inputData.length;
+            else {
                 const places = project.data.places || {};
-                const keys = Object.keys(places);
-                totalItems = keys.length;
+                totalItems = Object.keys(places).length;
             }
         }
         else if (task === 'foodEnricher') {
@@ -338,8 +334,7 @@ export const TripOrchestrator = {
         }
     }
     
-    // Default enableSearch to false unless specified (FIX: Removed undefined 'enableSearch')
     return this._executeSingleStep(task, feedback, false, inputData, false);
   }
 };
-// --- END OF FILE 522 Lines ---
+// --- END OF FILE 533 Lines ---

@@ -1,6 +1,6 @@
-// 10.02.2026 23:30 - FIX: GUIDE LINK & TS COMPLIANCE.
-// - Fix: Explicitly instruct better Google Search URL for guide_link.
-// - Context: 'awards' and 'liveStatus' are passed through.
+// 10.02.2026 22:45 - RESTORED ORIGINAL ENRICHER.
+// - Fix: Pass-through for Ratings & LiveStatus.
+// - Fix: Smart Link Construction restored.
 // src/core/prompts/templates/foodEnricher.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -10,6 +10,7 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
   
   const candidates = context.candidates_list || [];
   
+  // Serialize candidates safely INCLUDING RATINGS
   const candidatesString = JSON.stringify(candidates.map((c: any) => ({
       id: c.id,
       name: c.name,
@@ -17,9 +18,10 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
       address: c.address, 
       phone: c.phone,     
       website: c.website, 
-      awards: c.awards,   // Pass-through
-      liveStatus: c.liveStatus, // Pass-through
-      rating: c.rating    
+      awards: c.awards,   
+      liveStatus: c.liveStatus,
+      rating: c.rating,   // Pass-through
+      user_ratings_total: c.user_ratings_total // Pass-through
   })));
 
   const builder = new PromptBuilder();
@@ -34,7 +36,7 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
   builder.withInstruction(`
     # MISSION
     You are refining a list of restaurants.
-    **DO NOT change the Hard Facts (Address, Phone, Website, Awards, LiveStatus).**
+    **DO NOT change the Hard Facts (Address, Phone, Website, Awards).**
 
     Your job is to generate the CONTENT LAYERS for the App using the CORRECT FIELDS.
 
@@ -59,17 +61,14 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
     C. **Logistics:** One practical tip.
     D. **Meta:** Estimate 'priceLevel' and 'openingHours'.
 
-    # STEP 3: GUIDE LINK (URL OPTIMIZATION)
-    - **guide_link:** If you find a DIRECT URL to the Michelin/Gault&Millau page, use it.
-    - **FALLBACK:** If no direct link, construct a SMART SEARCH URL:
-      "https://www.google.com/search?q=" + Name + " " + City + " " + (First Award Name OR "Restaurant")
-      *Example:* "https://www.google.com/search?q=Gasthof%20Widmann%20Maisach%20Guide%20Michelin"
-      *Goal:* The user should find the award entry immediately.
+    # STEP 3: GUIDE LINK
+    - **guide_link:** Construct a Smart Google Search URL.
+      - Logic: "https://www.google.com/search?q=" + Name + " " + City + " " + (First Award OR "Restaurant")
 
     # STEP 4: OUTPUT
     Return the JSON. 
-    - **COPY** Hard Facts & liveStatus exactly.
-    - **FILL** detailContent, description, and guide_link.
+    - **COPY** Hard Facts (id, address, phone, website, awards, liveStatus, rating, user_ratings_total).
+    - **FILL** Content fields.
 
     # INPUT DATA
     ${candidatesString}
@@ -78,12 +77,14 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
   builder.withOutputSchema({
     candidates: [
       {
-        id: "String (KEEP ORIGINAL ID)",
-        name: "String (KEEP ORIGINAL)",
-        address: "String (PASS THROUGH)",
-        phone: "String (PASS THROUGH)",
-        website: "String (PASS THROUGH)",
-        awards: ["String (PASS THROUGH)"], 
+        id: "String",
+        name: "String",
+        address: "String",
+        phone: "String",
+        website: "String",
+        awards: ["String"], 
+        rating: "Number",
+        user_ratings_total: "Number",
         liveStatus: {
             status: "String",
             operational: "Boolean",
@@ -91,14 +92,14 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
             rating: "Number",
             note: "String"
         },
-        description: "String (Short)",
-        detailContent: "String (Long Markdown)", 
+        description: "String",
+        detailContent: "String", 
         vibe: ["String"],
         signature_dish: "String",
         logistics: "String",
         priceLevel: "String",
         openingHours: "String",
-        guide_link: "String (Smart URL)", // Optimized Link
+        guide_link: "String",
         verification_status: "enriched"
       }
     ]
@@ -106,4 +107,4 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
 
   return builder.build();
 };
-// --- END OF FILE 125 Zeilen ---
+// --- END OF FILE 115 Zeilen ---
