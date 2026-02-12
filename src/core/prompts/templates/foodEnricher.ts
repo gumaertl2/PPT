@@ -1,6 +1,6 @@
-// 10.02.2026 22:45 - RESTORED ORIGINAL ENRICHER.
-// - Fix: Pass-through for Ratings & LiveStatus.
-// - Fix: Smart Link Construction restored.
+// 13.02.2026 21:00 - MERGED FIX: ORIGINAL CONTENT LOGIC + RETENTION POLICY.
+// - Logic: Uses the user's detailed content generation (Teaser/Deep Dive).
+// - Logic: Adds strict "NO FILTERING" rule to ensure Wirtshäuser/Hotels are kept.
 // src/core/prompts/templates/foodEnricher.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -8,7 +8,8 @@ import { PromptBuilder } from '../PromptBuilder';
 export const buildFoodEnricherPrompt = (payload: any): string => {
   const { context, instructions } = payload;
   
-  const candidates = context.candidates_list || [];
+  // Robustly handle candidates input (handle both list and direct property)
+  const candidates = context.candidates_list || context.candidates || [];
   
   // Serialize candidates safely INCLUDING RATINGS
   const candidatesString = JSON.stringify(candidates.map((c: any) => ({
@@ -30,15 +31,20 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
 
   builder.withContext({
       candidates_count: candidates.length,
-      task: "Generate TWO types of texts (Teaser & Deep Dive) matching the project's data structure."
+      task: "Generate TWO types of texts (Teaser & Deep Dive) matching the project's data structure.",
+      retention_policy: "STRICT: Do not filter out candidates found by the Scout."
   });
 
   builder.withInstruction(`
     # MISSION
-    You are refining a list of restaurants.
-    **DO NOT change the Hard Facts (Address, Phone, Website, Awards).**
-
-    Your job is to generate the CONTENT LAYERS for the App using the CORRECT FIELDS.
+    You are refining a list of restaurants found by a Data Scout.
+    
+    ### CRITICAL RETENTION RULE (NON-NEGOTIABLE):
+    The candidates in the input list have ALREADY been selected because they are listed in Guides.
+    **YOU MUST OUTPUT A RESULT FOR EVERY SINGLE CANDIDATE.**
+    - **Do NOT filter out** "Gasthöfe", "Hotel Restaurants" or "Traditional Places".
+    - **Do NOT reject** a place because it lacks a website (use Google Maps data mentally).
+    - **ONLY reject** if the place is "Permanently Closed".
 
     # STEP 1: DUAL-TEXT GENERATION
     For each candidate, write TWO distinct texts:
@@ -53,13 +59,13 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
          1. **### Kulinarisches Erlebnis:** Describe the food, the philosophy, and the chef's style.
          2. **### Atmosphäre:** Describe the interior, the vibe, and the crowd.
          3. **### Insider-Tipp:** A specific recommendation.
-       - **Tone:** Passionate, knowledgeable, premium.
+       - **Tone:** Passionate, knowledgeable, premium (but respectful of traditional places).
 
     # STEP 2: SOFT SKILLS ENRICHMENT
-    A. **Vibe:** - 3 keywords.
-    B. **Signature Dish:** Infer strictly from cuisine if not known.
-    C. **Logistics:** One practical tip.
-    D. **Meta:** Estimate 'priceLevel' and 'openingHours'.
+    A. **Vibe:** - 3 keywords (e.g. "Rustic", "Elegant", "Lively").
+    B. **Signature Dish:** Infer strictly from cuisine if not known (e.g. "Zwiebelrostbraten" for Bavarian).
+    C. **Logistics:** One practical tip (Parking, Reservation).
+    D. **Meta:** Estimate 'priceLevel' (€, €€, €€€) and 'openingHours'.
 
     # STEP 3: GUIDE LINK
     - **guide_link:** Construct a Smart Google Search URL.
@@ -75,9 +81,9 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
   `);
 
   builder.withOutputSchema({
-    candidates: [
+    enriched_candidates: [
       {
-        id: "String",
+        id: "String (preserve from input)",
         name: "String",
         address: "String",
         phone: "String",
@@ -107,4 +113,4 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
 
   return builder.build();
 };
-// --- END OF FILE 115 Zeilen ---
+// --- END OF FILE 130 Zeilen ---

@@ -1,5 +1,6 @@
-// 10.02.2026 22:00 - FIX: Signature Mismatch. Updated to (project, context) pattern.
-// 11.02.2026 21:30 - FIX: Redundant checks for location input.
+// 13.02.2026 14:00 - FIX: ATOMIC CITY PROTOCOL.
+// - Logic: Prevents fragmentation of small/medium towns into districts.
+// - Logic: Forces "One City = One Search Term" unless it's a major metropolis (>500k).
 // src/core/prompts/templates/geoExpander.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -9,9 +10,6 @@ export const buildGeoExpanderPrompt = (_project: TripProject, context: any): str
   const builder = new PromptBuilder();
   
   // FIX: Robustly detect input location.
-  // Priority 1: Direct location_name (Standard)
-  // Priority 2: candidates array (Manual injection fallback)
-  
   let locations: string[] = [];
   let center = "";
   
@@ -31,13 +29,16 @@ export const buildGeoExpanderPrompt = (_project: TripProject, context: any): str
   builder.withOS();
 
   builder.withRole(`
-    You are the 'Geo-Expander'. Your job is to generate a list of relevant towns/places around **${center}** for a radius of **${radius} km**.
+    You are the 'Geo-Expander'. Your job is to generate a list of relevant search areas around **${center}**.
     
-    ### RULES:
-    1. **Valid Towns Only:** List real towns or districts that are worth visiting or have infrastructure (Restaurants/Hotels).
-    2. **Radius Check:** Strictly adhere to the ${radius} km limit.
-    3. **Duplicates:** Remove duplicates.
-    4. **Output:** Return a JSON object with a 'candidates' array.
+    ### ATOMIC CITY PROTOCOL (CRITICAL):
+    1. **METROPOLIS CHECK:** Is the target a major international city (> 500k inhabitants, e.g. Munich, Berlin, London)?
+       - **YES:** Split it into relevant tourist districts (e.g. "Munich Schwabing", "Munich Center").
+       - **NO:** TREAT IT AS ATOMIC. Do **NOT** split small towns or regional centers into districts (e.g. do NOT split "Fürstenfeldbruck" into "Buchenau/Kloster"). Return ONLY the main town name.
+    
+    ### REASONING:
+    - Splitting small towns hides results (e.g. a restaurant in Buchenau is listed under "Fürstenfeldbruck").
+    - We need the BROADEST administrative definition for small towns.
   `);
 
   builder.withContext({
@@ -47,15 +48,19 @@ export const buildGeoExpanderPrompt = (_project: TripProject, context: any): str
   });
 
   builder.withInstruction(`
-    Identify the main towns and interesting villages within ${radius}km of: ${locations.join(', ')}.
-    Return them as a simple list of names (e.g. ["Maisach", "Fürstenfeldbruck", "Olching"]).
+    Identify the search areas within ${radius}km of: ${locations.join(', ')}.
+    
+    **EXECUTION:**
+    - If ${center} is a small/medium town -> Return just ["${center}"].
+    - If radius is large (>10km) -> Add *other* independent towns nearby (e.g. "Olching", "Maisach"), but DO NOT split the main town.
+    
+    Return as a simple list of names.
   `);
 
-  // FIX: Schema must match Orchestrator expectation: 'candidates'
   builder.withOutputSchema({
     candidates: ["String", "String", "String"]
   });
 
   return builder.build();
 };
-// --- END OF FILE 60 Zeilen ---
+// --- END OF FILE 65 Zeilen ---

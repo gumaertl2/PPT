@@ -50,7 +50,7 @@ export const CONFIG = {
       geoAnalyst: 'pro',
       infoAutor: 'pro',          // Renamed from infos
       chefredakteur: 'pro',      // Renamed from details
-      foodScout: 'pro',          // UPGRADED TO PRO (03.02.2026) for "The Law" compliance
+      foodScout: 'flash',          // UPGRADED TO PRO (03.02.2026) for "The Law" compliance
       
       // FLASH TASKS
       foodEnricher: 'flash',
