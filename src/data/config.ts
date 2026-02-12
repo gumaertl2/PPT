@@ -1,10 +1,12 @@
+// 12.02.2026 17:30 - CONFIG: TECHNICAL SEPARATION. Defined distinct ID for 'thinking' alias.
+// 12.02.2026 17:00 - CONFIG: Added 'thinking' ModelType. Set FoodScout to pure 'flash'.
 // 03.02.2026 15:40 - CONFIG: Upgraded FoodScout to PRO for stricter source compliance.
 // 31.01.2026 19:45 - CONFIG: FULL FILE. REMOVED DurationEstimator. Strict Naming.
 // src/data/config.ts
 
 import type { TaskKey } from '../core/types';
 
-export type ModelType = 'pro' | 'flash';
+export type ModelType = 'pro' | 'flash' | 'thinking';
 
 export const CONFIG = {
   api: {
@@ -12,7 +14,9 @@ export const CONFIG = {
     
     models: {
       pro: 'gemini-2.5-pro:generateContent',
-      flash: 'gemini-2.5-flash:generateContent'
+      flash: 'gemini-2.5-flash:generateContent',
+      // INTERNAL ALIAS: Maps to Flash but triggers "Dynamic Thinking" in gemini.ts
+      thinking: 'gemini-2.5-flash-thinking' 
     },
     
     defaultTimeout: 240000, 
@@ -29,7 +33,8 @@ export const CONFIG = {
   rateLimit: {
     maxCallsPerHour: {
       pro: 50,    
-      flash: 1500 
+      flash: 1500,
+      thinking: 1500
     },
     storageKey: 'papatours-api-history'
   },
@@ -50,17 +55,17 @@ export const CONFIG = {
       geoAnalyst: 'pro',
       infoAutor: 'pro',          // Renamed from infos
       chefredakteur: 'pro',      // Renamed from details
-      foodScout: 'flash',          // UPGRADED TO PRO (03.02.2026) for "The Law" compliance
+      foodScout: 'flash',        // EXPLICIT: Pure Flash (No Thinking)
       
-      // FLASH TASKS
-      foodEnricher: 'flash',
-      hotelScout: 'flash',       // Renamed from accommodation
-      transferPlanner: 'flash',  // Renamed from transfers
-      countryScout: 'flash',
+      // THINKING TASKS (Formerly Flash Defaults)
+      foodEnricher: 'thinking',
+      hotelScout: 'thinking',       // Renamed from accommodation
+      transferPlanner: 'thinking',  // Renamed from transfers
+      countryScout: 'thinking',
       
       // Wizard Defaults
-      basis: 'flash',      
-      anreicherer: 'flash' 
+      basis: 'thinking',      
+      anreicherer: 'thinking' 
     } as Partial<Record<TaskKey, ModelType>>,
 
     chunkDefaults: {
@@ -111,4 +116,4 @@ export const CONFIG = {
     } as Partial<Record<TaskKey, string>>
   }
 };
-// Lines: 124
+// --- END OF FILE 131 Zeilen ---

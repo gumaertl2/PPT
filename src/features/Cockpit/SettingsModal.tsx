@@ -1,3 +1,4 @@
+// 12.02.2026 17:15 - UI: Implemented 3-Model-Strategy (Pro/Flash/Thinking) in Matrix.
 // 31.01.2026 19:45 - FIX: Corrected Task Names & Removed DurationEstimator. Full UI Preserved.
 // src/features/Cockpit/SettingsModal.tsx
 
@@ -292,14 +293,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             </div>
                             <div className="divide-y divide-slate-100">
                                 {v40WorkflowTasks.map(taskKey => {
-                                    const defaultModel = CONFIG.taskRouting.defaults[taskKey];
+                                    // REFACTORED FOR 3-MODEL-STRATEGY
+                                    const defaultModel = CONFIG.taskRouting.defaults[taskKey] || 'thinking';
                                     const currentOverride = aiSettings.modelOverrides?.[taskKey];
                                     
-                                    let effectiveMode = currentOverride;
-                                    if (!effectiveMode) {
-                                        if (defaultModel === 'pro') effectiveMode = 'pro';
-                                        else effectiveMode = 'thinking'; 
-                                    }
+                                    // Effective Mode: Use override if exists, else default
+                                    const effectiveMode = currentOverride || defaultModel;
 
                                     const isPro = effectiveMode === 'pro';
                                     const isFlash = effectiveMode === 'flash';
@@ -325,13 +324,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                 )}
                                             </div>
 
-                                            {/* 3-BUTTON MODEL SWITCH */}
+                                            {/* 3-BUTTON MODEL SWITCH (Smart Toggles) */}
                                             <div className="col-span-5 flex justify-center">
                                                 <div className="flex bg-slate-100 rounded-lg p-0.5 w-full justify-between gap-1">
                                                     
                                                     {/* PRO BUTTON */}
                                                     <button
-                                                        onClick={() => setTaskModel(taskKey, isDefault && defaultModel === 'pro' ? undefined as any : 'pro')}
+                                                        onClick={() => setTaskModel(taskKey, defaultModel === 'pro' ? undefined as any : 'pro')}
                                                         className={`flex-1 flex items-center justify-center py-1 rounded-md text-[9px] font-bold transition-all ${
                                                             isPro 
                                                             ? 'bg-purple-100 text-purple-700 shadow-sm ring-1 ring-purple-200' 
@@ -343,7 +342,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
                                                     {/* FLASH BUTTON (FAST) */}
                                                     <button
-                                                        onClick={() => setTaskModel(taskKey, 'flash')}
+                                                        onClick={() => setTaskModel(taskKey, defaultModel === 'flash' ? undefined as any : 'flash')}
                                                         className={`flex-1 flex items-center justify-center py-1 rounded-md text-[9px] font-bold transition-all ${
                                                             isFlash 
                                                             ? 'bg-amber-100 text-amber-700 shadow-sm ring-1 ring-amber-200' 
@@ -355,7 +354,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
                                                     {/* FLASH+ BUTTON (THINKING) */}
                                                     <button
-                                                        onClick={() => setTaskModel(taskKey, isDefault && defaultModel !== 'pro' ? undefined as any : 'thinking')}
+                                                        onClick={() => setTaskModel(taskKey, defaultModel === 'thinking' ? undefined as any : 'thinking')}
                                                         className={`flex-1 flex items-center justify-center gap-0.5 py-1 rounded-md text-[9px] font-bold transition-all ${
                                                             isThinking 
                                                             ? 'bg-blue-100 text-blue-700 shadow-sm ring-1 ring-blue-200' 
@@ -437,4 +436,4 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     </>
   );
 };
-// --- END OF FILE 482 Zeilen ---
+// --- END OF FILE 492 Zeilen ---

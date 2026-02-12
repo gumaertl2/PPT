@@ -1,3 +1,4 @@
+// 12.02.2026 17:35 - FIX: Implemented hard Thinking-Budget switching (Speed vs. Quality).
 // 09.02.2026 19:10 - FIX: Removed 'responseMimeType: application/json' when Google Search Tool is active (API constraint).
 // 09.02.2026 17:00 - FEAT: Added Google Search Grounding support via 'tools'.
 // 28.01.2026 18:30 - FIX: Applied 'Thinking Config' correctly when user overrides model to 'Flash+' (thinking).
@@ -158,6 +159,7 @@ export const GeminiService = {
         }
         const defaultModel = CONFIG.taskRouting.defaults[taskKey];
         if (defaultModel === 'pro') return 'pro';
+        if (defaultModel === 'thinking') return 'thinking';
         return 'flash'; 
     }
     return 'pro'; 
@@ -176,7 +178,6 @@ export const GeminiService = {
     const isDebug = store.aiSettings.debug;
     const taskName = taskKey || 'unknown';
     const currentStrategy = store.aiSettings.strategy;
-    const { modelOverrides } = store.aiSettings;
 
     // --- DEDUPLICATION CHECK ---
     const requestKey = `${taskName}:${currentStrategy}:${prompt.length}:${prompt.substring(0, 50)}:${enableGoogleSearch}`; 
@@ -198,62 +199,33 @@ export const GeminiService = {
         responseMimeType: 'application/json' 
     };
 
-    const userHasSpecificOverride = taskKey && modelOverrides && modelOverrides[taskKey];
+    // --- REFACTORED MODEL RESOLUTION (Interceptor) ---
+    const targetModelId = modelIdOverride || 'gemini-2.5-pro:generateContent';
 
-    if (currentStrategy === 'fast') {
-        modelEndpoint = 'gemini-2.5-flash:generateContent';
-        selectedModelKey = 'flash';
-    }
-    else if (currentStrategy === 'pro') {
-        modelEndpoint = 'gemini-2.5-pro:generateContent';
+    if (targetModelId === 'gemini-2.5-pro:generateContent') {
+        modelEndpoint = targetModelId;
         selectedModelKey = 'pro';
-    }
-    else if (currentStrategy === 'optimal') {
-        if (userHasSpecificOverride) {
-             const forcedModel = modelOverrides[taskKey!]!; 
-             if (forcedModel === 'pro') {
-                 modelEndpoint = 'gemini-2.5-pro:generateContent';
-                 selectedModelKey = 'pro';
-             } else if (forcedModel === 'thinking') { 
-                 modelEndpoint = 'gemini-2.5-flash:generateContent';
-                 selectedModelKey = 'flash';
-                 generationConfig = {
-                      responseMimeType: 'application/json',
-                      thinkingConfig: {
-                         includeThoughts: true,
-                         thinkingBudget: -1 
-                      }
-                 };
-             } else {
-                 modelEndpoint = 'gemini-2.5-flash:generateContent';
-                 selectedModelKey = 'flash';
-             }
-        } else {
-             const configDefault = taskKey ? CONFIG.taskRouting.defaults[taskKey] : undefined;
-             if (configDefault === 'pro') {
-                 modelEndpoint = 'gemini-2.5-pro:generateContent';
-                 selectedModelKey = 'pro';
-             } else {
-                 modelEndpoint = 'gemini-2.5-flash:generateContent';
-                 selectedModelKey = 'flash'; 
-                 generationConfig = {
-                      responseMimeType: 'application/json',
-                      thinkingConfig: {
-                         includeThoughts: true,
-                         thinkingBudget: -1 
-                      }
-                 };
-             }
-        }
+    } 
+    else if (targetModelId === 'gemini-2.5-flash-thinking') {
+        // Alias for "Flash Plus" -> Use Flash with Dynamic Thinking
+        modelEndpoint = 'gemini-2.5-flash:generateContent';
+        selectedModelKey = 'thinking';
+        generationConfig.thinkingConfig = {
+            includeThoughts: true,
+            thinkingBudget: -1 // Dynamic reasoning enabled
+        };
     }
     else {
-        modelEndpoint = modelIdOverride || 'gemini-2.5-pro:generateContent';
+        // Standard Flash -> Pure Speed
+        modelEndpoint = 'gemini-2.5-flash:generateContent';
+        selectedModelKey = 'flash';
+        generationConfig.thinkingConfig = {
+            includeThoughts: true,
+            thinkingBudget: 0 // NO THINKING (Speed)
+        };
     }
 
-    if (!modelEndpoint && modelIdOverride) modelEndpoint = modelIdOverride;
-
     // FIX: Google Search Grounding does NOT support JSON Mode.
-    // We must rely on our robust 'extractJsonBlock' for parsing.
     if (enableGoogleSearch) {
         delete generationConfig.responseMimeType;
     }
@@ -280,7 +252,7 @@ export const GeminiService = {
         const INTERNAL_RETRIES = 1;
 
         if (import.meta.env.DEV) {
-          console.log(`>>> API CALL [${currentStrategy}] -> ${modelEndpoint}`, { apiUrl, enableGoogleSearch });
+          console.log(`>>> API CALL [${selectedModelKey}] -> ${modelEndpoint}`, { apiUrl, enableGoogleSearch });
         }
 
         // NEW: Construct Tools Payload
@@ -421,4 +393,4 @@ export const GeminiService = {
     return promise;
   }
 };
-// --- END OF FILE 482 Zeilen ---
+// --- END OF FILE 485 Zeilen ---

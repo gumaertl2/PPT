@@ -1,3 +1,4 @@
+// 12.02.2026 17:05 - FIX: Added 'thinking' support to resolveModelId.
 // 13.02.2026 16:00 - FIX: ROBUST GUIDE PASSING.
 // - Logic: Ensures 'guides' is always a valid array before passing to payload.
 // src/services/orchestrator.ts
@@ -50,12 +51,18 @@ const resolveModelId = (task: TaskKey): string => {
     if (task === 'basis' || task === 'anreicherer') return CONFIG.api.models.pro;
     const aiSettings = useTripStore.getState().aiSettings;
     const taskOverride = aiSettings.modelOverrides?.[task];
+    
+    // Updated Logic for 3-Model-Strategy
     if (taskOverride === 'pro') return CONFIG.api.models.pro;
     if (taskOverride === 'flash') return CONFIG.api.models.flash;
+    if (taskOverride === 'thinking') return CONFIG.api.models.thinking; 
+
     if (aiSettings.strategy === 'pro') return CONFIG.api.models.pro; 
     if (aiSettings.strategy === 'fast') return CONFIG.api.models.flash; 
+    
     const recommendedType = CONFIG.taskRouting.defaults[task] || 'flash';
-    return CONFIG.api.models[recommendedType as 'pro'|'flash'] || CONFIG.api.models.flash;
+    // Extended Type Cast for 'thinking'
+    return CONFIG.api.models[recommendedType as 'pro'|'flash'|'thinking'] || CONFIG.api.models.flash;
 };
 
 const mergeResults = (results: any[], task: TaskKey): any => {
@@ -374,4 +381,4 @@ export const TripOrchestrator = {
     return this._executeSingleStep(task, feedback, false, inputData, false);
   }
 };
-// --- END OF FILE 570 Lines ---
+// --- END OF FILE 572 Lines ---
