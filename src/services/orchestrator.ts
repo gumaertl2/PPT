@@ -1,9 +1,8 @@
+// 12.02.2026 18:40 - REFACTOR: Final Cleanup. Integrated ModelSelector, LimitManager, ResultMerger.
+// 12.02.2026 18:05 - REFACTOR: Delegated Food Logic to FoodWorkflow. Cleanup.
 // 12.02.2026 17:05 - FIX: Added 'thinking' support to resolveModelId.
-// 13.02.2026 16:00 - FIX: ROBUST GUIDE PASSING.
-// - Logic: Ensures 'guides' is always a valid array before passing to payload.
 // src/services/orchestrator.ts
 
-import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 import { GeminiService } from './gemini';
 import { PayloadBuilder } from '../core/prompts/PayloadBuilder';
@@ -11,7 +10,10 @@ import { useTripStore } from '../store/useTripStore';
 import { ResultProcessor } from './ResultProcessor'; 
 import { CONFIG } from '../data/config'; 
 import { APPENDIX_ONLY_INTERESTS } from '../data/constants'; 
-import { getGuidesForCountry } from '../data/countries'; 
+import { FoodWorkflow } from '../core/Workflow/FoodWorkflow';
+import { ModelSelector } from './ModelSelector';
+import { ResultMerger } from '../core/utils/resultMerger';
+import { LimitManager } from '../core/utils/LimitManager';
 import { 
   dayPlanSchema, geoAnalystSchema, foodSchema, hotelSchema, chefPlanerSchema,
   routeArchitectSchema, ideenScoutSchema, chefredakteurSchema, infoAutorSchema,
@@ -34,73 +36,6 @@ const SCHEMA_MAP: Partial<Record<TaskKey, z.ZodType<any>>> = {
   geoExpander: geoExpanderSchema 
 };
 
-const getTaskLimit = (task: TaskKey, isManual: boolean): number => {
-    const aiSettings = useTripStore.getState().aiSettings;
-    const mode = isManual ? 'manual' : 'auto';
-    const taskOverride = aiSettings.chunkOverrides?.[task]?.[mode];
-    if (taskOverride) return taskOverride;
-    
-    const globalLimit = aiSettings.chunkLimits?.[mode];
-    const configDefault = CONFIG.taskRouting.chunkDefaults?.[task]?.[mode];
-    if (configDefault) return configDefault;
-    if (globalLimit) return globalLimit;
-    return 10;
-};
-
-const resolveModelId = (task: TaskKey): string => {
-    if (task === 'basis' || task === 'anreicherer') return CONFIG.api.models.pro;
-    const aiSettings = useTripStore.getState().aiSettings;
-    const taskOverride = aiSettings.modelOverrides?.[task];
-    
-    // Updated Logic for 3-Model-Strategy
-    if (taskOverride === 'pro') return CONFIG.api.models.pro;
-    if (taskOverride === 'flash') return CONFIG.api.models.flash;
-    if (taskOverride === 'thinking') return CONFIG.api.models.thinking; 
-
-    if (aiSettings.strategy === 'pro') return CONFIG.api.models.pro; 
-    if (aiSettings.strategy === 'fast') return CONFIG.api.models.flash; 
-    
-    const recommendedType = CONFIG.taskRouting.defaults[task] || 'flash';
-    // Extended Type Cast for 'thinking'
-    return CONFIG.api.models[recommendedType as 'pro'|'flash'|'thinking'] || CONFIG.api.models.flash;
-};
-
-const mergeResults = (results: any[], task: TaskKey): any => {
-    if (!results || results.length === 0) return null;
-    if (results.length === 1) return results[0];
-    
-    if (['dayplan', 'initialTagesplaner'].includes(task)) {
-        const merged = JSON.parse(JSON.stringify(results[0])); 
-        for (let i = 1; i < results.length; i++) {
-             const chunk = results[i];
-             const newDays = chunk.days || chunk.itinerary?.days || [];
-             if (Array.isArray(newDays)) {
-                 if (merged.days && Array.isArray(merged.days)) merged.days.push(...newDays);
-                 else if (merged.itinerary?.days && Array.isArray(merged.itinerary.days)) merged.itinerary.days.push(...newDays);
-                 else { if (!merged.days) merged.days = []; merged.days.push(...newDays); }
-             }
-        }
-        return merged;
-    }
-
-    let merged: any = {};
-    if (Array.isArray(results[0])) return results.flat();
-    
-    results.forEach(chunk => {
-        Object.keys(chunk).forEach(key => {
-            const value = chunk[key];
-            if (Array.isArray(value)) {
-                merged[key] = [...(merged[key] || []), ...value];
-            } else if (typeof value === 'object' && value !== null) {
-                merged[key] = { ...(merged[key] || {}), ...value };
-            } else {
-                merged[key] = value;
-            }
-        });
-    });
-    return merged;
-};
-
 const safetyDelay = async (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const cleanTownName = (name: string): string => {
@@ -114,7 +49,9 @@ export const TripOrchestrator = {
      const store = useTripStore.getState();
      const totalChunks = Math.ceil(totalItems / limit);
      const collectedResults: any[] = [];
-     const modelId = resolveModelId(task);
+     
+     // REFACTOR: Use ModelSelector
+     const modelId = ModelSelector.resolve(task);
      const schema = SCHEMA_MAP[task];
 
      console.log(`[Orchestrator] Starting SEQUENTIAL Loop for ${task}: ${totalChunks} chunks using ${modelId === CONFIG.api.models.pro ? 'PRO' : 'FLASH'}.`);
@@ -150,7 +87,9 @@ export const TripOrchestrator = {
          collectedResults.push(validatedData);
      }
      store.resetChunking();
-     return mergeResults(collectedResults, task);
+     
+     // REFACTOR: Use ResultMerger
+     return ResultMerger.merge(collectedResults, task);
  },
 
  // UPDATED: Accepts additionalContext
@@ -169,7 +108,9 @@ export const TripOrchestrator = {
      }
 
      const prompt = PayloadBuilder.buildPrompt(task, feedback, payloadOptions);
-     const modelId = resolveModelId(task);
+     
+     // REFACTOR: Use ModelSelector
+     const modelId = ModelSelector.resolve(task);
      
      if (store.aiSettings.debug) console.log(`[Orchestrator] Single Step: ${task} -> Model: ${modelId === CONFIG.api.models.pro ? 'PRO' : 'FLASH'} ${skipSave ? '(NO SAVE)' : ''}`);
 
@@ -211,117 +152,10 @@ export const TripOrchestrator = {
         inputData = missingItems; 
     }
 
+    // --- REFACTOR: DELEGATED TO WORKFLOW ---
     if (task === 'foodScout' || task === 'food') {
-        console.log(`[Orchestrator] Detected Food Task. Starting INVERTED SEARCH PIPELINE V40.95`);
-        try {
-            store.setChunkingState({ isActive: true, currentChunk: 0, totalChunks: 4, results: [] });
-            
-            // 1. DETERMINE COUNTRY (AdHoc Support)
-            let targetCountry = "";
-            
-            // Override from Feedback
-            if (feedback) {
-                const countryMatch = feedback.match(/COUNTRY:\s*([^|]+)/i);
-                if (countryMatch && countryMatch[1]) {
-                    targetCountry = countryMatch[1].trim();
-                }
-            }
-            
-            if (!targetCountry) {
-                targetCountry = store.project.userInputs.logistics.target_countries?.[0] || "";
-            }
-
-            if (!targetCountry && store.project.meta.language === 'de') {
-                targetCountry = "Deutschland";
-            }
-            
-            if (!targetCountry) targetCountry = "Europe";
-
-            // 2. GET GUIDES (OBJECT ARRAY)
-            const existingGuides = getGuidesForCountry(targetCountry);
-            
-            if (existingGuides.length > 0) {
-                console.log(`[Orchestrator] Loaded ${existingGuides.length} guides for ${targetCountry}`);
-            } else {
-                console.warn(`[Orchestrator] WARNING: No guides found for '${targetCountry}'.`);
-            }
-
-            let townList: string[] = [];
-            
-            const locMatch = feedback?.match(/LOC:([^|]+)/);
-            const manualLocation = locMatch ? locMatch[1] : undefined;
-            const geoInput = manualLocation ? [manualLocation] : undefined;
-
-            const geoResult = await this._executeSingleStep('geoExpander', feedback, true, geoInput);
-            
-            if (geoResult && Array.isArray(geoResult.candidates)) townList = geoResult.candidates;
-            else if (Array.isArray(geoResult)) townList = geoResult;
-
-            console.log(`[Orchestrator] Starting Sequential Food Scouting for ${townList.length} towns...`);
-            let allScoutCandidates: any[] = [];
-            const totalSteps = townList.length + 1;
-            
-            for (let i = 0; i < townList.length; i++) {
-                const rawTown = townList[i];
-                const town = cleanTownName(rawTown); 
-                
-                store.setChunkingState({ isActive: true, currentChunk: i + 1, totalChunks: totalSteps });
-                console.log(`[Orchestrator] FoodScout Scanning Town ${i+1}/${townList.length}: ${town}`);
-                
-                try {
-                    // FIX: Ensure guide array is passed correctly
-                    const stepResult = await this._executeSingleStep(
-                        'foodScout', 
-                        feedback, 
-                        true, 
-                        [town], 
-                        true, 
-                        { guides: existingGuides } 
-                    );
-                    
-                    if (stepResult && Array.isArray(stepResult.candidates)) {
-                        const tagged = stepResult.candidates.map((c: any) => ({
-                            ...c,
-                            city: town,
-                            id: c.id || uuidv4()
-                        }));
-                        allScoutCandidates.push(...tagged);
-                    }
-                    await safetyDelay(500); 
-                } catch (e) {
-                    console.warn(`[Orchestrator] Failed to scout food for ${town}`, e);
-                }
-            }
-
-            if (allScoutCandidates.length === 0) return;
-
-            // PHASE 3: ENRICHER
-            store.setChunkingState({ isActive: true, currentChunk: totalSteps, totalChunks: totalSteps });
-            
-            let enricherFeedback = feedback || "";
-            if (existingGuides) {
-                const guideNames = existingGuides.map(g => g.name).join(', ');
-                enricherFeedback = enricherFeedback ? `${enricherFeedback}|GUIDES:${guideNames}` : `GUIDES:${guideNames}`;
-            }
-
-            const enricherResult = await this.executeTask('foodEnricher', enricherFeedback, allScoutCandidates); 
-            
-            let finalCandidates: any[] = [];
-            if (enricherResult.enriched_candidates) finalCandidates = enricherResult.enriched_candidates;
-            else if (enricherResult.candidates) finalCandidates = enricherResult.candidates;
-            else if (enricherResult.places) finalCandidates = Object.values(enricherResult.places);
-            else if (Array.isArray(enricherResult)) finalCandidates = enricherResult;
-
-            let validCandidates = finalCandidates.filter((c: any) => c.verification_status !== 'rejected');
-            validCandidates = validCandidates.map((c: any) => ({ ...c, id: c.id || uuidv4() }));
-            return { candidates: validCandidates };
-
-        } catch (err) {
-            console.error("[Orchestrator] Food Sequence Failed", err);
-            throw err;
-        } finally {
-            store.resetChunking();
-        }
+        // We pass 'this._executeSingleStep' bound to 'this' so the workflow can call back into the orchestrator logic
+        return FoodWorkflow.execute(feedback, this._executeSingleStep.bind(this));
     }
 
     const chunkableTasks: TaskKey[] = [
@@ -332,7 +166,9 @@ export const TripOrchestrator = {
     if (chunkableTasks.includes(task)) {
         let totalItems = 0;
         const isManual = !apiKey;
-        let limit = getTaskLimit(task, isManual);
+        
+        // REFACTOR: Use LimitManager
+        let limit = LimitManager.getTaskLimit(task, isManual);
 
         if (['anreicherer', 'chefredakteur', 'details'].includes(task)) {
             if (inputData && Array.isArray(inputData) && inputData.length > 0) totalItems = inputData.length;
@@ -381,4 +217,4 @@ export const TripOrchestrator = {
     return this._executeSingleStep(task, feedback, false, inputData, false);
   }
 };
-// --- END OF FILE 572 Lines ---
+// --- END OF FILE 365 Lines ---
