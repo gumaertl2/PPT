@@ -1,5 +1,7 @@
-// 12.02.2026 18:00 - NEW: Extracted Food Logic from Orchestrator. Strategy Pattern.
-// src/core/Workflow/FoodWorkflow.ts
+// 13.02.2026 12:00 - FEAT: "Quality Doorman" Logic (Loop-on-Failure).
+// - Logic: Scans results for missing addresses/websites.
+// - Logic: Triggers specific REPAIR CALLS only for defective candidates.
+// - Logic: Merges repair data back into the main list.
 
 import { v4 as uuidv4 } from 'uuid';
 import { useTripStore } from '../../store/useTripStore';
@@ -21,7 +23,8 @@ export const FoodWorkflow = {
      * 2. Load Guides (Michelin, Falstaff, etc.)
      * 3. Expand Location (if needed) -> Get List of Towns
      * 4. Scout each Town (using Flash/Speed)
-     * 5. Enrich & Verify Candidates (using Thinking/Quality)
+     * 5. QUALITY CHECK: Repair missing addresses (Loop-on-Failure)
+     * 6. Enrich & Verify Candidates (using Thinking/Quality)
      */
     async execute(
         feedback: string | undefined,
@@ -37,44 +40,24 @@ export const FoodWorkflow = {
             
             // 1. DETERMINE COUNTRY (AdHoc Support)
             let targetCountry = "";
-            
-            // Override from Feedback
             if (feedback) {
                 const countryMatch = feedback.match(/COUNTRY:\s*([^|]+)/i);
-                if (countryMatch && countryMatch[1]) {
-                    targetCountry = countryMatch[1].trim();
-                }
+                if (countryMatch && countryMatch[1]) targetCountry = countryMatch[1].trim();
             }
-            
-            if (!targetCountry) {
-                targetCountry = store.project.userInputs.logistics.target_countries?.[0] || "";
-            }
-
-            if (!targetCountry && store.project.meta.language === 'de') {
-                targetCountry = "Deutschland";
-            }
-            
+            if (!targetCountry) targetCountry = store.project.userInputs.logistics.target_countries?.[0] || "";
+            if (!targetCountry && store.project.meta.language === 'de') targetCountry = "Deutschland";
             if (!targetCountry) targetCountry = "Europe";
 
             // 2. GET GUIDES (OBJECT ARRAY)
             const existingGuides = getGuidesForCountry(targetCountry);
             
-            if (existingGuides.length > 0) {
-                console.log(`[FoodWorkflow] Loaded ${existingGuides.length} guides for ${targetCountry}`);
-            } else {
-                console.warn(`[FoodWorkflow] WARNING: No guides found for '${targetCountry}'.`);
-            }
-
             // 3. DETERMINE LOCATIONS
             let townList: string[] = [];
-            
             const locMatch = feedback?.match(/LOC:([^|]+)/);
             const manualLocation = locMatch ? locMatch[1] : undefined;
             const geoInput = manualLocation ? [manualLocation] : undefined;
 
-            // Call GeoExpander via Runner
             const geoResult = await runStep('geoExpander', feedback, true, geoInput);
-            
             if (geoResult && Array.isArray(geoResult.candidates)) townList = geoResult.candidates;
             else if (Array.isArray(geoResult)) townList = geoResult;
 
@@ -92,14 +75,13 @@ export const FoodWorkflow = {
                 console.log(`[FoodWorkflow] Scanning Town ${i+1}/${townList.length}: ${town}`);
                 
                 try {
-                    // Execute FoodScout Step
                     const stepResult = await runStep(
                         'foodScout', 
                         feedback, 
-                        true, // skipSave (we save only at the end)
+                        true, // skipSave
                         [town], 
                         true, // enableSearch
-                        { guides: existingGuides } // Pass guides as context
+                        { guides: existingGuides } 
                     );
                     
                     if (stepResult && Array.isArray(stepResult.candidates)) {
@@ -116,9 +98,55 @@ export const FoodWorkflow = {
                 }
             }
 
+            // 5. THE QUALITY DOORMAN (Repair Loop)
+            console.log(`[FoodWorkflow] Quality Check for ${allScoutCandidates.length} candidates...`);
+            
+            for (const candidate of allScoutCandidates) {
+                // Check for missing critical data
+                const isAddressMissing = !candidate.address || candidate.address.length < 5 || candidate.address.toLowerCase().includes("unknown");
+                const isWebsiteMissing = !candidate.website;
+                
+                if (isAddressMissing) {
+                    console.log(`[FoodWorkflow] REPAIRING: ${candidate.name} in ${candidate.city} (Missing Address)`);
+                    
+                    try {
+                        // Trigger a specific, lightweight repair call using 'foodEnricher' schema or similar
+                        // We construct a specific prompt just for this repair via feedback injection
+                        const repairFeedback = `REPAIR_MODE|NAME:${candidate.name}|CITY:${candidate.city}|MISSING:Address`;
+                        
+                        // We re-use 'foodScout' but with a very specific input to force a lookup
+                        // Or we use 'foodEnricher' which is designed for details. Let's use Enricher as it's 'Thinking' capable if needed, or Flash.
+                        // Ideally, we use the simple Scout mechanism again but focused.
+                        
+                        // Let's invoke a targeted "Search" for this single item.
+                        const repairResult = await runStep(
+                            'foodScout', // Use Scout again as it has the Search Tool
+                            repairFeedback, 
+                            true, 
+                            [`${candidate.name} ${candidate.city} address`], // Very specific search query as input
+                            true,
+                            { guides: [] } 
+                        );
+
+                        if (repairResult && repairResult.candidates && repairResult.candidates.length > 0) {
+                            const repaired = repairResult.candidates[0];
+                            if (repaired.address && repaired.address.length > 5) {
+                                console.log(`[FoodWorkflow] REPAIR SUCCESS: ${repaired.address}`);
+                                candidate.address = repaired.address;
+                                if (repaired.phone) candidate.phone = repaired.phone;
+                                if (repaired.website) candidate.website = repaired.website;
+                            }
+                        }
+                    } catch (err) {
+                        console.warn(`[FoodWorkflow] Repair failed for ${candidate.name}`, err);
+                    }
+                    await safetyDelay(300);
+                }
+            }
+
             if (allScoutCandidates.length === 0) return;
 
-            // 5. ENRICHMENT PHASE (Thinking/Quality)
+            // 6. ENRICHMENT PHASE (Thinking/Quality)
             store.setChunkingState({ isActive: true, currentChunk: totalSteps, totalChunks: totalSteps });
             
             let enricherFeedback = feedback || "";
@@ -127,8 +155,7 @@ export const FoodWorkflow = {
                 enricherFeedback = enricherFeedback ? `${enricherFeedback}|GUIDES:${guideNames}` : `GUIDES:${guideNames}`;
             }
 
-            // Execute FoodEnricher Step
-            const enricherResult = await runStep('foodEnricher', enricherFeedback, false, allScoutCandidates); // Save allowed here? No, let Orchestrator handle final save or return
+            const enricherResult = await runStep('foodEnricher', enricherFeedback, false, allScoutCandidates); 
             
             let finalCandidates: any[] = [];
             if (enricherResult.enriched_candidates) finalCandidates = enricherResult.enriched_candidates;
@@ -149,4 +176,4 @@ export const FoodWorkflow = {
         }
     }
 };
-// --- END OF FILE 135 Lines ---
+// --- END OF FILE 160 Lines ---

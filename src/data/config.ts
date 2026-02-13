@@ -1,10 +1,8 @@
-// 12.02.2026 17:30 - CONFIG: TECHNICAL SEPARATION. Defined distinct ID for 'thinking' alias.
-// 12.02.2026 17:00 - CONFIG: Added 'thinking' ModelType. Set FoodScout to pure 'flash'.
-// 03.02.2026 15:40 - CONFIG: Upgraded FoodScout to PRO for stricter source compliance.
-// 31.01.2026 19:45 - CONFIG: FULL FILE. REMOVED DurationEstimator. Strict Naming.
-// src/data/config.ts
+// 13.02.2026 13:30 - CONFIG: FoodScout forced to PRO.
+// - Logic: Flash/Thinking failed (hallucinations/generic data).
+// - Logic: We need the full reasoning capacity of PRO to verify real existence.
 
-import type { TaskKey } from '../core/types';
+import type { TaskKey } from '../types';
 
 export type ModelType = 'pro' | 'flash' | 'thinking';
 
@@ -13,10 +11,9 @@ export const CONFIG = {
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/models/',
     
     models: {
-      pro: 'gemini-2.5-pro:generateContent',
-      flash: 'gemini-2.5-flash:generateContent',
-      // INTERNAL ALIAS: Maps to Flash but triggers "Dynamic Thinking" in gemini.ts
-      thinking: 'gemini-2.5-flash-thinking' 
+      pro: 'gemini-2.5-pro:generateContent', // High Intelligence
+      flash: 'gemini-2.5-flash:generateContent', // High Speed
+      thinking: 'gemini-2.5-flash-thinking' // Experimental
     },
     
     defaultTimeout: 240000, 
@@ -46,24 +43,24 @@ export const CONFIG = {
 
   taskRouting: {
     defaults: {
-      // PRO TASKS
+      // PRO TASKS (Critical Intelligence)
       chefPlaner: 'pro',
       routeArchitect: 'pro',
-      tourGuide: 'pro',          // Renamed from guide/reisefuehrer
-      initialTagesplaner: 'pro', // Renamed from dayplan
-      ideenScout: 'pro',         // Renamed from sondertage
+      tourGuide: 'pro',          
+      initialTagesplaner: 'pro', 
+      ideenScout: 'pro',         
       geoAnalyst: 'pro',
-      infoAutor: 'pro',          // Renamed from infos
-      chefredakteur: 'pro',      // Renamed from details
-      foodScout: 'flash',        // EXPLICIT: Pure Flash (No Thinking)
+      infoAutor: 'pro',          
+      chefredakteur: 'pro',
       
-      // THINKING TASKS (Formerly Flash Defaults)
-      foodEnricher: 'thinking',
-      hotelScout: 'thinking',       // Renamed from accommodation
-      transferPlanner: 'thinking',  // Renamed from transfers
+      // UPGRADE: FoodScout must be PRO to avoid hallucinations
+      foodScout: 'pro', 
+
+      // Enrichment & Bulk
+      foodEnricher: 'thinking',     
+      hotelScout: 'thinking',       
+      transferPlanner: 'thinking',  
       countryScout: 'thinking',
-      
-      // Wizard Defaults
       basis: 'thinking',      
       anreicherer: 'thinking' 
     } as Partial<Record<TaskKey, ModelType>>,
@@ -73,7 +70,7 @@ export const CONFIG = {
         chefPlaner: { auto: 60, manual: 60 },      
         basis: { auto: 60, manual: 60 },           
         
-        foodScout: { auto: 20, manual: 40 }, 
+        foodScout: { auto: 15, manual: 30 }, // Reduced chunk size for PRO
         
         // Enrichment
         anreicherer: { auto: 15, manual: 25 },         
@@ -98,7 +95,7 @@ export const CONFIG = {
       initialTagesplaner: "tasks.initialTagesplaner",
       
       infoAutor: "tasks.infoAutor",
-      chefredakteur: "tasks.infoAutor", // Mapping key
+      chefredakteur: "tasks.infoAutor",
       
       foodEnricher: "tasks.foodEnricher",
       geoAnalyst: "tasks.geoAnalyst",
@@ -110,10 +107,9 @@ export const CONFIG = {
       ideenScout: "tasks.sondertage", 
       countryScout: "tasks.countryScout",
 
-      // Workflow Mapping Keys
       basis: "tasks.sightCollector", 
       anreicherer: "tasks.intelligentEnricher"
     } as Partial<Record<TaskKey, string>>
   }
 };
-// --- END OF FILE 131 Zeilen ---
+// --- END OF FILE 130 Zeilen ---
