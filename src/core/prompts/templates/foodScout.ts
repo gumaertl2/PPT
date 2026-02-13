@@ -1,7 +1,7 @@
-// 13.02.2026 15:30 - FIX: SLOW FOOD MISSING.
-// - Logic: Fixed hardcoded search examples that excluded Slow Food.
-// - Logic: Now dynamically instructs the AI to search for EVERY guide in the provided list.
-// - Logic: Specific handling for "Genussführer" mapping.
+// 13.02.2026 17:00 - PROMPT: GUIDE PURIST (Zero Tolerance for Local Favorites).
+// - Logic: REMOVED all "Local Favorite" backdoors.
+// - Logic: EXPLICIT BAN on using Google Ratings as a selection criterion.
+// - Logic: The only valid entry ticket is a Guide listing (Varta, Michelin, Slow Food, etc.).
 
 import { PromptBuilder } from '../PromptBuilder';
 import type { TripProject } from '../../types';
@@ -12,54 +12,61 @@ export const buildFoodScoutPrompt = (_project: TripProject, context: any): strin
   const safeContext = context || {};
   const targetCity = safeContext.town_list?.[0] || safeContext.location_name?.split(',')[0] || "the region";
   
-  // GUIDE INJECTION
+  // 1. DYNAMIC GUIDE LIST
   let guideList = "";
   if (safeContext.guides && Array.isArray(safeContext.guides) && safeContext.guides.length > 0) {
       guideList = safeContext.guides.map((g: any) => typeof g === 'string' ? g : g.name).join(', ');
   } else {
-      // Robust Fallback containing Slow Food
-      guideList = "Michelin, Gault&Millau, Varta, Feinschmecker, Slow Food (Genussführer), Falstaff, Gusto, Schlemmer Atlas, Bib Gourmand";
+      guideList = "Michelin, Gault&Millau, Varta, Feinschmecker, Slow Food, Falstaff, Gusto, Bib Gourmand";
   }
 
   builder.withOS();
 
-  // ROLE: The Investigative Scout
+  // ROLE: The Ruthless Guide Filter
   builder.withRole(`
-    You are an INVESTIGATIVE CULINARY SCOUT.
+    You are a RUTHLESS CULINARY GUIDE FILTER.
     Target Area: **${targetCity}** (and immediate surroundings).
     
     ### MISSION:
-    Find all restaurants listed in these specific guides: **${guideList}**.
+    Create a list of restaurants that are **EXPLICITLY LISTED** in these guides: 
+    **${guideList}**.
     
-    ### THE "TRUST" RULE:
-    - If a restaurant claims on its **own website** to be in the Varta Guide, Slow Food, etc. -> **BELIEVE IT AND ADD IT.**
-    - You do not need a third-party confirmation if the restaurant claims it.
+    ### ZERO TOLERANCE RULES (CRITICAL):
+    1. **NO "LOCAL FAVORITES":** Do not care if a place has 5.0 Stars on Google. If it is not in a Guide -> **IGNORE IT.**
+    2. **NO "POPULAR PLACES":** Do not include "Poseidon", "Bella Italia" or "Gasthof Sonne" just because they are popular.
+    3. **ONLY GUIDE ENTRIES:** Your output must ONLY contain restaurants where you found a proof of a Guide Listing (Varta, Michelin, Slow Food, etc.).
+    
+    If you find 0 Guide restaurants, return an EMPTY list. Do not fill it with junk.
   `);
 
   builder.withInstruction(`
-    ### SEARCH STRATEGY (MANDATORY STEPS):
-    1. **INDIVIDUAL GUIDE CHECKS:** You must perform a specific Google Search for EACH guide in your list + the city.
-       -> Execute: "Slow Food Genussführer ${targetCity}" (CRITICAL for Klosterstüberl etc.)
-       -> Execute: "Varta Guide ${targetCity}"
-       -> Execute: "Feinschmecker ${targetCity}"
-       -> Execute: "Michelin ${targetCity}"
-       -> ...and so on for the rest of **${guideList}**.
+    ### SEARCH STRATEGY (GUIDE CRAWLING):
+    Iterate through the guide list **${guideList}**:
     
-    2. **BADGE HUNTING:** Look for keywords like "Auszeichnung", "Empfohlen von", "Schnecke" (Slow Food Symbol), "Diamant" (Varta).
-    
-    3. **HOMEPAGE VERIFICATION:** Check the search snippets of the restaurant's homepage. If they mention a guide -> ADD.
+    1. **QUERY EXECUTION:**
+       -> Search: "Slow Food Genussführer ${targetCity} Einträge"
+       -> Search: "Varta Führer ${targetCity} Restaurants"
+       -> Search: "Feinschmecker ${targetCity} Empfehlungen"
+       -> Search: "Michelin Guide ${targetCity}"
+       -> Search: "Gault Millau ${targetCity}"
 
-    ### INCLUSION CRITERIA:
-    - **Strict:** Must exist (Address verified).
-    - **Loose:** Any connection to a guide is enough. Old listing? Okay. Mentioned in "Tipps"? Okay.
-    - **Local Favorites:** Only include non-guide places if they are "Wirtshaus" style with >4.6 stars.
+    2. **LIST EXTRACTION:**
+       - Read the search snippets.
+       - Extract names of restaurants mentioned in connection with these guides.
+       - **Do not stop at one.** If Varta lists 3 places, take all 3.
+
+    3. **VALIDATION:**
+       - Check the restaurant homepage. Does it mention the award?
+       - Does it exist (Address)?
+       - **FILTER:** If the restaurant is just a "Google Maps hit" without a Guide mention -> DROP IT.
 
     ### OUTPUT:
     - Pure JSON with "_thought_process".
+    - In "_thought_process", prove for EACH candidate which guide lists it.
   `);
 
   builder.withOutputSchema({
-    _thought_process: "Log: EXACTLY which search queries did you run? Did you search for 'Slow Food' specifically?",
+    _thought_process: "Log: For every candidate, state exactly WHICH guide lists it. If no guide, explain why you deleted it.",
     candidates: [
       {
         name: "Official Name",
@@ -67,7 +74,7 @@ export const buildFoodScoutPrompt = (_project: TripProject, context: any): strin
         phone: "+49...",
         website: "https://...",
         cuisine: "Style",
-        awards: ["Guide Name (e.g. Slow Food Genussführer, Varta)"],
+        awards: ["Guide Name (MUST BE FILLED)"],
         rating: 4.5,
         user_ratings_total: 100,
         verification_status: "verified",
@@ -76,7 +83,7 @@ export const buildFoodScoutPrompt = (_project: TripProject, context: any): strin
             operational: true,
             lastChecked: "2026-02-13T12:00:00.000Z",
             rating: 4.5,
-            note: "Verified via Homepage/Search"
+            note: "Verified Guide Entry"
         }
       }
     ]
