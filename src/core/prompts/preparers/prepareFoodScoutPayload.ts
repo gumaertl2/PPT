@@ -1,14 +1,17 @@
-// 10.02.2026 15:00 - FIX: Robust Input Handling for town_list to prevent TypeError in Template.
-// 10.02.2026 14:10 - FIX: Resolved TS Error 'country' missing on stationary type.
 // src/core/prompts/preparers/prepareFoodScoutPayload.ts
+// 16.02.2026 17:20 - UPDATE: SIMPLE PASS-THROUGH & DYNAMIC GUIDES.
+// - Logic: Removes complex loop logic.
+// - Logic: Passes the main region directly to the Scout.
+// - Logic: Loads guide config dynamically from countries.ts.
 
+import { getGuidesForCountry } from '../../../data/countries';
 import type { TripProject, FoodSearchMode } from '../../types';
 
 export const prepareFoodScoutPayload = (
     projectOrPayload: any, 
     _modeInput: FoodSearchMode = 'standard',
     feedbackInput?: string,
-    options?: any // Receives the town list from Orchestrator!
+    options?: any
 ) => {
     // --- 0. RESOLVE INPUT ---
     let project: TripProject;
@@ -23,42 +26,48 @@ export const prepareFoodScoutPayload = (
 
     const { userInputs } = project;
     
-    // --- 1. DETECT INPUT MODE ---
-    // FIX: Ensure townList is ALWAYS an array to prevent "undefined" access later
-    const townList: string[] = (options && Array.isArray(options.candidates)) 
-                               ? options.candidates 
-                               : [];
-    
-    // Fallback Location Name
-    let searchLocation = userInputs?.logistics?.stationary?.destination || "Target Region";
+    // --- 1. DETECT LOCATION ---
+    // If GeoExpander was active (legacy), candidates has 1 item now.
+    const candidates = options?.candidates || [];
+    const mainRegion = candidates.length > 0 ? candidates[0] : (userInputs?.logistics?.stationary?.destination || "Region");
+
+    let targetLocation = mainRegion;
     if (feedback && feedback.includes('LOC:')) {
         const match = feedback.match(/LOC:([^|]+)/);
-        if (match) searchLocation = match[1].trim();
+        if (match) targetLocation = match[1].trim();
     }
 
-    // Extract Country safely
+    // --- 2. DETECT COUNTRY ---
     const logistics = userInputs?.logistics;
-    const country = logistics?.target_countries?.[0] || 
-                    (logistics?.stationary as any)?.region || 
-                    logistics?.stationary?.destination ||
-                    "Europe"; 
-    
-    const fullLocationString = `${searchLocation}, ${country}`;
+    let country = logistics?.target_countries?.[0] || 
+                  (logistics?.stationary as any)?.region || 
+                  logistics?.stationary?.destination || 
+                  "Europe"; 
 
-    // --- 2. PREPARE CONTEXT ---
+    // Fallback: If country is missing/Europe but language is DE -> Deutschland
+    if ((!country || country === "Europe") && project.meta?.language === 'de') {
+        country = "Deutschland";
+    }
+
+    // --- 3. SELECT GUIDES ---
+    let selectedGuides = options?.guides;
+    if (!selectedGuides || !Array.isArray(selectedGuides) || selectedGuides.length === 0) {
+        selectedGuides = getGuidesForCountry(country);
+    }
+
+    // --- 4. RETURN PAYLOAD ---
     return {
         context: {
-            location_name: fullLocationString, 
+            location_name: `${targetLocation}, ${country}`, 
+            target_town: targetLocation,
             country: country, 
-            town_list: townList, // Now guaranteed to be string[]
-            guides: ["Michelin", "Gault&Millau", "Feinschmecker", "Varta Führer"]
+            guides: selectedGuides 
         },
         instructions: {
-            role: "Du bist ein Datenbank-Crawler für Standort-Daten."
+            role: "Du bist ein professioneller Recherche-Assistent."
         },
-        userInputs: { 
-             selectedInterests: [] 
-        }
+        userInputs: { selectedInterests: [] },
+        ...options 
     };
 };
-// --- END OF FILE 58 Zeilen ---
+// --- END OF FILE 68 Lines ---
