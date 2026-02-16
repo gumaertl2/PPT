@@ -1,3 +1,4 @@
+// 16.02.2026 21:25 - FIX: UNUSED VARIABLE (Vercel Build Error).
 // 13.02.2026 12:00 - FEAT: "Quality Doorman" Logic (Loop-on-Failure).
 // - Logic: Scans results for missing addresses/websites.
 // - Logic: Triggers specific REPAIR CALLS only for defective candidates.
@@ -24,7 +25,7 @@ export const FoodWorkflow = {
      * 3. Expand Location (if needed) -> Get List of Towns
      * 4. Scout each Town (using Flash/Speed)
      * 5. QUALITY CHECK: Repair missing addresses (Loop-on-Failure)
-     * 6. Enrich & Verify Candidates (using Thinking/Quality)
+     * 6. Enrichment & Verify Candidates (using Thinking/Quality)
      */
     async execute(
         feedback: string | undefined,
@@ -104,26 +105,18 @@ export const FoodWorkflow = {
             for (const candidate of allScoutCandidates) {
                 // Check for missing critical data
                 const isAddressMissing = !candidate.address || candidate.address.length < 5 || candidate.address.toLowerCase().includes("unknown");
-                const isWebsiteMissing = !candidate.website;
                 
                 if (isAddressMissing) {
                     console.log(`[FoodWorkflow] REPAIRING: ${candidate.name} in ${candidate.city} (Missing Address)`);
                     
                     try {
-                        // Trigger a specific, lightweight repair call using 'foodEnricher' schema or similar
-                        // We construct a specific prompt just for this repair via feedback injection
                         const repairFeedback = `REPAIR_MODE|NAME:${candidate.name}|CITY:${candidate.city}|MISSING:Address`;
                         
-                        // We re-use 'foodScout' but with a very specific input to force a lookup
-                        // Or we use 'foodEnricher' which is designed for details. Let's use Enricher as it's 'Thinking' capable if needed, or Flash.
-                        // Ideally, we use the simple Scout mechanism again but focused.
-                        
-                        // Let's invoke a targeted "Search" for this single item.
                         const repairResult = await runStep(
-                            'foodScout', // Use Scout again as it has the Search Tool
+                            'foodScout', 
                             repairFeedback, 
                             true, 
-                            [`${candidate.name} ${candidate.city} address`], // Very specific search query as input
+                            [`${candidate.name} ${candidate.city} address`], 
                             true,
                             { guides: [] } 
                         );
@@ -176,4 +169,4 @@ export const FoodWorkflow = {
         }
     }
 };
-// --- END OF FILE 160 Lines ---
+// --- END OF FILE 158 Zeilen ---

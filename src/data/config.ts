@@ -1,8 +1,9 @@
 // 13.02.2026 13:30 - CONFIG: FoodScout forced to PRO.
 // - Logic: Flash/Thinking failed (hallucinations/generic data).
 // - Logic: We need the full reasoning capacity of PRO to verify real existence.
+// - Fix: Corrected import path for Vercel Build.
 
-import type { TaskKey } from '../types';
+import type { TaskKey } from '../core/types';
 
 export type ModelType = 'pro' | 'flash' | 'thinking';
 
@@ -78,7 +79,7 @@ export const CONFIG = {
         hotelScout: { auto: 20, manual: 40 },          
 
         // Text Generation
-        chefredakteur: { auto: 5, manual: 10 },              
+        chefredakteur: { auto: 5, manual: 10 },               
         infoAutor: { auto: 5, manual: 10 },            
         tourGuide: { auto: 1, manual: 1 },                 
 
