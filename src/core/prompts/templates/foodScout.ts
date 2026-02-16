@@ -36,7 +36,7 @@ export const buildFoodScoutPrompt = (_project: TripProject, context: any): strin
 
     **STEP 1: GEOGRAPHIC PROFILING (Mental Setup)**
     - Identify the **Parent Region** (e.g., "Landkreis FFB" for Maisach, "Siena Province" for Montepulciano).
-    - Identify **3-5 Neighbors** (Cluster) within 25km.
+    - Identify **3-8 Neighbors** (Cluster) within 25km.
     - Identify **Districts/Suburbs** (e.g., "Rottbach" for Maisach).
     - *Log these in _thought_process.*
 
