@@ -1,7 +1,6 @@
 // 13.02.2026 13:30 - CONFIG: FoodScout forced to PRO.
 // - Logic: Flash/Thinking failed (hallucinations/generic data).
 // - Logic: We need the full reasoning capacity of PRO to verify real existence.
-// - Fix: Corrected import path for Vercel Build.
 
 import type { TaskKey } from '../core/types';
 

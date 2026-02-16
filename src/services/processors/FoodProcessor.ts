@@ -1,4 +1,4 @@
-// 16.02.2026 21:30 - FIX: TYPE ASSIGNMENT (Vercel Build Error).
+// 16.02.2026 21:00 - FIX: TYPE ASSIGNMENT (Vercel Build Error).
 // 09.02.2026 14:15 - FIX: Integrated 'Rejected' Filter into User's Custom FoodProcessor.
 // 06.02.2026 13:35 - REFACTOR: SIMPLE LINK STORAGE.
 // src/services/processors/FoodProcessor.ts
@@ -40,6 +40,7 @@ export const FoodProcessor = {
                 if (typeof item === 'string') return;
                 
                 // FIX START: Reject Check (Anti-Hallucination)
+                // Wenn die KI selbst sagt "rejected" oder die Adresse "Rejected" enthält (vom Validator)
                 if (item.verification_status === 'rejected' || (item.address && item.address.includes('Rejected'))) {
                     rejectedCount++;
                     if (debug) console.warn(`[FoodProcessor] 🛡️ Blocked invalid candidate: "${item.name}"`);
@@ -67,6 +68,7 @@ export const FoodProcessor = {
                     const finalName = item.name_official || name;
                     
                     // --- SIMPLE LINK LOGIC ---
+                    // Just sanitize and store. UI handles the "Smart Link".
                     const cleanGuideLink = sanitizeUrl(item.guide_link, item);
                     const cleanSourceUrl = sanitizeUrl(item.source_url || item.website, item);
 
@@ -132,6 +134,7 @@ export const FoodProcessor = {
     }
 };
 
+// ... (handleGuideHarvesting logic preserved below, same as before) ...
 function handleGuideHarvesting(items: any[], project: any) {
     const foundGuides = new Set<string>();
     items.forEach((item: any) => {
@@ -168,7 +171,7 @@ function handleGuideHarvesting(items: any[], project: any) {
                 const newDefs: GuideDef[] = newGuideNames.map(name => ({
                     name,
                     searchUrl: `https://www.google.com/search?q=${encodeURIComponent(name + ' restaurant ' + targetCountry)}`,
-                    searchTerms: '' // FIX: Added missing property to satisfy GuideDef interface
+                    searchTerms: [] // FIX: Adjusted to string[] to match interface
                 }));
                 
                 newConfig[targetCountry] = [...(existingConfig || []), ...newDefs];

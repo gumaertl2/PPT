@@ -1,9 +1,7 @@
-// src/core/prompts/templates/foodEnricher.ts
-// 16.02.2026 21:35 - UPDATE: DATA RECOVERY & PREMIUM ENRICHMENT.
+// 16.02.2026 21:45 - UPDATE: DATA RECOVERY & PREMIUM ENRICHMENT.
 // - Logic: Step 0 strictly checks Existence/Open/Listed.
 // - Logic: ADDED 'Data Recovery' for missing ratings/reviews (null-fix).
 // - Logic: Preserves user's rich content generation (Teaser/Deep Dive).
-// - Fix: Cleaned unused imports for Vercel.
 
 import { PromptBuilder } from '../PromptBuilder';
 

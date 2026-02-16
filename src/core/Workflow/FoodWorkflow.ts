@@ -1,4 +1,4 @@
-// 16.02.2026 21:25 - FIX: UNUSED VARIABLE (Vercel Build Error).
+// 16.02.2026 21:40 - FIX: UNUSED VARIABLE (Vercel Build Error).
 // 13.02.2026 12:00 - FEAT: "Quality Doorman" Logic (Loop-on-Failure).
 // - Logic: Scans results for missing addresses/websites.
 // - Logic: Triggers specific REPAIR CALLS only for defective candidates.
@@ -25,7 +25,7 @@ export const FoodWorkflow = {
      * 3. Expand Location (if needed) -> Get List of Towns
      * 4. Scout each Town (using Flash/Speed)
      * 5. QUALITY CHECK: Repair missing addresses (Loop-on-Failure)
-     * 6. Enrichment & Verify Candidates (using Thinking/Quality)
+     * 6. Enrich & Verify Candidates (using Thinking/Quality)
      */
     async execute(
         feedback: string | undefined,
@@ -110,6 +110,7 @@ export const FoodWorkflow = {
                     console.log(`[FoodWorkflow] REPAIRING: ${candidate.name} in ${candidate.city} (Missing Address)`);
                     
                     try {
+                        // Trigger a specific, lightweight repair call using 'foodEnricher' schema or similar
                         const repairFeedback = `REPAIR_MODE|NAME:${candidate.name}|CITY:${candidate.city}|MISSING:Address`;
                         
                         const repairResult = await runStep(
@@ -169,4 +170,4 @@ export const FoodWorkflow = {
         }
     }
 };
-// --- END OF FILE 158 Zeilen ---
+// --- END OF FILE 159 Zeilen ---
