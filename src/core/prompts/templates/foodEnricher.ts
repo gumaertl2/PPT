@@ -1,7 +1,9 @@
-// 16.02.2026 21:45 - UPDATE: DATA RECOVERY & PREMIUM ENRICHMENT.
-// - Logic: Step 0 strictly checks Existence/Open/Listed.
-// - Logic: ADDED 'Data Recovery' for missing ratings/reviews (null-fix).
-// - Logic: Preserves user's rich content generation (Teaser/Deep Dive).
+// src/core/prompts/templates/foodEnricher.ts
+// 16.02.2026 21:55 - FINAL: 4-EYES-AUDIT BLENDED WITH DATA RECOVERY.
+// - Logic: Step 0 is the "Strict Door Guard" (Existence, Status, Plausibility).
+// - Logic: Integration of "Data Recovery" for missing ratings/reviews (null-fix).
+// - Logic: Strictly rejects Fast-Food/Invalid entries before Enrichment.
+// - Fix: Cleaned imports for Vercel Build.
 
 import { PromptBuilder } from '../PromptBuilder';
 
@@ -25,30 +27,39 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
 
   const builder = new PromptBuilder();
 
+  // THE 4-EYES ROLE
   builder.withRole(instructions.role || "You are the 'Gastronomy Chief Editor' AND 'Strict Auditor'.");
 
   builder.withContext({
       candidates_count: candidates.length,
       reference_location: refLocation,
       task: "1. Audit & Data Recovery. 2. Generate Premium Content.",
-      retention_policy: "REJECT INVALID. ENRICH VALID. FIX MISSING METADATA."
+      retention_policy: "REJECT INVALID OR UNLISTED PLACES. FIX MISSING METADATA."
   });
 
   builder.withInstruction(`
     # MISSION
-    You are refining a raw list of restaurants. Your goal is to turn "thin" data into a premium experience.
+    You are refining a raw list of restaurants. You act as the second pair of eyes to ensure only high-quality, verified results reach the user.
     
-    ### STEP 0: THE AUDIT & DATA RECOVERY
+    ### STEP 0: THE AUDIT & DATA RECOVERY (THE DOOR GUARD)
     Before writing any text, verify and complete the data for EACH candidate:
     
-    1. **VALIDITY CHECK:** Reject if permanently closed, non-existent, or clearly not a "Guide-level" establishment (Fast Food).
+    1. **EXISTENCE & STATUS CHECK:** Is this a real, operating restaurant?
+       -> IF "Permanently Closed" or non-existent: Set "verification_status": "rejected".
     
-    2. **DATA RECOVERY (Rating Fix):** - If 'rating' or 'user_ratings_total' is null or 0, perform a targeted search: "[Name] [Address] Google Rating".
-       - Fill in the real-world Google stars and review count. Do not leave them null if reachable.
-    
-    -> IF valid: Set "verification_status": "enriched" and proceed.
+    2. **LISTING PLAUSIBILITY (The Guide Check):**
+       - Does this place look like something listed in Michelin, Varta, Slow Food or Feinschmecker?
+       - **REJECT** if it is clearly a fast-food chain (Subway, McDonalds) or a "Dönerbude" without reputation.
+       - **KEEP** if it is a "Gasthof", "Landhotel", or "Fine Dining".
 
-    # STEP 1: DUAL-TEXT GENERATION
+    3. **DATA RECOVERY (The Rating Fix):** - If 'rating' or 'user_ratings_total' is null or 0, perform a targeted search: "[Name] [Address] Google Rating".
+       - Fill in the real-world Google stars and review count.
+    
+    -> IF all checks pass: Set "verification_status": "enriched" and proceed to content generation.
+
+    # STEP 1: DUAL-TEXT GENERATION (Only for 'enriched' candidates)
+    For each valid candidate, write TWO distinct texts:
+    
     A. **'description' (The List View Teaser):**
        - **Strict Limit:** Max 150 characters.
        - **Style:** Catchy, inviting, summary of the style.
@@ -73,7 +84,8 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
 
     # STEP 4: OUTPUT
     Return the JSON. 
-    - **ENSURE** 'rating' and 'user_ratings_total' are now filled with numeric values.
+    - **COPY** id, address, phone, website, awards, liveStatus.
+    - **ENSURE** 'rating' and 'user_ratings_total' are filled with numeric values.
     - **MARK** rejected items clearly in "verification_status".
 
     # INPUT DATA
