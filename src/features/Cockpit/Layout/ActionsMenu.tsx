@@ -1,5 +1,5 @@
 // src/features/Cockpit/Layout/ActionsMenu.tsx
-// 17.02.2026 13:30 - REFACTOR: Extracted ActionsMenu from CockpitHeader to reduce file size.
+// 17.02.2026 14:55 - REFACTOR: Moved Auto/Manual Toggle into ActionsMenu.
 
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -30,6 +30,7 @@ interface ActionsMenuProps {
   onOpenExport: () => void;
   onOpenPrint: () => void;
   onOpenAdHoc: () => void;
+  onOpenSettings: () => void; // NEW: Callback for Settings
 }
 
 export const ActionsMenu: React.FC<ActionsMenuProps> = ({
@@ -39,7 +40,8 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
   onReset,
   onOpenExport,
   onOpenPrint,
-  onOpenAdHoc
+  onOpenAdHoc,
+  onOpenSettings
 }) => {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
@@ -50,13 +52,13 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
     resetProject, 
     downloadFlightRecorder, 
     setWorkflowModalOpen,
-    uiState
+    uiState,
+    apiKey,      // NEW
+    usageStats   // NEW
   } = useTripStore();
 
   const hasAnalysisResult = !!project.analysis.chefPlaner;
   const hasRouteResult = !!project.analysis.routeArchitect;
-
-  // --- LOGIC MOVED FROM HEADER ---
 
   const handleOpenAiWorkflows = () => {
     setIsOpen(false);
@@ -75,7 +77,6 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
   };
 
   const handleSaveProject = () => {
-    // FIX: Prefer existing filename if available
     if (uiState.currentFileName) {
         const currentName = uiState.currentFileName.replace(/\.json$/i, '');
         const userFileName = window.prompt("Dateiname für Speicherstand:", currentName);
@@ -114,11 +115,10 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
 
     let fileName = `${safeName}_log_${new Date().toISOString().slice(0,10)}.json`;
 
-    // Prompt User for filename
     const userFileName = window.prompt("Dateiname für Speicherstand:", fileName);
     if (!userFileName) {
         setIsOpen(false);
-        return; // Cancelled
+        return; 
     }
     
     fileName = userFileName;
@@ -156,6 +156,23 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
       {isOpen && (
         <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2">
           
+          {/* NEW: Auto/Manual Toggle as first item */}
+          <button 
+            onClick={() => { setIsOpen(false); onOpenSettings(); }}
+            className={`w-full text-left px-4 py-2 hover:bg-blue-50 flex items-center justify-between gap-3 text-sm font-medium border-b border-slate-100 ${apiKey ? 'text-blue-600' : 'text-slate-500'}`}
+            title={apiKey ? t('tooltips.auto') : t('tooltips.manual')}
+          >
+             <div className="flex items-center gap-3">
+                {apiKey ? <Sparkles className="w-4 h-4" /> : <Terminal className="w-4 h-4" />}
+                <span>{apiKey ? t('wizard.toolbar.auto') : t('wizard.toolbar.manual')}</span>
+             </div>
+             {apiKey && (usageStats.tokens > 0) && (
+                 <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
+                     {usageStats.tokens > 1000 ? `${(usageStats.tokens/1000).toFixed(1)}k` : usageStats.tokens}
+                 </span>
+             )}
+          </button>
+
           <button 
             onClick={() => { setViewMode('wizard'); setIsOpen(false); }} 
             className={`w-full text-left px-4 py-2 hover:bg-blue-50 flex items-center gap-3 text-sm font-medium ${viewMode === 'wizard' ? 'text-blue-600 bg-blue-50' : 'text-slate-700'}`}
@@ -260,4 +277,4 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
     </div>
   );
 };
-// --- END OF FILE 200 Lines ---
+// --- END OF FILE 225 Lines ---
