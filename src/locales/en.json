@@ -463,5 +463,41 @@
     "btn_smart": "Fill missing only (Smart)",
     "btn_force": "Regenerate all (Slower)",
     "cancel": "Cancel"
+  },
+  "safeExit": {
+    "title": "Leave Papatours?",
+    "subtitle": "Safe Exit Protocol",
+    "warning": "Warning: Unsaved changes will be permanently lost.",
+    "copyright_owner": "Papatours V40 is a product of Max Ertl.",
+    "copyright_notice": "Copying or distribution is prohibited without express permission.",
+    "disclaimer": "Disclaimer: I assume no liability for the accuracy of the generated data. Use at your own risk.",
+    "btn_cancel": "Cancel",
+    "btn_discard": "Discard",
+    "btn_save": "Save & Exit"
+  },
+  "tooltips": {
+    "home": "Back to Home Screen",
+    "plan": "Show Plan Overview",
+    "guide": "Show Travel Guide & Places",
+    "info": "General Travel Infos (A-Z)",
+    "map": "Open Map View",
+    "filter": "Search & Filter",
+    "auto": "AI Settings & API Key",
+    "manual": "Manual API Mode",
+    "help": "Show Help",
+    "menu": "Project Actions",
+    "menu_items": {
+      "data": "Back to Wizard (Input Data)",
+      "foundation": "Check Fundamental Analysis Results",
+      "route": "Open Route Planner",
+      "ai_workflows": "Control AI Agents (Texts, Images...)",
+      "adhoc_food": "Start Spontaneous Restaurant Search",
+      "map_export": "Export Places for Google Maps",
+      "print": "Print Travel Report / PDF",
+      "save": "Save Project to File",
+      "load": "Load Project from File",
+      "new": "Start New Project (Reset)",
+      "log": "System Log (Debug)"
+    }
   }
 }

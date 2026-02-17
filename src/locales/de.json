@@ -342,7 +342,7 @@
     "group_sort": "Gruppieren & Sortieren nach",
     "category": "Kategorie",
     "alphabetical": "Alphabetisch",
-    "day": "Tag (Tagesplan)",
+    "day": "Day (Tagesplan)",
     "tour": "Tour (Routenplan)",
     "categories": "Kategorien",
     "reset_filter": "Alle anzeigen",
@@ -463,5 +463,41 @@
     "btn_smart": "Nur fehlende ergänzen (Smart)",
     "btn_force": "Alle neu generieren (Langsamer)",
     "cancel": "Abbrechen"
+  },
+  "safeExit": {
+    "title": "Papatours verlassen?",
+    "subtitle": "Safe Exit Protocol",
+    "warning": "Warnung: Nicht gespeicherte Änderungen gehen unwiderruflich verloren.",
+    "copyright_owner": "Papatours V40 ist ein Produkt von Max Ertl.",
+    "copyright_notice": "Kopieren oder Weitergabe ist ohne ausdrückliche Genehmigung untersagt.",
+    "disclaimer": "Haftungsausschluss: Ich übernehme keine Gewähr für die Richtigkeit der generierten Daten. Die Nutzung erfolgt auf eigene Gefahr.",
+    "btn_cancel": "Abbrechen",
+    "btn_discard": "Verwerfen",
+    "btn_save": "Sichern & Beenden"
+  },
+  "tooltips": {
+    "home": "Zurück zum Startbildschirm",
+    "plan": "Planungs-Übersicht anzeigen",
+    "guide": "Reiseführer & Orte anzeigen",
+    "info": "Allgemeine Reise-Infos (A-Z)",
+    "map": "Kartenansicht öffnen",
+    "filter": "Suche & Filter",
+    "auto": "KI-Einstellungen & API-Key",
+    "manual": "Manueller API Modus",
+    "help": "Hilfe anzeigen",
+    "menu": "Projekt-Aktionen",
+    "menu_items": {
+      "data": "Zurück zum Wizard (Eingabedaten)",
+      "foundation": "Ergebnisse der Fundamentalanalyse prüfen",
+      "route": "Routenplanung öffnen",
+      "ai_workflows": "KI-Agenten steuern (Texte, Bilder...)",
+      "adhoc_food": "Spontane Restaurant-Suche starten",
+      "map_export": "Orte für Google Maps exportieren",
+      "print": "Reisebericht drucken / PDF",
+      "save": "Projekt als Datei speichern",
+      "load": "Projekt aus Datei laden",
+      "new": "Neues Projekt starten (Reset)",
+      "log": "System-Logbuch (Debug)"
+    }
   }
 }
