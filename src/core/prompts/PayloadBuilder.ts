@@ -1,3 +1,4 @@
+// 17.02.2026 18:55 - WIRING: Connected V40 Tagesplaner Pipeline (Preparer -> Template).
 // 10.02.2026 21:00 - FIX: Removed Syntax Error ("\n") in buildChefPlanerPayload.
 // 05.02.2026 22:30 - FIX: Implemented Selective Run & Updated Call Signature for Chefredakteur.
 // 05.02.2026 17:30 - FIX: REMOVE LEGACY KEYS & SPELLING.
@@ -36,6 +37,7 @@ import { prepareFoodScoutPayload } from './preparers/prepareFoodScoutPayload';
 import { prepareFoodEnricherPayload } from './preparers/prepareFoodEnricherPayload';
 import { prepareHotelScoutPayload } from './preparers/prepareHotelScoutPayload';
 import { prepareGeoExpanderPayload } from './preparers/prepareGeoExpanderPayload';
+import { prepareTagesplanerPayload } from './preparers/prepareTagesplanerPayload'; // NEW
 
 import type { LocalizedContent, TaskKey, ChunkingState, TripProject, FoodSearchMode } from '../types';
 import { filterByRadius } from '../utils/geo';
@@ -234,7 +236,6 @@ export const PayloadBuilder = {
               mode = 'stars';
           }
           
-          // Debug logging for options passthrough
           if (options?.candidates && options.candidates.length > 0) {
              console.log(`[PayloadBuilder] FoodScout processing specific candidates:`, options.candidates);
           }
@@ -314,29 +315,12 @@ export const PayloadBuilder = {
         break;
       }
 
-      // REMOVED: durationEstimator (Legacy)
-
       case 'dayplan':
       case 'initialTagesplaner': {
-        let contextData: any = undefined;
-        const isActive = options ? true : chunkingState?.isActive;
-        if (isActive) {
-            const limit = options?.limit || getTaskChunkLimit('initialTagesplaner');
-            const currentChunk = options?.chunkIndex || chunkingState.currentChunk;
-            const dayOffset = (currentChunk - 1) * limit;
-            const totalChunks = options?.totalChunks || chunkingState.totalChunks;
-            const totalDuration = project.userInputs.dates.duration;
-            const daysInChunk = Math.min(limit, totalDuration - dayOffset);
-
-            contextData = {
-                dayOffset: dayOffset,
-                days: daysInChunk,
-                isChunked: true,
-                chunkIndex: currentChunk,
-                totalChunks: totalChunks
-            };
-        }
-        generatedPrompt = buildInitialTagesplanerPrompt(project, contextData, feedback, getVisitedSightIds());
+        // V40 UPGRADE: Use Preparer -> Template Pipeline for strict logistics
+        // Chunking is now handled logically by the Preparer if needed, but for the skeleton prompt we pass the full view.
+        const payload = prepareTagesplanerPayload(project);
+        generatedPrompt = buildInitialTagesplanerPrompt(payload);
         break;
       }
 
@@ -353,8 +337,7 @@ export const PayloadBuilder = {
       }
       
       case 'countryScout': {
-          // Fallback if needed, usually handled via direct text or simple prompt
-          generatedPrompt = "COUNTRY_SCOUT_PROMPT"; // Placeholder if template missing
+          generatedPrompt = "COUNTRY_SCOUT_PROMPT"; 
           break;
       }
 

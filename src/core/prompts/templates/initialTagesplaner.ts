@@ -1,160 +1,126 @@
+// 17.02.2026 19:50 - FIX: Renamed function to 'buildInitialTagesplanerPrompt' to match PayloadBuilder import.
+// 17.02.2026 18:15 - REFACTOR: V40 Logistics Architect Implementation.
+// Implements strict skeleton logic, hotel loops, transfer mandates, and fix-date adherence.
 // src/core/prompts/templates/initialTagesplaner.ts
-// 27.01.2026 14:45 - FIX: Schema Injection Bug (String vs Object).
-// Added missing "30-Min Buffer Rule" from Manifest.
-// Enforced _thought_process in Output Schema.
-// src/core/prompts/templates/initialTagesplaner.ts
 
-import { PromptBuilder } from '../PromptBuilder';
-import type { TripProject, Place, ChunkingContext } from '../../types';
-
-/**
- * Helper: Prepares sights AND filters out visited ones.
- */
-const formatSightsForPrompt = (project: TripProject, excludedIds: string[]): string => {
-  const { data } = project;
-  const allSights = Object.values(data.places || {}).flat() as Place[];
-  
-  const availableSights = allSights.filter((s: Place) => !excludedIds.includes(s.id));
-
-  if (availableSights.length === 0) {
-    return "No specific places available. Use general knowledge for suitable activities.";
-  }
-
-  return availableSights.map((s: Place) => {
-    const prio = s.userPriority ? `[USER-PRIO: ${s.userPriority}] ` : '';
-    const rating = s.rating ? ` (${s.rating}⭐)` : '';
-    const address = s.address || s.vicinity || '';
-    const locationInfo = address ? ` [Loc: ${address}]` : '';
-    
-    let openInfo = '';
-    if (s.openingHours) {
-        const openStr = Array.isArray(s.openingHours) ? s.openingHours.join(', ') : s.openingHours;
-        if (openStr && typeof openStr === 'string' && openStr.length < 100) {
-            openInfo = ` [Open: ${openStr}]`;
-        }
-    }
-
-    return `- ${prio}${s.name}${rating}${locationInfo}: ${s.shortDesc || s.description || ''}${openInfo} (ID: ${s.id})`;
-  }).join('\n');
-};
-
-/**
- * Builds the prompt for the Daily Planner.
- */
-export const buildInitialTagesplanerPrompt = (
-    project: TripProject, 
-    chunkData?: ChunkingContext, 
-    feedback?: string,
-    visitedSightIds: string[] = []
-): string => {
-  
-  const { userInputs, analysis } = project;
-  const lang = userInputs.aiOutputLanguage === 'en' ? 'English' : 'German';
-
-  // 1. CHEF PLANER DATA (V40 English Keys)
-  const chefPlaner = analysis.chefPlaner;
-  const strategicBriefing = (chefPlaner as any)?.strategic_briefing?.itinerary_rules || 
-                            (chefPlaner as any)?.strategic_briefing?.sammler_briefing || 
-                            (chefPlaner as any)?.strategisches_briefing?.sammler_briefing || 
-                            "";
-  
-  const validierteTermine = (chefPlaner as any)?.validated_appointments || 
-                            (chefPlaner as any)?.validierte_termine || 
-                            [];
-
-  // 2. Initialize Builder
-  const builder = new PromptBuilder()
-    .withOS() // FIX: Added Safety Protocol
-    .withRole('You are an ELITE TRAVEL PLANNER (AI). Create a detailed, logical daily itinerary.');
-
-  // 3. Framework Conditions
-  builder.withContext([
-    `Pace: ${userInputs.pace}`,
-    `Interests: ${userInputs.selectedInterests.join(', ')}`,
-    `Group: ${userInputs.travelers.adults} Adults, ${userInputs.travelers.children} Children`,
-    `Language: ${lang}`
-  ], 'CONDITIONS');
-
-  // 4. Injection of Strategy & Appointments
-  if (strategicBriefing) {
-    builder.withContext(strategicBriefing, "STRATEGIC GUIDELINE");
-  }
-  if (validierteTermine.length > 0) {
-    builder.withContext(validierteTermine, "FIXED APPOINTMENTS (IMMUTABLE)");
-  }
-
-  // 5. Chunking Logic
-  let dayOffset = 0;
-  if (chunkData) {
-      dayOffset = chunkData.dayOffset || 0;
-      const startDay = dayOffset + 1;
-      const endDay = dayOffset + chunkData.days;
-      const currentStations = chunkData.stations || [];
-
-      builder.withInstruction(`ATTENTION - PARTIAL PLANNING (CHUNKING):
-      You are planning a section of the trip.
-      - From Day: ${startDay}
-      - To Day: ${endDay}
-      - Focus Locations: ${currentStations.join(', ')}`);
-
-      if (visitedSightIds.length > 0) {
-          builder.withInstruction(
-            `ALREADY PLANNED (AVOID DUPLICATES): ${visitedSightIds.length} places have been visited in previous days. Do NOT plan them again!`
-          );
-      }
-  } else {
-      const stations = userInputs.logistics.mode === 'stationaer' 
-        ? [userInputs.logistics.stationary.destination] 
-        : userInputs.logistics.roundtrip.stops.map(s => s.location);
-        
-      builder.withInstruction("Create the complete itinerary for the entire trip.");
-      builder.withContext(stations.join(', '), "Stations");
-  }
-
-  // 6. Sights Context
-  const sightsContext = formatSightsForPrompt(project, visitedSightIds);
-  builder.withContext(sightsContext, 'AVAILABLE PLACES (RESPECT USER PRIO)');
-
-  // 7. User Feedback
-  if (feedback) {
-      builder.withInstruction(`USER FEEDBACK (CHANGE REQUEST): "${feedback}"\nPlease adjust the plan considering this feedback.`);
-  }
-
-  // 8. Logic
-  builder.withInstruction(`LOGIC RULES:
-  1. **Priority:** Places with [USER-PRIO] MUST be scheduled (if geographically feasible).
-  2. **Cluster:** Use [Loc] info to group places.
-  3. **Timing:** Respect [Open] times.
-  4. **Logistics:** Short distances between activities.
-  5. **Buffer-Rule (CRITICAL):** Any time gap > 30 minutes MUST be filled with a concrete activity or a specific suggestion. Empty buffers are forbidden.`);
-
-  // 9. Output Format (V40 English Keys)
-  // FIX: Converted String-Schema to Real Object Schema to avoid double-escaping in PromptBuilder
-  const outputSchema = {
-    "_thought_process": "String (Strategic planning step: Check constraints, open times & routing)",
-    "days": [
-      {
-        "day": dayOffset + 1, // Dynamic Value
-        "date": "YYYY-MM-DD (if known, else null)",
-        "title": "Day Motto",
-        "location": "Main Location",
-        "activities": [
-          {
-            "time": "09:00",
-            "title": "Activity Name",
-            "description": "Inspiring description (2-3 sentences).",
-            "duration": "2h",
-            "cost": "approx. 15€",
-            "original_sight_id": "ID_FROM_LIST (IMPORTANT for mapping!)",
-            "type": "sight | food | transfer | pause"
-          }
-        ]
-      }
-    ]
+export interface TagesplanerPayload {
+  travel_dates: {
+    start: string;
+    end: string;
+    total_days: number;
+    daily_start: string;
+    daily_end: string;
   };
-  
-  builder.withOutputSchema(outputSchema);
+  hotel_base: {
+    name: string;
+    address: string;
+    geo: string;
+  };
+  available_sights: string; // Pre-formatted list with tags [FIX], [PRIO], [GEO]
+  constraints: string;
+}
 
-  return builder.build();
+export const buildInitialTagesplanerPrompt = (payload: TagesplanerPayload): string => {
+  return `
+ROLE:
+You are the "Senior Travel Logistics Architect".
+Your ONLY goal is to build a geometrically optimized, time-feasible itinerary skeleton.
+You DO NOT write descriptions for sights. You ONLY plan logistics, times, and routes.
+
+INPUT DATA:
+1. TRAVEL DATES:
+   - Start: ${payload.travel_dates.start}
+   - End: ${payload.travel_dates.end}
+   - Total Days: ${payload.travel_dates.total_days}
+   - Daily Active Hours: ${payload.travel_dates.daily_start} - ${payload.travel_dates.daily_end}
+
+2. BASE:
+   - Hotel: ${payload.hotel_base.name} (${payload.hotel_base.address})
+   - Geo: ${payload.hotel_base.geo}
+   - Logic: Every day MUST start and end at this Hotel.
+
+3. CANDIDATE POOL (Sights & Activities):
+${payload.available_sights}
+
+4. CONSTRAINTS:
+${payload.constraints}
+
+STRICT PLANNING RULES (The "V40 Logistics Protocol"):
+1. **Hard Constraints ([FIXED])**:
+   - Sights tagged with [FIXED: Date Time] MUST be scheduled exactly at that slot.
+   - You CANNOT move them. Plan the route *around* them.
+
+2. **Priority Hierarchy**:
+   - [PRIO: 1]: MUST be included if physically possible.
+   - [PRIO: 2]: Should be included to fill gaps.
+   - [PRIO: 0]: Use as filler if nearby.
+
+3. **Geospatial Clustering**:
+   - Group sights by proximity ([GEO] tags).
+   - Do NOT zigzag across the city.
+   - Assign one cluster per day/half-day.
+
+4. **The Transfer Mandate (CRITICAL)**:
+   - Between ANY two locations (Hotel -> Sight A -> Sight B -> Hotel), you MUST insert a 'transfer' object.
+   - Transfer logic:
+     - < 1.5km: mode='walk'
+     - > 1.5km: mode='transit' or 'drive'
+   - Estimate realistic duration (e.g., 2km walk = 25min).
+
+5. **Skeleton-Only Content**:
+   - Sights: 'description' MUST be empty string "".
+   - Transfers: 'description' MUST contain short logistics (e.g., "Walk 500m" or "Metro U2 to Alexanderplatz").
+
+OUTPUT FORMAT (JSON ONLY):
+{
+  "_thought_process": "Step-by-step reasoning on clustering, fix-date handling, and route optimization.",
+  "itinerary": [
+    {
+      "day_id": "day-1",
+      "date": "YYYY-MM-DD",
+      "title": "Theme of the day",
+      "activities": [
+        {
+           "type": "check-in", // Only on first day arrival
+           "time": "HH:MM",
+           "location": "${payload.hotel_base.name}",
+           "duration": 30
+        },
+        {
+           "type": "transfer",
+           "mode": "walk/transit/drive",
+           "duration": 15,
+           "description": "Logistics note"
+        },
+        {
+           "type": "sight",
+           "id": "ID_FROM_INPUT",
+           "name": "Name",
+           "time": "HH:MM",
+           "duration": 60, // From input [DURATION] tag
+           "description": "" // LEAVE EMPTY
+        }
+        // ... more transfers and sights ...
+      ]
+    }
+    // ... more days ...
+  ],
+  "unassigned": [
+    {
+      "id": "ID",
+      "name": "Name",
+      "reason": "Distance / Opening Hours / Time Budget"
+    }
+  ]
+}
+
+CRITICAL:
+- Every day starts at Hotel.
+- Every day ends at Hotel.
+- Arrival day: Account for arrival time (start later).
+- Departure day: Account for departure time (end earlier).
+- If [FIXED] dates conflict, report the conflict in _thought_process but prioritize the earliest fixed constraint.
+- Return ONLY valid JSON.
+`;
 };
-// --- END OF FILE 135 Zeilen ---
+// --- END OF FILE 98 Zeilen ---

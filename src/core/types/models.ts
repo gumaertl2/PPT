@@ -1,4 +1,4 @@
-// 17.02.2026 16:15 - FEAT: Added Hard-Constraint fields (isFixed, fixedDate, fixedTime) to Place model.
+// 17.02.2026 19:30 - FIX: Re-applying V40 Fields (isFixed, fixedDate) & LiveStatus.
 // 09.02.2026 18:00 - FIX: Added 'LiveStatus' interface (with corrected status) to Place model.
 // 09.02.2026 16:50 - FEAT: Added 'liveStatus' to Place model for Google Search Grounding results.
 // 08.02.2026 11:15 - FEAT: Added 'coordinatesValidated' flag to Place interface.
@@ -247,7 +247,7 @@ export interface Place {
   userPriority?: number; 
   rating?: number;
   user_ratings_total?: number;
-  userSelection?: any; // Keep legacy support
+  userSelection?: any; // Legacy compat
   
   // NEW: Hard Constraints (Fix-Termine)
   isFixed?: boolean;       // Wenn true -> Fester Termin
@@ -350,4 +350,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 307 Zeilen ---
+// --- END OF FILE 325 Zeilen ---
