@@ -56,40 +56,51 @@ export const TripOrchestrator = {
 
      console.log(`[Orchestrator] Starting SEQUENTIAL Loop for ${task}: ${totalChunks} chunks using ${modelId === CONFIG.api.models.pro ? 'PRO' : 'FLASH'}.`);
 
-     for (let i = 1; i <= totalChunks; i++) {
-         console.log(`[Orchestrator] Processing Chunk ${i}/${totalChunks}...`);
-         store.setChunkingState({ isActive: true, currentChunk: i, totalChunks: totalChunks, results: collectedResults });
+     try {
+         for (let i = 1; i <= totalChunks; i++) {
+             console.log(`[Orchestrator] Processing Chunk ${i}/${totalChunks}...`);
+             store.setChunkingState({ isActive: true, currentChunk: i, totalChunks: totalChunks, results: collectedResults });
 
-         let chunkCandidates = inputData;
-         if (Array.isArray(inputData) && ['chefredakteur', 'anreicherer', 'details'].includes(task)) {
-             const start = (i - 1) * limit;
-             const end = start + limit;
-             chunkCandidates = inputData.slice(start, end);
-             console.log(`[Orchestrator] Sliced ${task} input to ${chunkCandidates.length} items for chunk ${i}`);
+             let chunkCandidates = inputData;
+             // FIX: Only slice if inputData is provided explicitly. 
+             // If inputData is undefined, PayloadBuilder handles fetching (which is safer for 'Anreicherer' re-runs)
+             if (Array.isArray(inputData) && inputData.length > 0 && ['chefredakteur', 'anreicherer', 'details'].includes(task)) {
+                 const start = (i - 1) * limit;
+                 const end = start + limit;
+                 chunkCandidates = inputData.slice(start, end);
+                 console.log(`[Orchestrator] Sliced ${task} input to ${chunkCandidates.length} items for chunk ${i}`);
+             }
+
+             const prompt = PayloadBuilder.buildPrompt(task, undefined, { 
+                 chunkIndex: i, limit: limit, totalChunks: totalChunks, candidates: chunkCandidates 
+             });
+
+             const rawResult = await GeminiService.call(prompt, task, modelId);
+             let validatedData = rawResult;
+             if (schema) {
+                const validation = schema.safeParse(rawResult);
+                if (!validation.success) throw new Error(`KI-Antwort für Chunk ${i} ungültig.`);
+                validatedData = validation.data;
+             }
+             console.log(`[Orchestrator] Incrementally saving chunk ${i}/${totalChunks}...`);
+             ResultProcessor.process(task, validatedData);
+             
+             await safetyDelay(500); 
+
+             collectedResults.push(validatedData);
          }
-
-         const prompt = PayloadBuilder.buildPrompt(task, undefined, { 
-             chunkIndex: i, limit: limit, totalChunks: totalChunks, candidates: chunkCandidates 
-         });
-
-         const rawResult = await GeminiService.call(prompt, task, modelId);
-         let validatedData = rawResult;
-         if (schema) {
-            const validation = schema.safeParse(rawResult);
-            if (!validation.success) throw new Error(`KI-Antwort für Chunk ${i} ungültig.`);
-            validatedData = validation.data;
-         }
-         console.log(`[Orchestrator] Incrementally saving chunk ${i}/${totalChunks}...`);
-         ResultProcessor.process(task, validatedData);
          
-         await safetyDelay(500); 
+         // REFACTOR: Use ResultMerger
+         return ResultMerger.merge(collectedResults, task);
 
-         collectedResults.push(validatedData);
+     } catch (error) {
+         console.error(`[Orchestrator] Error in Chunk Loop for ${task}:`, error);
+         throw error;
+     } finally {
+         // CRITICAL FIX: Always reset chunking state, even if error occurs
+         console.log(`[Orchestrator] Finalizing Loop for ${task}. Resetting state.`);
+         store.resetChunking();
      }
-     store.resetChunking();
-     
-     // REFACTOR: Use ResultMerger
-     return ResultMerger.merge(collectedResults, task);
  },
 
  // UPDATED: Accepts additionalContext
@@ -141,6 +152,7 @@ export const TripOrchestrator = {
     const store = useTripStore.getState();
     const { project, chunkingState, setChunkingState, apiKey } = store;
 
+    // SMART MODE CHECKS
     if (options?.mode === 'smart' && task === 'chefredakteur') {
         const places = project.data.places || {};
         const missingItems = Object.values(places).filter((p: any) => 
@@ -154,7 +166,6 @@ export const TripOrchestrator = {
 
     // --- REFACTOR: DELEGATED TO WORKFLOW ---
     if (task === 'foodScout' || task === 'food') {
-        // We pass 'this._executeSingleStep' bound to 'this' so the workflow can call back into the orchestrator logic
         return FoodWorkflow.execute(feedback, this._executeSingleStep.bind(this));
     }
 
@@ -171,8 +182,11 @@ export const TripOrchestrator = {
         let limit = LimitManager.getTaskLimit(task, isManual);
 
         if (['anreicherer', 'chefredakteur', 'details'].includes(task)) {
-            if (inputData && Array.isArray(inputData) && inputData.length > 0) totalItems = inputData.length;
-            else {
+            // FIX: If InputData provided explicitly (e.g. from overwrite logic), use it.
+            // Otherwise calculate from store.
+            if (inputData && Array.isArray(inputData) && inputData.length > 0) {
+                totalItems = inputData.length;
+            } else {
                 const places = project.data.places || {};
                 totalItems = Object.keys(places).length;
             }
@@ -210,6 +224,7 @@ export const TripOrchestrator = {
                  }
              }
         } else {
+            // Fix: Clean up chunking state if we happen to have it set but don't need it
             if (chunkingState.isActive && chunkingState.totalChunks <= 1) store.resetChunking(); 
         }
     }

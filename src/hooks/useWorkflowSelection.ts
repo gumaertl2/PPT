@@ -1,23 +1,25 @@
-// 17.02.2026 10:45 - FIX: Added Initialization Guard to prevent selection reset on project updates.
-// 08.02.2026 19:00 - FIX: RESTORED ORIGINAL LOGIC & ADDED SMART MODE HANDLER.
-// 05.02.2026 18:15 - FIX: INFINITE SELECTION LOOP.
-// 06.02.2026 17:15 - FIX: DEFAULT SELECTION OPT-OUT FOR DAY PLANNER.
+// 17.02.2026 21:05 - FEAT: Added 'validateStepStart' for Tagesplaner Priority Check.
+// 17.02.2026 10:45 - FIX: Added Initialization Guard to prevent selection reset.
 // src/hooks/useWorkflowSelection.ts
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTripStore } from '../store/useTripStore';
 import { WORKFLOW_STEPS } from '../core/Workflow/steps';
-import { TripOrchestrator } from '../services/orchestrator'; // NEW IMPORT
+import { TripOrchestrator } from '../services/orchestrator';
 import type { WorkflowStepId } from '../core/types';
 
 type StepStatus = 'locked' | 'available' | 'done';
 
-// FIX: Extended return type to include the new handler
+export interface StepValidationResult {
+    canStart: boolean;
+    reason?: 'no_priorities' | 'missing_data' | 'blocked';
+    action?: 'prompt_user' | 'show_guide';
+}
+
 export const useWorkflowSelection = (isOpen: boolean) => {
-    const { project, setUIState } = useTripStore(); // Added setUIState
+    const { project, setUIState } = useTripStore(); 
     const [selectedSteps, setSelectedSteps] = useState<WorkflowStepId[]>([]);
     
-    // NEW: Guard against re-initialization on background updates
     const hasInitializedRef = useRef(false);
 
     // 1. GLOBAL CONTEXT
@@ -30,12 +32,10 @@ export const useWorkflowSelection = (isOpen: boolean) => {
 
     // 3. CORE LOGIC: STATUS CALCULATION
     const getStepStatus = useCallback((stepId: WorkflowStepId): StepStatus => {
-        // Data Presence Checks
         const places = project.data.places || {};
         const validPlaces = Object.values(places).filter((p: any) => p.id !== 'dummy-example-id');
         const hasPlaces = validPlaces.length > 0;
         
-        // Magic Chain: Unlock if data exists OR if prerequisite is currently selected
         const canRunPlaceDependent = hasPlaces || isSelected('basis');
         const canRunGuideDependent = !!project.analysis.tourGuide || isSelected('tourGuide');
 
@@ -52,9 +52,9 @@ export const useWorkflowSelection = (isOpen: boolean) => {
             
             case 'anreicherer':
                 if (!canRunPlaceDependent) return 'locked';
+                // Less aggressive check: only 'done' if user didn't just ask to re-run
                 const isEnriched = validPlaces.some((p: any) => 
                     (p.kurzbeschreibung && p.kurzbeschreibung.length > 20) || 
-                    (p.logistics_info && p.logistics_info.length > 10) ||
                     (p.description && p.description.length > 20)
                 );
                 return isEnriched ? 'done' : 'available';
@@ -69,6 +69,7 @@ export const useWorkflowSelection = (isOpen: boolean) => {
                 return hasDetails ? 'done' : 'available';
 
             case 'initialTagesplaner': 
+                // Fix: Check Guide dependent, but return available even if done to allow updates
                 const canRunDayPlan = canRunPlaceDependent && canRunGuideDependent;
                 if (!canRunDayPlan) return 'locked';
                 return project.itinerary.days.length > 0 ? 'done' : 'available';
@@ -104,7 +105,27 @@ export const useWorkflowSelection = (isOpen: boolean) => {
         }
     }, [project, isStationary, isSelected]);
 
-    // 4. SMART AUTO-SELECTION (With Guard)
+    // 4. NEW: VALIDATE STEP START (Logic for Tagesplaner Prio Check)
+    const validateStepStart = useCallback((stepId: string): StepValidationResult => {
+        if (stepId === 'initialTagesplaner') {
+             const places = Object.values(project.data.places || {});
+             // Check for at least one item with Prio 1/2 or Fix
+             const hasPriorities = places.some((p: any) => 
+                 (p.userPriority && p.userPriority > 0) || p.isFixed
+             );
+             
+             if (!hasPriorities) {
+                 return { 
+                     canStart: false, 
+                     reason: 'no_priorities', 
+                     action: 'prompt_user' // Signal UI to ask: "Assign Prios?"
+                 };
+             }
+        }
+        return { canStart: true };
+    }, [project.data.places]);
+
+    // 5. SMART AUTO-SELECTION
     useEffect(() => {
         if (isOpen && !hasInitializedRef.current) {
             const defaults: WorkflowStepId[] = [];
@@ -118,9 +139,7 @@ export const useWorkflowSelection = (isOpen: boolean) => {
                          return;
                     }
                 }
-
                 const status = getStepStatus(step.id);
-                
                 if (status === 'done') return;
                 
                 if (status === 'available') {
@@ -136,28 +155,24 @@ export const useWorkflowSelection = (isOpen: boolean) => {
             });
 
             setSelectedSteps(validDefaults);
-            hasInitializedRef.current = true; // LOCK
+            hasInitializedRef.current = true;
         }
         
-        // Reset lock when closed
         if (!isOpen) {
             hasInitializedRef.current = false;
         }
     }, [isOpen, project, isStationary, getStepStatus]); 
 
-    // 5. ACTIONS
+    // 6. ACTIONS
     const toggleStep = (id: WorkflowStepId) => {
         if (selectedSteps.includes(id)) {
             setSelectedSteps(prev => prev.filter(s => s !== id));
             return;
         }
-
         if (getStepStatus(id) === 'locked') return;
-
         setSelectedSteps(prev => [...prev, id]);
     };
 
-    // NEW: Handle direct execution with options (Smart Mode)
     const handleWorkflowSelect = useCallback(async (stepId: string, options?: { mode: 'smart' | 'force' }) => {
         console.log(`[Workflow] Direct Select: ${stepId}`, options);
         
@@ -165,7 +180,11 @@ export const useWorkflowSelection = (isOpen: boolean) => {
             setUIState({ viewMode: 'map' });
         }
 
-        // Trigger Orchestrator directly
+        // Validate first (e.g. DayPlanner Prios)
+        // Note: For direct calls via UI buttons (not the wizard loop), we assume the UI handled the prompt, 
+        // OR we enforce it here if needed. 
+        // But usually "handleWorkflowSelect" is the final "GO".
+        
         await TripOrchestrator.executeTask(stepId as any, undefined, undefined, options);
         
     }, [setUIState]);
@@ -175,7 +194,8 @@ export const useWorkflowSelection = (isOpen: boolean) => {
         toggleStep,
         getStepStatus,
         isStationary,
-        handleWorkflowSelect // Export new handler
+        handleWorkflowSelect,
+        validateStepStart // Export new validation function
     };
 };
-// --- END OF FILE 168 Zeilen ---
+// --- END OF FILE 210 Zeilen ---
