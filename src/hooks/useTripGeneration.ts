@@ -1,10 +1,11 @@
+// 17.02.2026 13:00 - FIX: Removed unused 'useState' import to resolve build error TS6133.
 // 17.02.2026 11:10 - FIX: Migrated Workflow State to Global Store to prevent data loss on view switch.
 // 09.02.2026 13:30 - FIX: Strict Queue Management & Safety Delay to prevent workflow stalls.
 // 08.02.2026 20:30 - FEAT: Support 'options' in startWorkflow/startSingleTask for Smart Mode.
 // 05.02.2026 16:00 - FIX: Solved Race Condition in Workflow Loop (Timeout wrapper).
 // src/hooks/useTripGeneration.ts
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTripStore } from '../store/useTripStore';
 import { PayloadBuilder } from '../core/prompts/PayloadBuilder';
