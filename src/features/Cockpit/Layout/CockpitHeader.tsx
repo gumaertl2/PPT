@@ -1,3 +1,4 @@
+// 17.02.2026 13:40 - REFACTOR: Integrated ActionsMenu component & cleaned up imports.
 // 17.02.2026 12:30 - UX: Added Mouseover-Tooltips for all buttons and menu items.
 // 17.02.2026 12:10 - REFACTOR: Integrated SafeExitModal component for clean architecture & I18n.
 // 17.02.2026 11:45 - FEAT: Added 'Safe Home' Exit Modal with Copyright & Disclaimer.
@@ -15,20 +16,11 @@ import {
   Filter, 
   Terminal, 
   HelpCircle, 
-  Menu, 
-  FileInput, 
-  Layout, 
-  Sparkles, 
-  Zap, 
-  Globe, 
-  Printer, 
-  Save, 
-  Upload, 
-  FileText, 
   Edit3,
   Home,
   Search, 
-  X
+  X,
+  Sparkles // Kept for Auto-Button
 } from 'lucide-react';
 
 import { useTripStore } from '../../../store/useTripStore';
@@ -37,7 +29,7 @@ import ExportModal from '../ExportModal';
 import PrintModal from '../PrintModal'; 
 import { AdHocFoodModal } from '../AdHocFoodModal'; 
 import { SafeExitModal } from '../SafeExitModal'; 
-import { ExportService } from '../../../services/ExportService'; 
+import { ActionsMenu } from './ActionsMenu'; // NEW: Imported Component
 import type { CockpitViewMode, PrintConfig } from '../../../core/types'; 
 
 interface CockpitHeaderProps {
@@ -64,8 +56,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     resetProject, 
     apiKey, 
     usageStats, 
-    downloadFlightRecorder, 
-    setWorkflowModalOpen, 
     setView, 
     toggleSightFilter, 
     isSightFilterOpen,     
@@ -73,11 +63,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     setUIState
   } = useTripStore();
   
-  const hasAnalysisResult = !!project.analysis.chefPlaner;
-  const hasRouteResult = !!project.analysis.routeArchitect;
-
   // Local State
-  const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false); 
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false); 
@@ -89,83 +75,10 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
   const isFilterActive = uiState.searchTerm || uiState.categoryFilter.length > 0;
 
   // --- ACTIONS LOGIC ---
-
-  const handleOpenAiWorkflows = () => {
-    setShowActionsMenu(false);
-    if (hasAnalysisResult) {
-        setWorkflowModalOpen(true);
-    } else {
-        alert(t('analysis.errorTitle'));
-    }
-  };
-  
-  const handleOpenRoute = () => {
-      setShowActionsMenu(false);
-      if (hasRouteResult) {
-          setViewMode('routeArchitect');
-      }
-  };
-
-  const handleSaveProject = () => {
-    // FIX START: Prefer existing filename if available
-    if (uiState.currentFileName) {
-        const currentName = uiState.currentFileName.replace(/\.json$/i, '');
-        const userFileName = window.prompt("Dateiname für Speicherstand:", currentName);
-        
-        if (!userFileName) {
-            setShowActionsMenu(false);
-            return;
-        }
-        
-        let finalName = userFileName;
-        if (!finalName.endsWith('.json')) finalName += '.json';
-        saveProject(finalName);
-        setShowActionsMenu(false);
-        return;
-    }
-    // FIX END
-
-    let baseName = "Papatours_Reise";
-    const { logistics } = project.userInputs;
-    
-    if (logistics.mode === 'stationaer') {
-        const dest = logistics.stationary.destination?.trim();
-        const reg = logistics.stationary.region?.trim();
-        if (dest && reg) baseName = `${dest}_${reg}`;
-        else if (dest) baseName = dest;
-        else if (reg) baseName = reg;
-    } else {
-        const reg = logistics.roundtrip.region?.trim();
-        if (reg) baseName = `Rundreise_${reg}`;
-    }
-
-    const safeName = baseName
-        .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')
-        .replace(/Ä/g, 'Ae').replace(/Ö/g, 'Oe').replace(/Ü/g, 'Ue')
-        .replace(/ß/g, 'ss')
-        .replace(/[^a-zA-Z0-9_-]/g, '_'); 
-
-    let fileName = `${safeName}_log_${new Date().toISOString().slice(0,10)}.json`;
-
-    // Prompt User for filename
-    const userFileName = window.prompt("Dateiname für Speicherstand:", fileName);
-    if (!userFileName) {
-        setShowActionsMenu(false);
-        return; // Cancelled
-    }
-    
-    fileName = userFileName;
-    if (!fileName.endsWith('.json')) fileName += '.json';
-
-    // Delegate to Store Action
-    saveProject(fileName);
-    
-    setShowActionsMenu(false);
-  };
+  // Note: Most logic (Save, Reset, Workflows) has been moved to ActionsMenu.tsx
 
   const handleLoadClick = () => {
     fileInputRef.current?.click();
-    setShowActionsMenu(false);
   };
 
   // FIX: Async handler to wait for file loading
@@ -187,14 +100,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     }
 
     event.target.value = ''; 
-  };
-
-  const handleResetClick = () => {
-    if (confirm("Wirklich alles löschen und neu starten?")) { 
-      resetProject();
-      onReset(); 
-      setShowActionsMenu(false);
-    }
   };
 
   const handlePrintConfirm = (config: PrintConfig) => {
@@ -264,7 +169,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
         <button 
           onClick={() => setShowSettingsModal(true)} 
           className="flex flex-col items-center px-2 py-1 text-blue-600 hover:bg-blue-50 rounded transition-colors group relative"
-          title={t('tooltips.auto')} // TOOLTIP ADDED
+          title={t('tooltips.auto')}
         >
           <Sparkles className="w-4 h-4 lg:w-5 lg:h-5 mb-0.5" />
           <span className="text-[10px] font-bold uppercase tracking-wide hidden md:inline">{t('wizard.toolbar.auto')}</span>
@@ -285,7 +190,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
         <button 
           onClick={() => setShowSettingsModal(true)} 
           className="flex flex-col items-center px-2 py-1 text-slate-500 hover:bg-slate-100 rounded transition-colors"
-          title={t('tooltips.manual')} // TOOLTIP ADDED
+          title={t('tooltips.manual')}
         >
           <Terminal className="w-4 h-4 lg:w-5 lg:h-5 mb-0.5" />
           <span className="text-[10px] font-bold uppercase tracking-wide hidden md:inline">{t('wizard.toolbar.manual')}</span>
@@ -306,7 +211,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
             <button 
               onClick={handleHomeClick} 
               className="p-2 text-slate-700 hover:bg-slate-100 hover:text-blue-600 rounded-lg transition-colors mr-2"
-              title={t('tooltips.home')} // TOOLTIP ADDED
+              title={t('tooltips.home')}
             >
               <Home className="w-6 h-6" />
             </button>
@@ -319,7 +224,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                      ? 'text-blue-600 bg-blue-50' 
                      : 'text-slate-500 hover:bg-slate-100'
                 }`}
-                title={t('tooltips.plan')} // TOOLTIP ADDED
+                title={t('tooltips.plan')}
              >
                <Edit3 className="w-4 h-4 lg:w-5 lg:h-5 mb-0.5" />
                <span className="text-[10px] font-bold uppercase tracking-wide hidden md:inline">{t('wizard.toolbar.plan')}</span>
@@ -344,7 +249,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                    ? 'text-blue-600 bg-blue-50' 
                    : 'text-slate-500 hover:bg-slate-100'
                }`}
-               title={t('tooltips.guide')} // TOOLTIP ADDED
+               title={t('tooltips.guide')}
              >
                <BookOpen className="w-4 h-4 lg:w-5 lg:h-5 mb-0.5" />
                <span className="text-[10px] font-bold uppercase tracking-wide hidden md:inline">{t('wizard.toolbar.guide')}</span>
@@ -357,7 +262,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                    ? 'text-blue-600 bg-blue-50' 
                    : 'text-slate-500 hover:bg-slate-100'
                }`}
-               title={t('tooltips.info')} // TOOLTIP ADDED
+               title={t('tooltips.info')}
              >
                <Info className="w-4 h-4 lg:w-5 lg:h-5 mb-0.5" />
                <span className="text-[10px] font-bold uppercase tracking-wide hidden md:inline">{t('wizard.toolbar.info_travel')}</span>
@@ -375,7 +280,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                    ? 'text-blue-600 bg-blue-50' 
                    : 'text-slate-500 hover:bg-slate-100'
                }`}
-               title={t('tooltips.map')} // TOOLTIP ADDED
+               title={t('tooltips.map')}
              >
                <MapIcon className="w-4 h-4 lg:w-5 lg:h-5 mb-0.5" />
                <span className="text-[10px] font-bold uppercase tracking-wide hidden md:inline">{t('wizard.toolbar.map')}</span>
@@ -391,7 +296,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                    ? 'text-blue-600 bg-blue-50'
                    : isFilterActive ? 'text-amber-500 hover:bg-amber-50' : 'text-slate-500 hover:bg-slate-100'
                }`}
-               title={t('tooltips.filter')} // TOOLTIP ADDED
+               title={t('tooltips.filter')}
              >
                <Filter className={`w-4 h-4 lg:w-5 lg:h-5 mb-0.5 ${isFilterActive ? 'fill-amber-500' : ''}`} />
                <span className="text-[10px] font-bold uppercase tracking-wide hidden md:inline">{t('wizard.toolbar.search')}</span>
@@ -427,7 +332,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
               <button 
                 onClick={onOpenHelp} 
                 className="flex flex-col items-center px-2 py-1 text-slate-500 hover:bg-slate-100 rounded transition-colors"
-                title={t('tooltips.help')} // TOOLTIP ADDED
+                title={t('tooltips.help')}
               >
                 <HelpCircle className="w-4 h-4 lg:w-5 lg:h-5 mb-0.5" />
                 <span className="text-[10px] font-bold uppercase tracking-wide hidden md:inline">{t('wizard.toolbar.help')}</span>
@@ -435,126 +340,16 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
               
               <div className="w-px h-8 bg-slate-200 mx-1"></div>
 
-              <div className="relative">
-                <button 
-                  onClick={() => setShowActionsMenu(!showActionsMenu)}
-                  className="flex flex-col items-center px-3 py-1 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200"
-                  title={t('tooltips.menu')} // TOOLTIP ADDED
-                >
-                  <Menu className="w-4 h-4 lg:w-5 lg:h-5 mb-0.5" />
-                  <span className="text-[10px] font-bold uppercase tracking-wide hidden md:inline">{t('wizard.toolbar.actions')}</span>
-                </button>
-
-                {showActionsMenu && (
-                  <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2">
-                    
-                    <button 
-                      onClick={() => { setViewMode('wizard'); setShowActionsMenu(false); }} 
-                      className={`w-full text-left px-4 py-2 hover:bg-blue-50 flex items-center gap-3 text-sm font-medium ${viewMode === 'wizard' ? 'text-blue-600 bg-blue-50' : 'text-slate-700'}`}
-                      title={t('tooltips.menu_items.data')} // TOOLTIP ADDED
-                    >
-                      <FileInput className="w-4 h-4" /> {t('wizard.actions_menu.data')}
-                    </button>
-                    
-                    <button 
-                      onClick={() => { if(hasAnalysisResult) { setViewMode('analysis'); setShowActionsMenu(false); }}} 
-                      disabled={!hasAnalysisResult}
-                      className={`w-full text-left px-4 py-2 hover:bg-blue-50 flex items-center gap-3 text-sm font-medium ${
-                          !hasAnalysisResult ? 'text-slate-300 cursor-not-allowed' : 
-                          viewMode === 'analysis' ? 'text-blue-600 bg-blue-50' : 'text-slate-700'
-                      }`}
-                      title={t('tooltips.menu_items.foundation')} // TOOLTIP ADDED
-                    >
-                      <Layout className="w-4 h-4" /> {t('wizard.actions_menu.foundation')}
-                    </button>
-                    
-                    <div className="h-px bg-slate-100 my-1"></div>
-
-                    <button 
-                      onClick={handleOpenRoute}
-                      disabled={!hasRouteResult}
-                      className={`w-full text-left px-4 py-2 hover:bg-blue-50 flex items-center gap-3 text-sm font-medium ${
-                          !hasRouteResult ? 'text-slate-300 cursor-not-allowed' :
-                          viewMode === 'routeArchitect' ? 'text-blue-600 bg-blue-50' : 'text-slate-700'
-                      }`}
-                      title={t('tooltips.menu_items.route')} // TOOLTIP ADDED
-                    >
-                      <MapIcon className="w-4 h-4" /> {t('wizard.actions_menu.route')}
-                    </button>
-                    
-                    <button 
-                      onClick={handleOpenAiWorkflows} 
-                      className="w-full text-left px-4 py-2 hover:bg-blue-50 text-slate-700 flex items-center gap-3 text-sm font-medium"
-                      title={t('tooltips.menu_items.ai_workflows')} // TOOLTIP ADDED
-                    >
-                      <Sparkles className="w-4 h-4 text-purple-500" /> AI Workflows
-                    </button>
-
-                    {/* NEW: Ad-Hoc Trigger */}
-                    <button 
-                      onClick={() => { setShowActionsMenu(false); setIsAdHocModalOpen(true); }}
-                      className="w-full text-left px-4 py-2 hover:bg-blue-50 text-slate-700 flex items-center gap-3 text-sm font-medium"
-                      title={t('tooltips.menu_items.adhoc_food')} // TOOLTIP ADDED
-                    >
-                      <Zap className="w-4 h-4 text-amber-500" /> {t('wizard.actions_menu.adhoc_food')}
-                    </button>
-
-                    <button 
-                      onClick={async () => { 
-                        setShowActionsMenu(false); 
-                        const success = await ExportService.copyExportToClipboard();
-                        if (success) setIsExportModalOpen(true);
-                      }} 
-                      className="w-full text-left px-4 py-2 hover:bg-blue-50 text-slate-700 flex items-center gap-3 text-sm font-medium"
-                      title={t('tooltips.menu_items.map_export')} // TOOLTIP ADDED
-                    >
-                      <Globe className="w-4 h-4 text-green-500" /> {t('wizard.actions_menu.map_export')}
-                    </button>
-                    <button 
-                      onClick={() => { setShowActionsMenu(false); setIsPrintModalOpen(true); }} 
-                      className="w-full text-left px-4 py-2 hover:bg-blue-50 text-slate-700 flex items-center gap-3 text-sm font-medium"
-                      title={t('tooltips.menu_items.print')} // TOOLTIP ADDED
-                    >
-                      <Printer className="w-4 h-4 text-slate-500" /> {t('wizard.actions_menu.print')}
-                    </button>
-                    
-                    <div className="h-px bg-slate-100 my-1"></div>
-                    
-                    <button 
-                      onClick={handleSaveProject} 
-                      className="w-full text-left px-4 py-2 hover:bg-blue-50 text-slate-700 flex items-center gap-3 text-sm font-medium"
-                      title={t('tooltips.menu_items.save')} // TOOLTIP ADDED
-                    >
-                      <Save className="w-4 h-4 text-blue-500" /> {t('wizard.actions_menu.save')}
-                    </button>
-                    <button 
-                      onClick={handleLoadClick} 
-                      className="w-full text-left px-4 py-2 hover:bg-blue-50 text-slate-700 flex items-center gap-3 text-sm font-medium"
-                      title={t('tooltips.menu_items.load')} // TOOLTIP ADDED
-                    >
-                      <Upload className="w-4 h-4 text-green-500" /> {t('wizard.actions_menu.load')}
-                    </button>
-                    <button 
-                      onClick={handleResetClick} 
-                      className="w-full text-left px-4 py-2 hover:bg-red-50 text-red-600 flex items-center gap-3 text-sm font-medium"
-                      title={t('tooltips.menu_items.new')} // TOOLTIP ADDED
-                    >
-                      <FileText className="w-4 h-4" /> {t('wizard.actions_menu.new')}
-                    </button>
-                    
-                    <button 
-                      onClick={() => { downloadFlightRecorder(); setShowActionsMenu(false); }} 
-                      className="w-full text-left px-4 py-2 hover:bg-blue-50 text-slate-700 flex items-center gap-3 text-sm font-medium"
-                      title={t('tooltips.menu_items.log')} // TOOLTIP ADDED
-                    >
-                      <Terminal className="w-4 h-4 text-slate-500" /> {t('wizard.actions_menu.log')}
-                    </button>
-                  </div>
-                )}
-                {showActionsMenu && (
-                  <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setShowActionsMenu(false)} />
-                )}
-              </div>
+              {/* NEW: Integrated Actions Menu */}
+              <ActionsMenu 
+                viewMode={viewMode}
+                setViewMode={setViewMode}
+                onLoadClick={handleLoadClick}
+                onReset={onReset}
+                onOpenExport={() => setIsExportModalOpen(true)}
+                onOpenPrint={() => setIsPrintModalOpen(true)}
+                onOpenAdHoc={() => setIsAdHocModalOpen(true)}
+              />
 
           </div>
         </div>
@@ -590,4 +385,4 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     </>
   );
 };
-// --- END OF FILE 615 Lines ---
+// --- END OF FILE 335 Lines ---
