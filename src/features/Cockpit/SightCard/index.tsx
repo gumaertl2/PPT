@@ -1,3 +1,4 @@
+// 17.02.2026 16:45 - FIX: Wired Fix-Mode to root model fields & renamed Top button to Fix.
 // 09.02.2026 13:15 - FIX: Aligned ViewLevel types with global types ('compact' instead of 'kompakt').
 // 09.02.2026 13:00 - FIX: SightCard now accepts explicit 'detailLevel' prop for Print Override.
 // src/features/Cockpit/SightCard/index.tsx
@@ -5,14 +6,13 @@
 import React, { useState, useEffect, useRef } from 'react'; 
 import { useTripStore } from '../../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
-import { Database, Trash2, Plus, Minus, X } from 'lucide-react';
+import { Database, Trash2, Plus, Minus, X, CalendarClock, Clock } from 'lucide-react';
 import { TripOrchestrator } from '../../../services/orchestrator';
 
 import { SightCardHeader } from './SightCardHeader';
 import { SightCardMeta } from './SightCardMeta';
 import { SightCardBody } from './SightCardBody';
 
-// FIX: Aligned type with global DetailLevel ('compact' instead of 'kompakt')
 type ViewLevel = 'compact' | 'standard' | 'details';
 const VIEW_LEVELS = ['compact', 'standard', 'details'] as const;
 
@@ -21,7 +21,6 @@ interface SightCardProps {
   data: any; 
   mode?: 'selection' | 'view'; 
   showPriorityControls?: boolean;
-  // FIX: Added explicit prop to allow override from parents (e.g. PrintReport -> SightsView -> SightCard)
   detailLevel?: ViewLevel;
 }
 
@@ -30,37 +29,26 @@ export const SightCard: React.FC<SightCardProps> = ({
   data, 
   mode = 'selection', 
   showPriorityControls = true,
-  detailLevel: overrideDetailLevel // Destructure new prop
+  detailLevel: overrideDetailLevel
 }) => {
   const { t } = useTranslation(); 
-  
-  // FIX: Fetch live data from store if available to avoid stale props
+   
   const livePlace = useTripStore(s => (id && s.project?.data?.places?.[id]) ? s.project.data.places[id] : null);
-  // Use live data if found, otherwise fall back to passed prop
   const activeData = livePlace || data;
 
   const { uiState, updatePlace, deletePlace, setUIState, project, assignHotelToLogistics } = useTripStore(); 
   const cardRef = useRef<HTMLDivElement>(null);
 
-  // FIX: Determine effective Detail Level with Priority: Prop > PrintConfig > ScreenState
   const getEffectiveViewLevel = (): ViewLevel => {
-      // 1. Priority: Explicit Prop (passed from PrintReport)
       if (overrideDetailLevel) return overrideDetailLevel;
-
-      // 2. Priority: Global Print Mode (if active)
       if (uiState.isPrintMode && uiState.printConfig?.detailLevel) {
-          // Safety cast if printConfig uses same strings
           return uiState.printConfig.detailLevel as ViewLevel;
       }
-
-      // 3. Priority: Screen State
-      // Fallback to 'compact' to match type definition
       return (uiState.detailLevel as ViewLevel) || 'compact';
   };
 
   const [viewLevel, setViewLevel] = useState<ViewLevel>(getEffectiveViewLevel);
-  
-  // FIX: React to changes in Prop OR Store
+   
   useEffect(() => {
     setViewLevel(getEffectiveViewLevel());
   }, [uiState.detailLevel, uiState.isPrintMode, uiState.printConfig, overrideDetailLevel]);
@@ -71,17 +59,14 @@ export const SightCard: React.FC<SightCardProps> = ({
   const [showDebug, setShowDebug] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
 
-  // Derivation of Values (Using activeData)
   const name = activeData.name || activeData.official_name || activeData.name_official || 'Unbekannter Ort';
   const category = activeData.category || 'Allgemein'; 
   const isHotel = category === 'Hotel' || category === 'accommodation';
   const userSelection = activeData.userSelection || {};
-  const priority = userSelection.priority ?? 0; 
-  
-  // LOGIC: Check if category was manually changed
+  const priority = activeData.userPriority ?? userSelection.priority ?? 0; // Prefer root field
+   
   const hasCategoryChanged = !!userSelection.customCategory && userSelection.customCategory !== category;
 
-  // Selection State from Logistics (SSOT)
   const isSelectedInLogistics = () => {
       const logistics = project.userInputs.logistics;
       if (logistics.mode === 'stationaer') {
@@ -97,7 +82,6 @@ export const SightCard: React.FC<SightCardProps> = ({
     assignHotelToLogistics(id);
   };
 
-  // Handler for single item regeneration
   const handleRegenerate = async () => {
       setIsRegenerating(true);
       try {
@@ -137,11 +121,15 @@ export const SightCard: React.FC<SightCardProps> = ({
       return `https://${url.trim()}`;
   };
 
-  const handlePriorityChange = (newPrio: number) => {
-    const targetPrio = (priority === newPrio) ? 0 : newPrio;
-    updatePlace(id, {
-      userSelection: { ...userSelection, priority: targetPrio }
-    });
+  // NEW: Handle Fix vs Prio
+  const handlePriorityChange = (newPrio: number, isFixMode: boolean = false) => {
+    // If clicking same button -> toggle off (reset to 0)
+    // Exception: If switching from Prio 1 to Fix (both are 1), we enforce the change
+    if (priority === newPrio && !!activeData.isFixed === isFixMode) {
+        updatePlace(id, { userPriority: 0, isFixed: false });
+    } else {
+        updatePlace(id, { userPriority: newPrio, isFixed: isFixMode });
+    }
   };
 
   const handleDelete = () => {
@@ -204,25 +192,38 @@ export const SightCard: React.FC<SightCardProps> = ({
   const renderPriorityControls = () => {
     if (mode !== 'selection') return null;
     if (!showPriorityControls) return null;
-    const btnBase = "px-2 py-0.5 text-[10px] font-bold rounded shadow-sm transition-all border";
+    const btnBase = "px-2 py-0.5 text-[10px] font-bold rounded shadow-sm transition-all border flex items-center gap-1";
+    
+    const isFixed = !!activeData.isFixed;
+
     return (
       <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-gray-100 no-print">
+        
+        {/* FIX BUTTON (Formerly Top) */}
         <button
-          onClick={() => handlePriorityChange(3)}
-          className={`${btnBase} ${priority === 3 ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-gray-700 hover:bg-indigo-50 border-gray-200'}`}
-        >★ Top</button>
+          onClick={() => handlePriorityChange(1, true)}
+          className={`${btnBase} ${priority === 1 && isFixed ? 'bg-purple-600 text-white border-purple-700' : 'bg-white text-gray-700 hover:bg-purple-50 border-gray-200'}`}
+          title="Fester Termin: KI muss diesen Ort exakt einplanen."
+        >
+           {priority === 1 && isFixed ? <CalendarClock className="w-3 h-3" /> : null}
+           * Fix
+        </button>
+
         <button
-          onClick={() => handlePriorityChange(1)}
-          className={`${btnBase} ${priority === 1 ? 'bg-green-600 text-white border-green-700' : 'bg-white text-gray-700 hover:bg-green-50 border-gray-200'}`}
+          onClick={() => handlePriorityChange(1, false)}
+          className={`${btnBase} ${priority === 1 && !isFixed ? 'bg-green-600 text-white border-green-700' : 'bg-white text-gray-700 hover:bg-green-50 border-gray-200'}`}
         >Prio 1</button>
+        
         <button
-          onClick={() => handlePriorityChange(2)}
+          onClick={() => handlePriorityChange(2, false)}
           className={`${btnBase} ${priority === 2 ? 'bg-blue-500 text-white border-blue-600' : 'bg-white text-gray-700 hover:bg-blue-50 border-gray-200'}`}
         >Prio 2</button>
+        
         <button
-          onClick={() => handlePriorityChange((-1))}
+          onClick={() => handlePriorityChange((-1), false)}
           className={`${btnBase} ${priority === -1 ? 'bg-gray-800 text-white border-gray-900' : 'bg-white text-gray-400 hover:bg-gray-100 border-gray-200'}`}
         >Ignore</button>
+        
         <div className="flex-1"></div>
         <button onClick={() => setShowDebug(true)} className="text-gray-300 hover:text-blue-600 p-1"><Database className="w-3 h-3" /></button>
         <button onClick={handleDelete} className="text-gray-300 hover:text-red-600 p-1"><Trash2 className="w-3 h-3" /></button>
@@ -232,13 +233,14 @@ export const SightCard: React.FC<SightCardProps> = ({
 
   // Border Class Logic
   let borderClass = 'border-gray-200';
-  if (priority === 3) borderClass = 'border-indigo-500 border-l-4';
-  if (priority === 1) borderClass = 'border-green-500 border-l-4';
-  if (priority === 2) borderClass = 'border-blue-400 border-l-4';
-  if (priority === -1) borderClass = 'border-gray-100 opacity-60';
+  if (activeData.isFixed) borderClass = 'border-purple-500 border-l-[6px] ring-1 ring-purple-100'; // Special Fix Style
+  else if (priority === 1) borderClass = 'border-green-500 border-l-4';
+  else if (priority === 2) borderClass = 'border-blue-400 border-l-4';
+  else if (priority === -1) borderClass = 'border-gray-100 opacity-60';
+  
   const isSpecial = category === 'special';
   if (isSpecial) borderClass = activeData.details?.specialType === 'sunny' ? 'border-amber-400 border-l-4' : 'border-blue-400 border-l-4';
-  
+   
   if (isHotel) {
       if (isSelected) {
           borderClass = 'border-emerald-600 border-l-[6px] ring-1 ring-emerald-500 bg-emerald-50/30';
@@ -278,11 +280,40 @@ export const SightCard: React.FC<SightCardProps> = ({
             t={t} 
         />
 
-        {activeData.userSelection?.fixedDate && (
-          <div className="flex items-center gap-2 bg-indigo-50 px-2 py-1 rounded text-[10px] mb-1">
-            <span className="font-bold text-indigo-800">Fixtermin:</span>
-            <input type="date" value={activeData.userSelection.fixedDate} onChange={(e) => updatePlace(id, { userSelection: { ...userSelection, fixedDate: e.target.value } })} className="bg-transparent border-none p-0 h-4 text-indigo-900 focus:ring-0" />
-            <input type="time" value={activeData.userSelection.fixedTime} onChange={(e) => updatePlace(id, { userSelection: { ...userSelection, fixedTime: e.target.value } })} className="bg-transparent border-none p-0 h-4 text-indigo-900 focus:ring-0" />
+        {/* INPUTS FOR FIXED DATE (Only visible if isFixed is true) */}
+        {activeData.isFixed && (
+          <div className="flex flex-wrap items-center gap-2 bg-purple-50 px-3 py-2 rounded-md text-xs mb-1 mt-2 border border-purple-100 animate-in slide-in-from-top-1 fade-in">
+            <span className="font-bold text-purple-800 flex items-center gap-1">
+                <CalendarClock className="w-3.5 h-3.5" /> Fixtermin:
+            </span>
+            
+            <input 
+                type="date" 
+                value={activeData.fixedDate || ''} 
+                onChange={(e) => updatePlace(id, { fixedDate: e.target.value })} 
+                className="bg-white border border-purple-200 rounded px-2 py-0.5 text-purple-900 focus:ring-1 focus:ring-purple-500 focus:border-purple-500" 
+                title="Datum"
+            />
+            
+            <input 
+                type="time" 
+                value={activeData.fixedTime || ''} 
+                onChange={(e) => updatePlace(id, { fixedTime: e.target.value })} 
+                className="bg-white border border-purple-200 rounded px-2 py-0.5 text-purple-900 focus:ring-1 focus:ring-purple-500 focus:border-purple-500" 
+                title="Uhrzeit"
+            />
+
+            <div className="flex items-center gap-1 bg-white border border-purple-200 rounded px-2 py-0.5 ml-1">
+                <Clock className="w-3 h-3 text-purple-400" />
+                <input 
+                    type="number" 
+                    placeholder="Min" 
+                    value={activeData.visitDuration || ''} 
+                    onChange={(e) => updatePlace(id, { visitDuration: parseInt(e.target.value) || 0 })} 
+                    className="w-10 bg-transparent border-none p-0 text-center text-purple-900 focus:ring-0 placeholder:text-purple-300" 
+                    title="Dauer in Minuten"
+                />
+            </div>
           </div>
         )}
 
@@ -316,4 +347,4 @@ export const SightCard: React.FC<SightCardProps> = ({
     </>
   );
 };
-// --- END OF FILE 269 Zeilen ---
+// --- END OF FILE 338 Zeilen ---
