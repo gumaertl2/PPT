@@ -1,3 +1,4 @@
+// 17.02.2026 21:35 - FEAT: UI Integration of 'validateStepStart' for Priority Check.
 // 09.02.2026 09:55 - FIX: Removed unused 'hasPlaces' variable to fix Build Error TS6133.
 // 08.02.2026 21:00 - FIX: Pass 'options' (Smart Mode) to startWorkflow.
 // 05.02.2026 17:15 - REFACTOR: UI VIEW COMPONENT.
@@ -19,13 +20,13 @@ import {
   RotateCcw,
   Sparkles,      
   RefreshCw,     
-  PlusCircle     
+  PlusCircle,
+  ListTodo     
 } from 'lucide-react';
 
 interface WorkflowSelectionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  // FIX: Extended signature to support options
   onStart: (selectedSteps: WorkflowStepId[], options?: { mode: 'smart' | 'force' }) => void;
 }
 
@@ -34,36 +35,43 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
   onClose, 
   onStart 
 }) => {
-  const { project } = useTripStore();
+  const { project, setUIState } = useTripStore();
   const [showConfirm, setShowConfirm] = useState(false);
-  // NEW: State for Smart Mode
   const [showSmartConfirm, setShowSmartConfirm] = useState(false);
+  // NEW: State for Prio Check
+  const [showPrioConfirm, setShowPrioConfirm] = useState(false);
   
-  // LOGIC HOOK INJECTION
-  const { selectedSteps, toggleStep, getStepStatus, isStationary } = useWorkflowSelection(isOpen);
+  // LOGIC HOOK INJECTION - Added validateStepStart
+  const { selectedSteps, toggleStep, getStepStatus, isStationary, validateStepStart } = useWorkflowSelection(isOpen);
 
   const lang = project.meta.language === 'en' ? 'en' : 'de';
 
   // HANDLERS (UI specific)
   const handleStartRequest = () => {
     if (selectedSteps.length === 0) return;
+
+    // 1. PRIORITY CHECK for Tagesplaner
+    if (selectedSteps.includes('initialTagesplaner')) {
+        const validation = validateStepStart('initialTagesplaner');
+        if (!validation.canStart && validation.reason === 'missing_priorities') {
+            setShowPrioConfirm(true);
+            return; // Stop here, wait for user decision
+        }
+    }
     
-    // Check for Chefredakteur Smart Mode opportunity
+    // 2. SMART MODE CHECK for Chefredakteur
     const isChefredakteurSelected = selectedSteps.includes('chefredakteur');
     const chefredakteurStatus = getStepStatus('chefredakteur');
     
-    // Check if we have places missing content
     const places = project.data.places || {};
     const missingCount = Object.values(places).filter((p: any) => !p.detailContent || p.detailContent.length < 50).length;
-    // FIX: Removed unused 'hasPlaces' variable (TS6133)
     
-    // Trigger Smart Dialog IF: Chefredakteur selected AND it's already "done" (has some data) AND there are gaps
     if (isChefredakteurSelected && chefredakteurStatus === 'done' && missingCount > 0 && missingCount < Object.keys(places).length) {
         setShowSmartConfirm(true);
         return;
     }
 
-    // Standard Confirm Logic
+    // 3. STANDARD RE-RUN CHECK
     const isRerunningDoneSteps = selectedSteps.some(stepId => getStepStatus(stepId) === 'done');
 
     if (isRerunningDoneSteps) {
@@ -78,11 +86,18 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
     onClose();
     setShowConfirm(false);
     setShowSmartConfirm(false);
+    setShowPrioConfirm(false);
+  };
+
+  // Handler: User wants to set priorities first
+  const handleGoToPrios = () => {
+      onClose(); // Close Modal
+      // Switch to Sights View (Planning Mode)
+      setUIState({ viewMode: 'list' }); 
   };
 
   if (!isOpen) return null;
 
-  // Helper for Smart Dialog
   const totalPlaces = Object.keys(project.data.places || {}).length;
   const missingPlaces = Object.values(project.data.places || {}).filter((p: any) => !p.detailContent || p.detailContent.length < 50).length;
 
@@ -243,7 +258,55 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
         onCancel={() => setShowConfirm(false)}
       />
 
-      {/* NEW: Smart Update Confirmation Dialog */}
+      {/* NEW: PRIORITY WARNING DIALOG */}
+      {showPrioConfirm && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 border-l-8 border-amber-500">
+                <div className="p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="p-3 bg-amber-100 text-amber-600 rounded-full">
+                            <ListTodo size={24} />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-lg text-slate-900">
+                                {lang === 'de' ? 'Keine Prioritäten gesetzt' : 'No Priorities Set'}
+                            </h3>
+                            <p className="text-sm text-slate-500">
+                                {lang === 'de' ? 'Tagesplaner Empfehlung' : 'Day Planner Recommendation'}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <p className="text-slate-600 text-sm mb-6 leading-relaxed">
+                        {lang === 'de' 
+                           ? 'Du hast noch keine Prioritäten (Fix, Prio 1, Prio 2) vergeben. Der Tagesplaner funktioniert am besten, wenn er weiß, was dir wichtig ist.'
+                           : 'You have not set any priorities yet. The Day Planner works best when it knows what is important to you.'
+                        }
+                    </p>
+
+                    <div className="grid grid-cols-1 gap-3">
+                        <button 
+                            onClick={handleGoToPrios}
+                            className="flex items-center justify-center gap-2 p-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
+                        >
+                            <Settings2 size={18} />
+                            {lang === 'de' ? 'Jetzt Prioritäten vergeben' : 'Assign Priorities Now'}
+                        </button>
+                        
+                        <button 
+                            onClick={() => executeStart()}
+                            className="flex items-center justify-center gap-2 p-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-medium hover:bg-slate-50 transition-colors"
+                        >
+                            <Play size={18} />
+                            {lang === 'de' ? 'Ohne Prios planen (Zufall)' : 'Plan without Prios (Random)'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* Smart Update Confirmation Dialog */}
       {showSmartConfirm && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
@@ -300,4 +363,4 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
     </>
   );
 };
-// --- END OF FILE 270 Zeilen ---
+// --- END OF FILE 310 Zeilen ---
