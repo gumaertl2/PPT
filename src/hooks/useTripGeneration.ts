@@ -1,3 +1,4 @@
+// 17.02.2026 11:10 - FIX: Migrated Workflow State to Global Store to prevent data loss on view switch.
 // 09.02.2026 13:30 - FIX: Strict Queue Management & Safety Delay to prevent workflow stalls.
 // 08.02.2026 20:30 - FEAT: Support 'options' in startWorkflow/startSingleTask for Smart Mode.
 // 05.02.2026 16:00 - FIX: Solved Race Condition in Workflow Loop (Timeout wrapper).
@@ -88,34 +89,42 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     setManualMode,
     chunkingState,
     setChunkingState,
-    resetChunking
+    resetChunking,
+    // NEW: Global Workflow State
+    workflow,
+    setWorkflowState,
+    resetWorkflow
   } = useTripStore();
   
   const lang = (project.meta.language === 'en' ? 'en' : 'de') as 'de' | 'en';
   
-  const [status, setStatus] = useState<GenerationStatus>('idle');
-  const [queue, setQueue] = useState<WorkflowStepId[]>([]);
-  const [currentStep, setCurrentStep] = useState<WorkflowStepId | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // MAPPED STATE FROM STORE
+  const { status, queue, currentStep, error } = workflow;
 
-  const initialQueueLength = useRef<number>(0);
+  // Local Ref for Progress Calculation (Reset on Mount if Idle, else keep)
+  const initialQueueLength = useRef<number>(queue.length > 0 ? queue.length + (currentStep ? 1 : 0) : 0);
   const isExecutingRef = useRef<boolean>(false);
   const workflowOptionsRef = useRef<{ mode: 'smart' | 'force' } | undefined>(undefined);
+
+  // Sync initial length if a new workflow starts
+  useEffect(() => {
+      if (status === 'generating' && initialQueueLength.current === 0 && queue.length > 0) {
+          initialQueueLength.current = queue.length;
+      }
+  }, [status, queue.length]);
 
   const progress = initialQueueLength.current > 0 
     ? Math.round(((initialQueueLength.current - queue.length) / initialQueueLength.current) * 100)
     : 0;
 
   const cancelWorkflow = useCallback(() => {
-    setStatus('idle');
-    setQueue([]);
-    setCurrentStep(null);
+    resetWorkflow(); // Global Reset
     setManualMode(null, null);
     resetChunking(); 
     isExecutingRef.current = false;
     workflowOptionsRef.current = undefined; 
     if (aiSettings.debug) logEvent({ task: 'workflow_manager', type: 'system', content: 'Workflow CANCELLED' });
-  }, [aiSettings.debug, logEvent, setManualMode, resetChunking]);
+  }, [aiSettings.debug, logEvent, setManualMode, resetChunking, resetWorkflow]);
 
   const processResult = useCallback((step: WorkflowStepId | TaskKey, data: any) => {
       ResultProcessor.process(step, data);
@@ -129,16 +138,20 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       // GUARD: Prevent parallel execution
       if (isExecutingRef.current) return;
       
-      if (status !== 'generating' || queue.length === 0) {
-        if (status === 'generating' && queue.length === 0) {
-          setStatus('success');
-          setCurrentStep(null);
+      // Access FRESH state from store to avoid closure staleness
+      const currentWorkflow = useTripStore.getState().workflow;
+      const currentQueue = currentWorkflow.queue;
+      const currentStatus = currentWorkflow.status;
+
+      if (currentStatus !== 'generating' || currentQueue.length === 0) {
+        if (currentStatus === 'generating' && currentQueue.length === 0) {
+          setWorkflowState({ status: 'success', currentStep: null });
           addNotification({ type: 'success', message: t('status.success'), autoClose: 1500 });
         }
         return;
       }
 
-      const nextStepId = queue[0];
+      const nextStepId = currentQueue[0];
 
       // --- DEPENDENCY GUARD ---
       if (['chefredakteur', 'tourGuide'].includes(nextStepId)) {
@@ -154,12 +167,12 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
       const stepDef = WORKFLOW_STEPS.find(s => s.id === nextStepId);
       if (stepDef?.requiresUserInteraction && currentStep !== nextStepId) {
-          setStatus('waiting_for_user');
-          setCurrentStep(nextStepId);
+          setWorkflowState({ status: 'waiting_for_user', currentStep: nextStepId });
           isExecutingRef.current = false; // UNLOCK
           return; 
       }
-      setCurrentStep(nextStepId);
+      
+      setWorkflowState({ currentStep: nextStepId });
       const stepLabel = stepDef?.label[lang] || nextStepId;
       
       let progressSuffix = "";
@@ -189,7 +202,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
             const payload = PayloadBuilder.buildPrompt(nextStepId as TaskKey); 
             dismissNotification(loadingId);
             setManualMode(payload, nextStepId);
-            setStatus('waiting_for_user');
+            setWorkflowState({ status: 'waiting_for_user' });
             isExecutingRef.current = false; // UNLOCK
             return;
         }
@@ -217,14 +230,18 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
                   // Since Orchestrator.executeTask awaits all chunks in auto-mode, 
                   // we are definitely done with this task.
                   resetChunking(); 
-                  setQueue(prev => prev.slice(1));
+                  
+                  // Safe Queue Slicing using getState()
+                  const freshQueue = useTripStore.getState().workflow.queue;
+                  setWorkflowState({ queue: freshQueue.slice(1) });
               } else {
                   // MANUAL MODE: Check for chunks logic
                   const liveState = useTripStore.getState().chunkingState;
                   if (liveState.isActive && liveState.currentChunk < liveState.totalChunks) {
                     setChunkingState({ currentChunk: liveState.currentChunk + 1 });
                   } else {
-                    setQueue(prev => prev.slice(1));
+                    const freshQueue = useTripStore.getState().workflow.queue;
+                    setWorkflowState({ queue: freshQueue.slice(1) });
                     resetChunking();
                   }
               }
@@ -236,8 +253,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
         
         const friendlyMsg = getFriendlyErrorMessage(err, lang);
         
-        setError(friendlyMsg); 
-        setStatus('error');
+        setWorkflowState({ error: friendlyMsg, status: 'error' });
 
         addNotification({
           type: 'error',
@@ -246,12 +262,15 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
           actions: [
             { 
               label: t('actions.retry', 'Wiederholen'), 
-              onClick: () => { setStatus('generating'); }, 
+              onClick: () => { setWorkflowState({ status: 'generating' }); }, 
               variant: 'default' 
             },
             { 
               label: t('actions.skip', 'Schritt überspringen'), 
-              onClick: () => { setQueue(prev => prev.slice(1)); setStatus('generating'); }, 
+              onClick: () => { 
+                  const freshQueue = useTripStore.getState().workflow.queue;
+                  setWorkflowState({ queue: freshQueue.slice(1), status: 'generating' }); 
+              }, 
               variant: 'outline' 
             }
           ]
@@ -261,49 +280,62 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       }
     };
     
+    // Trigger loop on status/queue change
     executeNextStep();
     
     return () => { isMounted = false; };
   }, [
-    queue, status, chunkingState.currentChunk, 
+    // Dependencies: Only trigger when Store State actually changes
+    status, 
+    queue.length, // Only length matter for triggering next step
+    currentStep,
+    chunkingState.currentChunk, 
     aiSettings.debug, logEvent, processResult, addNotification, 
-    dismissNotification, cancelWorkflow, t, lang, setManualMode, setChunkingState, resetChunking
+    dismissNotification, cancelWorkflow, t, lang, setManualMode, setChunkingState, resetChunking,
+    setWorkflowState
   ]);
 
   const startWorkflow = useCallback((steps: WorkflowStepId[], options?: { mode: 'smart' | 'force' }) => {
     if (steps.length === 0) return;
     initialQueueLength.current = steps.length;
     workflowOptionsRef.current = options; 
-    setQueue(steps);
-    setStatus('generating');
-    setError(null);
+    setWorkflowState({ 
+        queue: steps, 
+        status: 'generating', 
+        error: null,
+        currentStep: null 
+    });
     isExecutingRef.current = false; 
-  }, []);
+  }, [setWorkflowState]);
 
   const resumeWorkflow = useCallback(() => {
-    if (status === 'waiting_for_user') setStatus('generating');
-  }, [status]);
+    if (status === 'waiting_for_user') setWorkflowState({ status: 'generating' });
+  }, [status, setWorkflowState]);
 
   const submitManualResult = useCallback(async (jsonResult: any) => {
     if (!manualStepId) return;
     let parsedData = jsonResult;
     if (typeof jsonResult === 'string') {
-        try { parsedData = JSON.parse(jsonResult); } catch (e) { setError("JSON Error"); return; }
+        try { parsedData = JSON.parse(jsonResult); } catch (e) { setWorkflowState({ error: "JSON Error" }); return; }
     }
     try {
         processResult(manualStepId as TaskKey, parsedData);
         setManualMode(null, null);
-        if (queue.length > 0) { setQueue(prev => prev.slice(1)); setStatus('generating'); } 
-        else setStatus('success');
-    } catch (e) { setStatus('error'); }
-  }, [manualStepId, processResult, queue.length, setManualMode]);
+        
+        const freshQueue = useTripStore.getState().workflow.queue;
+        if (freshQueue.length > 0) { 
+             setWorkflowState({ queue: freshQueue.slice(1), status: 'generating' }); 
+        } else {
+             setWorkflowState({ status: 'success' });
+        }
+    } catch (e) { setWorkflowState({ status: 'error' }); }
+  }, [manualStepId, processResult, setManualMode, setWorkflowState]);
 
   const startSingleTask = useCallback(async (task: TaskKey, feedback?: string, options?: { mode: 'smart' | 'force' }) => {
       if (isExecutingRef.current) return;
       isExecutingRef.current = true;
 
-      setStatus('generating');
-      setError(null);
+      setWorkflowState({ status: 'generating', error: null, currentStep: task as WorkflowStepId });
 
       const stepDef = WORKFLOW_STEPS.find(s => s.id === task);
       const stepLabel = stepDef?.label[lang] || task;
@@ -333,7 +365,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
               const prompt = PayloadBuilder.buildPrompt(task, feedback);
               dismissNotification(loadingId);
               setManualMode(prompt, task); 
-              setStatus('waiting_for_user'); 
+              setWorkflowState({ status: 'waiting_for_user' }); 
               isExecutingRef.current = false;
               return; 
           }
@@ -342,12 +374,12 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
           dismissNotification(loadingId);
           processResult(task, result);
-          setStatus('success');
+          setWorkflowState({ status: 'success', currentStep: null });
       } catch (err) { 
           dismissNotification(loadingId);
-          setStatus('error'); 
           
           const friendlyMsg = getFriendlyErrorMessage(err, lang);
+          setWorkflowState({ status: 'error', error: friendlyMsg });
 
           addNotification({
             type: 'error',
@@ -357,8 +389,8 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       } finally {
           isExecutingRef.current = false;
       }
-  }, [processResult, setManualMode, addNotification, dismissNotification, lang, t, cancelWorkflow]);
+  }, [processResult, setManualMode, addNotification, dismissNotification, lang, t, cancelWorkflow, setWorkflowState]);
 
   return { status, currentStep, queue, error, progress, manualPrompt, submitManualResult, startWorkflow, resumeWorkflow, cancelWorkflow, startSingleTask };
 };
-// --- END OF FILE 390 Zeilen ---
+// --- END OF FILE 375 Zeilen ---

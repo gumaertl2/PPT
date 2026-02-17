@@ -1,4 +1,5 @@
 // src/store/slices/createSystemSlice.ts
+// 17.02.2026 10:55 - FEAT: Added Global Workflow State (Persistence) to fix View-Switch loss.
 // 14.01.2026 15:45 - FIX: Re-applying Phase 1 (Model Overrides) strictly on verified upload.
 // 16.01.2026 05:50 - FINAL FIX: Consolidated TaskKey import from core/types to resolve TS2459.
 // 16.01.2026 17:30 - FEAT: Added Chunking Infrastructure (chunkLimits & chunkingState) for V30 migration.
@@ -13,10 +14,19 @@ import type {
   FlightRecorderEntry, 
   TaskKey, 
   AiSettings, 
-  ChunkingState 
+  ChunkingState,
+  WorkflowStepId 
 } from '../../core/types';
 // NEW: Import types for model config
 import type { ModelType } from '../../data/config'; 
+
+// NEU: Definition des Workflow States
+export interface WorkflowState {
+    status: 'idle' | 'generating' | 'paused' | 'success' | 'error' | 'waiting_for_user';
+    queue: WorkflowStepId[];
+    currentStep: WorkflowStepId | null;
+    error: string | null;
+}
 
 export interface SystemSlice {
   // API & Security
@@ -42,6 +52,11 @@ export interface SystemSlice {
   chunkingState: ChunkingState;
   setChunkingState: (state: Partial<ChunkingState>) => void;
   resetChunking: () => void;
+
+  // Workflow Persistence (NEU)
+  workflow: WorkflowState;
+  setWorkflowState: (state: Partial<WorkflowState>) => void;
+  resetWorkflow: () => void;
 
   // Stats
   usageStats: {
@@ -82,6 +97,14 @@ const initialChunkingState: ChunkingState = {
     totalChunks: 0,
     dataChunks: [],
     results: []
+};
+
+// NEU: Initial Workflow State
+const initialWorkflowState: WorkflowState = {
+    status: 'idle',
+    queue: [],
+    currentStep: null,
+    error: null
 };
 
 export const createSystemSlice: StateCreator<any, [], [], SystemSlice> = (set, get) => ({
@@ -160,6 +183,15 @@ export const createSystemSlice: StateCreator<any, [], [], SystemSlice> = (set, g
   })),
 
   resetChunking: () => set({ chunkingState: initialChunkingState }),
+
+  // --- WORKFLOW STATE (NEU) ---
+  workflow: initialWorkflowState,
+
+  setWorkflowState: (newState) => set((state: any) => ({
+      workflow: { ...state.workflow, ...newState }
+  })),
+
+  resetWorkflow: () => set({ workflow: initialWorkflowState }),
 
   // --- STATS ---
   usageStats: { 
@@ -271,4 +303,4 @@ export const createSystemSlice: StateCreator<any, [], [], SystemSlice> = (set, g
      get().downloadFlightRecorder();
   }
 });
-// --- END OF FILE 254 Zeilen ---
+// --- END OF FILE 295 Zeilen ---

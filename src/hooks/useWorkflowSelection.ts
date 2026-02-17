@@ -1,9 +1,10 @@
+// 17.02.2026 10:45 - FIX: Added Initialization Guard to prevent selection reset on project updates.
 // 08.02.2026 19:00 - FIX: RESTORED ORIGINAL LOGIC & ADDED SMART MODE HANDLER.
 // 05.02.2026 18:15 - FIX: INFINITE SELECTION LOOP.
 // 06.02.2026 17:15 - FIX: DEFAULT SELECTION OPT-OUT FOR DAY PLANNER.
 // src/hooks/useWorkflowSelection.ts
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTripStore } from '../store/useTripStore';
 import { WORKFLOW_STEPS } from '../core/Workflow/steps';
 import { TripOrchestrator } from '../services/orchestrator'; // NEW IMPORT
@@ -15,6 +16,9 @@ type StepStatus = 'locked' | 'available' | 'done';
 export const useWorkflowSelection = (isOpen: boolean) => {
     const { project, setUIState } = useTripStore(); // Added setUIState
     const [selectedSteps, setSelectedSteps] = useState<WorkflowStepId[]>([]);
+    
+    // NEW: Guard against re-initialization on background updates
+    const hasInitializedRef = useRef(false);
 
     // 1. GLOBAL CONTEXT
     const isStationary = project.userInputs.logistics.mode === 'stationaer';
@@ -100,9 +104,9 @@ export const useWorkflowSelection = (isOpen: boolean) => {
         }
     }, [project, isStationary, isSelected]);
 
-    // 4. SMART AUTO-SELECTION
+    // 4. SMART AUTO-SELECTION (With Guard)
     useEffect(() => {
-        if (isOpen) {
+        if (isOpen && !hasInitializedRef.current) {
             const defaults: WorkflowStepId[] = [];
             const places = project.data.places || {};
             const hasPlaces = Object.keys(places).length > 0;
@@ -132,8 +136,14 @@ export const useWorkflowSelection = (isOpen: boolean) => {
             });
 
             setSelectedSteps(validDefaults);
+            hasInitializedRef.current = true; // LOCK
         }
-    }, [isOpen, project, isStationary]); 
+        
+        // Reset lock when closed
+        if (!isOpen) {
+            hasInitializedRef.current = false;
+        }
+    }, [isOpen, project, isStationary, getStepStatus]); 
 
     // 5. ACTIONS
     const toggleStep = (id: WorkflowStepId) => {
@@ -168,4 +178,4 @@ export const useWorkflowSelection = (isOpen: boolean) => {
         handleWorkflowSelect // Export new handler
     };
 };
-// --- END OF FILE 160 Zeilen ---
+// --- END OF FILE 168 Zeilen ---
