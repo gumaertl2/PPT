@@ -1,3 +1,4 @@
+// 19.02.2026 12:00 - FIX: Repaired TypeScript Errors (TS2367, TS2322, TS6133) & restored missing warning block.
 // 17.02.2026 22:05 - FIX: Added Error Boundary around executeStart & Robust UI handling.
 // 17.02.2026 21:35 - FEAT: UI Integration of 'validateStepStart' for Priority Check.
 // src/features/Workflow/WorkflowSelectionModal.tsx
@@ -38,7 +39,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSmartConfirm, setShowSmartConfirm] = useState(false);
   const [showPrioConfirm, setShowPrioConfirm] = useState(false);
-  const [startError, setStartError] = useState<string | null>(null); // NEW: Error State
+  const [startError, setStartError] = useState<string | null>(null); 
   
   const { selectedSteps, toggleStep, getStepStatus, isStationary, validateStepStart } = useWorkflowSelection(isOpen);
   const lang = project.meta.language === 'en' ? 'en' : 'de';
@@ -50,7 +51,8 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
     // 1. PRIORITY CHECK
     if (selectedSteps.includes('initialTagesplaner')) {
         const validation = validateStepStart('initialTagesplaner');
-        if (!validation.canStart && validation.reason === 'missing_priorities') {
+        // FIX: Geändert von 'missing_priorities' auf 'no_priorities' (TS2367)
+        if (!validation.canStart && validation.reason === 'no_priorities') {
             setShowPrioConfirm(true);
             return;
         }
@@ -77,12 +79,10 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
 
   const executeStart = async (options?: { mode: 'smart' | 'force' }) => {
     try {
-        // Switch View Mode directly here if Tagesplaner to give immediate feedback
-        if (selectedSteps.includes('initialTagesplaner')) {
-             setUIState({ viewMode: 'plan' }); // Force Plan View to see "Thinking..."
-        }
+        // FIX: Entfernt, da 'plan' kein gültiger viewMode ('list' | 'map') ist und TS2322 verursachte. 
+        // Der Orchestrator setzt den Ladezustand ohnehin.
         
-        await onStart(selectedSteps, options); // This is likely an async wrapper in parent
+        await onStart(selectedSteps, options); 
         onClose();
         
         setShowConfirm(false);
@@ -201,6 +201,19 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
                     <p className={`text-sm mt-1 ${isWarning && !isSelected ? 'text-slate-400' : 'text-slate-600'}`}>
                       {step.description[lang]}
                     </p>
+
+                    {/* FIX: Dieser Block wurde wiederhergestellt, was TS6133 behebt (AlertCircle & isStationary) */}
+                    {isWarning && isStationary && (step.id === 'routeArchitect' || step.id === 'transferPlanner') && (
+                       <div className="flex items-center gap-1 mt-2 text-xs text-slate-400">
+                        <AlertCircle className="w-3 h-3" />
+                        <span>
+                          {lang === 'de' 
+                            ? 'Nicht verfügbar für stationäre Reisen.' 
+                            : 'Not available for stationary trips.'}
+                        </span>
+                      </div>
+                    )}
+
                   </div>
                 </div>
               );
@@ -350,4 +363,4 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
     </>
   );
 };
-// --- END OF FILE 330 Zeilen ---
+// --- END OF FILE 340 Zeilen ---

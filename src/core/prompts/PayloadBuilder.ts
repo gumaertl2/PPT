@@ -77,23 +77,6 @@ export const PayloadBuilder = {
         return validItems.slice(startIndex, endIndex);
     };
 
-    const getVisitedSightIds = (): string[] => {
-        if (!chunkingState?.results || chunkingState.results.length === 0) return [];
-        const ids = new Set<string>();
-        chunkingState.results.forEach((resultBlock: any) => {
-            if (resultBlock && resultBlock.tage && Array.isArray(resultBlock.tage)) {
-                resultBlock.tage.forEach((tag: any) => {
-                    if (tag.aktivitaeten && Array.isArray(tag.aktivitaeten)) {
-                        tag.aktivitaeten.forEach((akt: any) => {
-                            if (akt.original_sight_id) ids.add(akt.original_sight_id);
-                        });
-                    }
-                });
-            }
-        });
-        return Array.from(ids);
-    };
-
     const getLastChunkEndLocation = (): string | undefined => {
         if (!chunkingState?.isActive || chunkingState.currentChunk <= 1 || !chunkingState.results) return undefined;
         const prevIndex = chunkingState.currentChunk - 2;
@@ -378,4 +361,4 @@ export const PayloadBuilder = {
     };
   }
 };
-// --- END OF FILE 373 Zeilen ---
+// --- END OF FILE 355 Zeilen ---

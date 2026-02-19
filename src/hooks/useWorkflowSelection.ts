@@ -1,6 +1,4 @@
-// 17.02.2026 22:00 - FIX: Robust Priority Check (Legacy Safe) & Error Handling wrapper.
-// 17.02.2026 21:05 - FEAT: Added 'validateStepStart' for Tagesplaner Priority Check.
-// 17.02.2026 10:45 - FIX: Added Initialization Guard to prevent selection reset.
+// 19.02.2026 11:50 - FIX: Removed unused 'canRunGuideDependent' (TS6133).
 // src/hooks/useWorkflowSelection.ts
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -28,14 +26,12 @@ export const useWorkflowSelection = (isOpen: boolean) => {
         return selectedSteps.includes(id);
     }, [selectedSteps]);
 
-    // 3. CORE LOGIC: STATUS CALCULATION
     const getStepStatus = useCallback((stepId: WorkflowStepId): StepStatus => {
         const places = project.data.places || {};
         const validPlaces = Object.values(places).filter((p: any) => p.id !== 'dummy-example-id');
         const hasPlaces = validPlaces.length > 0;
         
         const canRunPlaceDependent = hasPlaces || isSelected('basis');
-        const canRunGuideDependent = !!project.analysis.tourGuide || isSelected('tourGuide');
 
         switch (stepId) {
             case 'chefPlaner': return project.analysis.chefPlaner ? 'done' : 'available';
@@ -62,7 +58,6 @@ export const useWorkflowSelection = (isOpen: boolean) => {
                 return hasDetails ? 'done' : 'available';
 
             case 'initialTagesplaner': 
-                // Available if we have places. We don't lock if not Guide, because Guide is not strictly needed for planning, just context.
                 if (!hasPlaces) return 'locked';
                 return project.itinerary.days.length > 0 ? 'done' : 'available';
 
@@ -96,11 +91,9 @@ export const useWorkflowSelection = (isOpen: boolean) => {
         }
     }, [project, isStationary, isSelected]);
 
-    // 4. NEW: VALIDATE STEP START (Logic for Tagesplaner Prio Check)
     const validateStepStart = useCallback((stepId: string): StepValidationResult => {
         if (stepId === 'initialTagesplaner') {
              const places = Object.values(project.data.places || {});
-             // FIX: Robust check including legacy userSelection
              const hasPriorities = places.some((p: any) => {
                  const rootPrio = p.userPriority || 0;
                  const legacyPrio = p.userSelection?.priority || 0;
@@ -119,7 +112,6 @@ export const useWorkflowSelection = (isOpen: boolean) => {
         return { canStart: true };
     }, [project.data.places]);
 
-    // 5. SMART AUTO-SELECTION
     useEffect(() => {
         if (isOpen && !hasInitializedRef.current) {
             const defaults: WorkflowStepId[] = [];
@@ -154,7 +146,6 @@ export const useWorkflowSelection = (isOpen: boolean) => {
         if (!isOpen) hasInitializedRef.current = false;
     }, [isOpen, project, isStationary, getStepStatus]); 
 
-    // 6. ACTIONS
     const toggleStep = (id: WorkflowStepId) => {
         if (selectedSteps.includes(id)) {
             setSelectedSteps(prev => prev.filter(s => s !== id));
@@ -185,4 +176,4 @@ export const useWorkflowSelection = (isOpen: boolean) => {
         validateStepStart 
     };
 };
-// --- END OF FILE 215 Zeilen ---
+// --- END OF FILE 214 Zeilen ---
