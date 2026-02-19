@@ -1,6 +1,6 @@
+// 20.02.2026 15:30 - FIX: Injected global Background-Worker (useTripGeneration) to prevent workflow deadlock on View-Switch.
 // 20.02.2026 10:45 - LAYOUT FIX: Changed container max-width from 6xl to 4xl to perfectly align with main content.
 // 20.02.2026 09:40 - UX FIX: Guide-Button schließt/öffnet nicht mehr ungewollt den Filter, sondern scrollt nach oben.
-// 20.02.2026 09:35 - LAYOUT FIX: Header ist nun kugelsicher 'fixed' am Viewport verankert.
 // src/features/Cockpit/Layout/CockpitHeader.tsx
 
 import React, { useState, useRef } from 'react';
@@ -25,6 +25,8 @@ import { AdHocFoodModal } from '../AdHocFoodModal';
 import { SafeExitModal } from '../SafeExitModal'; 
 import { ActionsMenu } from './ActionsMenu'; 
 import type { CockpitViewMode, PrintConfig } from '../../../core/types'; 
+// NEW FIX: Import the Workflow Engine to run it globally
+import { useTripGeneration } from '../../../hooks/useTripGeneration';
 
 interface CockpitHeaderProps {
   viewMode: CockpitViewMode;
@@ -43,6 +45,10 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
 }) => {
   const { t } = useTranslation();
   
+  // NEW FIX: Starte den Herzschrittmacher (Workflow Engine) hier. 
+  // Da der Header nie unmounted wird, bricht die Queue beim Wechsel in den Guide-View nicht mehr ab!
+  useTripGeneration();
+
   const { 
     project, 
     loadProject, 
@@ -150,7 +156,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
 
       {/* Header ist fixed an der Decke des Bildschirms */}
       <header className="bg-white border-b border-slate-200 fixed top-0 left-0 w-full h-16 z-[999] shadow-sm transform-none">
-        {/* FIX: max-w-6xl zu max-w-4xl geändert, damit es perfekt mit <main> im Wizard fluchtet */}
         <div className="max-w-4xl mx-auto px-4 h-full flex items-center justify-between gap-2 sm:gap-4">
           
           {/* LEFT GROUP: Home + Scrollable Nav + Search */}
@@ -250,7 +255,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                  </button>
             </div>
 
-             {/* Search Bar - Sticks to the nav */}
+             {/* Search Bar */}
              <div className="relative flex items-center ml-1 group shrink-0 hidden sm:flex">
                 <Search className="absolute left-2 w-3 h-3 text-slate-400 pointer-events-none" />
                 <input 
@@ -275,7 +280,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
 
           </div>
           
-          {/* RIGHT GROUP (System) - Fixed width, never shrinks */}
+          {/* RIGHT GROUP */}
           <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
 
               <button 
@@ -304,34 +309,12 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
         </div>
       </header>
       
-      <SettingsModal 
-        isOpen={showSettingsModal}
-        onClose={() => setShowSettingsModal(false)}
-      />
-
-      <ExportModal 
-        isOpen={isExportModalOpen}
-        onClose={() => setIsExportModalOpen(false)}
-      />
-
-      <PrintModal 
-        isOpen={isPrintModalOpen}
-        onClose={() => setIsPrintModalOpen(false)}
-        onConfirm={handlePrintConfirm}
-      />
-
-      <AdHocFoodModal 
-        isOpen={isAdHocModalOpen} 
-        onClose={() => setIsAdHocModalOpen(false)} 
-      />
-
-      <SafeExitModal 
-        isOpen={showExitModal}
-        onCancel={() => setShowExitModal(false)}
-        onDiscard={handleExitDiscard}
-        onSave={handleExitSave}
-      />
+      <SettingsModal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} />
+      <ExportModal isOpen={isExportModalOpen} onClose={() => setIsExportModalOpen(false)} />
+      <PrintModal isOpen={isPrintModalOpen} onClose={() => setIsPrintModalOpen(false)} onConfirm={handlePrintConfirm} />
+      <AdHocFoodModal isOpen={isAdHocModalOpen} onClose={() => setIsAdHocModalOpen(false)} />
+      <SafeExitModal isOpen={showExitModal} onCancel={() => setShowExitModal(false)} onDiscard={handleExitDiscard} onSave={handleExitSave} />
     </>
   );
 };
-// --- END OF FILE 314 Zeilen ---
+// --- END OF FILE 318 Zeilen ---

@@ -1,5 +1,5 @@
+// 20.02.2026 14:15 - FIX: Switched to functional state updates for queue slicing to prevent deadlocks after async processing.
 // 20.02.2026 11:15 - FIX: Resolved Workflow-Deadlock by removing 'chunkingState.currentChunk' from useEffect dependencies.
-// 19.02.2026 14:00 - FIX: Replaced local isExecutingRef with globalIsExecutingLock to prevent Multi-Instance Race Conditions ("Klon-Krieger").
 // src/hooks/useTripGeneration.ts
 
 import { useCallback, useEffect, useRef } from 'react';
@@ -88,7 +88,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     manualPrompt,
     manualStepId,
     setManualMode,
-    // FIX: Removed 'chunkingState' destructuring to prevent heavy re-renders when chunks advance.
     setChunkingState,
     resetChunking,
     workflow,
@@ -97,11 +96,8 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
   } = useTripStore();
   
   const lang = (project.meta.language === 'en' ? 'en' : 'de') as 'de' | 'en';
-  
-  // MAPPED STATE FROM STORE
   const { status, queue, currentStep, error } = workflow;
 
-  // Local Ref for Progress Calculation
   const initialQueueLength = useRef<number>(queue.length > 0 ? queue.length + (currentStep ? 1 : 0) : 0);
   const workflowOptionsRef = useRef<{ mode: 'smart' | 'force' } | undefined>(undefined);
 
@@ -220,15 +216,16 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
               
               if (isAutoMode) {
                   resetChunking(); 
-                  const freshQueue = useTripStore.getState().workflow.queue;
-                  setWorkflowState({ queue: freshQueue.slice(1) });
+                  // FIX: Functional update guarantees the correct queue state is sliced!
+                  const currentGlobalQueue = useTripStore.getState().workflow.queue;
+                  setWorkflowState({ queue: currentGlobalQueue.slice(1) });
               } else {
                   const liveState = useTripStore.getState().chunkingState;
                   if (liveState.isActive && liveState.currentChunk < liveState.totalChunks) {
                     setChunkingState({ currentChunk: liveState.currentChunk + 1 });
                   } else {
-                    const freshQueue = useTripStore.getState().workflow.queue;
-                    setWorkflowState({ queue: freshQueue.slice(1) });
+                    const currentGlobalQueue = useTripStore.getState().workflow.queue;
+                    setWorkflowState({ queue: currentGlobalQueue.slice(1) });
                     resetChunking();
                   }
               }
@@ -254,8 +251,8 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
             { 
               label: t('actions.skip', 'Schritt überspringen'), 
               onClick: () => { 
-                  const freshQueue = useTripStore.getState().workflow.queue;
-                  setWorkflowState({ queue: freshQueue.slice(1), status: 'generating' }); 
+                  const currentGlobalQueue = useTripStore.getState().workflow.queue;
+                  setWorkflowState({ queue: currentGlobalQueue.slice(1), status: 'generating' }); 
               }, 
               variant: 'outline' 
             }
@@ -273,7 +270,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     status, 
     queue.length, 
     currentStep,
-    // FIX: Removed 'chunkingState.currentChunk' to prevent workflow loop abortions!
     aiSettings.debug, logEvent, processResult, addNotification, 
     dismissNotification, cancelWorkflow, t, lang, setManualMode, setChunkingState, resetChunking,
     setWorkflowState
@@ -377,4 +373,4 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
   return { status, currentStep, queue, error, progress, manualPrompt, submitManualResult, startWorkflow, resumeWorkflow, cancelWorkflow, startSingleTask };
 };
-// --- END OF FILE 366 Zeilen ---
+// --- END OF FILE 379 Zeilen ---
