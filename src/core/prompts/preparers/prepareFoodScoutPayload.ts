@@ -1,8 +1,6 @@
-// src/core/prompts/preparers/prepareFoodScoutPayload.ts
+// 20.02.2026 15:55 - FEAT: Expanded Restaurant Search to cover ALL visited cities (districts) and stops, not just the main hub.
 // 16.02.2026 17:20 - UPDATE: SIMPLE PASS-THROUGH & DYNAMIC GUIDES.
-// - Logic: Removes complex loop logic.
-// - Logic: Passes the main region directly to the Scout.
-// - Logic: Loads guide config dynamically from countries.ts.
+// src/core/prompts/preparers/prepareFoodScoutPayload.ts
 
 import { getGuidesForCountry } from '../../../data/countries';
 import type { TripProject, FoodSearchMode } from '../../types';
@@ -24,14 +22,47 @@ export const prepareFoodScoutPayload = (
         project = projectOrPayload as TripProject;
     }
 
-    const { userInputs } = project;
+    const { userInputs, data, analysis } = project;
     
-    // --- 1. DETECT LOCATION ---
-    // If GeoExpander was active (legacy), candidates has 1 item now.
-    const candidates = options?.candidates || [];
-    const mainRegion = candidates.length > 0 ? candidates[0] : (userInputs?.logistics?.stationary?.destination || "Region");
+    // --- 1. DETECT LOCATIONS (ALL HUBS & CITIES) ---
+    let hubs: string[] = [];
 
-    let targetLocation = mainRegion;
+    // A) Base logistics locations (Hauptorte)
+    if (userInputs?.logistics?.mode === 'stationaer') {
+        if (userInputs.logistics.stationary?.destination) {
+            hubs.push(userInputs.logistics.stationary.destination);
+        }
+    } else {
+        if (analysis?.routeArchitect?.routes?.[0]?.stages) {
+            hubs = analysis.routeArchitect.routes[0].stages.map((s: any) => s.location_name);
+        } else if (userInputs?.logistics?.roundtrip?.stops) {
+            hubs = userInputs.logistics.roundtrip.stops.map((s: any) => s.location);
+        }
+    }
+
+    // B) NEW: Add all discovered cities/districts from the generated places list
+    const places = Object.values(data?.places || {});
+    places.forEach((p: any) => {
+        if (p.category === 'districts' || p.category === 'city_info') {
+            // Bereinige den Namen (entferne Klammern wie "(Altstadt)")
+            const cityName = p.name ? p.name.split('(')[0].trim() : '';
+            if (cityName) hubs.push(cityName);
+        }
+    });
+
+    // C) Bereinigung (Duplikate entfernen)
+    hubs = Array.from(new Set(hubs)).filter(h => h && h.length > 2);
+
+    // Fallback, falls die Liste aus irgendeinem Grund leer ist
+    let targetLocation = hubs.length > 0 ? hubs.join(', ') : "Region";
+
+    // Legacy candidates override
+    const candidates = options?.candidates || [];
+    if (candidates.length > 0) {
+        targetLocation = candidates.join(', ');
+    }
+
+    // Feedback override (falls der User sagt: "Suche nur in München")
     if (feedback && feedback.includes('LOC:')) {
         const match = feedback.match(/LOC:([^|]+)/);
         if (match) targetLocation = match[1].trim();
@@ -58,7 +89,8 @@ export const prepareFoodScoutPayload = (
     // --- 4. RETURN PAYLOAD ---
     return {
         context: {
-            location_name: `${targetLocation}, ${country}`, 
+            // Die KI bekommt nun z.B.: "Wolkenstein, Bozen, Brixen, Trient (Italien)"
+            location_name: `${targetLocation} (${country})`, 
             target_town: targetLocation,
             country: country, 
             guides: selectedGuides 
@@ -70,4 +102,4 @@ export const prepareFoodScoutPayload = (
         ...options 
     };
 };
-// --- END OF FILE 68 Lines ---
+// --- END OF FILE 98 Zeilen ---
