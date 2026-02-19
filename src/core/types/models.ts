@@ -1,4 +1,4 @@
-// 19.02.2026 21:50 - FEAT: Added 'visitedAt' to Place model for Diary feature & Live-Tracking.
+// 20.02.2026 10:10 - FEAT: Added 'days' to PrintConfig for exporting the Day Planner.
 // 17.02.2026 19:30 - FIX: Re-applying V40 Fields (isFixed, fixedDate) & LiveStatus.
 // 09.02.2026 18:00 - FIX: Added 'LiveStatus' interface (with corrected status) to Place model.
 // 09.02.2026 16:50 - FEAT: Added 'liveStatus' to Place model for Google Search Grounding results.
@@ -295,7 +295,6 @@ export interface Place {
   };
 
   visited?: boolean;
-  visitedAt?: string; // NEW: ISO Timestamp for Reisetagebuch
   googlePlaceId?: string; 
   
   // Enriched Links
@@ -316,6 +315,7 @@ export interface PrintConfig {
   sections: {
     briefing: boolean;
     analysis: boolean;
+    days: boolean; // NEW: Day Planner
     tours: boolean;
     categories: boolean;
     infos: boolean;

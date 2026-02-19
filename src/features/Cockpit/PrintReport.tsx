@@ -1,6 +1,6 @@
+// 20.02.2026 10:25 - FIX: Restored missing comments (Strict Code Integrity) and applied exact I18N keys.
+// 20.02.2026 10:10 - FEAT: Added rendering block for 'days' (Day Planner) section.
 // 09.02.2026 12:55 - FIX: Added 'overrideDetailLevel' to support Print Settings (Strict User Base).
-// 06.02.2026 18:40 - FIX: Added Safety Check for 'config' to prevent Runtime Crash.
-// 06.02.2026 18:05 - FIX: Reverted BriefingView import to Named Import.
 // src/features/Cockpit/PrintReport.tsx
 
 import React from 'react';
@@ -54,10 +54,10 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
 
       {/* 2. SECTIONS BASED ON CONFIG */}
 
-      {/* A) BRIEFING & STRATEGIE (Schritt 6 Start) */}
+      {/* A) BRIEFING & STRATEGIE */}
       {config.sections.briefing && (
         <section className="print-section mb-8">
-           <SectionHeader title={t('print.section_briefing', { defaultValue: 'Briefing & Strategie' })} />
+           <SectionHeader title={t('print.sections.briefing', { defaultValue: 'Briefing & Strategie' })} />
            <BriefingView />
         </section>
       )}
@@ -67,7 +67,7 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
         <>
           {(config.sections.briefing) && <PageBreak />}
           <section className="print-section">
-             <SectionHeader title={t('print.section_analysis', { defaultValue: 'Fundament & Analyse' })} />
+             <SectionHeader title={t('print.sections.analysis', { defaultValue: 'Fundament & Analyse' })} />
              <AnalysisReviewView />
              
              {/* Rundreise-Route (falls vorhanden) */}
@@ -81,12 +81,27 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
         </>
       )}
 
-      {/* C) REISEFÜHRER: TOUREN (Tagesplanung) */}
-      {config.sections.tours && (
+      {/* C) REISEFÜHRER: TAGESPLAN */}
+      {config.sections.days && (
         <>
            {(config.sections.briefing || config.sections.analysis) && <PageBreak />}
            <section className="print-section">
-              <SectionHeader title={t('print.section_tours', { defaultValue: 'Reiseführer: Touren & Ablauf' })} />
+              <SectionHeader title={t('print.sections.days', { defaultValue: 'Reiseführer: Tage (Chronologisch)' })} />
+              {/* Force SightsView into Day Sort Mode & Apply Detail Level */}
+              <SightsView 
+                  overrideSortMode="day" 
+                  overrideDetailLevel={config.detailLevel} 
+              />
+           </section>
+        </>
+      )}
+
+      {/* D) REISEFÜHRER: TOUREN */}
+      {config.sections.tours && (
+        <>
+           {(config.sections.briefing || config.sections.analysis || config.sections.days) && <PageBreak />}
+           <section className="print-section">
+              <SectionHeader title={t('print.sections.tours', { defaultValue: 'Reiseführer (Touren)' })} />
               {/* Force SightsView into Tour Sort Mode & Apply Detail Level */}
               <SightsView 
                   overrideSortMode="tour" 
@@ -96,12 +111,12 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
         </>
       )}
 
-      {/* D) REISEFÜHRER: KATEGORIEN (Alle Orte) */}
+      {/* E) REISEFÜHRER: KATEGORIEN (Alle Orte) */}
       {config.sections.categories && (
         <>
-           {(config.sections.briefing || config.sections.analysis || config.sections.tours) && <PageBreak />}
+           {(config.sections.briefing || config.sections.analysis || config.sections.days || config.sections.tours) && <PageBreak />}
            <section className="print-section">
-              <SectionHeader title={t('print.section_categories', { defaultValue: 'Reiseführer: Kategorien' })} />
+              <SectionHeader title={t('print.sections.categories', { defaultValue: 'Reiseführer (Kategorien)' })} />
               {/* Force SightsView into Category Sort Mode & Apply Detail Level */}
               <SightsView 
                   overrideSortMode="category" 
@@ -111,12 +126,12 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
         </>
       )}
 
-      {/* E) REISE-INFOS (A-Z, Anhang) */}
+      {/* F) REISE-INFOS (A-Z, Anhang) */}
       {config.sections.infos && (
         <>
-           {(config.sections.briefing || config.sections.analysis || config.sections.tours || config.sections.categories) && <PageBreak />}
+           {(config.sections.briefing || config.sections.analysis || config.sections.days || config.sections.tours || config.sections.categories) && <PageBreak />}
            <section className="print-section">
-              <SectionHeader title={t('print.section_infos', { defaultValue: 'Reise-Informationen (A-Z)' })} />
+              <SectionHeader title={t('print.sections.infos', { defaultValue: 'Reise-Infos A-Z' })} />
               <InfoView />
            </section>
         </>
@@ -130,4 +145,4 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
     </div>
   );
 };
-// --- END OF FILE 130 Zeilen ---
+// --- END OF FILE 149 Zeilen ---

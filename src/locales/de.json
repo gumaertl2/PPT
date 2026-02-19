@@ -428,9 +428,11 @@
     "sections_label": "Sektionen wählen",
     "footer_tip": "Tipp: Speichere den Ausdruck als PDF, um ihn digital mitzunehmen.",
     "btn_start": "Druck starten",
+    "section_days": "Reiseführer: Tage (Chronologisch)",
     "sections": {
       "briefing": "Briefing & Strategie",
       "analysis": "Fundament & Analyse",
+      "days": "Reiseführer (Tage)",
       "tours": "Reiseführer (Touren)",
       "categories": "Reiseführer (Kategorien)",
       "infos": "Reise-Infos A-Z"

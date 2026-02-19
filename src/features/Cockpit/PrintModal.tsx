@@ -1,5 +1,5 @@
-// 06.02.2026 22:15 - FIX: Pass required 'layout' and 'showImages' to onConfirm (TS2345).
-// 23.01.2026 17:35 - i18n: Replaced hardcoded strings using useTranslation (137 lines base).
+// 20.02.2026 10:20 - FIX: Enforced strict I18N keys for 'days' section (Reiseführer: Tage).
+// 20.02.2026 10:10 - FEAT: Added 'Tagesplan (Tage)' section to Print Modal.
 // src/features/Cockpit/PrintModal.tsx
 
 import React, { useState } from 'react';
@@ -12,7 +12,8 @@ import {
   Map, 
   Info, 
   Settings2,
-  CheckCircle2
+  CheckCircle2,
+  CalendarDays 
 } from 'lucide-react';
 import type { PrintConfig, DetailLevel } from '../../core/types';
 
@@ -28,6 +29,7 @@ const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onConfirm }) =
   const [sections, setSections] = useState({
     briefing: true,
     analysis: true,
+    days: true,
     tours: true,
     categories: true,
     infos: true
@@ -90,11 +92,12 @@ const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onConfirm }) =
             </label>
             <div className="grid grid-cols-1 gap-2">
               {[
-                { id: 'briefing', label: t('print.sections.briefing'), icon: <FileText size={16} /> },
-                { id: 'analysis', label: t('print.sections.analysis'), icon: <CheckCircle2 size={16} /> },
-                { id: 'tours', label: t('print.sections.tours'), icon: <Map size={16} /> },
-                { id: 'categories', label: t('print.sections.categories'), icon: <Layout size={16} /> },
-                { id: 'infos', label: t('print.sections.infos'), icon: <Info size={16} /> },
+                { id: 'briefing', label: t('print.sections.briefing', {defaultValue: 'Briefing & Strategie'}), icon: <FileText size={16} /> },
+                { id: 'analysis', label: t('print.sections.analysis', {defaultValue: 'Fundament & Analyse'}), icon: <CheckCircle2 size={16} /> },
+                { id: 'days', label: t('print.sections.days', {defaultValue: 'Reiseführer (Tage)'}), icon: <CalendarDays size={16} /> },
+                { id: 'tours', label: t('print.sections.tours', {defaultValue: 'Reiseführer (Touren)'}), icon: <Map size={16} /> },
+                { id: 'categories', label: t('print.sections.categories', {defaultValue: 'Reiseführer (Kategorien)'}), icon: <Layout size={16} /> },
+                { id: 'infos', label: t('print.sections.infos', {defaultValue: 'Reise-Infos A-Z'}), icon: <Info size={16} /> },
               ].map((section) => (
                 <button
                   key={section.id}
@@ -129,13 +132,12 @@ const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onConfirm }) =
           <p className="text-[10px] text-slate-400 font-medium max-w-[200px]">
             {t('print.footer_tip')}
           </p>
-          {/* FIX: Ensure config object matches PrintConfig interface by providing missing fields */}
           <button 
             onClick={() => onConfirm({ 
               detailLevel, 
               sections,
-              layout: 'standard', // Added missing property
-              showImages: true    // Added missing property
+              layout: 'standard', 
+              showImages: true    
             })}
             className="px-8 py-3 bg-slate-900 text-white font-bold rounded-2xl hover:bg-blue-600 transition-all active:scale-95 shadow-xl shadow-slate-200 flex items-center gap-2"
           >
@@ -148,5 +150,4 @@ const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onConfirm }) =
 };
 
 export default PrintModal;
-
-// --- END OF FILE 145 Zeilen ---
+// --- END OF FILE 149 Zeilen ---

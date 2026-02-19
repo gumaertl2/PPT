@@ -428,9 +428,11 @@
     "sections_label": "Select Sections",
     "footer_tip": "Tip: Save print as PDF to take it digitally.",
     "btn_start": "Start Print",
+    "section_days": "Guide: Days (Chronological)",
     "sections": {
       "briefing": "Briefing & Strategy",
       "analysis": "Foundation & Analysis",
+      "days": "Guide (Days)",
       "tours": "Guide (Tours)",
       "categories": "Guide (Categories)",
       "infos": "Travel Infos A-Z"
