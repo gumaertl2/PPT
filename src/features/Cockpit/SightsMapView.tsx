@@ -1,6 +1,6 @@
+// 20.02.2026 09:55 - FIX: Resolved TS build errors (unused isFullscreen in MapLegend & type cast for 'day' sortMode).
 // 20.02.2026 01:25 - FIX: Switched Fullscreen to "Theater Mode" (Full width, but keeps Menu Bar visible).
 // 20.02.2026 01:15 - FEAT: Added dynamic viewport height for better Map UX.
-// 20.02.2026 00:15 - FIX: Smart Navigation added to "Im Reiseführer zeigen".
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -173,7 +173,8 @@ const MapResizer: React.FC<{ isFullscreen: boolean }> = ({ isFullscreen }) => {
     return null;
 };
 
-const MapLegend: React.FC<{ places: Place[], isFullscreen: boolean }> = ({ places, isFullscreen }) => {
+// FIX: Removed unused `isFullscreen` prop to fix TS6133
+const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
   const categories = useMemo(() => {
     const cats = new Set<string>();
     places.forEach(p => {
@@ -324,10 +325,6 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
 
   const validPlaces = places.filter(p => p.location && p.location.lat && p.location.lng);
 
-  // FIX: THEATER MODE CLASSES
-  // - fixed left-0 right-0 bottom-0: Füllt die gesamte Bildschirmbreite
-  // - top-[70px] md:top-[80px]: Hält Abstand nach oben, sodass die Papatours Menüleiste sichtbar bleibt
-  // - z-[40]: Legt sich über den Inhalt, aber bleibt UNTER dem Menü (das meist z-50 hat)
   const containerClasses = isFullscreen
     ? "fixed left-0 right-0 bottom-0 top-[70px] md:top-[80px] z-[40] bg-slate-100 shadow-2xl transition-all"
     : "h-[calc(100vh-180px)] min-h-[600px] w-full rounded-[2rem] overflow-hidden shadow-inner border border-slate-200 z-0 relative bg-slate-100 transition-all";
@@ -410,10 +407,12 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
                     onClick={() => {
                         let targetSortMode = uiState.sortMode || 'category';
                         let targetFilter = uiState.categoryFilter || [];
-                        if (targetSortMode === 'day') {
+                        
+                        // FIX: Type cast to string to prevent TS2367
+                        if ((targetSortMode as string) === 'day') {
                             const isVisibleInCurrentView = dayNumber && (targetFilter.length === 0 || targetFilter.some(f => f.includes(String(dayNumber))));
                             if (!isVisibleInCurrentView) {
-                                targetSortMode = 'category';
+                                targetSortMode = 'category' as any;
                                 targetFilter = [];
                             }
                         }
@@ -438,9 +437,9 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
           );
         })}
 
-        <MapLegend places={validPlaces} isFullscreen={isFullscreen} />
+        <MapLegend places={validPlaces} />
       </MapContainer>
     </div>
   );
 };
-// --- END OF FILE 477 Zeilen ---
+// --- END OF FILE 478 Zeilen ---
