@@ -1,7 +1,9 @@
-// 19.02.2026 11:50 - FIX: Changed 'geo' to 'location' & 'estimatedDuration' to 'duration' (TS2339).
+// 19.02.2026 18:00 - FEAT: Injected deep PACE_OPTIONS instructions into constraints.
+// 19.02.2026 11:50 - FIX: Changed 'geo' to 'location' & 'estimatedDuration' to 'duration'.
 // src/core/prompts/preparers/prepareTagesplanerPayload.ts
 
 import type { TripProject, Place } from '../../types/models';
+import { PACE_OPTIONS } from '../../../data/options';
 
 export interface TagesplanerPayload {
   travel_dates: {
@@ -43,7 +45,7 @@ export const prepareTagesplanerPayload = (project: TripProject): TagesplanerPayl
   }
 
   const hotelBase = {
-      name: hotelPlace?.name || "Zentraler Startpunkt",
+      name: hotelPlace?.name || "Unterkunft",
       address: hotelPlace?.address || userInputs.logistics.stationary.destination || "Stadtzentrum",
       geo: hotelPlace?.location ? `${hotelPlace.location.lat}, ${hotelPlace.location.lng}` : "0,0"
   };
@@ -78,6 +80,11 @@ export const prepareTagesplanerPayload = (project: TripProject): TagesplanerPayl
       return `- ${tags} ${p.name} (${p.category || 'Sight'}): ${p.address || ''}`;
   }).join('\n');
 
+  // FIX: Extract deep instruction from PACE_OPTIONS
+  const paceKey = userInputs.pace || 'balanced';
+  const paceConfig = PACE_OPTIONS[paceKey];
+  const paceInstruction = paceConfig?.promptInstruction?.en || paceConfig?.promptInstruction?.de || 'Standard pace. Include a 60 min lunch break.';
+
   return {
     travel_dates: {
         start: startDate,
@@ -88,7 +95,9 @@ export const prepareTagesplanerPayload = (project: TripProject): TagesplanerPayl
     },
     hotel_base: hotelBase,
     available_sights: formattedSights,
-    constraints: `Reisegruppe: ${userInputs.travelers.adults} Erwachsene, ${userInputs.travelers.children} Kinder. Tempo: ${userInputs.pace || 'moderat'}.`
+    constraints: `TRAVEL GROUP: ${userInputs.travelers.adults} Adults, ${userInputs.travelers.children} Children.
+PACE & RHYTHM RULES (CRITICAL): ${paceInstruction}
+USER TIME OVERRIDES: The user explicitly requested daily start at ${userInputs.dates.dailyStartTime || "09:00"} and end at ${userInputs.dates.dailyEndTime || "18:00"}. Adjust the pace instruction times to fit these overrides if necessary!`
   };
 };
-// --- END OF FILE 90 Zeilen ---
+// --- END OF FILE 98 Zeilen ---
