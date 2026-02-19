@@ -1,5 +1,5 @@
-// 19.02.2026 22:30 - FIX: Removed unused lucide-react imports (TS6133).
-// 19.02.2026 17:45 - FEAT: Added rendering for 'break', 'check-in', and 'distance_km'.
+// 19.02.2026 23:45 - FIX: Added Filter Logic so selecting 'Tag 1' hides other days.
+// 19.02.2026 17:45 - FEAT: Added rendering for 'break', 'check-in', and 'distance_km' in transfers.
 // src/features/Cockpit/DayPlannerView.tsx
 
 import React from 'react';
@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useTripStore } from '../../store/useTripStore';
 import { SightCard } from './SightCard';
 import type { Place, DetailLevel, LanguageCode } from '../../core/types';
-import { Utensils, Luggage } from 'lucide-react'; // FIX: Removed Coffee and MapPin
+import { Utensils, Luggage } from 'lucide-react';
 
 interface DayPlannerViewProps {
   places: Place[];
@@ -45,10 +45,13 @@ export const DayPlannerView: React.FC<DayPlannerViewProps> = ({
 }) => {
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
-  const { project } = useTripStore();
+  
+  // FIX: Access uiState to apply Day Filters
+  const { project, uiState } = useTripStore();
   
   const { userInputs } = project;
   const days = project.itinerary?.days || [];
+  const activeFilters = uiState.categoryFilter || []; // NEW: Get Active Filters
   
   const isStationary = userInputs.logistics.mode === 'stationaer';
   const hotelName = isStationary ? (userInputs.logistics.stationary?.hotel || 'Hotel') : 'Unterkunft';
@@ -56,6 +59,16 @@ export const DayPlannerView: React.FC<DayPlannerViewProps> = ({
 
   const renderedDays = days.map((day: any, i: number) => {
       const baseTitle = `${t('sights.day', {defaultValue: 'Tag'})} ${i + 1}`;
+      
+      // NEW: Filter Logic for the List View
+      if (activeFilters.length > 0) {
+          const labelDe = `Tag ${i + 1}`;
+          const labelEn = `Day ${i + 1}`;
+          if (!activeFilters.includes(baseTitle) && !activeFilters.includes(labelDe) && !activeFilters.includes(labelEn)) {
+              return null; // Skip if this day is not in the filter
+          }
+      }
+
       const title = day.title ? `${baseTitle}: ${day.title}` : baseTitle;
       const activities = day.activities || day.aktivitaeten || [];
 
@@ -178,4 +191,4 @@ export const DayPlannerView: React.FC<DayPlannerViewProps> = ({
 
   return <>{renderedDays}</>;
 };
-// --- END OF FILE 164 Zeilen ---
+// --- END OF FILE 176 Zeilen ---

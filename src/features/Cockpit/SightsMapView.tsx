@@ -1,6 +1,6 @@
+// 20.02.2026 00:15 - FIX: Smart Navigation added to "Im Reiseführer zeigen" to prevent dead-ends from Day Planner.
+// 19.02.2026 23:30 - FEAT: Smart Map Clustering (Day-based Circles vs. Unscheduled Squares) applied.
 // 09.02.2026 19:50 - FEAT: Added Progress Toast for Background Live Check.
-// 09.02.2026 19:40 - FEAT: Auto-start LiveScout (max 50) when Map View opens.
-// 08.02.2026 16:15 - FIX: Critical Data Loss Bug. Geocoding now uses ALL places from store.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -8,14 +8,12 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useTripStore } from '../../store/useTripStore';
-// FIX: Direct import to avoid SyntaxError with barrel files
 import type { Place } from '../../core/types/models';
 import { ExternalLink, RefreshCw, Zap } from 'lucide-react'; 
 import { GeocodingService } from '../../services/GeocodingService'; 
 import { LiveScout } from '../../services/LiveScout'; 
 
 // --- HIGH CONTRAST PALETTE ---
-
 const CATEGORY_COLORS: Record<string, string> = {
   'museum': '#dc2626',       
   'architecture': '#db2777', 
@@ -32,26 +30,20 @@ const CATEGORY_COLORS: Record<string, string> = {
   'sports': '#ea580c',       
   'hiking': '#ea580c',
   'abenteuer': '#ea580c',
-  
-  // GASTRONOMY (Expanded)
   'restaurant': '#ca8a04',   
   'food': '#ca8a04',
   'gastronomy': '#ca8a04',   
   'dinner': '#ca8a04',
   'lunch': '#ca8a04',
-
   'shopping': '#7c3aed',     
   'market': '#7c3aed',
   'nightlife': '#1e3a8a',    
   'family': '#0d9488',       
-  
-  // ACCOMMODATION (Expanded for Camper/Mobil)
   'hotel': '#000000',        
   'accommodation': '#000000',
   'camping': '#000000',
   'campsite': '#000000',
   'stellplatz': '#000000',
-  
   'arrival': '#4b5563',      
   'general': '#64748b',
   'special': '#f59e0b', 
@@ -60,6 +52,20 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 const DEFAULT_COLOR = '#64748b'; 
+
+// --- FARBPALETTE FÜR TAGE (Geplante Orte) ---
+const DAY_COLORS = [
+    '#3b82f6', // Tag 1: Blau
+    '#10b981', // Tag 2: Smaragdgrün
+    '#8b5cf6', // Tag 3: Violett
+    '#f59e0b', // Tag 4: Bernstein
+    '#ec4899', // Tag 5: Pink
+    '#0ea5e9', // Tag 6: Sky
+    '#f43f5e', // Tag 7: Rose
+    '#14b8a6', // Tag 8: Teal
+    '#f97316', // Tag 9: Orange
+    '#6366f1'  // Tag 10: Indigo
+];
 
 const getCategoryColor = (cat?: string, place?: Place): string => {
   if (!cat) return DEFAULT_COLOR;
@@ -72,38 +78,51 @@ const getCategoryColor = (cat?: string, place?: Place): string => {
   const normalized = cat.toLowerCase().trim();
   if (CATEGORY_COLORS[normalized]) return CATEGORY_COLORS[normalized];
   
-  // Fuzzy Match: Check if any key is part of the category string (e.g. "luxury hotel" matches "hotel")
   const match = Object.keys(CATEGORY_COLORS).find(key => normalized.includes(key));
   return match ? CATEGORY_COLORS[match] : DEFAULT_COLOR;
 };
 
-const createCustomIcon = (color: string, isSelected: boolean) => {
-  const size = isSelected ? 24 : 16;        
-  const anchor = isSelected ? 12 : 8;       
-  const border = isSelected ? '3px solid #000' : '2px solid white'; 
+// --- SMART ICON GENERATOR ---
+const createSmartIcon = (categoryColor: string, isSelected: boolean, dayNumber?: number, isHotel?: boolean) => {
+  const baseSize = isSelected ? 28 : 22;
   const animClass = isSelected ? 'marker-pulse' : '';
+  const border = isSelected ? '3px solid #000' : '2px solid white';
 
+  // VIP: Hotel / Unterkunft
+  if (isHotel) {
+      return L.divIcon({
+          className: `custom-map-marker ${animClass}`,
+          html: `<div style="background-color: #0f172a; width: ${baseSize + 6}px; height: ${baseSize + 6}px; border-radius: 8px; border: ${border}; display: flex; align-items: center; justify-content: center; font-size: ${baseSize * 0.6}px; box-shadow: 0 4px 8px rgba(0,0,0,0.4); z-index: 999;">🏨</div>`,
+          iconSize: [baseSize + 6, baseSize + 6],
+          iconAnchor: [(baseSize + 6) / 2, (baseSize + 6) / 2],
+          popupAnchor: [0, -12]
+      });
+  }
+
+  // GEPLANT: Runder Kreis mit Tagesfarbe und Nummer
+  if (dayNumber) {
+      const dayColor = DAY_COLORS[(dayNumber - 1) % DAY_COLORS.length];
+      return L.divIcon({
+          className: `custom-map-marker ${animClass}`,
+          html: `<div style="background-color: ${dayColor}; width: ${baseSize + 2}px; height: ${baseSize + 2}px; border-radius: 50%; border: ${border}; display: flex; align-items: center; justify-content: center; color: white; font-weight: 900; font-family: sans-serif; font-size: ${baseSize * 0.55}px; box-shadow: 0 3px 6px rgba(0,0,0,0.3); z-index: 500;">${dayNumber}</div>`,
+          iconSize: [baseSize + 2, baseSize + 2],
+          iconAnchor: [(baseSize + 2) / 2, (baseSize + 2) / 2],
+          popupAnchor: [0, -12]
+      });
+  }
+
+  // UNGEPLANT: Viereck mit Kategorie-Farbe (leicht transparent)
   return L.divIcon({
-    className: `custom-map-marker ${animClass}`,
-    html: `
-      <div style="
-        background-color: ${color};
-        width: ${size}px;
-        height: ${size}px;
-        border-radius: 50%;
-        border: ${border};
-        box-shadow: 0 2px 4px rgba(0,0,0,0.5);
-        transition: all 0.3s ease;
-      "></div>
-    `,
-    iconSize: [size, size],
-    iconAnchor: [anchor, anchor],
-    popupAnchor: [0, -10]
+      className: `custom-map-marker ${animClass}`,
+      html: `<div style="background-color: ${categoryColor}; width: ${baseSize - 2}px; height: ${baseSize - 2}px; border-radius: 6px; border: ${border}; opacity: 0.85; box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 100;"></div>`,
+      iconSize: [baseSize - 2, baseSize - 2],
+      iconAnchor: [(baseSize - 2) / 2, (baseSize - 2) / 2],
+      popupAnchor: [0, -10]
   });
 };
 
 interface SightsMapViewProps {
-  places: Place[]; // This contains FILTERED places for display
+  places: Place[]; 
 }
 
 const MapStyles = () => (
@@ -186,7 +205,7 @@ const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
         {categories.map(cat => (
           <div key={cat} className="flex items-center gap-2">
             <div 
-              className="w-3 h-3 rounded-full border border-white shadow-sm shrink-0" 
+              className="w-3 h-3 rounded border border-white shadow-sm shrink-0" 
               style={{ backgroundColor: getCategoryColor(cat) }}
             ></div>
             <span className="text-xs font-medium text-slate-700 capitalize truncate max-w-[120px]" title={cat}>
@@ -194,6 +213,16 @@ const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
             </span>
           </div>
         ))}
+      </div>
+      <div className="mt-2 pt-2 border-t border-slate-200 space-y-1.5">
+          <div className="flex items-center gap-2 mb-1">
+              <div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-sm text-[8px] text-white flex items-center justify-center font-bold">1</div>
+              <span className="text-[10px] text-slate-500 font-bold leading-tight">Geplant (Tag 1)</span>
+          </div>
+          <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-md bg-slate-900 border-2 border-white shadow-sm text-[10px] flex items-center justify-center">🏨</div>
+              <span className="text-[10px] text-slate-500 font-bold leading-tight">Unterkunft</span>
+          </div>
       </div>
     </div>
   );
@@ -204,17 +233,43 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
   const { uiState, setUIState, project, setProject } = useTripStore(); 
   const markerRefs = useRef<Record<string, L.Marker | null>>({});
 
-  // NEW: State for Background Updates
   const [isUpdatingCoords, setIsUpdatingCoords] = useState(false);
   const [updateProgress, setUpdateProgress] = useState({ current: 0, total: 0 });
 
   const [isCheckingLive, setIsCheckingLive] = useState(false);
   const [liveCheckProgress, setLiveCheckProgress] = useState({ current: 0, total: 0 });
 
-  // Access COMPLETE dataset from store for geocoding logic
   const allPlacesFromStore = useMemo(() => Object.values(project.data.places), [project.data.places]);
 
-  // NEW: Background Geocoding Service
+  // --- SMART MAP CLUSTERING LOGIC ---
+  const scheduledPlaces = useMemo(() => {
+      const map = new Map<string, number>();
+      if (!project.itinerary?.days) return map;
+      
+      project.itinerary.days.forEach((day: any, index: number) => {
+          const activities = day.activities || day.aktivitaeten || [];
+          activities.forEach((act: any) => {
+              if (act.type === 'sight' || act.original_sight_id) {
+                  const id = act.id || act.original_sight_id;
+                  if (id) map.set(id, index + 1); 
+              }
+          });
+      });
+      return map;
+  }, [project.itinerary]);
+
+  const hotelIds = useMemo(() => {
+      const ids = new Set<string>();
+      if (project.userInputs.logistics.mode === 'stationaer') {
+          if (project.userInputs.logistics.stationary.hotel) ids.add(project.userInputs.logistics.stationary.hotel);
+      } else {
+          project.userInputs.logistics.roundtrip.stops?.forEach((s: any) => {
+              if (s.hotel) ids.add(s.hotel);
+          });
+      }
+      return ids;
+  }, [project.userInputs.logistics]);
+
   useEffect(() => {
     const runGeocoding = async () => {
         const needsValidation = allPlacesFromStore.some(p => !p.coordinatesValidated);
@@ -222,7 +277,6 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
         if (needsValidation && !isUpdatingCoords) {
             setIsUpdatingCoords(true);
             try {
-                // Run Batch Update on ALL places
                 const { updatedPlaces, hasChanges } = await GeocodingService.enrichPlacesWithCoordinates(
                     allPlacesFromStore, 
                     (curr, total) => setUpdateProgress({ current: curr, total })
@@ -254,17 +308,14 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
     return () => clearTimeout(timer);
   }, [allPlacesFromStore.length]);
 
-  // NEW: Background Live Check on Map View (Max 50)
   useEffect(() => {
     const runLiveCheck = () => {
-        // Prevent double run
         if (isCheckingLive) return;
 
         const uncheckedPlaces = allPlacesFromStore
             .filter(p => !p.liveStatus && p.category !== 'internal');
         
         if (uncheckedPlaces.length > 0) {
-            // "Sofort max. 50"
             const candidates = uncheckedPlaces.slice(0, 50).map(p => p.id);
             
             if (candidates.length > 0) {
@@ -280,10 +331,9 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
         }
     };
 
-    // Delay to start after geocoding has likely started
     const timer = setTimeout(runLiveCheck, 2000);
     return () => clearTimeout(timer);
-  }, []); // Run once on mount
+  }, []); 
 
   useEffect(() => {
     if (uiState.selectedPlaceId && markerRefs.current[uiState.selectedPlaceId]) {
@@ -299,7 +349,6 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
   return (
     <div className="h-[600px] w-full rounded-[2rem] overflow-hidden shadow-inner border border-slate-200 z-0 relative bg-slate-100">
       
-      {/* 1. Geocoding Indicator */}
       {isUpdatingCoords && (
           <div className="absolute top-4 right-4 z-[1000] bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-md border border-slate-200 flex items-center gap-3 text-xs font-medium text-slate-600 animate-in slide-in-from-top-2">
               <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-500" />
@@ -309,7 +358,6 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
           </div>
       )}
 
-      {/* 2. Live Check Indicator (Stacked below Geocoding) */}
       {isCheckingLive && (
           <div className={`absolute right-4 z-[1000] bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-md border border-slate-200 flex items-center gap-3 text-xs font-medium text-slate-600 animate-in slide-in-from-top-2 ${isUpdatingCoords ? 'top-16' : 'top-4'}`}>
               <Zap className="w-3.5 h-3.5 animate-pulse text-amber-500 fill-current" />
@@ -335,14 +383,16 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
 
         {validPlaces.map((place) => {
           const isSelected = uiState.selectedPlaceId === place.id;
+          const isHotel = hotelIds.has(place.id);
+          const dayNumber = scheduledPlaces.get(place.id);
           const markerColor = getCategoryColor(place.category, place);
           
           return (
             <Marker 
               key={place.id} 
               position={[place.location!.lat, place.location!.lng]}
-              icon={createCustomIcon(markerColor, isSelected)}
-              zIndexOffset={isSelected ? 1000 : 0} 
+              icon={createSmartIcon(markerColor, isSelected, dayNumber, isHotel)}
+              zIndexOffset={isSelected ? 1000 : (isHotel ? 900 : (dayNumber ? 500 : 0))} 
               ref={(ref) => { markerRefs.current[place.id] = ref; }}
               eventHandlers={{
                 click: () => {
@@ -352,19 +402,29 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
             >
               <Popup>
                 <div className="min-w-[220px] font-sans p-1">
-                  <div className="flex items-center gap-2 mb-1">
-                      <div 
-                        className="w-2 h-2 rounded-full" 
-                        style={{ backgroundColor: markerColor }} 
-                      />
-                      <span className="text-[10px] uppercase font-bold text-slate-400">
-                        {place.category === 'special' 
-                            ? (place.details?.specialType === 'sunny' ? 'Sonnentag ☀️' : 'Regentag 🌧️') 
-                            : (place.category || 'Ort')}
-                      </span>
+                  
+                  <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                          <div 
+                            className="w-2 h-2 rounded" 
+                            style={{ backgroundColor: markerColor }} 
+                          />
+                          <span className="text-[10px] uppercase font-bold text-slate-400">
+                            {place.category === 'special' 
+                                ? (place.details?.specialType === 'sunny' ? 'Sonnentag ☀️' : 'Regentag 🌧️') 
+                                : (place.category || 'Ort')}
+                          </span>
+                      </div>
+                      
+                      {dayNumber && (
+                          <span className="text-[10px] font-bold text-white px-1.5 py-0.5 rounded shadow-sm" style={{ backgroundColor: DAY_COLORS[(dayNumber - 1) % DAY_COLORS.length] }}>
+                              📅 Tag {dayNumber}
+                          </span>
+                      )}
+                      {isHotel && <span className="text-[10px] font-bold bg-slate-900 text-white px-1.5 py-0.5 rounded">🏨 Unterkunft</span>}
                   </div>
                   
-                  <h3 className="font-bold text-slate-900 text-sm mb-1">{place.name}</h3>
+                  <h3 className="font-bold text-slate-900 text-sm mb-1 mt-1">{place.name}</h3>
                   
                   {place.address && (
                     <p className="text-xs text-slate-600 mb-2 leading-snug flex gap-1">
@@ -373,7 +433,28 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
                   )}
 
                   <button 
-                    onClick={() => setUIState({ viewMode: 'list', selectedPlaceId: place.id })}
+                    onClick={() => {
+                        let targetSortMode = uiState.sortMode || 'category';
+                        let targetFilter = uiState.categoryFilter || [];
+
+                        // SMART NAVIGATION LOGIC
+                        if (targetSortMode === 'day') {
+                            const isVisibleInCurrentView = dayNumber && (targetFilter.length === 0 || targetFilter.some(f => f.includes(String(dayNumber))));
+                            
+                            if (!isVisibleInCurrentView) {
+                                // Wenn der angeklickte Ort im aktuellen Filter/Modus unsichtbar wäre -> Wechsle zu Kategorien!
+                                targetSortMode = 'category';
+                                targetFilter = [];
+                            }
+                        }
+
+                        setUIState({ 
+                            viewMode: 'list', 
+                            selectedPlaceId: place.id,
+                            sortMode: targetSortMode,
+                            categoryFilter: targetFilter
+                        });
+                    }}
                     className="w-full mt-2 flex items-center justify-center gap-2 bg-slate-900 text-white py-2 rounded-lg text-xs font-bold hover:bg-black transition-colors shadow-sm"
                   >
                     <ExternalLink size={12} />
@@ -391,4 +472,4 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
     </div>
   );
 };
-// --- END OF FILE 397 Zeilen ---
+// --- END OF FILE 462 Zeilen ---

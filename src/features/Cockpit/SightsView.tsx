@@ -1,6 +1,5 @@
-// 19.02.2026 17:30 - FIX: DayPlannerView now renders exclusively (no duplicate reserve/special boxes).
-// 19.02.2026 17:05 - REFACTOR: Extracted Timeline Renderer to DayPlannerView.tsx.
-// 19.02.2026 15:25 - FIX: V40/V30 JSON Compatibility & Lifted showPlanningMode state.
+// 19.02.2026 23:45 - FIX: Fixed empty Map in Day Mode & added Smart Map Filtering (Selected Day + Unassigned).
+// 19.02.2026 17:30 - FIX: DayPlannerView now renders exclusively.
 // src/features/Cockpit/SightsView.tsx
 
 import React, { useMemo, useEffect } from 'react';
@@ -45,7 +44,6 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
   } = useTripStore();
   
   const { userInputs, data, analysis } = project; 
-  // FIX: Make sure places is strictly an array of Place objects
   const places = Object.values(data.places || {}) as Place[];
 
   const showPlanningMode = uiState.showPlanningMode || false;
@@ -171,7 +169,7 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
               dayIndex: index
           };
       }).filter((d: any) => d.count > 0);
-  }, [project.itinerary, places]);
+  }, [project.itinerary, places, t]);
 
   const handleViewModeChange = (mode: string) => {
       setUIState({ 
@@ -182,9 +180,6 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
 
   // --- 3. FILTER & SORT LOGIC ---
   const filteredLists = useMemo(() => {
-    // If we are in 'day' mode, we do NOT need the lists! DayPlannerView gets ALL places directly.
-    if (activeSortMode === 'day') return { main: [], reserve: [], special: [] };
-
     const mainList: any[] = [];
     const reserveList: any[] = [];
     const specialList: any[] = []; 
@@ -198,6 +193,29 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
     const ignoreList = APPENDIX_ONLY_INTERESTS || [];
     const minRating = userInputs.searchSettings?.minRating || 0;
     const minDuration = userInputs.searchSettings?.minDuration || 0;
+
+    // --- FIX: Day Mode Smart Filtering for the Map ---
+    let selectedDayPlaceIds = new Set<string>();
+    let otherDayPlaceIds = new Set<string>();
+
+    if (sortMode === 'day' && activeFilters.length > 0) {
+        const itineraryDays = project.itinerary?.days || [];
+        itineraryDays.forEach((day: any, index: number) => {
+            const labelDe = `Tag ${index + 1}`;
+            const labelEn = `Day ${index + 1}`;
+            const labelTranslated = `${t('sights.day', {defaultValue: 'Tag'})} ${index + 1}`;
+            
+            const isSelected = activeFilters.includes(labelDe) || activeFilters.includes(labelEn) || activeFilters.includes(labelTranslated);
+
+            (day.activities || day.aktivitaeten || []).forEach((act: any) => {
+                const id = act.id || act.original_sight_id;
+                if (id) {
+                    if (isSelected) selectedDayPlaceIds.add(id);
+                    else otherDayPlaceIds.add(id);
+                }
+            });
+        });
+    }
 
     places.forEach((p: any) => {
       const cat = p.category || 'Sonstiges';
@@ -226,6 +244,13 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
               );
               if (!inSelectedTour) return;
           }
+          else if (sortMode === 'day') {
+              // Smart Day Filter: Hide places that belong to OTHER days.
+              // Keep places of the SELECTED day AND Unassigned places!
+              if (otherDayPlaceIds.has(p.id) && !selectedDayPlaceIds.has(p.id)) {
+                  return; 
+              }
+          }
       }
 
       const rating = p.rating || 0;
@@ -250,7 +275,7 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
         reserve: reserveList.sort(sortFn),
         special: specialList.sort(sortFn)
     };
-  }, [places, uiState.searchTerm, uiState.categoryFilter, activeSortMode, uiState.selectedCategory, uiState.isPrintMode, overrideSortMode, userInputs.searchSettings, tourOptions]);
+  }, [places, uiState.searchTerm, uiState.categoryFilter, activeSortMode, uiState.selectedCategory, uiState.isPrintMode, overrideSortMode, userInputs.searchSettings, tourOptions, project.itinerary, t]);
 
   // --- 4. RENDERER: GROUPED LIST ---
   const renderGroupedList = (list: any[], groupByOverride?: 'city') => {
@@ -358,10 +383,9 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
             <SightsMapView places={[...filteredLists.main, ...filteredLists.reserve, ...filteredLists.special] as Place[]} />
         </div>
       ) : isDayMode ? (
-        // FIX: EXCLUSIVE RENDER PATH FOR DAY MODE
         <div className="mb-8">
             <DayPlannerView 
-                places={places} // Pass ALL places, regardless of whether they are 'reserve' or 'main'
+                places={places} 
                 showPlanningMode={showPlanningMode} 
                 overrideDetailLevel={overrideDetailLevel} 
             />
@@ -435,4 +459,4 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
     </div>
   );
 };
-// --- END OF FILE 373 Zeilen ---
+// --- END OF FILE 398 Zeilen ---
