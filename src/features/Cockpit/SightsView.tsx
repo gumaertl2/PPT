@@ -1,9 +1,6 @@
-// 19.02.2026 15:45 - FEAT: Added V40 Timeline Renderer for 'day' sortMode (Titles, Transfers, Times).
-// 19.02.2026 15:25 - FIX: V40/V30 JSON Compatibility for daily activities & Lifted showPlanningMode state.
-// 09.02.2026 12:00 - FIX: Added 'overrideDetailLevel' prop to support Print Settings.
-// 06.02.2026 17:20 - FEAT: Added 'overrideSortMode' prop for Print Report flexibility.
-// 06.02.2026 17:15 - FIX: Print Optimization (Double-Instance-Fix & Clean Layout).
-// 02.02.2026 13:15 - FIX: Enforced City Grouping for 'Specials' in Tour Mode.
+// 19.02.2026 17:30 - FIX: DayPlannerView now renders exclusively (no duplicate reserve/special boxes).
+// 19.02.2026 17:05 - REFACTOR: Extracted Timeline Renderer to DayPlannerView.tsx.
+// 19.02.2026 15:25 - FIX: V40/V30 JSON Compatibility & Lifted showPlanningMode state.
 // src/features/Cockpit/SightsView.tsx
 
 import React, { useMemo, useEffect } from 'react';
@@ -15,6 +12,7 @@ import { INTEREST_DATA } from '../../data/interests';
 import { APPENDIX_ONLY_INTERESTS } from '../../data/constants';
 import type { LanguageCode, Place, DetailLevel } from '../../core/types';
 import { SightsMapView } from './SightsMapView';
+import { DayPlannerView } from './DayPlannerView'; 
 
 import { 
   FileText,
@@ -47,16 +45,19 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
   } = useTripStore();
   
   const { userInputs, data, analysis } = project; 
-  const places = Object.values(data.places || {});
+  // FIX: Make sure places is strictly an array of Place objects
+  const places = Object.values(data.places || {}) as Place[];
 
   const showPlanningMode = uiState.showPlanningMode || false;
 
   const activeSortMode = overrideSortMode || (uiState.sortMode as string) || 'category';
   const isTourMode = activeSortMode === 'tour';
+  const isDayMode = activeSortMode === 'day';
 
   // --- AUTO-SCROLL LOGIC ---
   useEffect(() => {
     if (overrideSortMode) return;
+
     if (uiState.viewMode === 'list' && uiState.selectedPlaceId) {
       setTimeout(() => {
         const element = document.getElementById(`card-${uiState.selectedPlaceId}`);
@@ -92,8 +93,8 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
        dailyMinutes = (config.endHour - config.startHour) * 60 - config.breakMinutes;
     }
 
-    const days = (new Date(userInputs.dates.end).getTime() - new Date(userInputs.dates.start).getTime()) / (1000 * 3600 * 24) + 1;
-    const totalBudget = Math.floor(dailyMinutes * days);
+    const daysCount = (new Date(userInputs.dates.end).getTime() - new Date(userInputs.dates.start).getTime()) / (1000 * 3600 * 24) + 1;
+    const totalBudget = Math.floor(dailyMinutes * daysCount);
 
     places.forEach((p: any) => {
       const prio = p.userPriority || 0;
@@ -181,6 +182,9 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
 
   // --- 3. FILTER & SORT LOGIC ---
   const filteredLists = useMemo(() => {
+    // If we are in 'day' mode, we do NOT need the lists! DayPlannerView gets ALL places directly.
+    if (activeSortMode === 'day') return { main: [], reserve: [], special: [] };
+
     const mainList: any[] = [];
     const reserveList: any[] = [];
     const specialList: any[] = []; 
@@ -222,17 +226,6 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
               );
               if (!inSelectedTour) return;
           }
-          else if (sortMode === 'day') {
-              const itineraryDays = project.itinerary?.days || [];
-              const inSelectedDay = activeFilters.some(dayLabel => {
-                  const dayIndexStr = dayLabel.replace(/[^0-9]/g, '');
-                  const dayIndex = parseInt(dayIndexStr) - 1;
-                  const day = itineraryDays[dayIndex];
-                  const activities = day?.activities || day?.aktivitaeten || [];
-                  return activities.some((a: any) => (a.id || a.original_sight_id) === p.id);
-              });
-              if (!inSelectedDay) return;
-          }
       }
 
       const rating = p.rating || 0;
@@ -257,135 +250,13 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
         reserve: reserveList.sort(sortFn),
         special: specialList.sort(sortFn)
     };
-  }, [places, uiState.searchTerm, uiState.categoryFilter, activeSortMode, uiState.selectedCategory, uiState.isPrintMode, overrideSortMode, userInputs.searchSettings, tourOptions, project.itinerary]);
+  }, [places, uiState.searchTerm, uiState.categoryFilter, activeSortMode, uiState.selectedCategory, uiState.isPrintMode, overrideSortMode, userInputs.searchSettings, tourOptions]);
 
   // --- 4. RENDERER: GROUPED LIST ---
   const renderGroupedList = (list: any[], groupByOverride?: 'city') => {
     if (list.length === 0) return null; 
     const sortMode = activeSortMode;
-    
-    // =========================================================================
-    // V40 TIMELINE RENDERER (DAY MODE) - Replaces standard grouping
-    // =========================================================================
-    if (sortMode === 'day' && !groupByOverride) {
-         const days = project.itinerary?.days || [];
-         const assignedIds = new Set<string>();
 
-         const renderedDays = days.map((day: any, i: number) => {
-             const baseTitle = `${t('sights.day', {defaultValue: 'Tag'})} ${i + 1}`;
-             const title = day.title ? `${baseTitle}: ${day.title}` : baseTitle;
-             const activities = day.activities || day.aktivitaeten || [];
-
-             // Validierung: Sind Orte dieses Tages in der aktuellen 'list' enthalten?
-             const dayPlaces = list.filter(p => activities.some((a: any) => (a.id || a.original_sight_id) === p.id));
-             dayPlaces.forEach(p => assignedIds.add(p.id));
-
-             if (activities.length === 0 && dayPlaces.length === 0) return null;
-
-             return (
-               <div key={`day-${i}`} className="mb-8 last:mb-0 print:break-inside-avoid bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm print:border-none print:shadow-none">
-                 
-                 {/* DAY HEADER (Title & Date) */}
-                 <div className="bg-slate-50 px-4 py-3 border-b border-slate-100 flex justify-between items-center print:bg-transparent print:border-b-2 print:border-slate-300 print:px-0 print:py-1">
-                     <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                         <span className="text-lg print:hidden">📅</span> {title}
-                     </h3>
-                     {day.date && (
-                         <span className="text-xs font-bold text-slate-500 bg-white px-2 py-1 rounded shadow-sm border border-slate-200 print:border-none print:shadow-none print:p-0">
-                           {day.date}
-                         </span>
-                     )}
-                 </div>
-
-                 {/* TIMELINE ACTIVITIES (Sights & Transfers) */}
-                 <div className="p-4 space-y-3 print:p-0 print:pt-3">
-                     {activities.map((act: any, actIdx: number) => {
-                         
-                         // 1. TRANSFER BLOCK
-                         if (act.type === 'transfer') {
-                             return (
-                                 <div key={`transfer-${i}-${actIdx}`} className="flex items-center gap-3 px-3 py-2 ml-5 bg-blue-50/50 border border-blue-100 rounded-lg text-sm text-slate-600 print:bg-transparent print:border-none print:px-0">
-                                     <span className="text-lg">{act.mode === 'walk' ? '🚶' : '🚗'}</span>
-                                     <span className="font-medium">{act.duration} Min. {act.mode === 'walk' ? 'Fußweg' : 'Fahrt'}</span>
-                                     {act.description && <span className="text-slate-500 italic hidden sm:inline">({act.description})</span>}
-                                 </div>
-                             );
-                         } 
-                         
-                         // 2. SIGHT BLOCK
-                         else if (act.type === 'sight' || act.original_sight_id) {
-                             const placeId = act.id || act.original_sight_id;
-                             const place = list.find(p => p.id === placeId);
-                             if (!place) return null; // Fallback falls Ort gelöscht oder im Filter verborgen
-                             
-                             return (
-                                 <div key={place.id} id={`card-${place.id}`} className="relative pl-7 border-l-2 border-blue-200 ml-7 py-2 print:border-l-2 print:border-slate-300">
-                                     {/* Timeline Bullet */}
-                                     <div className="absolute -left-[9px] top-5 w-4 h-4 rounded-full bg-blue-500 ring-4 ring-white print:ring-transparent"></div>
-                                     
-                                     {/* Time Label */}
-                                     {act.time && (
-                                         <div className="text-xs font-black text-blue-600 mb-2 -mt-1 uppercase tracking-wider">
-                                             {act.time} Uhr
-                                         </div>
-                                     )}
-                                     
-                                     <SightCard 
-                                        id={place.id} 
-                                        data={place} 
-                                        mode="selection" 
-                                        showPriorityControls={showPlanningMode}
-                                        detailLevel={overrideDetailLevel}
-                                     />
-                                 </div>
-                             );
-                         }
-                         return null;
-                     })}
-                 </div>
-               </div>
-             );
-         }).filter(Boolean);
-
-         // --- LEFTOVERS (Places not assigned to any day in this list) ---
-         const leftovers = list.filter(p => !assignedIds.has(p.id));
-         let renderedLeftovers = null;
-         
-         if (leftovers.length > 0) {
-             renderedLeftovers = (
-                 <div key="leftovers" className="mb-6 print:break-inside-avoid mt-8 pt-6 border-t border-slate-200">
-                     <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 pb-1 ml-1 flex justify-between">
-                       <span>Nicht zugewiesen / Ohne Zeitplan</span>
-                       <span className="text-xs text-gray-400">{leftovers.length}</span>
-                     </h3>
-                     <div className="space-y-3">
-                       {leftovers.map(place => (
-                         <div key={place.id} id={`card-${place.id}`}>
-                             <SightCard 
-                                id={place.id} 
-                                data={place} 
-                                mode="selection" 
-                                showPriorityControls={showPlanningMode}
-                                detailLevel={overrideDetailLevel}
-                             />
-                         </div>
-                       ))}
-                     </div>
-                 </div>
-             );
-         }
-
-         return (
-             <>
-                {renderedDays}
-                {renderedLeftovers}
-             </>
-         );
-    }
-
-    // =========================================================================
-    // STANDARD GROUPING (Priority 1: Override, Priority 2: Tours, Priority 4: Category/Alphabetical)
-    // =========================================================================
     const groups: Record<string, any[]> = {};
     
     if (groupByOverride === 'city') {
@@ -481,10 +352,19 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
         </div>
       )}
 
-      {/* MAP VIEW vs LIST VIEW */}
+      {/* MAP VIEW vs DAY VIEW vs LIST VIEW */}
       {uiState.viewMode === 'map' && !overrideSortMode ? (
         <div className="mb-8 print:hidden">
             <SightsMapView places={[...filteredLists.main, ...filteredLists.reserve, ...filteredLists.special] as Place[]} />
+        </div>
+      ) : isDayMode ? (
+        // FIX: EXCLUSIVE RENDER PATH FOR DAY MODE
+        <div className="mb-8">
+            <DayPlannerView 
+                places={places} // Pass ALL places, regardless of whether they are 'reserve' or 'main'
+                showPlanningMode={showPlanningMode} 
+                overrideDetailLevel={overrideDetailLevel} 
+            />
         </div>
       ) : (
         <>
@@ -555,4 +435,4 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
     </div>
   );
 };
-// --- END OF FILE 423 Zeilen ---
+// --- END OF FILE 373 Zeilen ---

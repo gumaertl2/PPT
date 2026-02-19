@@ -1,3 +1,4 @@
+// 19.02.2026 16:35 - FEAT: Added itinerary scanner to calculate 'scheduledInfo' for Day Planner badge.
 // 17.02.2026 16:45 - FIX: Wired Fix-Mode to root model fields & renamed Top button to Fix.
 // 09.02.2026 13:15 - FIX: Aligned ViewLevel types with global types ('compact' instead of 'kompakt').
 // 09.02.2026 13:00 - FIX: SightCard now accepts explicit 'detailLevel' prop for Print Override.
@@ -77,6 +78,28 @@ export const SightCard: React.FC<SightCardProps> = ({
   };
   const isSelected = isSelectedInLogistics();
 
+  // NEW: Scan itinerary to find if this sight is scheduled
+  let scheduledInfo: string | null = null;
+  if (project.itinerary?.days) {
+      for (const day of project.itinerary.days) {
+          const activities = day.activities || day.aktivitaeten || [];
+          const foundAct = activities.find((a: any) => (a.id || a.original_sight_id) === id);
+          if (foundAct) {
+              let dateStr = day.date || '';
+              // Format YYYY-MM-DD to DD.MM.
+              if (dateStr && dateStr.includes('-')) {
+                  const parts = dateStr.split('-');
+                  if (parts.length === 3) dateStr = `${parts[2]}.${parts[1]}.`;
+              }
+              const timeStr = foundAct.time ? `${foundAct.time}` : '';
+              if (dateStr || timeStr) {
+                 scheduledInfo = `(${dateStr}${dateStr && timeStr ? ', ' : ''}${timeStr})`;
+              }
+              break; // Stop scanning after finding the first occurrence
+          }
+      }
+  }
+
   const handleHotelSelect = (e: React.MouseEvent) => {
     e.stopPropagation();
     assignHotelToLogistics(id);
@@ -118,7 +141,7 @@ export const SightCard: React.FC<SightCardProps> = ({
       if (url.trim().match(/^(http:\/\/|https:\/\/)/i)) {
           return url.trim();
       }
-      return `https://${url.trim()}`;
+          return `https://${url.trim()}`;
   };
 
   // NEW: Handle Fix vs Prio
@@ -258,6 +281,7 @@ export const SightCard: React.FC<SightCardProps> = ({
             isSelected={isSelected} 
             highlightText={highlightText} 
             renderViewControls={renderViewControls} 
+            scheduledInfo={scheduledInfo}
         />
         
         <SightCardMeta 
@@ -347,4 +371,4 @@ export const SightCard: React.FC<SightCardProps> = ({
     </>
   );
 };
-// --- END OF FILE 338 Zeilen ---
+// --- END OF FILE 363 Zeilen ---
