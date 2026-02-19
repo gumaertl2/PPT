@@ -1,14 +1,15 @@
-// 20.02.2026 00:30 - FEAT: Added Chronological Live-Diary for visited places (No-AI Feature).
-// 06.02.2026 22:15 - FIX: Strict null handling for maps link generation (TS2322).
-// 06.02.2026 21:00 - FIX: Google Maps Link now uses 'generateGoogleMapsRouteUrl' with country context.
+// 20.02.2026 13:45 - FEAT: Made Live-Diary interactive (Edit Notes & Undo Check-in directly from PlanView).
+// 20.02.2026 12:00 - FEAT: Added rendering of 'userNote' (Personal Diary Entry) in PlanView.
+// 20.02.2026 00:30 - FEAT: Added Chronological Live-Diary for visited places.
 // src/features/Cockpit/PlanView.tsx
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
 import { 
   Users, 
   CheckCircle,
+  CheckCircle2,
   Lightbulb,
   Map as MapIcon,
   ExternalLink,
@@ -16,7 +17,9 @@ import {
   Navigation,
   Quote,
   Clock,
-  ArrowRight
+  ArrowRight,
+  PenLine,
+  X
 } from 'lucide-react';
 import type { LanguageCode } from '../../core/types';
 import { 
@@ -32,16 +35,18 @@ export const PlanView: React.FC = () => {
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
   
-  const { project } = useTripStore();
-  // FIX: Added 'data' to extraction for the Diary feature
+  // FIX: Added updatePlace & togglePlaceVisited for interactive diary
+  const { project, updatePlace, togglePlaceVisited } = useTripStore();
   const { userInputs, analysis, data } = project;
   const { logistics, travelers, dates, selectedInterests, pace, budget, vibe, strategyId } = userInputs;
   const chefPlaner = analysis.chefPlaner;
   const routeAnalysis = analysis.routeArchitect;
 
+  // NEW: State for interactive notes in the diary
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+
   const isRoundtripContext = ['roundtrip', 'mobil'].includes(logistics.mode);
 
-  // --- HELPER: Label Resolution ---
   const resolveLabel = (item: any): string => {
     if (!item || !item.label) return '';
     if (typeof item.label === 'string') return item.label;
@@ -56,12 +61,10 @@ export const PlanView: React.FC = () => {
     </div>
   );
 
-  // --- 1. COCKPIT & WER/WIE ---
   const renderReviewBlocks = () => {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         
-        {/* BLOCK 1: COCKPIT */}
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm relative overflow-hidden group hover:border-blue-400 hover:shadow-md transition-all h-full">
             <div className="flex justify-between items-center mb-4 border-b border-slate-50 pb-2">
                 <h3 className="text-sm font-bold text-slate-600 uppercase flex items-center gap-2">
@@ -99,7 +102,6 @@ export const PlanView: React.FC = () => {
             </div>
         </div>
 
-        {/* BLOCK 2: WER & WIE */}
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm relative overflow-hidden group hover:border-blue-400 hover:shadow-md transition-all h-full">
             <div className="flex justify-between items-center mb-4 border-b border-slate-50 pb-2">
                 <h3 className="text-sm font-bold text-slate-600 uppercase flex items-center gap-2">
@@ -152,7 +154,6 @@ export const PlanView: React.FC = () => {
     );
   };
 
-  // --- 2. ANALYSE ---
   const renderAnalysisBlock = () => {
     if (!chefPlaner) return null;
 
@@ -184,7 +185,6 @@ export const PlanView: React.FC = () => {
     );
   };
 
-  // --- 3. ROUTE ---
   const matchedRoute = useMemo(() => {
       if (!isRoundtripContext || !routeAnalysis?.routes) return null;
       
@@ -308,9 +308,7 @@ export const PlanView: React.FC = () => {
     );
   };
 
-  // --- 4. LIVE-REISETAGEBUCH ---
   const renderVisitedDiary = () => {
-    // 1. Hole alle Orte, die "visited" sind und einen Zeitstempel haben, sortiere chronologisch
     const visitedPlaces = Object.values(data?.places || {})
         .filter((p: any) => p.visited && p.visitedAt)
         .sort((a: any, b: any) => new Date(a.visitedAt).getTime() - new Date(b.visitedAt).getTime());
@@ -349,15 +347,59 @@ export const PlanView: React.FC = () => {
                         <div key={place.id} className="relative pl-6 ml-3 py-2 border-l-2 border-emerald-200">
                             <div className="absolute -left-[9px] top-6 w-4 h-4 rounded-full bg-emerald-500 ring-4 ring-white"></div>
                             <div className="bg-emerald-50/30 border border-emerald-100 rounded-xl p-3 hover:bg-emerald-50 transition-colors">
+                                
                                 <div className="flex justify-between items-start mb-1 gap-2">
                                     <h4 className="font-bold text-slate-800 text-sm leading-tight">{place.name}</h4>
-                                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
-                                        <Clock size={10} /> {dateStr}, {timeStr} {currentLang === 'de' ? 'Uhr' : ''}
-                                    </span>
+                                    
+                                    {/* INTERACTIVE BADGE AREA */}
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                            <Clock size={10} /> {dateStr}, {timeStr} {currentLang === 'de' ? 'Uhr' : ''}
+                                        </span>
+                                        <button 
+                                            onClick={() => setEditingNoteId(editingNoteId === place.id ? null : place.id)}
+                                            className={`p-1.5 rounded transition-colors ${editingNoteId === place.id ? 'bg-indigo-100 text-indigo-700' : 'bg-white text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'} shadow-sm border border-slate-200`}
+                                            title="Notiz bearbeiten"
+                                        >
+                                            <PenLine size={12} />
+                                        </button>
+                                        <button 
+                                            onClick={() => togglePlaceVisited(place.id)}
+                                            className="p-1.5 rounded bg-white text-emerald-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors shadow-sm border border-slate-200 group"
+                                            title="Check-in rückgängig machen"
+                                        >
+                                            <CheckCircle2 size={12} className="group-hover:hidden" />
+                                            <X size={12} className="hidden group-hover:block" />
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="text-xs text-slate-500 flex gap-1 items-center font-medium">
+                                
+                                <div className="text-xs text-slate-500 flex gap-1 items-center font-medium mb-1.5">
                                     <MapIcon size={10} className="text-emerald-400" /> {categoryLabel || 'Ort'}
                                 </div>
+
+                                {/* EDIT OR SHOW NOTE */}
+                                {editingNoteId === place.id ? (
+                                    <div className="mt-2 animate-in fade-in slide-in-from-top-1">
+                                        <textarea
+                                            value={place.userNote || ''}
+                                            onChange={(e) => updatePlace(place.id, { userNote: e.target.value })}
+                                            placeholder="Meine persönliche Notiz / Erlebnisbericht..."
+                                            className="w-full text-xs text-indigo-900 bg-indigo-50/50 border border-indigo-200 rounded-md p-2 focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:bg-white placeholder:text-indigo-300 resize-y min-h-[60px]"
+                                            autoFocus
+                                        />
+                                    </div>
+                                ) : place.userNote ? (
+                                    <div 
+                                        className="mt-2 text-xs text-indigo-900 bg-white/60 border border-indigo-100 rounded-lg p-2.5 italic leading-relaxed shadow-sm relative cursor-pointer hover:bg-indigo-50/30 transition-colors group"
+                                        onClick={() => setEditingNoteId(place.id)}
+                                        title="Klicken zum Bearbeiten"
+                                    >
+                                        <PenLine className="absolute top-2 right-2 w-3 h-3 text-indigo-200 group-hover:text-indigo-400 transition-colors" />
+                                        "{place.userNote}"
+                                    </div>
+                                ) : null}
+
                             </div>
                         </div>
                     );
@@ -372,9 +414,8 @@ export const PlanView: React.FC = () => {
        {renderReviewBlocks()}
        {renderAnalysisBlock()}
        {renderRouteBlock()}
-       {/* HIER WIRD DAS TAGEBUCH GERENDERT */}
        {renderVisitedDiary()} 
     </div>
   );
 };
-// --- END OF FILE 362 Zeilen ---
+// --- END OF FILE 417 Zeilen ---

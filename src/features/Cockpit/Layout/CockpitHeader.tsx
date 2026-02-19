@@ -1,6 +1,6 @@
+// 20.02.2026 10:45 - LAYOUT FIX: Changed container max-width from 6xl to 4xl to perfectly align with main content.
 // 20.02.2026 09:40 - UX FIX: Guide-Button schließt/öffnet nicht mehr ungewollt den Filter, sondern scrollt nach oben.
-// 20.02.2026 09:35 - LAYOUT FIX: Header ist nun kugelsicher 'fixed' am Viewport verankert (verschwindet nie wieder).
-// 17.02.2026 15:05 - LAYOUT: Cockpit 2.1. Critical Flexbox Fix & Moved Auto-Toggle to Menu.
+// 20.02.2026 09:35 - LAYOUT FIX: Header ist nun kugelsicher 'fixed' am Viewport verankert.
 // src/features/Cockpit/Layout/CockpitHeader.tsx
 
 import React, { useState, useRef } from 'react';
@@ -145,12 +145,13 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     <>
       <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
 
-      {/* FIX 1: Unsichtbarer Abstandhalter, der das Layout schützt, da der Header nun fixed ist */}
+      {/* Unsichtbarer Abstandhalter, der das Layout schützt */}
       <div className="h-16 w-full shrink-0 bg-transparent no-print"></div>
 
-      {/* FIX 2: Header ist nun kugelsicher (fixed, w-full, z-[999]) an der Decke des Bildschirms verankert */}
+      {/* Header ist fixed an der Decke des Bildschirms */}
       <header className="bg-white border-b border-slate-200 fixed top-0 left-0 w-full h-16 z-[999] shadow-sm transform-none">
-        <div className="max-w-6xl mx-auto px-2 lg:px-4 h-full flex items-center justify-between gap-2 sm:gap-4">
+        {/* FIX: max-w-6xl zu max-w-4xl geändert, damit es perfekt mit <main> im Wizard fluchtet */}
+        <div className="max-w-4xl mx-auto px-4 h-full flex items-center justify-between gap-2 sm:gap-4">
           
           {/* LEFT GROUP: Home + Scrollable Nav + Search */}
           <div className="flex items-center gap-1 md:gap-2 flex-1 min-w-0">
@@ -184,7 +185,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                        if (uiState.viewMode === 'map') {
                          setUIState({ viewMode: 'list' });
                        } else {
-                         // FIX 3: Öffnet nicht mehr ungewollt den Filter! Scrollt stattdessen elegant nach oben.
                          window.scrollTo({ top: 0, behavior: 'smooth' });
                        }
                      } else {
@@ -251,7 +251,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
             </div>
 
              {/* Search Bar - Sticks to the nav */}
-             <div className="relative flex items-center ml-1 group shrink-0">
+             <div className="relative flex items-center ml-1 group shrink-0 hidden sm:flex">
                 <Search className="absolute left-2 w-3 h-3 text-slate-400 pointer-events-none" />
                 <input 
                   type="text" 
@@ -261,7 +261,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                       setUIState({ searchTerm: e.target.value });
                   }}
                   placeholder={t('sights.search_placeholder', { defaultValue: 'Suchen...' })}
-                  className="pl-7 pr-6 py-1.5 text-xs border border-slate-200 rounded-full bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:bg-white w-24 sm:focus:w-48 transition-all duration-300 placeholder:text-slate-400"
+                  className="pl-7 pr-6 py-1.5 text-xs border border-slate-200 rounded-full bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:bg-white w-24 sm:focus:w-36 transition-all duration-300 placeholder:text-slate-400"
                 />
                 {uiState.searchTerm && (
                   <button 

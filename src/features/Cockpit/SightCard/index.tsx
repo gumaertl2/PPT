@@ -1,5 +1,5 @@
-// 19.02.2026 22:15 - FEAT: Wired Live-Tracking (Check-In) to Store and Header.
-// 19.02.2026 16:35 - FEAT: Added itinerary scanner to calculate 'scheduledInfo' for Day Planner badge.
+// 20.02.2026 13:10 - LAYOUT: Cleaned up action controls, wired Check-In & Note to Header.
+// 20.02.2026 12:45 - FIX: Made 'Notiz' button independent of Planning Mode (always visible).
 // src/features/Cockpit/SightCard/index.tsx
 
 import React, { useState, useEffect, useRef } from 'react'; 
@@ -35,7 +35,6 @@ export const SightCard: React.FC<SightCardProps> = ({
   const livePlace = useTripStore(s => (id && s.project?.data?.places?.[id]) ? s.project.data.places[id] : null);
   const activeData = livePlace || data;
 
-  // NEU: togglePlaceVisited aus dem Store extrahiert
   const { uiState, updatePlace, deletePlace, setUIState, project, assignHotelToLogistics, togglePlaceVisited } = useTripStore(); 
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -48,6 +47,7 @@ export const SightCard: React.FC<SightCardProps> = ({
   };
 
   const [viewLevel, setViewLevel] = useState<ViewLevel>(getEffectiveViewLevel);
+  const [showNoteInput, setShowNoteInput] = useState(false); 
    
   useEffect(() => {
     setViewLevel(getEffectiveViewLevel());
@@ -67,7 +67,6 @@ export const SightCard: React.FC<SightCardProps> = ({
    
   const hasCategoryChanged = !!userSelection.customCategory && userSelection.customCategory !== category;
 
-  // Live-Tracking Status abfragen
   const isVisited = !!activeData.visited;
   const visitedAt = activeData.visitedAt;
 
@@ -178,7 +177,7 @@ export const SightCard: React.FC<SightCardProps> = ({
     const canStepUp = currentLevelIndex < VIEW_LEVELS.length - 1;
 
     return (
-      <div className="flex items-center gap-0.5 bg-slate-50 rounded p-0.5 border border-slate-100 ml-2 no-print">
+      <div className="flex items-center gap-0.5 bg-slate-50 rounded p-0.5 border border-slate-100 no-print ml-1">
         <button onClick={handleStepDown} disabled={!canStepDown} className={`p-0.5 rounded transition-all ${canStepDown ? 'text-slate-500 hover:text-blue-600 hover:bg-white shadow-sm' : 'text-slate-300 cursor-not-allowed'}`}><Minus className="w-3 h-3" /></button>
         <div className="flex gap-0.5 px-0.5">{VIEW_LEVELS.map((level, idx) => (<div key={level} className={`w-0.5 h-0.5 rounded-full ${idx <= currentLevelIndex ? 'bg-blue-500' : 'bg-slate-200'}`} />))}</div>
         <button onClick={handleStepUp} disabled={!canStepUp} className={`p-0.5 rounded transition-all ${canStepUp ? 'text-slate-500 hover:text-blue-600 hover:bg-white shadow-sm' : 'text-slate-300 cursor-not-allowed'}`}><Plus className="w-3 h-3" /></button>
@@ -186,9 +185,10 @@ export const SightCard: React.FC<SightCardProps> = ({
     );
   };
 
-  const renderPriorityControls = () => {
+  const renderActionControls = () => {
     if (mode !== 'selection') return null;
-    if (!showPriorityControls) return null;
+    if (!showPriorityControls) return null; // FIX: Zurück zur alten Logik, da Notiz jetzt oben im Header ist!
+    
     const btnBase = "px-2 py-0.5 text-[10px] font-bold rounded shadow-sm transition-all border flex items-center gap-1";
     const isFixed = !!activeData.isFixed;
 
@@ -198,21 +198,22 @@ export const SightCard: React.FC<SightCardProps> = ({
         <button onClick={() => handlePriorityChange(1, false)} className={`${btnBase} ${priority === 1 && !isFixed ? 'bg-green-600 text-white border-green-700' : 'bg-white text-gray-700 hover:bg-green-50 border-gray-200'}`}>Prio 1</button>
         <button onClick={() => handlePriorityChange(2, false)} className={`${btnBase} ${priority === 2 ? 'bg-blue-500 text-white border-blue-600' : 'bg-white text-gray-700 hover:bg-blue-50 border-gray-200'}`}>Prio 2</button>
         <button onClick={() => handlePriorityChange((-1), false)} className={`${btnBase} ${priority === -1 ? 'bg-gray-800 text-white border-gray-900' : 'bg-white text-gray-400 hover:bg-gray-100 border-gray-200'}`}>Ignore</button>
+        
         <div className="flex-1"></div>
+        
         <button onClick={() => setShowDebug(true)} className="text-gray-300 hover:text-blue-600 p-1"><Database className="w-3 h-3" /></button>
         <button onClick={handleDelete} className="text-gray-300 hover:text-red-600 p-1"><Trash2 className="w-3 h-3" /></button>
       </div>
     );
   };
 
-  // Visuelles Feedback für "Besucht" (Live-Tracking)
   let borderClass = 'border-gray-200';
   let bgClass = 'bg-white';
   const isSpecial = category === 'special';
 
   if (isVisited) {
       borderClass = 'border-emerald-500 border-l-[6px] ring-1 ring-emerald-200';
-      bgClass = 'bg-emerald-50/40'; // Zarter grüner Hintergrund, wenn abgehakt
+      bgClass = 'bg-emerald-50/40'; 
   } else if (activeData.isFixed) {
       borderClass = 'border-purple-500 border-l-[6px] ring-1 ring-purple-100';
   } else if (priority === 1) {
@@ -239,6 +240,8 @@ export const SightCard: React.FC<SightCardProps> = ({
   return (
     <>
       <div ref={cardRef} className={`${bgClass} rounded-lg shadow-sm border p-3 mb-3 transition-all hover:shadow-md ${borderClass}`}>
+        
+        {/* FIX: Header handles Check-in and Notes now */}
         <SightCardHeader 
             name={name} 
             isHotel={isHotel} 
@@ -249,6 +252,9 @@ export const SightCard: React.FC<SightCardProps> = ({
             isVisited={isVisited} 
             visitedAt={visitedAt} 
             onToggleVisited={(e) => { e.stopPropagation(); togglePlaceVisited(id); }} 
+            showNoteInput={showNoteInput}
+            hasNote={!!activeData.userNote}
+            onToggleNote={(e) => { e.stopPropagation(); setShowNoteInput(!showNoteInput); }}
         />
         
         <SightCardMeta 
@@ -280,7 +286,20 @@ export const SightCard: React.FC<SightCardProps> = ({
           </div>
         )}
 
-        {renderPriorityControls()}
+        {/* USER NOTE FIELD */}
+        {(showNoteInput || activeData.userNote) && (
+            <div className="mt-2 mb-1 animate-in fade-in slide-in-from-top-1">
+                <textarea
+                    value={activeData.userNote || ''}
+                    onChange={(e) => updatePlace(id, { userNote: e.target.value })}
+                    placeholder="Meine persönliche Notiz / Erlebnisbericht..."
+                    className="w-full text-xs text-indigo-900 bg-indigo-50/50 border border-indigo-100 rounded-md p-2 focus:outline-none focus:ring-1 focus:ring-indigo-300 focus:bg-white placeholder:text-indigo-300 resize-y min-h-[60px]"
+                />
+            </div>
+        )}
+
+        {/* Die Prio-Leiste (wieder auf Planungsmodus limitiert) */}
+        {renderActionControls()}
         
         <SightCardBody 
             data={activeData}
@@ -310,4 +329,4 @@ export const SightCard: React.FC<SightCardProps> = ({
     </>
   );
 };
-// --- END OF FILE 383 Zeilen ---
+// --- END OF FILE 402 Zeilen ---

@@ -1,9 +1,5 @@
+// 20.02.2026 11:15 - FIX: Resolved Workflow-Deadlock by removing 'chunkingState.currentChunk' from useEffect dependencies.
 // 19.02.2026 14:00 - FIX: Replaced local isExecutingRef with globalIsExecutingLock to prevent Multi-Instance Race Conditions ("Klon-Krieger").
-// 17.02.2026 13:00 - FIX: Removed unused 'useState' import to resolve build error TS6133.
-// 17.02.2026 11:10 - FIX: Migrated Workflow State to Global Store to prevent data loss on view switch.
-// 09.02.2026 13:30 - FIX: Strict Queue Management & Safety Delay to prevent workflow stalls.
-// 08.02.2026 20:30 - FEAT: Support 'options' in startWorkflow/startSingleTask for Smart Mode.
-// 05.02.2026 16:00 - FIX: Solved Race Condition in Workflow Loop (Timeout wrapper).
 // src/hooks/useTripGeneration.ts
 
 import { useCallback, useEffect, useRef } from 'react';
@@ -78,8 +74,6 @@ const getFriendlyErrorMessage = (error: any, lang: 'de' | 'en'): string => {
 };
 
 // --- GLOBAL LOCK ---
-// Dies verhindert den "Klon-Krieger" Bug, bei dem mehrfach gemountete Hooks
-// die Queue parallel abarbeiten und sich gegenseitig die Einträge weglöschen.
 let globalIsExecutingLock = false;
 
 export const useTripGeneration = (): UseTripGenerationReturn => {
@@ -94,10 +88,9 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     manualPrompt,
     manualStepId,
     setManualMode,
-    chunkingState,
+    // FIX: Removed 'chunkingState' destructuring to prevent heavy re-renders when chunks advance.
     setChunkingState,
     resetChunking,
-    // NEW: Global Workflow State
     workflow,
     setWorkflowState,
     resetWorkflow
@@ -108,11 +101,10 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
   // MAPPED STATE FROM STORE
   const { status, queue, currentStep, error } = workflow;
 
-  // Local Ref for Progress Calculation (Reset on Mount if Idle, else keep)
+  // Local Ref for Progress Calculation
   const initialQueueLength = useRef<number>(queue.length > 0 ? queue.length + (currentStep ? 1 : 0) : 0);
   const workflowOptionsRef = useRef<{ mode: 'smart' | 'force' } | undefined>(undefined);
 
-  // Sync initial length if a new workflow starts
   useEffect(() => {
       if (status === 'generating' && initialQueueLength.current === 0 && queue.length > 0) {
           initialQueueLength.current = queue.length;
@@ -124,7 +116,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     : 0;
 
   const cancelWorkflow = useCallback(() => {
-    resetWorkflow(); // Global Reset
+    resetWorkflow(); 
     setManualMode(null, null);
     resetChunking(); 
     globalIsExecutingLock = false;
@@ -141,10 +133,8 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     let isMounted = true;
 
     const executeNextStep = async () => {
-      // GUARD: Prevent parallel execution across all instances
       if (globalIsExecutingLock) return;
       
-      // Access FRESH state from store to avoid closure staleness
       const currentWorkflow = useTripStore.getState().workflow;
       const currentQueue = currentWorkflow.queue;
       const currentStatus = currentWorkflow.status;
@@ -159,7 +149,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
       const nextStepId = currentQueue[0];
 
-      // --- DEPENDENCY GUARD ---
       if (['chefredakteur', 'tourGuide'].includes(nextStepId)) {
         const currentPlaces = Object.values(useTripStore.getState().project.data.places || {});
         const hasRawCandidates = currentPlaces.some((p: any) => p.category === 'Sight' || p.category === 'Sightseeing');
@@ -168,13 +157,12 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
         }
       }
 
-      // LOCK
       globalIsExecutingLock = true;
 
       const stepDef = WORKFLOW_STEPS.find(s => s.id === nextStepId);
       if (stepDef?.requiresUserInteraction && currentStep !== nextStepId) {
           setWorkflowState({ status: 'waiting_for_user', currentStep: nextStepId });
-          globalIsExecutingLock = false; // UNLOCK
+          globalIsExecutingLock = false; 
           return; 
       }
       
@@ -202,14 +190,14 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
       try {
         const apiKey = useTripStore.getState().apiKey;
-        const isAutoMode = !!apiKey; // Capture this flag for logic split below
+        const isAutoMode = !!apiKey; 
         
         if (!apiKey) {
             const payload = PayloadBuilder.buildPrompt(nextStepId as TaskKey); 
             dismissNotification(loadingId);
             setManualMode(payload, nextStepId);
             setWorkflowState({ status: 'waiting_for_user' });
-            globalIsExecutingLock = false; // UNLOCK
+            globalIsExecutingLock = false; 
             return;
         }
 
@@ -221,27 +209,20 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
         );
         
         dismissNotification(loadingId);
+        
         if (isMounted) {
             processResult(nextStepId, result);
             
-            // FIX: SAFETY DELAY & STRICT QUEUE ADVANCEMENT
-            // Wait for store to settle and prevent race conditions (especially after bulk operations)
             await new Promise(r => setTimeout(r, 1000));
 
             setTimeout(() => {
               if (!isMounted) return;
               
               if (isAutoMode) {
-                  // AUTO MODE: Force next step!
-                  // Since Orchestrator.executeTask awaits all chunks in auto-mode, 
-                  // we are definitely done with this task.
                   resetChunking(); 
-                  
-                  // Safe Queue Slicing using getState()
                   const freshQueue = useTripStore.getState().workflow.queue;
                   setWorkflowState({ queue: freshQueue.slice(1) });
               } else {
-                  // MANUAL MODE: Check for chunks logic
                   const liveState = useTripStore.getState().chunkingState;
                   if (liveState.isActive && liveState.currentChunk < liveState.totalChunks) {
                     setChunkingState({ currentChunk: liveState.currentChunk + 1 });
@@ -258,7 +239,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
         if (!isMounted) { globalIsExecutingLock = false; return; }
         
         const friendlyMsg = getFriendlyErrorMessage(err, lang);
-        
         setWorkflowState({ error: friendlyMsg, status: 'error' });
 
         addNotification({
@@ -282,20 +262,18 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
           ]
         });
       } finally {
-          globalIsExecutingLock = false; // UNLOCK ALWAYS
+          globalIsExecutingLock = false; 
       }
     };
     
-    // Trigger loop on status/queue change
     executeNextStep();
     
     return () => { isMounted = false; };
   }, [
-    // Dependencies: Only trigger when Store State actually changes
     status, 
-    queue.length, // Only length matter for triggering next step
+    queue.length, 
     currentStep,
-    chunkingState.currentChunk, 
+    // FIX: Removed 'chunkingState.currentChunk' to prevent workflow loop abortions!
     aiSettings.debug, logEvent, processResult, addNotification, 
     dismissNotification, cancelWorkflow, t, lang, setManualMode, setChunkingState, resetChunking,
     setWorkflowState
@@ -399,4 +377,4 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
   return { status, currentStep, queue, error, progress, manualPrompt, submitManualResult, startWorkflow, resumeWorkflow, cancelWorkflow, startSingleTask };
 };
-// --- END OF FILE 379 Zeilen ---
+// --- END OF FILE 366 Zeilen ---

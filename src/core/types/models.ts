@@ -1,9 +1,7 @@
+// 20.02.2026 12:00 - FEAT: Added 'userNote' to Place model for personal diary notes.
 // 20.02.2026 10:10 - FEAT: Added 'days' to PrintConfig for exporting the Day Planner.
 // 17.02.2026 19:30 - FIX: Re-applying V40 Fields (isFixed, fixedDate) & LiveStatus.
 // 09.02.2026 18:00 - FIX: Added 'LiveStatus' interface (with corrected status) to Place model.
-// 09.02.2026 16:50 - FEAT: Added 'liveStatus' to Place model for Google Search Grounding results.
-// 08.02.2026 11:15 - FEAT: Added 'coordinatesValidated' flag to Place interface.
-// 06.02.2026 21:40 - FIX: Consolidate PrintConfig and ensure Route fields exist.
 // src/core/types/models.ts
 
 import type { LanguageCode } from './shared';
@@ -219,15 +217,14 @@ export interface IdeenScoutResult {
 // --- PLACES & CONTENT ---
 export type PlaceCategory = 'sight' | 'food' | 'accommodation' | 'hidden-gem' | string;
 
-// NEW: Live Verification Status (Google Grounding)
 export interface LiveStatus {
-  lastChecked: string; // ISO timestamp
+  lastChecked: string; 
   status: 'open' | 'closed' | 'permanently_closed' | 'corrected' | 'unknown';
-  operational: boolean; // true = open/active, false = permanently closed/non-existent
-  nextOpen?: string; // e.g. "Morgen 09:00"
-  openingHoursToday?: string; // e.g. "09:00 - 18:00"
-  note?: string; // AI Summary e.g. "Wird dauerhaft als geschlossen gemeldet."
-  rating?: number; // Latest Google Rating if found
+  operational: boolean; 
+  nextOpen?: string; 
+  openingHoursToday?: string; 
+  note?: string; 
+  rating?: number; 
 }
 
 export interface Place {
@@ -239,7 +236,7 @@ export interface Place {
   address?: string;
   vicinity?: string;
   location?: { lat: number; lng: number };
-  coordinatesValidated?: boolean; // Flag for Nominatim Validation
+  coordinatesValidated?: boolean; 
   
   // NEW: Live Check Data
   liveStatus?: LiveStatus;
@@ -248,13 +245,13 @@ export interface Place {
   userPriority?: number; 
   rating?: number;
   user_ratings_total?: number;
-  userSelection?: any; // Legacy compat
+  userSelection?: any; 
   
-  // NEW: Hard Constraints (Fix-Termine)
-  isFixed?: boolean;       // Wenn true -> Fester Termin
-  fixedDate?: string;      // YYYY-MM-DD
-  fixedTime?: string;      // HH:MM
-  visitDuration?: number;  // Minuten (manuelle Angabe)
+  // Hard Constraints
+  isFixed?: boolean;       
+  fixedDate?: string;      
+  fixedTime?: string;      
+  visitDuration?: number;  
   
   // Content
   shortDesc?: string;
@@ -295,6 +292,8 @@ export interface Place {
   };
 
   visited?: boolean;
+  visitedAt?: string; 
+  userNote?: string; // NEW: Persoenliche Notiz des Users
   googlePlaceId?: string; 
   
   // Enriched Links
@@ -315,7 +314,7 @@ export interface PrintConfig {
   sections: {
     briefing: boolean;
     analysis: boolean;
-    days: boolean; // NEW: Day Planner
+    days: boolean; 
     tours: boolean;
     categories: boolean;
     infos: boolean;
@@ -352,4 +351,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 326 Zeilen ---
+// --- END OF FILE 327 Zeilen ---
