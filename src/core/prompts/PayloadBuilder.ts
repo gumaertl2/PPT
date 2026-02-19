@@ -1,3 +1,4 @@
+// 19.02.2026 12:30 - REFACTOR: Removed V30 Legacy Code (transferPlanner chunk logic & buildChefPlanerPayload), extracted helpers.
 // 17.02.2026 18:55 - WIRING: Connected V40 Tagesplaner Pipeline (Preparer -> Template).
 // 10.02.2026 21:00 - FIX: Removed Syntax Error ("\n") in buildChefPlanerPayload.
 // 05.02.2026 22:30 - FIX: Implemented Selective Run & Updated Call Signature for Chefredakteur.
@@ -5,7 +6,6 @@
 // src/core/prompts/PayloadBuilder.ts
 
 import { useTripStore } from '../../store/useTripStore';
-import { INTEREST_DATA } from '../../data/interests';
 import { CONFIG } from '../../data/config';
 
 // --- TEMPLATES ---
@@ -43,68 +43,60 @@ import type { LocalizedContent, TaskKey, ChunkingState, TripProject, FoodSearchM
 import { filterByRadius } from '../utils/geo';
 import type { GeoPoint } from '../utils/geo';
 
+// --- HELPER FUNCTIONS ---
+const getTaskChunkLimit = (taskKey: TaskKey): number => {
+    const state = useTripStore.getState();
+    const mode = state.apiKey ? 'auto' : 'manual';
+    const taskOverride = state.aiSettings.chunkOverrides?.[taskKey]?.[mode];
+    if (taskOverride) return taskOverride;
+    const globalLimit = state.aiSettings.chunkLimits?.[mode];
+    if (globalLimit) return globalLimit;
+    return CONFIG.taskRouting.chunkDefaults?.[taskKey]?.[mode] || 10;
+};
+
+const sliceData = (items: any[], taskKey: TaskKey, options?: { chunkIndex?: number, limit?: number }) => {
+    const state = useTripStore.getState();
+    const chunkingState = (state as any).chunkingState as ChunkingState;
+    
+    const validItems = items.filter(item => {
+        if (!item) return false;
+        if (typeof item === 'string') return true; 
+        return item.id && item.name; 
+    });
+
+    const limit = options?.limit || getTaskChunkLimit(taskKey);
+    const currentChunk = options?.chunkIndex || 
+                         ((chunkingState?.isActive && chunkingState.currentChunk > 0) 
+                         ? chunkingState.currentChunk 
+                         : 1);
+    const startIndex = (currentChunk - 1) * limit;
+    const endIndex = startIndex + limit;
+    return validItems.slice(startIndex, endIndex);
+};
+
+const getFilteredFoodCandidates = (project: TripProject) => {
+    const rawCandidates = (project.data.content as any)?.rawFoodCandidates || [];
+    
+    if (!rawCandidates || rawCandidates.length === 0) return [];
+
+    const userLat = (project.userInputs as any).currentLocation?.lat;
+    const userLng = (project.userInputs as any).currentLocation?.lng;
+
+    if (userLat && userLng) {
+        const center: GeoPoint = { lat: userLat, lng: userLng };
+        let filtered = filterByRadius(rawCandidates, center, 0.5, (c: any) => c.geo);
+        if (filtered.length === 0) filtered = filterByRadius(rawCandidates, center, 2.0, (c: any) => c.geo);
+        if (filtered.length === 0) filtered = filterByRadius(rawCandidates, center, 10.0, (c: any) => c.geo);
+        return filtered.length > 0 ? filtered : rawCandidates.slice(0, 5); 
+    }
+    return rawCandidates;
+};
+
 export const PayloadBuilder = {
   buildPrompt: (task: TaskKey, feedback?: string, options?: { chunkIndex?: number, limit?: number, totalChunks?: number, candidates?: any[] }): string => {
     const state = useTripStore.getState();
-    const { project, aiSettings, apiKey } = state; 
+    const { project } = state; 
     const chunkingState = (state as any).chunkingState as ChunkingState;
-
-    // --- HELPER FUNCTIONS ---
-
-    const getTaskChunkLimit = (taskKey: TaskKey): number => {
-        const mode = apiKey ? 'auto' : 'manual';
-        const taskOverride = aiSettings.chunkOverrides?.[taskKey]?.[mode];
-        if (taskOverride) return taskOverride;
-        const globalLimit = aiSettings.chunkLimits?.[mode];
-        if (globalLimit) return globalLimit;
-        return CONFIG.taskRouting.chunkDefaults?.[taskKey]?.[mode] || 10;
-    };
-
-    const sliceData = (items: any[], taskKey: TaskKey) => {
-        const validItems = items.filter(item => {
-            if (!item) return false;
-            if (typeof item === 'string') return true; 
-            return item.id && item.name; 
-        });
-
-        const limit = options?.limit || getTaskChunkLimit(taskKey);
-        const currentChunk = options?.chunkIndex || 
-                             ((chunkingState?.isActive && chunkingState.currentChunk > 0) 
-                             ? chunkingState.currentChunk 
-                             : 1);
-        const startIndex = (currentChunk - 1) * limit;
-        const endIndex = startIndex + limit;
-        return validItems.slice(startIndex, endIndex);
-    };
-
-    const getLastChunkEndLocation = (): string | undefined => {
-        if (!chunkingState?.isActive || chunkingState.currentChunk <= 1 || !chunkingState.results) return undefined;
-        const prevIndex = chunkingState.currentChunk - 2;
-        const prevResult = chunkingState.results[prevIndex];
-        if (prevResult && prevResult.tage && Array.isArray(prevResult.tage) && prevResult.tage.length > 0) {
-            const lastDay = prevResult.tage[prevResult.tage.length - 1];
-            return lastDay.ort;
-        }
-        return undefined;
-    };
-
-    const getFilteredFoodCandidates = (project: TripProject) => {
-        const rawCandidates = (project.data.content as any)?.rawFoodCandidates || [];
-        
-        if (!rawCandidates || rawCandidates.length === 0) return [];
-
-        const userLat = (project.userInputs as any).currentLocation?.lat;
-        const userLng = (project.userInputs as any).currentLocation?.lng;
-
-        if (userLat && userLng) {
-            const center: GeoPoint = { lat: userLat, lng: userLng };
-            let filtered = filterByRadius(rawCandidates, center, 0.5, (c: any) => c.geo);
-            if (filtered.length === 0) filtered = filterByRadius(rawCandidates, center, 2.0, (c: any) => c.geo);
-            if (filtered.length === 0) filtered = filterByRadius(rawCandidates, center, 10.0, (c: any) => c.geo);
-            return filtered.length > 0 ? filtered : rawCandidates.slice(0, 5); 
-        }
-        return rawCandidates;
-    };
 
     // --- PROMPT GENERATION ---
     let generatedPrompt = "";
@@ -124,7 +116,7 @@ export const PayloadBuilder = {
       
       case 'anreicherer': {
         const allPlaces = Object.values(project.data.places || {}).flat();
-        const slicedCandidates = sliceData(allPlaces, 'anreicherer');
+        const slicedCandidates = sliceData(allPlaces, 'anreicherer', options);
         
         const payload = prepareAnreichererPayload(
             project, 
@@ -144,7 +136,7 @@ export const PayloadBuilder = {
               candidatesToProcess = options.candidates;
           } else {
               const allPlacesForEditor = Object.values(project.data.places || {}).flat();
-              candidatesToProcess = sliceData(allPlacesForEditor, 'chefredakteur');
+              candidatesToProcess = sliceData(allPlacesForEditor, 'chefredakteur', options);
           }
 
           const payload = prepareChefredakteurPayload(
@@ -169,7 +161,7 @@ export const PayloadBuilder = {
       case 'infos':
       case 'infoAutor': {
           const allInfoTasks = prepareInfoAutorPayload(project);
-          const slicedTasks = sliceData(allInfoTasks, 'infoAutor');
+          const slicedTasks = sliceData(allInfoTasks, 'infoAutor', options);
           generatedPrompt = buildInfoAutorPrompt(
               {
                  context: {
@@ -186,7 +178,7 @@ export const PayloadBuilder = {
       case 'sondertage':
       case 'ideenScout': {
           const allIdeenTasks = prepareIdeenScoutPayload(project);
-          const slicedIdeenTasks = sliceData(allIdeenTasks, 'ideenScout');
+          const slicedIdeenTasks = sliceData(allIdeenTasks, 'ideenScout', options);
           generatedPrompt = buildIdeenScoutPrompt(
               project, 
               slicedIdeenTasks,
@@ -254,7 +246,7 @@ export const PayloadBuilder = {
               const limit = options?.limit || getTaskChunkLimit('foodEnricher');
               slicedCandidates = candidates.slice(0, limit);
           } else {
-              slicedCandidates = sliceData(candidates, 'foodEnricher');
+              slicedCandidates = sliceData(candidates, 'foodEnricher', options);
           }
           
           const chunkIndex = options?.chunkIndex || chunkingState?.currentChunk || 1;
@@ -309,8 +301,10 @@ export const PayloadBuilder = {
 
       case 'transfers':
       case 'transferPlanner': {
-        const lastLoc = getLastChunkEndLocation() || '';
-        generatedPrompt = buildTransferPlannerPrompt(project, lastLoc);
+        // FIX: Removed legacy V30 chunking dependency `getLastChunkEndLocation`.
+        // Uses optional candidate string or defaults to empty.
+        const fallbackLoc = options?.candidates?.[0] || '';
+        generatedPrompt = buildTransferPlannerPrompt(project, fallbackLoc);
         break;
       }
 
@@ -329,36 +323,6 @@ export const PayloadBuilder = {
     }
 
     return generatedPrompt;
-  },
-
-  buildChefPlanerPayload: () => {
-    const state = useTripStore.getState();
-    const { userInputs, meta } = state.project;
-    const langMap: Record<string, string> = { de: 'Deutsch', en: 'Englisch' };
-    const outputLangCode = userInputs.aiOutputLanguage || 'de';
-    const outputLangName = langMap[outputLangCode] || 'Deutsch';
-
-    const resolvePrompt = (p: string | LocalizedContent | undefined): string => {
-        if (!p) return '';
-        if (typeof p === 'string') return p;
-        return p.de || '';
-    };
-
-    return {
-      lang: outputLangName,
-      travelers: userInputs.travelers,
-      dates: userInputs.dates,
-      logistics: userInputs.logistics,
-      interests: userInputs.selectedInterests.map(id => ({
-        id,
-        label: INTEREST_DATA[id]?.label.de || id,
-        prompt: resolvePrompt(INTEREST_DATA[id]?.prompt),
-        custom: userInputs.customPreferences[id] || null
-      })),
-      preferences: { pace: userInputs.pace, budget: userInputs.budget, vibe: userInputs.vibe, strategy: userInputs.strategyId },
-      notes: userInputs.notes,
-      appVersion: meta.version
-    };
   }
 };
-// --- END OF FILE 355 Zeilen ---
+// --- END OF FILE 319 Zeilen ---
