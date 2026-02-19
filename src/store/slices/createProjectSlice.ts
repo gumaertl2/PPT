@@ -1,3 +1,4 @@
+// 19.02.2026 21:50 - FEAT: Added 'togglePlaceVisited' action for Live-Tracking.
 // 06.02.2026 18:55 - FIX: Confirmed async loadProject logic for file reading.
 // 06.02.2026 15:15 - FEAT: Updates 'currentFileName' in UIState on Load/Save.
 // src/store/slices/createProjectSlice.ts
@@ -20,6 +21,7 @@ export interface ProjectSlice {
   saveProject: (fileName?: string) => void;
   resetProject: () => void;
   setLanguage: (lang: LanguageCode) => void;
+  togglePlaceVisited: (placeId: string) => void; // NEU
 }
 
 // Helper für Initial State
@@ -129,7 +131,6 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
       }));
 
       // Set filename in UI State if available
-      // NOTE: get().setUIState comes from the merged store (UISlice)
       if (filenameToSet && get().setUIState) {
         get().setUIState({ currentFileName: filenameToSet });
       }
@@ -192,7 +193,6 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
   },
 
   resetProject: () => {
-    // Reset Project AND Filename
     const { setUIState } = get();
     if (setUIState) {
         setUIState({ currentFileName: null });
@@ -203,5 +203,28 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
   setLanguage: (lang) => set((state: any) => ({
     project: { ...state.project, meta: { ...state.project.meta, language: lang } }
   })),
+
+  togglePlaceVisited: (placeId) => set((state: any) => {
+    const place = state.project.data.places[placeId];
+    if (!place) return state;
+
+    const isVisited = !place.visited;
+    return {
+      project: {
+        ...state.project,
+        data: {
+          ...state.project.data,
+          places: {
+            ...state.project.data.places,
+            [placeId]: {
+              ...place,
+              visited: isVisited,
+              visitedAt: isVisited ? new Date().toISOString() : undefined
+            }
+          }
+        }
+      }
+    };
+  }),
 });
-// --- END OF FILE 164 Zeilen ---
+// --- END OF FILE 190 Zeilen ---

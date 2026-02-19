@@ -1,3 +1,4 @@
+// 19.02.2026 21:50 - FEAT: Added 'visitedAt' to Place model for Diary feature & Live-Tracking.
 // 17.02.2026 19:30 - FIX: Re-applying V40 Fields (isFixed, fixedDate) & LiveStatus.
 // 09.02.2026 18:00 - FIX: Added 'LiveStatus' interface (with corrected status) to Place model.
 // 09.02.2026 16:50 - FEAT: Added 'liveStatus' to Place model for Google Search Grounding results.
@@ -294,6 +295,7 @@ export interface Place {
   };
 
   visited?: boolean;
+  visitedAt?: string; // NEW: ISO Timestamp for Reisetagebuch
   googlePlaceId?: string; 
   
   // Enriched Links
@@ -350,4 +352,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 325 Zeilen ---
+// --- END OF FILE 326 Zeilen ---
