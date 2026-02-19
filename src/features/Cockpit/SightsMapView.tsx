@@ -1,6 +1,6 @@
-// 20.02.2026 00:15 - FIX: Smart Navigation added to "Im Reiseführer zeigen" to prevent dead-ends from Day Planner.
-// 19.02.2026 23:30 - FEAT: Smart Map Clustering (Day-based Circles vs. Unscheduled Squares) applied.
-// 09.02.2026 19:50 - FEAT: Added Progress Toast for Background Live Check.
+// 20.02.2026 01:25 - FIX: Switched Fullscreen to "Theater Mode" (Full width, but keeps Menu Bar visible).
+// 20.02.2026 01:15 - FEAT: Added dynamic viewport height for better Map UX.
+// 20.02.2026 00:15 - FIX: Smart Navigation added to "Im Reiseführer zeigen".
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -9,7 +9,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useTripStore } from '../../store/useTripStore';
 import type { Place } from '../../core/types/models';
-import { ExternalLink, RefreshCw, Zap } from 'lucide-react'; 
+import { ExternalLink, RefreshCw, Zap, Maximize, Minimize } from 'lucide-react'; 
 import { GeocodingService } from '../../services/GeocodingService'; 
 import { LiveScout } from '../../services/LiveScout'; 
 
@@ -55,29 +55,18 @@ const DEFAULT_COLOR = '#64748b';
 
 // --- FARBPALETTE FÜR TAGE (Geplante Orte) ---
 const DAY_COLORS = [
-    '#3b82f6', // Tag 1: Blau
-    '#10b981', // Tag 2: Smaragdgrün
-    '#8b5cf6', // Tag 3: Violett
-    '#f59e0b', // Tag 4: Bernstein
-    '#ec4899', // Tag 5: Pink
-    '#0ea5e9', // Tag 6: Sky
-    '#f43f5e', // Tag 7: Rose
-    '#14b8a6', // Tag 8: Teal
-    '#f97316', // Tag 9: Orange
-    '#6366f1'  // Tag 10: Indigo
+    '#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ec4899', 
+    '#0ea5e9', '#f43f5e', '#14b8a6', '#f97316', '#6366f1'  
 ];
 
 const getCategoryColor = (cat?: string, place?: Place): string => {
   if (!cat) return DEFAULT_COLOR;
-  
   if (cat === 'special' && place?.details?.specialType) {
       if (place.details.specialType === 'sunny') return CATEGORY_COLORS['sunny'];
       if (place.details.specialType === 'rainy') return CATEGORY_COLORS['rainy'];
   }
-
   const normalized = cat.toLowerCase().trim();
   if (CATEGORY_COLORS[normalized]) return CATEGORY_COLORS[normalized];
-  
   const match = Object.keys(CATEGORY_COLORS).find(key => normalized.includes(key));
   return match ? CATEGORY_COLORS[match] : DEFAULT_COLOR;
 };
@@ -88,7 +77,6 @@ const createSmartIcon = (categoryColor: string, isSelected: boolean, dayNumber?:
   const animClass = isSelected ? 'marker-pulse' : '';
   const border = isSelected ? '3px solid #000' : '2px solid white';
 
-  // VIP: Hotel / Unterkunft
   if (isHotel) {
       return L.divIcon({
           className: `custom-map-marker ${animClass}`,
@@ -99,7 +87,6 @@ const createSmartIcon = (categoryColor: string, isSelected: boolean, dayNumber?:
       });
   }
 
-  // GEPLANT: Runder Kreis mit Tagesfarbe und Nummer
   if (dayNumber) {
       const dayColor = DAY_COLORS[(dayNumber - 1) % DAY_COLORS.length];
       return L.divIcon({
@@ -111,7 +98,6 @@ const createSmartIcon = (categoryColor: string, isSelected: boolean, dayNumber?:
       });
   }
 
-  // UNGEPLANT: Viereck mit Kategorie-Farbe (leicht transparent)
   return L.divIcon({
       className: `custom-map-marker ${animClass}`,
       html: `<div style="background-color: ${categoryColor}; width: ${baseSize - 2}px; height: ${baseSize - 2}px; border-radius: 6px; border: ${border}; opacity: 0.85; box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 100;"></div>`,
@@ -128,23 +114,16 @@ interface SightsMapViewProps {
 const MapStyles = () => (
   <style>{`
     @keyframes pulse-black {
-      0% {
-        box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.7);
-        transform: scale(1);
-      }
-      70% {
-        box-shadow: 0 0 0 12px rgba(0, 0, 0, 0);
-        transform: scale(1.1);
-      }
-      100% {
-        box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
-        transform: scale(1);
-      }
+      0% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.7); transform: scale(1); }
+      70% { box-shadow: 0 0 0 12px rgba(0, 0, 0, 0); transform: scale(1.1); }
+      100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); transform: scale(1); }
     }
-      
     .marker-pulse > div {
       animation: pulse-black 1.5s infinite;
       z-index: 9999 !important;
+    }
+    .leaflet-container {
+      z-index: 1;
     }
   `}</style>
 );
@@ -152,7 +131,6 @@ const MapStyles = () => (
 const MapLogic: React.FC<{ places: Place[] }> = ({ places }) => {
   const map = useMap();
   const { uiState } = useTripStore(); 
-  
   const isInitialized = useRef(false);
   const lastSelectedId = useRef<string | null>(uiState.selectedPlaceId);
 
@@ -178,15 +156,24 @@ const MapLogic: React.FC<{ places: Place[] }> = ({ places }) => {
             if (bounds.isValid()) map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
         }
     }
-
     lastSelectedId.current = currentId;
-
   }, [places, uiState.selectedPlaceId, map]);
 
   return null;
 };
 
-const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
+// Map Resizer to fix Grey-Tile Bug when toggling modes
+const MapResizer: React.FC<{ isFullscreen: boolean }> = ({ isFullscreen }) => {
+    const map = useMap();
+    useEffect(() => {
+        const timer1 = setTimeout(() => map.invalidateSize(), 50);
+        const timer2 = setTimeout(() => map.invalidateSize(), 300);
+        return () => { clearTimeout(timer1); clearTimeout(timer2); };
+    }, [isFullscreen, map]);
+    return null;
+};
+
+const MapLegend: React.FC<{ places: Place[], isFullscreen: boolean }> = ({ places, isFullscreen }) => {
   const categories = useMemo(() => {
     const cats = new Set<string>();
     places.forEach(p => {
@@ -199,7 +186,7 @@ const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
   if (categories.length === 0) return null;
 
   return (
-    <div className="absolute bottom-6 left-6 z-[500] bg-white/95 backdrop-blur-sm p-3 rounded-xl border border-slate-200 shadow-xl max-h-[200px] overflow-y-auto">
+    <div className={`absolute left-6 z-[500] bg-white/95 backdrop-blur-sm p-3 rounded-xl border border-slate-200 shadow-xl max-h-[200px] overflow-y-auto bottom-6`}>
       <h4 className="text-[10px] font-bold uppercase text-slate-400 mb-2 tracking-wider sticky top-0 bg-white/95 pb-1">Legende</h4>
       <div className="space-y-1.5">
         {categories.map(cat => (
@@ -235,13 +222,14 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
 
   const [isUpdatingCoords, setIsUpdatingCoords] = useState(false);
   const [updateProgress, setUpdateProgress] = useState({ current: 0, total: 0 });
-
   const [isCheckingLive, setIsCheckingLive] = useState(false);
   const [liveCheckProgress, setLiveCheckProgress] = useState({ current: 0, total: 0 });
+  
+  // Fullscreen State
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const allPlacesFromStore = useMemo(() => Object.values(project.data.places), [project.data.places]);
 
-  // --- SMART MAP CLUSTERING LOGIC ---
   const scheduledPlaces = useMemo(() => {
       const map = new Map<string, number>();
       if (!project.itinerary?.days) return map;
@@ -290,10 +278,7 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
 
                     setProject({
                         ...project,
-                        data: {
-                            ...project.data,
-                            places: newPlacesRecord 
-                        }
+                        data: { ...project.data, places: newPlacesRecord }
                     });
                 }
             } catch (e) {
@@ -303,7 +288,6 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
             }
         }
     };
-
     const timer = setTimeout(runGeocoding, 1000);
     return () => clearTimeout(timer);
   }, [allPlacesFromStore.length]);
@@ -312,16 +296,13 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
     const runLiveCheck = () => {
         if (isCheckingLive) return;
 
-        const uncheckedPlaces = allPlacesFromStore
-            .filter(p => !p.liveStatus && p.category !== 'internal');
+        const uncheckedPlaces = allPlacesFromStore.filter(p => !p.liveStatus && p.category !== 'internal');
         
         if (uncheckedPlaces.length > 0) {
             const candidates = uncheckedPlaces.slice(0, 50).map(p => p.id);
-            
             if (candidates.length > 0) {
                 setIsCheckingLive(true);
                 setLiveCheckProgress({ current: 0, total: candidates.length });
-
                 LiveScout.verifyBatch(candidates, (curr, total) => {
                     setLiveCheckProgress({ current: curr, total });
                 })
@@ -330,7 +311,6 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
             }
         }
     };
-
     const timer = setTimeout(runLiveCheck, 2000);
     return () => clearTimeout(timer);
   }, []); 
@@ -338,34 +318,47 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
   useEffect(() => {
     if (uiState.selectedPlaceId && markerRefs.current[uiState.selectedPlaceId]) {
       const marker = markerRefs.current[uiState.selectedPlaceId];
-      setTimeout(() => {
-          marker?.openPopup();
-      }, 150);
+      setTimeout(() => marker?.openPopup(), 150);
     }
   }, [uiState.selectedPlaceId]);
 
   const validPlaces = places.filter(p => p.location && p.location.lat && p.location.lng);
 
+  // FIX: THEATER MODE CLASSES
+  // - fixed left-0 right-0 bottom-0: Füllt die gesamte Bildschirmbreite
+  // - top-[70px] md:top-[80px]: Hält Abstand nach oben, sodass die Papatours Menüleiste sichtbar bleibt
+  // - z-[40]: Legt sich über den Inhalt, aber bleibt UNTER dem Menü (das meist z-50 hat)
+  const containerClasses = isFullscreen
+    ? "fixed left-0 right-0 bottom-0 top-[70px] md:top-[80px] z-[40] bg-slate-100 shadow-2xl transition-all"
+    : "h-[calc(100vh-180px)] min-h-[600px] w-full rounded-[2rem] overflow-hidden shadow-inner border border-slate-200 z-0 relative bg-slate-100 transition-all";
+
   return (
-    <div className="h-[600px] w-full rounded-[2rem] overflow-hidden shadow-inner border border-slate-200 z-0 relative bg-slate-100">
+    <div className={containerClasses}>
       
+      {/* 1. Geocoding Indicator */}
       {isUpdatingCoords && (
-          <div className="absolute top-4 right-4 z-[1000] bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-md border border-slate-200 flex items-center gap-3 text-xs font-medium text-slate-600 animate-in slide-in-from-top-2">
+          <div className={`absolute top-4 right-20 z-[1000] bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-md border border-slate-200 flex items-center gap-3 text-xs font-medium text-slate-600 animate-in slide-in-from-top-2`}>
               <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-500" />
-              <span>
-                  Optimiere Koordinaten... ({updateProgress.current}/{updateProgress.total})
-              </span>
+              <span className="hidden sm:inline">Optimiere Koordinaten... ({updateProgress.current}/{updateProgress.total})</span>
           </div>
       )}
 
+      {/* 2. Live Check Indicator */}
       {isCheckingLive && (
-          <div className={`absolute right-4 z-[1000] bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-md border border-slate-200 flex items-center gap-3 text-xs font-medium text-slate-600 animate-in slide-in-from-top-2 ${isUpdatingCoords ? 'top-16' : 'top-4'}`}>
+          <div className={`absolute right-20 z-[1000] bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-md border border-slate-200 flex items-center gap-3 text-xs font-medium text-slate-600 animate-in slide-in-from-top-2 ${isUpdatingCoords ? 'top-16' : 'top-4'}`}>
               <Zap className="w-3.5 h-3.5 animate-pulse text-amber-500 fill-current" />
-              <span>
-                  Live-Check... ({liveCheckProgress.current}/{liveCheckProgress.total})
-              </span>
+              <span className="hidden sm:inline">Live-Check... ({liveCheckProgress.current}/{liveCheckProgress.total})</span>
           </div>
       )}
+
+      {/* 3. FULLSCREEN/THEATER TOGGLE BUTTON */}
+      <button 
+          onClick={() => setIsFullscreen(!isFullscreen)}
+          className={`absolute top-4 right-4 z-[1000] bg-white text-slate-700 p-2.5 rounded-xl shadow-lg border border-slate-200 hover:text-blue-600 hover:bg-blue-50 transition-all focus:outline-none`}
+          title={isFullscreen ? "Breitbildmodus beenden" : "Karte auf volle Breite vergrößern"}
+      >
+          {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+      </button>
 
       <MapStyles />
       <MapContainer 
@@ -374,11 +367,8 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
         style={{ height: "100%", width: "100%" }}
         scrollWheelZoom={true}
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-
+        <MapResizer isFullscreen={isFullscreen} />
+        <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <MapLogic places={places} />
 
         {validPlaces.map((place) => {
@@ -394,28 +384,17 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
               icon={createSmartIcon(markerColor, isSelected, dayNumber, isHotel)}
               zIndexOffset={isSelected ? 1000 : (isHotel ? 900 : (dayNumber ? 500 : 0))} 
               ref={(ref) => { markerRefs.current[place.id] = ref; }}
-              eventHandlers={{
-                click: () => {
-                  setUIState({ selectedPlaceId: place.id });
-                },
-              }}
+              eventHandlers={{ click: () => setUIState({ selectedPlaceId: place.id }) }}
             >
               <Popup>
                 <div className="min-w-[220px] font-sans p-1">
-                  
                   <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
-                          <div 
-                            className="w-2 h-2 rounded" 
-                            style={{ backgroundColor: markerColor }} 
-                          />
+                          <div className="w-2 h-2 rounded" style={{ backgroundColor: markerColor }} />
                           <span className="text-[10px] uppercase font-bold text-slate-400">
-                            {place.category === 'special' 
-                                ? (place.details?.specialType === 'sunny' ? 'Sonnentag ☀️' : 'Regentag 🌧️') 
-                                : (place.category || 'Ort')}
+                            {place.category === 'special' ? (place.details?.specialType === 'sunny' ? 'Sonnentag ☀️' : 'Regentag 🌧️') : (place.category || 'Ort')}
                           </span>
                       </div>
-                      
                       {dayNumber && (
                           <span className="text-[10px] font-bold text-white px-1.5 py-0.5 rounded shadow-sm" style={{ backgroundColor: DAY_COLORS[(dayNumber - 1) % DAY_COLORS.length] }}>
                               📅 Tag {dayNumber}
@@ -425,28 +404,21 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
                   </div>
                   
                   <h3 className="font-bold text-slate-900 text-sm mb-1 mt-1">{place.name}</h3>
-                  
-                  {place.address && (
-                    <p className="text-xs text-slate-600 mb-2 leading-snug flex gap-1">
-                      📍 <span className="opacity-80">{place.address}</span>
-                    </p>
-                  )}
+                  {place.address && <p className="text-xs text-slate-600 mb-2 leading-snug flex gap-1">📍 <span className="opacity-80">{place.address}</span></p>}
 
                   <button 
                     onClick={() => {
                         let targetSortMode = uiState.sortMode || 'category';
                         let targetFilter = uiState.categoryFilter || [];
-
-                        // SMART NAVIGATION LOGIC
                         if (targetSortMode === 'day') {
                             const isVisibleInCurrentView = dayNumber && (targetFilter.length === 0 || targetFilter.some(f => f.includes(String(dayNumber))));
-                            
                             if (!isVisibleInCurrentView) {
-                                // Wenn der angeklickte Ort im aktuellen Filter/Modus unsichtbar wäre -> Wechsle zu Kategorien!
                                 targetSortMode = 'category';
                                 targetFilter = [];
                             }
                         }
+
+                        if (isFullscreen) setIsFullscreen(false);
 
                         setUIState({ 
                             viewMode: 'list', 
@@ -466,10 +438,9 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
           );
         })}
 
-        <MapLegend places={validPlaces} />
-        
+        <MapLegend places={validPlaces} isFullscreen={isFullscreen} />
       </MapContainer>
     </div>
   );
 };
-// --- END OF FILE 462 Zeilen ---
+// --- END OF FILE 477 Zeilen ---

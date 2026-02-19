@@ -1,12 +1,6 @@
+// 20.02.2026 09:40 - UX FIX: Guide-Button schließt/öffnet nicht mehr ungewollt den Filter, sondern scrollt nach oben.
+// 20.02.2026 09:35 - LAYOUT FIX: Header ist nun kugelsicher 'fixed' am Viewport verankert (verschwindet nie wieder).
 // 17.02.2026 15:05 - LAYOUT: Cockpit 2.1. Critical Flexbox Fix & Moved Auto-Toggle to Menu.
-// 17.02.2026 14:45 - LAYOUT: Cockpit 2.0. Improved responsiveness, closed gaps, compacted toolbar.
-// 17.02.2026 13:40 - REFACTOR: Integrated ActionsMenu component & cleaned up imports.
-// 17.02.2026 12:30 - UX: Added Mouseover-Tooltips for all buttons and menu items.
-// 17.02.2026 12:10 - REFACTOR: Integrated SafeExitModal component for clean architecture & I18n.
-// 17.02.2026 11:45 - FEAT: Added 'Safe Home' Exit Modal with Copyright & Disclaimer.
-// 09.02.2026 11:35 - FIX: Added filename persistence (Strict User Code Base).
-// 06.02.2026 19:35 - FEAT: Wired 'Plan' button to switch viewMode to 'plan'.
-// 06.02.2026 18:55 - FIX: Added 'await' to loadProject to ensure filename is set before UI updates.
 // src/features/Cockpit/Layout/CockpitHeader.tsx
 
 import React, { useState, useRef } from 'react';
@@ -151,8 +145,12 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     <>
       <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
 
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-        <div className="max-w-6xl mx-auto px-2 lg:px-4 h-16 flex items-center justify-between gap-2 sm:gap-4">
+      {/* FIX 1: Unsichtbarer Abstandhalter, der das Layout schützt, da der Header nun fixed ist */}
+      <div className="h-16 w-full shrink-0 bg-transparent no-print"></div>
+
+      {/* FIX 2: Header ist nun kugelsicher (fixed, w-full, z-[999]) an der Decke des Bildschirms verankert */}
+      <header className="bg-white border-b border-slate-200 fixed top-0 left-0 w-full h-16 z-[999] shadow-sm transform-none">
+        <div className="max-w-6xl mx-auto px-2 lg:px-4 h-full flex items-center justify-between gap-2 sm:gap-4">
           
           {/* LEFT GROUP: Home + Scrollable Nav + Search */}
           <div className="flex items-center gap-1 md:gap-2 flex-1 min-w-0">
@@ -165,7 +163,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
               <Home className="w-6 h-6" />
             </button>
             
-            {/* Scrollable Nav Container: 'min-w-0' and 'shrink' allow it to collapse properly */}
+            {/* Scrollable Nav Container */}
             <div className="flex items-center gap-1 overflow-x-auto no-scrollbar mask-gradient pr-2 shrink min-w-0">
                  <button 
                     onClick={() => setViewMode('plan')} 
@@ -186,11 +184,13 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                        if (uiState.viewMode === 'map') {
                          setUIState({ viewMode: 'list' });
                        } else {
-                         toggleSightFilter();
+                         // FIX 3: Öffnet nicht mehr ungewollt den Filter! Scrollt stattdessen elegant nach oben.
+                         window.scrollTo({ top: 0, behavior: 'smooth' });
                        }
                      } else {
                        setViewMode('sights');
                        setUIState({ viewMode: 'list' });
+                       window.scrollTo({ top: 0, behavior: 'smooth' });
                      }
                    }} 
                    className={`flex flex-col items-center px-2 py-1 rounded transition-colors shrink-0 ${
@@ -297,7 +297,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                 onOpenExport={() => setIsExportModalOpen(true)}
                 onOpenPrint={() => setIsPrintModalOpen(true)}
                 onOpenAdHoc={() => setIsAdHocModalOpen(true)}
-                onOpenSettings={() => setShowSettingsModal(true)} // NEW
+                onOpenSettings={() => setShowSettingsModal(true)}
               />
 
           </div>
@@ -334,4 +334,4 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     </>
   );
 };
-// --- END OF FILE 305 Lines ---
+// --- END OF FILE 314 Zeilen ---
