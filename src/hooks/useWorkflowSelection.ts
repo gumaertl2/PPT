@@ -1,3 +1,4 @@
+// 17.02.2026 22:00 - FIX: Robust Priority Check (Legacy Safe) & Error Handling wrapper.
 // 17.02.2026 21:05 - FEAT: Added 'validateStepStart' for Tagesplaner Priority Check.
 // 17.02.2026 10:45 - FIX: Added Initialization Guard to prevent selection reset.
 // src/hooks/useWorkflowSelection.ts
@@ -21,11 +22,8 @@ export const useWorkflowSelection = (isOpen: boolean) => {
     const [selectedSteps, setSelectedSteps] = useState<WorkflowStepId[]>([]);
     
     const hasInitializedRef = useRef(false);
-
-    // 1. GLOBAL CONTEXT
     const isStationary = project.userInputs.logistics.mode === 'stationaer';
 
-    // 2. HELPER: Check selection
     const isSelected = useCallback((id: WorkflowStepId) => {
         return selectedSteps.includes(id);
     }, [selectedSteps]);
@@ -40,19 +38,14 @@ export const useWorkflowSelection = (isOpen: boolean) => {
         const canRunGuideDependent = !!project.analysis.tourGuide || isSelected('tourGuide');
 
         switch (stepId) {
-            case 'chefPlaner':
-                return project.analysis.chefPlaner ? 'done' : 'available';
-
-            case 'routeArchitect':
+            case 'chefPlaner': return project.analysis.chefPlaner ? 'done' : 'available';
+            case 'routeArchitect': 
                 if (isStationary) return 'locked';
                 return project.analysis.routeArchitect ? 'done' : 'available';
-
-            case 'basis':
-                return hasPlaces ? 'done' : 'available';
+            case 'basis': return hasPlaces ? 'done' : 'available';
             
             case 'anreicherer':
                 if (!canRunPlaceDependent) return 'locked';
-                // Less aggressive check: only 'done' if user didn't just ask to re-run
                 const isEnriched = validPlaces.some((p: any) => 
                     (p.kurzbeschreibung && p.kurzbeschreibung.length > 20) || 
                     (p.description && p.description.length > 20)
@@ -69,9 +62,8 @@ export const useWorkflowSelection = (isOpen: boolean) => {
                 return hasDetails ? 'done' : 'available';
 
             case 'initialTagesplaner': 
-                // Fix: Check Guide dependent, but return available even if done to allow updates
-                const canRunDayPlan = canRunPlaceDependent && canRunGuideDependent;
-                if (!canRunDayPlan) return 'locked';
+                // Available if we have places. We don't lock if not Guide, because Guide is not strictly needed for planning, just context.
+                if (!hasPlaces) return 'locked';
                 return project.itinerary.days.length > 0 ? 'done' : 'available';
 
             case 'infoAutor': 
@@ -100,8 +92,7 @@ export const useWorkflowSelection = (isOpen: boolean) => {
                 const canRunTransfer = hasDayPlan || isSelected('initialTagesplaner');
                 return canRunTransfer ? 'available' : 'locked';
                 
-            default:
-                return 'available';
+            default: return 'available';
         }
     }, [project, isStationary, isSelected]);
 
@@ -109,16 +100,19 @@ export const useWorkflowSelection = (isOpen: boolean) => {
     const validateStepStart = useCallback((stepId: string): StepValidationResult => {
         if (stepId === 'initialTagesplaner') {
              const places = Object.values(project.data.places || {});
-             // Check for at least one item with Prio 1/2 or Fix
-             const hasPriorities = places.some((p: any) => 
-                 (p.userPriority && p.userPriority > 0) || p.isFixed
-             );
+             // FIX: Robust check including legacy userSelection
+             const hasPriorities = places.some((p: any) => {
+                 const rootPrio = p.userPriority || 0;
+                 const legacyPrio = p.userSelection?.priority || 0;
+                 const isFixed = !!p.isFixed;
+                 return rootPrio > 0 || legacyPrio > 0 || isFixed;
+             });
              
              if (!hasPriorities) {
                  return { 
                      canStart: false, 
                      reason: 'no_priorities', 
-                     action: 'prompt_user' // Signal UI to ask: "Assign Prios?"
+                     action: 'prompt_user' 
                  };
              }
         }
@@ -157,10 +151,7 @@ export const useWorkflowSelection = (isOpen: boolean) => {
             setSelectedSteps(validDefaults);
             hasInitializedRef.current = true;
         }
-        
-        if (!isOpen) {
-            hasInitializedRef.current = false;
-        }
+        if (!isOpen) hasInitializedRef.current = false;
     }, [isOpen, project, isStationary, getStepStatus]); 
 
     // 6. ACTIONS
@@ -175,18 +166,14 @@ export const useWorkflowSelection = (isOpen: boolean) => {
 
     const handleWorkflowSelect = useCallback(async (stepId: string, options?: { mode: 'smart' | 'force' }) => {
         console.log(`[Workflow] Direct Select: ${stepId}`, options);
+        if (stepId === 'routeArchitect') setUIState({ viewMode: 'map' });
         
-        if (stepId === 'routeArchitect') {
-            setUIState({ viewMode: 'map' });
+        try {
+            await TripOrchestrator.executeTask(stepId as any, undefined, undefined, options);
+        } catch (err: any) {
+            console.error(`[Workflow] Execution Failed:`, err);
+            alert(`Fehler beim Starten des Workflows: ${err.message}`);
         }
-
-        // Validate first (e.g. DayPlanner Prios)
-        // Note: For direct calls via UI buttons (not the wizard loop), we assume the UI handled the prompt, 
-        // OR we enforce it here if needed. 
-        // But usually "handleWorkflowSelect" is the final "GO".
-        
-        await TripOrchestrator.executeTask(stepId as any, undefined, undefined, options);
-        
     }, [setUIState]);
 
     return {
@@ -195,7 +182,7 @@ export const useWorkflowSelection = (isOpen: boolean) => {
         getStepStatus,
         isStationary,
         handleWorkflowSelect,
-        validateStepStart // Export new validation function
+        validateStepStart 
     };
 };
-// --- END OF FILE 210 Zeilen ---
+// --- END OF FILE 215 Zeilen ---

@@ -1,6 +1,5 @@
+// 17.02.2026 22:30 - FIX: Removed 'initialTagesplaner' from Chunking (Skeleton Approach). Added Flight Recorder Logs.
 // 12.02.2026 18:40 - REFACTOR: Final Cleanup. Integrated ModelSelector, LimitManager, ResultMerger.
-// 12.02.2026 18:05 - REFACTOR: Delegated Food Logic to FoodWorkflow. Cleanup.
-// 12.02.2026 17:05 - FIX: Added 'thinking' support to resolveModelId.
 // src/services/orchestrator.ts
 
 import { z } from 'zod';
@@ -50,7 +49,6 @@ export const TripOrchestrator = {
      const totalChunks = Math.ceil(totalItems / limit);
      const collectedResults: any[] = [];
      
-     // REFACTOR: Use ModelSelector
      const modelId = ModelSelector.resolve(task);
      const schema = SCHEMA_MAP[task];
 
@@ -62,8 +60,6 @@ export const TripOrchestrator = {
              store.setChunkingState({ isActive: true, currentChunk: i, totalChunks: totalChunks, results: collectedResults });
 
              let chunkCandidates = inputData;
-             // FIX: Only slice if inputData is provided explicitly. 
-             // If inputData is undefined, PayloadBuilder handles fetching (which is safer for 'Anreicherer' re-runs)
              if (Array.isArray(inputData) && inputData.length > 0 && ['chefredakteur', 'anreicherer', 'details'].includes(task)) {
                  const start = (i - 1) * limit;
                  const end = start + limit;
@@ -90,67 +86,79 @@ export const TripOrchestrator = {
              collectedResults.push(validatedData);
          }
          
-         // REFACTOR: Use ResultMerger
          return ResultMerger.merge(collectedResults, task);
 
      } catch (error) {
          console.error(`[Orchestrator] Error in Chunk Loop for ${task}:`, error);
          throw error;
      } finally {
-         // CRITICAL FIX: Always reset chunking state, even if error occurs
          console.log(`[Orchestrator] Finalizing Loop for ${task}. Resetting state.`);
          store.resetChunking();
      }
  },
 
- // UPDATED: Accepts additionalContext
  async _executeSingleStep(task: TaskKey, feedback?: string, skipSave: boolean = false, inputData?: any, enableSearch: boolean = false, additionalContext?: any): Promise<any> {
      const store = useTripStore.getState();
-     let processedInput = inputData;
-     if (task === 'foodScout' && Array.isArray(inputData)) {
-         processedInput = inputData.map(item => typeof item === 'string' ? cleanTownName(item) : item);
+     console.log(`[FLIGHT RECORDER] _executeSingleStep START: ${task}`);
+     
+     // Set Loading State Manually if not chunking
+     if (!store.chunkingState.isActive) {
+         store.setChunkingState({ isActive: true, currentChunk: 1, totalChunks: 1, results: [] });
      }
 
-     // MERGE: additionalContext contains the RAW OBJECTS now
-     const payloadOptions: any = { candidates: processedInput, ...additionalContext };
-     
-     if (task === 'geoExpander' && Array.isArray(processedInput) && processedInput.length > 0) {
-         payloadOptions.location_name = processedInput[0];
-     }
-
-     const prompt = PayloadBuilder.buildPrompt(task, feedback, payloadOptions);
-     
-     // REFACTOR: Use ModelSelector
-     const modelId = ModelSelector.resolve(task);
-     
-     if (store.aiSettings.debug) console.log(`[Orchestrator] Single Step: ${task} -> Model: ${modelId === CONFIG.api.models.pro ? 'PRO' : 'FLASH'} ${skipSave ? '(NO SAVE)' : ''}`);
-
-     const rawResult = await GeminiService.call(prompt, task, modelId, undefined, undefined, enableSearch);
-     const schema = SCHEMA_MAP[task];
-     let validatedData = rawResult;
-     if (schema) {
-        const validation = schema.safeParse(rawResult);
-        if (!validation.success) {
-           console.warn(`[Orchestrator] Validation Failed for ${task}.`, JSON.stringify(rawResult, null, 2));
-           console.error(`[Orchestrator] Schema Errors:`, validation.error);
-           throw new Error(`KI-Antwort entspricht nicht dem V40-Schema für ${task}.`);
-        }
-        validatedData = validation.data;
-     }
-     
-     if (!skipSave) {
-         ResultProcessor.process(task, validatedData);
-         if (task === 'basis') {
-             console.log("[Orchestrator] Waiting for store consistency after Basis...");
-             await safetyDelay(2000);
+     try {
+         let processedInput = inputData;
+         if (task === 'foodScout' && Array.isArray(inputData)) {
+             processedInput = inputData.map(item => typeof item === 'string' ? cleanTownName(item) : item);
          }
+
+         const payloadOptions: any = { candidates: processedInput, ...additionalContext };
+         
+         if (task === 'geoExpander' && Array.isArray(processedInput) && processedInput.length > 0) {
+             payloadOptions.location_name = processedInput[0];
+         }
+
+         const prompt = PayloadBuilder.buildPrompt(task, feedback, payloadOptions);
+         const modelId = ModelSelector.resolve(task);
+         
+         if (store.aiSettings.debug) console.log(`[Orchestrator] Single Step: ${task} -> Model: ${modelId === CONFIG.api.models.pro ? 'PRO' : 'FLASH'} ${skipSave ? '(NO SAVE)' : ''}`);
+
+         const rawResult = await GeminiService.call(prompt, task, modelId, undefined, undefined, enableSearch);
+         const schema = SCHEMA_MAP[task];
+         let validatedData = rawResult;
+         if (schema) {
+            const validation = schema.safeParse(rawResult);
+            if (!validation.success) {
+               console.warn(`[Orchestrator] Validation Failed for ${task}.`, JSON.stringify(rawResult, null, 2));
+               console.error(`[Orchestrator] Schema Errors:`, validation.error);
+               throw new Error(`KI-Antwort entspricht nicht dem V40-Schema für ${task}.`);
+            }
+            validatedData = validation.data;
+         }
+         
+         if (!skipSave) {
+             ResultProcessor.process(task, validatedData);
+             if (task === 'basis') {
+                 console.log("[Orchestrator] Waiting for store consistency after Basis...");
+                 await safetyDelay(2000);
+             }
+         }
+         console.log(`[FLIGHT RECORDER] _executeSingleStep SUCCESS: ${task}`);
+         return validatedData;
+
+     } catch (error) {
+         console.error(`[FLIGHT RECORDER] _executeSingleStep ERROR: ${task}`, error);
+         throw error;
+     } finally {
+         store.resetChunking(); // Ensure loading stops
      }
-     return validatedData;
  },
 
  async executeTask(task: TaskKey, feedback?: string, inputData?: any, options?: { mode: 'smart' | 'force' }): Promise<any> {
     const store = useTripStore.getState();
     const { project, chunkingState, setChunkingState, apiKey } = store;
+
+    console.log(`[FLIGHT RECORDER] executeTask CALLED: ${task}`, options);
 
     // SMART MODE CHECKS
     if (options?.mode === 'smart' && task === 'chefredakteur') {
@@ -159,31 +167,29 @@ export const TripOrchestrator = {
             !p.detailContent || p.detailContent.length < 50
         );
         if (missingItems.length === 0) {
+            console.log(`[FLIGHT RECORDER] Smart Mode: Nothing to do for ${task}`);
             return { skipped: true, message: "Nothing to do" };
         }
         inputData = missingItems; 
     }
 
-    // --- REFACTOR: DELEGATED TO WORKFLOW ---
     if (task === 'foodScout' || task === 'food') {
         return FoodWorkflow.execute(feedback, this._executeSingleStep.bind(this));
     }
 
+    // LIST OF CHUNKABLE TASKS
+    // FIX: Removed 'initialTagesplaner' / 'dayplan' from here. V40 Prompt creates the WHOLE skeleton at once.
     const chunkableTasks: TaskKey[] = [
         'anreicherer', 'chefredakteur', 'infoAutor', 'foodEnricher', 'chefPlaner',
-        'dayplan', 'initialTagesplaner', 'infos', 'details', 'basis', 'hotelScout', 'ideenScout'
+        'infos', 'details', 'basis', 'hotelScout', 'ideenScout'
     ];
     
     if (chunkableTasks.includes(task)) {
         let totalItems = 0;
         const isManual = !apiKey;
-        
-        // REFACTOR: Use LimitManager
         let limit = LimitManager.getTaskLimit(task, isManual);
 
         if (['anreicherer', 'chefredakteur', 'details'].includes(task)) {
-            // FIX: If InputData provided explicitly (e.g. from overwrite logic), use it.
-            // Otherwise calculate from store.
             if (inputData && Array.isArray(inputData) && inputData.length > 0) {
                 totalItems = inputData.length;
             } else {
@@ -197,7 +203,7 @@ export const TripOrchestrator = {
         }
         else if (task === 'chefPlaner') totalItems = project.userInputs.dates.fixedEvents?.length || 0;
         else if (task === 'basis') totalItems = project.userInputs.selectedInterests.length;
-        else if (['dayplan', 'initialTagesplaner'].includes(task)) totalItems = project.userInputs.dates.duration || 1;
+        // REMOVED DAYPLAN LOGIC FROM HERE
         else if (['infos', 'infoAutor'].includes(task)) {
             const appendixInterests = project.userInputs.selectedInterests.filter(id => APPENDIX_ONLY_INTERESTS.includes(id));
             totalItems = appendixInterests.length > 0 ? appendixInterests.length : 1;
@@ -224,11 +230,12 @@ export const TripOrchestrator = {
                  }
              }
         } else {
-            // Fix: Clean up chunking state if we happen to have it set but don't need it
             if (chunkingState.isActive && chunkingState.totalChunks <= 1) store.resetChunking(); 
         }
     }
     
+    // Fallback for non-chunked tasks (like initialTagesplaner)
+    console.log(`[FLIGHT RECORDER] Routing to Single Step: ${task}`);
     return this._executeSingleStep(task, feedback, false, inputData, false);
   }
 };

@@ -1,7 +1,5 @@
+// 17.02.2026 22:05 - FIX: Added Error Boundary around executeStart & Robust UI handling.
 // 17.02.2026 21:35 - FEAT: UI Integration of 'validateStepStart' for Priority Check.
-// 09.02.2026 09:55 - FIX: Removed unused 'hasPlaces' variable to fix Build Error TS6133.
-// 08.02.2026 21:00 - FIX: Pass 'options' (Smart Mode) to startWorkflow.
-// 05.02.2026 17:15 - REFACTOR: UI VIEW COMPONENT.
 // src/features/Workflow/WorkflowSelectionModal.tsx
 
 import React, { useState } from 'react';
@@ -21,7 +19,8 @@ import {
   Sparkles,      
   RefreshCw,     
   PlusCircle,
-  ListTodo     
+  ListTodo,
+  AlertTriangle     
 } from 'lucide-react';
 
 interface WorkflowSelectionModalProps {
@@ -38,31 +37,28 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
   const { project, setUIState } = useTripStore();
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSmartConfirm, setShowSmartConfirm] = useState(false);
-  // NEW: State for Prio Check
   const [showPrioConfirm, setShowPrioConfirm] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null); // NEW: Error State
   
-  // LOGIC HOOK INJECTION - Added validateStepStart
   const { selectedSteps, toggleStep, getStepStatus, isStationary, validateStepStart } = useWorkflowSelection(isOpen);
-
   const lang = project.meta.language === 'en' ? 'en' : 'de';
 
-  // HANDLERS (UI specific)
   const handleStartRequest = () => {
     if (selectedSteps.length === 0) return;
+    setStartError(null);
 
-    // 1. PRIORITY CHECK for Tagesplaner
+    // 1. PRIORITY CHECK
     if (selectedSteps.includes('initialTagesplaner')) {
         const validation = validateStepStart('initialTagesplaner');
         if (!validation.canStart && validation.reason === 'missing_priorities') {
             setShowPrioConfirm(true);
-            return; // Stop here, wait for user decision
+            return;
         }
     }
     
-    // 2. SMART MODE CHECK for Chefredakteur
+    // 2. SMART MODE CHECK
     const isChefredakteurSelected = selectedSteps.includes('chefredakteur');
     const chefredakteurStatus = getStepStatus('chefredakteur');
-    
     const places = project.data.places || {};
     const missingCount = Object.values(places).filter((p: any) => !p.detailContent || p.detailContent.length < 50).length;
     
@@ -71,9 +67,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
         return;
     }
 
-    // 3. STANDARD RE-RUN CHECK
     const isRerunningDoneSteps = selectedSteps.some(stepId => getStepStatus(stepId) === 'done');
-
     if (isRerunningDoneSteps) {
       setShowConfirm(true); 
     } else {
@@ -81,18 +75,27 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
     }
   };
 
-  const executeStart = (options?: { mode: 'smart' | 'force' }) => {
-    onStart(selectedSteps, options);
-    onClose();
-    setShowConfirm(false);
-    setShowSmartConfirm(false);
-    setShowPrioConfirm(false);
+  const executeStart = async (options?: { mode: 'smart' | 'force' }) => {
+    try {
+        // Switch View Mode directly here if Tagesplaner to give immediate feedback
+        if (selectedSteps.includes('initialTagesplaner')) {
+             setUIState({ viewMode: 'plan' }); // Force Plan View to see "Thinking..."
+        }
+        
+        await onStart(selectedSteps, options); // This is likely an async wrapper in parent
+        onClose();
+        
+        setShowConfirm(false);
+        setShowSmartConfirm(false);
+        setShowPrioConfirm(false);
+    } catch (err: any) {
+        console.error("Workflow Start Error:", err);
+        setStartError(err.message || "Unbekannter Fehler beim Starten.");
+    }
   };
 
-  // Handler: User wants to set priorities first
   const handleGoToPrios = () => {
-      onClose(); // Close Modal
-      // Switch to Sights View (Planning Mode)
+      onClose();
       setUIState({ viewMode: 'list' }); 
   };
 
@@ -106,7 +109,6 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
       <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
         <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
           
-          {/* HEADER */}
           <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-blue-50 to-white rounded-t-xl">
             <div>
               <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
@@ -114,9 +116,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
                 {lang === 'de' ? 'KI-Workflow starten' : 'Start AI Workflow'}
               </h2>
               <p className="text-sm text-slate-500 mt-1">
-                {lang === 'de' 
-                  ? 'Wählen Sie die Aufgaben für die KI aus.' 
-                  : 'Select tasks for the AI to perform.'}
+                {lang === 'de' ? 'Wählen Sie die Aufgaben für die KI aus.' : 'Select tasks for the AI to perform.'}
               </p>
             </div>
             <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
@@ -124,8 +124,19 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
             </button>
           </div>
 
-          {/* BODY */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-3">
+          <div className="flex-1 overflow-y-auto p-6 space-y-3 relative">
+            
+            {/* ERROR DISPLAY */}
+            {startError && (
+                <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-4 flex items-start gap-2 border border-red-200">
+                    <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                    <div>
+                        <strong className="block font-bold">Fehler beim Starten:</strong>
+                        <span className="text-sm">{startError}</span>
+                    </div>
+                </div>
+            )}
+
             {WORKFLOW_STEPS.map((step) => {
               const status = getStepStatus(step.id);
               const isSelected = selectedSteps.includes(step.id);
@@ -148,11 +159,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
               }
 
               return (
-                <div 
-                  key={step.id} 
-                  className={containerClass}
-                  onClick={() => toggleStep(step.id)}
-                >
+                <div key={step.id} className={containerClass} onClick={() => toggleStep(step.id)}>
                   <div className="flex-shrink-0 mt-1">
                     {isWarning && !isSelected ? (
                       <Unlock className="w-6 h-6 text-slate-300" /> 
@@ -170,7 +177,6 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
                       </div>
                     )}
                   </div>
-
                   <div className="flex-grow">
                     <div className="flex justify-between items-start">
                       <h3 className={`font-bold ${isWarning && !isSelected ? 'text-slate-400' : 'text-slate-800'}`}>
@@ -181,9 +187,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
                           <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${
                             isSelected ? 'text-amber-700 bg-amber-100' : 'text-green-600 bg-green-100'
                           }`}>
-                            {isSelected 
-                              ? (lang === 'de' ? 'Neu Ausführen' : 'Re-Run') 
-                              : (lang === 'de' ? 'Erledigt' : 'Done')}
+                            {isSelected ? (lang === 'de' ? 'Neu Ausführen' : 'Re-Run') : (lang === 'de' ? 'Erledigt' : 'Done')}
                           </span>
                         )}
                         {step.requiresUserInteraction && !isDone && !isWarning && (
@@ -194,28 +198,15 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
                         )}
                       </div>
                     </div>
-                    
                     <p className={`text-sm mt-1 ${isWarning && !isSelected ? 'text-slate-400' : 'text-slate-600'}`}>
                       {step.description[lang]}
                     </p>
-
-                    {isWarning && isStationary && (step.id === 'routeArchitect' || step.id === 'transferPlanner') && (
-                       <div className="flex items-center gap-1 mt-2 text-xs text-slate-400">
-                        <AlertCircle className="w-3 h-3" />
-                        <span>
-                          {lang === 'de' 
-                            ? 'Nicht verfügbar für stationäre Reisen.' 
-                            : 'Not available for stationary trips.'}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 </div>
               );
             })}
           </div>
 
-          {/* FOOTER */}
           <div className="p-6 border-t border-slate-100 bg-slate-50 rounded-b-xl flex justify-between items-center">
             <div className="text-xs text-slate-500">
               {selectedSteps.length} {lang === 'de' ? 'Aufgaben gewählt' : 'tasks selected'}
@@ -258,7 +249,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
         onCancel={() => setShowConfirm(false)}
       />
 
-      {/* NEW: PRIORITY WARNING DIALOG */}
+      {/* PRIORITY WARNING DIALOG */}
       {showPrioConfirm && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 border-l-8 border-amber-500">
@@ -306,7 +297,6 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
         </div>
       )}
 
-      {/* Smart Update Confirmation Dialog */}
       {showSmartConfirm && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
@@ -350,10 +340,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
                         </button>
                     </div>
 
-                    <button 
-                        onClick={() => setShowSmartConfirm(false)}
-                        className="w-full mt-4 text-xs text-slate-400 font-medium hover:text-slate-600"
-                    >
+                    <button onClick={() => setShowSmartConfirm(false)} className="w-full mt-4 text-xs text-slate-400 font-medium hover:text-slate-600">
                         {lang === 'de' ? 'Abbrechen' : 'Cancel'}
                     </button>
                 </div>
@@ -363,4 +350,4 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
     </>
   );
 };
-// --- END OF FILE 310 Zeilen ---
+// --- END OF FILE 330 Zeilen ---
