@@ -1,3 +1,4 @@
+// 20.02.2026 00:30 - FEAT: Added Chronological Live-Diary for visited places (No-AI Feature).
 // 06.02.2026 22:15 - FIX: Strict null handling for maps link generation (TS2322).
 // 06.02.2026 21:00 - FIX: Google Maps Link now uses 'generateGoogleMapsRouteUrl' with country context.
 // src/features/Cockpit/PlanView.tsx
@@ -32,7 +33,8 @@ export const PlanView: React.FC = () => {
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
   
   const { project } = useTripStore();
-  const { userInputs, analysis } = project;
+  // FIX: Added 'data' to extraction for the Diary feature
+  const { userInputs, analysis, data } = project;
   const { logistics, travelers, dates, selectedInterests, pace, budget, vibe, strategyId } = userInputs;
   const chefPlaner = analysis.chefPlaner;
   const routeAnalysis = analysis.routeArchitect;
@@ -183,7 +185,6 @@ export const PlanView: React.FC = () => {
   };
 
   // --- 3. ROUTE ---
-  
   const matchedRoute = useMemo(() => {
       if (!isRoundtripContext || !routeAnalysis?.routes) return null;
       
@@ -203,8 +204,6 @@ export const PlanView: React.FC = () => {
     const roundtrip = logistics.roundtrip;
     const stops = roundtrip.stops || [];
 
-    // FIX: Strict null check and type safety
-    // Uses || undefined to convert potential null values to undefined
     const generateMapsLink = (): string | undefined => {
        if (routeAnalysis?.googleMapsLink) {
            return routeAnalysis.googleMapsLink || undefined;
@@ -224,9 +223,7 @@ export const PlanView: React.FC = () => {
     const mapsLink = generateMapsLink();
 
     return (
-      <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 animate-in fade-in slide-in-from-bottom-4 duration-700">
-         
-         {/* HEADER */}
+      <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
          <div className="flex items-center gap-3 mb-6 border-b border-slate-50 pb-4">
             <div className="p-2.5 bg-blue-100 text-blue-600 rounded-xl">
                <MapIcon size={24} />
@@ -239,7 +236,6 @@ export const PlanView: React.FC = () => {
             </div>
          </div>
 
-         {/* MATCHED ROUTE INFO */}
          {matchedRoute ? (
              <div className="mb-6 bg-blue-50/50 rounded-2xl p-5 border border-blue-100">
                  <div className="flex justify-between items-start mb-3">
@@ -270,18 +266,13 @@ export const PlanView: React.FC = () => {
              )
          )}
 
-         {/* COMPACT STATIONS LIST (Horizontal) */}
          <div className="mb-8 p-4 bg-slate-50 rounded-xl border border-slate-100">
             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
                 Reiseverlauf & Aufenthalte
             </h4>
             <div className="flex flex-wrap items-center gap-y-2 text-sm leading-relaxed">
-                {/* START */}
                 <span className="font-semibold text-slate-700">{roundtrip.startLocation}</span>
-                
                 <ArrowRight size={14} className="mx-2 text-slate-300" />
-
-                {/* STOPS */}
                 {stops.map((stop, idx) => (
                     <React.Fragment key={idx}>
                         <span className="inline-flex items-center gap-1">
@@ -292,17 +283,13 @@ export const PlanView: React.FC = () => {
                                 </span>
                             )}
                         </span>
-                        
                         <ArrowRight size={14} className="mx-2 text-slate-300" />
                     </React.Fragment>
                 ))}
-
-                {/* END */}
                 <span className="font-semibold text-slate-700">{roundtrip.endLocation}</span>
             </div>
          </div>
 
-         {/* MAPS ACTION */}
          <div className="pt-4 border-t border-slate-50 flex justify-center">
             {mapsLink && (
                 <a 
@@ -321,12 +308,73 @@ export const PlanView: React.FC = () => {
     );
   };
 
+  // --- 4. LIVE-REISETAGEBUCH ---
+  const renderVisitedDiary = () => {
+    // 1. Hole alle Orte, die "visited" sind und einen Zeitstempel haben, sortiere chronologisch
+    const visitedPlaces = Object.values(data?.places || {})
+        .filter((p: any) => p.visited && p.visitedAt)
+        .sort((a: any, b: any) => new Date(a.visitedAt).getTime() - new Date(b.visitedAt).getTime());
+
+    if (visitedPlaces.length === 0) return null;
+
+    return (
+        <div className="bg-white rounded-3xl p-6 shadow-sm border border-emerald-100 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="flex items-center gap-3 mb-6 border-b border-slate-50 pb-4">
+                <div className="p-2.5 bg-emerald-100 text-emerald-600 rounded-xl">
+                    <CheckCircle size={24} />
+                </div>
+                <div>
+                    <h2 className="text-xl font-bold text-slate-900">
+                        Live-Reisetagebuch
+                    </h2>
+                    <p className="text-sm text-slate-500">
+                        Deine besuchten Orte in chronologischer Reihenfolge.
+                    </p>
+                </div>
+            </div>
+
+            <div className="space-y-1">
+                {visitedPlaces.map((place: any) => {
+                    const dateObj = new Date(place.visitedAt);
+                    const dateStr = new Intl.DateTimeFormat(currentLang === 'de' ? 'de-DE' : 'en-US', {
+                        weekday: 'short', day: '2-digit', month: '2-digit'
+                    }).format(dateObj);
+                    const timeStr = new Intl.DateTimeFormat(currentLang === 'de' ? 'de-DE' : 'en-US', {
+                        hour: '2-digit', minute: '2-digit'
+                    }).format(dateObj);
+
+                    const categoryLabel = INTEREST_DATA[place.category] ? resolveLabel(INTEREST_DATA[place.category]) : place.category;
+
+                    return (
+                        <div key={place.id} className="relative pl-6 ml-3 py-2 border-l-2 border-emerald-200">
+                            <div className="absolute -left-[9px] top-6 w-4 h-4 rounded-full bg-emerald-500 ring-4 ring-white"></div>
+                            <div className="bg-emerald-50/30 border border-emerald-100 rounded-xl p-3 hover:bg-emerald-50 transition-colors">
+                                <div className="flex justify-between items-start mb-1 gap-2">
+                                    <h4 className="font-bold text-slate-800 text-sm leading-tight">{place.name}</h4>
+                                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+                                        <Clock size={10} /> {dateStr}, {timeStr} {currentLang === 'de' ? 'Uhr' : ''}
+                                    </span>
+                                </div>
+                                <div className="text-xs text-slate-500 flex gap-1 items-center font-medium">
+                                    <MapIcon size={10} className="text-emerald-400" /> {categoryLabel || 'Ort'}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+  };
+
   return (
     <div className="pb-24 animate-in fade-in duration-500">
        {renderReviewBlocks()}
        {renderAnalysisBlock()}
        {renderRouteBlock()}
+       {/* HIER WIRD DAS TAGEBUCH GERENDERT */}
+       {renderVisitedDiary()} 
     </div>
   );
 };
-// --- END OF FILE 295 Zeilen ---
+// --- END OF FILE 362 Zeilen ---
