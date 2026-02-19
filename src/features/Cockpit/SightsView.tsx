@@ -1,10 +1,9 @@
+// 19.02.2026 15:45 - FEAT: Added V40 Timeline Renderer for 'day' sortMode (Titles, Transfers, Times).
 // 19.02.2026 15:25 - FIX: V40/V30 JSON Compatibility for daily activities & Lifted showPlanningMode state.
 // 09.02.2026 12:00 - FIX: Added 'overrideDetailLevel' prop to support Print Settings.
 // 06.02.2026 17:20 - FEAT: Added 'overrideSortMode' prop for Print Report flexibility.
 // 06.02.2026 17:15 - FIX: Print Optimization (Double-Instance-Fix & Clean Layout).
 // 02.02.2026 13:15 - FIX: Enforced City Grouping for 'Specials' in Tour Mode.
-// 06.02.2026 17:30 - FIX: Fulltext Search (Deep Search in all fields).
-// 07.02.2026 15:00 - FIX: IGNORE FILTERS IN PRINT MODE.
 // src/features/Cockpit/SightsView.tsx
 
 import React, { useMemo, useEffect } from 'react';
@@ -50,18 +49,14 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
   const { userInputs, data, analysis } = project; 
   const places = Object.values(data.places || {});
 
-  // FIX: Lokalen State entfernt, wir nutzen Lifting State Up
   const showPlanningMode = uiState.showPlanningMode || false;
 
-  // LOGIC: Determine effective sort mode (Prop > State)
   const activeSortMode = overrideSortMode || (uiState.sortMode as string) || 'category';
   const isTourMode = activeSortMode === 'tour';
 
-  // FIX: AUTO-SCROLL LOGIC
+  // --- AUTO-SCROLL LOGIC ---
   useEffect(() => {
-    // Disable auto-scroll if we are in override mode (Print)
     if (overrideSortMode) return;
-
     if (uiState.viewMode === 'list' && uiState.selectedPlaceId) {
       setTimeout(() => {
         const element = document.getElementById(`card-${uiState.selectedPlaceId}`);
@@ -112,7 +107,6 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
   }, [userInputs, places]);
 
   // --- 2. DATA PREPARATION ---
-  
   const categoryOptions = useMemo(() => {
     const counts: Record<string, number> = {};
     const ignoreList = APPENDIX_ONLY_INTERESTS || [];
@@ -162,7 +156,6 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
       const itineraryDays = project.itinerary?.days || [];
       return itineraryDays.map((day: any, index: number) => {
           let count = 0;
-          // FIX: V40/V30 Kompatibilität für Tagesplaner-Keys
           const activities = day.activities || day.aktivitaeten || [];
           if (activities.length > 0) {
               count = activities.filter((akt: any) => 
@@ -193,12 +186,9 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
     const specialList: any[] = []; 
 
     const isPrint = !!overrideSortMode || uiState.isPrintMode;
-    
     const term = isPrint ? '' : (uiState.searchTerm || '').toLowerCase();
     const activeFilters = isPrint ? [] : (uiState.categoryFilter || []); 
-    
     const sortMode = activeSortMode;
-    
     const selectedCategory = isPrint ? 'all' : uiState.selectedCategory;
 
     const ignoreList = APPENDIX_ONLY_INTERESTS || [];
@@ -207,23 +197,13 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
 
     places.forEach((p: any) => {
       const cat = p.category || 'Sonstiges';
-      
       if (ignoreList.includes(cat)) return;
 
       if (term) {
           const searchableText = [
-              p.name,
-              p.official_name,
-              p.category,
-              p.userSelection?.customCategory,
-              p.description,
-              p.shortDesc,
-              p.detailContent,
-              p.reasoning,
-              p.logistics,
-              p.address
+              p.name, p.official_name, p.category, p.userSelection?.customCategory,
+              p.description, p.shortDesc, p.detailContent, p.reasoning, p.logistics, p.address
           ].filter(Boolean).join(' ').toLowerCase();
-
           if (!searchableText.includes(term)) return;
       }
       
@@ -248,7 +228,6 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
                   const dayIndexStr = dayLabel.replace(/[^0-9]/g, '');
                   const dayIndex = parseInt(dayIndexStr) - 1;
                   const day = itineraryDays[dayIndex];
-                  // FIX: V40/V30 Kompatibilität
                   const activities = day?.activities || day?.aktivitaeten || [];
                   return activities.some((a: any) => (a.id || a.original_sight_id) === p.id);
               });
@@ -258,18 +237,11 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
 
       const rating = p.rating || 0;
       const duration = p.duration || p.min_duration_minutes || 0;
+      const isReserve = (p.userPriority === -1) || (duration < minDuration) || (rating > 0 && rating < minRating);
       
-      const isReserve = (p.userPriority === -1) || 
-                        (duration < minDuration) || 
-                        (rating > 0 && rating < minRating);
-      
-      if (cat === 'special') {
-          specialList.push(p);
-      } else if (isReserve) {
-          reserveList.push(p);
-      } else {
-          mainList.push(p);
-      }
+      if (cat === 'special') specialList.push(p);
+      else if (isReserve) reserveList.push(p);
+      else mainList.push(p);
     });
 
     const sortFn = (a: any, b: any) => {
@@ -287,15 +259,135 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
     };
   }, [places, uiState.searchTerm, uiState.categoryFilter, activeSortMode, uiState.selectedCategory, uiState.isPrintMode, overrideSortMode, userInputs.searchSettings, tourOptions, project.itinerary]);
 
-
   // --- 4. RENDERER: GROUPED LIST ---
   const renderGroupedList = (list: any[], groupByOverride?: 'city') => {
     if (list.length === 0) return null; 
-
     const sortMode = activeSortMode;
+    
+    // =========================================================================
+    // V40 TIMELINE RENDERER (DAY MODE) - Replaces standard grouping
+    // =========================================================================
+    if (sortMode === 'day' && !groupByOverride) {
+         const days = project.itinerary?.days || [];
+         const assignedIds = new Set<string>();
+
+         const renderedDays = days.map((day: any, i: number) => {
+             const baseTitle = `${t('sights.day', {defaultValue: 'Tag'})} ${i + 1}`;
+             const title = day.title ? `${baseTitle}: ${day.title}` : baseTitle;
+             const activities = day.activities || day.aktivitaeten || [];
+
+             // Validierung: Sind Orte dieses Tages in der aktuellen 'list' enthalten?
+             const dayPlaces = list.filter(p => activities.some((a: any) => (a.id || a.original_sight_id) === p.id));
+             dayPlaces.forEach(p => assignedIds.add(p.id));
+
+             if (activities.length === 0 && dayPlaces.length === 0) return null;
+
+             return (
+               <div key={`day-${i}`} className="mb-8 last:mb-0 print:break-inside-avoid bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm print:border-none print:shadow-none">
+                 
+                 {/* DAY HEADER (Title & Date) */}
+                 <div className="bg-slate-50 px-4 py-3 border-b border-slate-100 flex justify-between items-center print:bg-transparent print:border-b-2 print:border-slate-300 print:px-0 print:py-1">
+                     <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                         <span className="text-lg print:hidden">📅</span> {title}
+                     </h3>
+                     {day.date && (
+                         <span className="text-xs font-bold text-slate-500 bg-white px-2 py-1 rounded shadow-sm border border-slate-200 print:border-none print:shadow-none print:p-0">
+                           {day.date}
+                         </span>
+                     )}
+                 </div>
+
+                 {/* TIMELINE ACTIVITIES (Sights & Transfers) */}
+                 <div className="p-4 space-y-3 print:p-0 print:pt-3">
+                     {activities.map((act: any, actIdx: number) => {
+                         
+                         // 1. TRANSFER BLOCK
+                         if (act.type === 'transfer') {
+                             return (
+                                 <div key={`transfer-${i}-${actIdx}`} className="flex items-center gap-3 px-3 py-2 ml-5 bg-blue-50/50 border border-blue-100 rounded-lg text-sm text-slate-600 print:bg-transparent print:border-none print:px-0">
+                                     <span className="text-lg">{act.mode === 'walk' ? '🚶' : '🚗'}</span>
+                                     <span className="font-medium">{act.duration} Min. {act.mode === 'walk' ? 'Fußweg' : 'Fahrt'}</span>
+                                     {act.description && <span className="text-slate-500 italic hidden sm:inline">({act.description})</span>}
+                                 </div>
+                             );
+                         } 
+                         
+                         // 2. SIGHT BLOCK
+                         else if (act.type === 'sight' || act.original_sight_id) {
+                             const placeId = act.id || act.original_sight_id;
+                             const place = list.find(p => p.id === placeId);
+                             if (!place) return null; // Fallback falls Ort gelöscht oder im Filter verborgen
+                             
+                             return (
+                                 <div key={place.id} id={`card-${place.id}`} className="relative pl-7 border-l-2 border-blue-200 ml-7 py-2 print:border-l-2 print:border-slate-300">
+                                     {/* Timeline Bullet */}
+                                     <div className="absolute -left-[9px] top-5 w-4 h-4 rounded-full bg-blue-500 ring-4 ring-white print:ring-transparent"></div>
+                                     
+                                     {/* Time Label */}
+                                     {act.time && (
+                                         <div className="text-xs font-black text-blue-600 mb-2 -mt-1 uppercase tracking-wider">
+                                             {act.time} Uhr
+                                         </div>
+                                     )}
+                                     
+                                     <SightCard 
+                                        id={place.id} 
+                                        data={place} 
+                                        mode="selection" 
+                                        showPriorityControls={showPlanningMode}
+                                        detailLevel={overrideDetailLevel}
+                                     />
+                                 </div>
+                             );
+                         }
+                         return null;
+                     })}
+                 </div>
+               </div>
+             );
+         }).filter(Boolean);
+
+         // --- LEFTOVERS (Places not assigned to any day in this list) ---
+         const leftovers = list.filter(p => !assignedIds.has(p.id));
+         let renderedLeftovers = null;
+         
+         if (leftovers.length > 0) {
+             renderedLeftovers = (
+                 <div key="leftovers" className="mb-6 print:break-inside-avoid mt-8 pt-6 border-t border-slate-200">
+                     <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 pb-1 ml-1 flex justify-between">
+                       <span>Nicht zugewiesen / Ohne Zeitplan</span>
+                       <span className="text-xs text-gray-400">{leftovers.length}</span>
+                     </h3>
+                     <div className="space-y-3">
+                       {leftovers.map(place => (
+                         <div key={place.id} id={`card-${place.id}`}>
+                             <SightCard 
+                                id={place.id} 
+                                data={place} 
+                                mode="selection" 
+                                showPriorityControls={showPlanningMode}
+                                detailLevel={overrideDetailLevel}
+                             />
+                         </div>
+                       ))}
+                     </div>
+                 </div>
+             );
+         }
+
+         return (
+             <>
+                {renderedDays}
+                {renderedLeftovers}
+             </>
+         );
+    }
+
+    // =========================================================================
+    // STANDARD GROUPING (Priority 1: Override, Priority 2: Tours, Priority 4: Category/Alphabetical)
+    // =========================================================================
     const groups: Record<string, any[]> = {};
     
-    // PRIORITY 1: OVERRIDE
     if (groupByOverride === 'city') {
         list.forEach(p => {
             const key = p.city || "Allgemein / Überregional";
@@ -303,58 +395,24 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
             groups[key].push(p);
         });
     }
-    // PRIORITY 2: TOURS
     else if (sortMode === 'tour') {
         const tourGuide = (analysis as any)?.tourGuide;
         const tours = (tourGuide?.guide?.tours || []) as any[];
         const assignedIds = new Set<string>();
 
-        // 1. Assign to defined tours
         tours.forEach((tour: any) => {
             const title = tour.tour_title || "Tour";
             const tourPlaces = list.filter(p => tour.suggested_order_ids?.includes(p.id));
-            
             if (tourPlaces.length > 0) {
                 groups[title] = tourPlaces.sort((a, b) => {
-                    const idxA = tour.suggested_order_ids.indexOf(a.id);
-                    const idxB = tour.suggested_order_ids.indexOf(b.id);
-                    return idxA - idxB;
+                    return tour.suggested_order_ids.indexOf(a.id) - tour.suggested_order_ids.indexOf(b.id);
                 });
                 tourPlaces.forEach(p => assignedIds.add(p.id));
             }
         });
-
-        // 2. Leftovers (Standard)
         const leftovers = list.filter(p => !assignedIds.has(p.id));
-        if (leftovers.length > 0) {
-            groups['Weitere Orte (Ohne Tour)'] = leftovers;
-        }
+        if (leftovers.length > 0) groups['Weitere Orte (Ohne Tour)'] = leftovers;
     } 
-    // PRIORITY 3: DAYS
-    else if (sortMode === 'day') {
-         const days = project.itinerary?.days || [];
-         const assignedIds = new Set<string>();
-
-         days.forEach((day: any, i: number) => {
-             const title = `${t('sights.day', {defaultValue: 'Tag'})} ${i + 1}`;
-             // FIX: V40/V30 Kompatibilität
-             const activities = day.activities || day.aktivitaeten || [];
-             const dayPlaces = list.filter(p => 
-                  activities.some((a: any) => (a.id || a.original_sight_id) === p.id)
-             );
-
-             if (dayPlaces.length > 0) {
-                 groups[title] = dayPlaces;
-                 dayPlaces.forEach(p => assignedIds.add(p.id));
-             }
-         });
-
-         const leftovers = list.filter(p => !assignedIds.has(p.id));
-         if (leftovers.length > 0) {
-            groups['Nicht zugewiesen'] = leftovers;
-         }
-    }
-    // PRIORITY 4: STANDARD
     else {
         list.forEach(p => {
             let key = 'Allgemein';
@@ -423,7 +481,7 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
         </div>
       )}
 
-      {/* FIX: Conditional Rendering for Map View - Only if NOT printing */}
+      {/* MAP VIEW vs LIST VIEW */}
       {uiState.viewMode === 'map' && !overrideSortMode ? (
         <div className="mb-8 print:hidden">
             <SightsMapView places={[...filteredLists.main, ...filteredLists.reserve, ...filteredLists.special] as Place[]} />
@@ -437,10 +495,8 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
                     {t('sights.candidates', { defaultValue: 'KANDIDATEN' })} ({filteredLists.main.length})
                 </div>
                 
-                {/* Standard Main List */}
                 <div className="mt-2">{renderGroupedList(filteredLists.main)}</div>
 
-                {/* FIX: IN TOUR MODE, APPEND SPECIALS HERE AS A 'TOUR' */}
                 {isTourMode && filteredLists.special.length > 0 && (
                     <div className="mt-8 pt-6 border-t border-slate-100 print:mt-4 print:border-none">
                         <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-100 pb-1 ml-1 flex justify-between print:text-black">
@@ -467,7 +523,7 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
                 </div>
             )}
 
-            {/* LIST 3: SONDERTAGE (STANDARD MODE ONLY) */}
+            {/* LIST 3: SONDERTAGE */}
             {!isTourMode && filteredLists.special.length > 0 && (
                 <div className="bg-amber-50/50 rounded-xl border-2 border-amber-200 shadow-sm p-4 md:p-6 relative mx-4 mb-8 print:border-none print:bg-transparent print:p-0 print:mx-0">
                     <div className="absolute -top-3 left-6 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1 print:hidden">
@@ -499,4 +555,4 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
     </div>
   );
 };
-// --- END OF FILE 381 Zeilen ---
+// --- END OF FILE 423 Zeilen ---
