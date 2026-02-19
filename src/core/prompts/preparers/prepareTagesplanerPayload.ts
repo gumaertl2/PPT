@@ -1,8 +1,8 @@
-// 19.02.2026 21:30 - FEAT: Added smart Pace Logistics mapping (Start, End, Break times).
-// 19.02.2026 21:15 - FIX: Maximized Payload Builder with Roundtrip & full tags.
+// 19.02.2026 22:30 - FIX: Resolved TypeScript Build Errors (RouteStop, DepartureDetails, Camper Types).
+// 19.02.2026 21:30 - FEAT: Added smart Pace Logistics mapping.
 // src/core/prompts/preparers/prepareTagesplanerPayload.ts
 
-import type { TripProject, Place } from '../../types/models';
+import type { TripProject, Place, RouteStop } from '../../types/models';
 import { PACE_OPTIONS } from '../../../data/options';
 
 export interface TagesplanerPayload {
@@ -22,7 +22,6 @@ export interface TagesplanerPayload {
   constraints: string; 
 }
 
-// INTELLIGENTES MAPPING DER REISETEMPI
 const PACE_LOGISTICS = {
   relaxed: { start: "10:00", end: "16:30", breakMin: 120 },
   balanced: { start: "09:30", end: "17:30", breakMin: 90 },
@@ -40,20 +39,24 @@ export const prepareTagesplanerPayload = (project: TripProject): TagesplanerPayl
   const diffTime = Math.abs(end.getTime() - start.getTime());
   const totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
-  // 1. Logistik & Unterkunfts-Planung (Rundreise vs. Stationär)
+  // 1. Logistik & Unterkunfts-Planung
   const isRoundtrip = userInputs.logistics.mode === 'roundtrip';
   let accommodationSchedule = "";
   let firstHotel: Place | undefined;
 
   if (isRoundtrip) {
       let currentDay = 1;
-      const stops = userInputs.logistics.roundtrip.stops || [];
+      const stops: RouteStop[] = userInputs.logistics.roundtrip.stops || [];
       stops.forEach((stop, index) => {
           const hotel = stop.hotel ? data.places[stop.hotel] : undefined;
           if (index === 0) firstHotel = hotel;
-          const nights = stop.nights || 1;
+          
+          // FIX: Use duration instead of nights, location/name instead of city (per models.ts)
+          const nights = stop.duration || 1; 
           const lastDayOfStop = currentDay + nights - 1;
-          accommodationSchedule += `- Day ${currentDay} to ${lastDayOfStop}: Stay in ${stop.city} at "${hotel?.name || 'Local Hotel'}" (${hotel?.address || stop.city})\n`;
+          const stopCity = stop.name || stop.location || 'Local Area';
+          
+          accommodationSchedule += `- Day ${currentDay} to ${lastDayOfStop}: Stay in ${stopCity} at "${hotel?.name || 'Local Hotel'}" (${hotel?.address || stopCity})\n`;
           currentDay += nights;
       });
   } else {
@@ -68,7 +71,7 @@ export const prepareTagesplanerPayload = (project: TripProject): TagesplanerPayl
       geo: firstHotel?.location ? `${firstHotel.location.lat}, ${firstHotel.location.lng}` : "0,0"
   };
 
-  // 2. Kandidatenliste formatieren (Mit allen Tags: [GEO], [DURATION], [PRIO], [FIXED], [OPEN])
+  // 2. Kandidatenliste formatieren
   const formattedSights = places
     .filter(p => {
         if (p.category === 'accommodation' || p.category === 'Hotel') return false;
@@ -103,13 +106,14 @@ export const prepareTagesplanerPayload = (project: TripProject): TagesplanerPayl
   const paceConfig = PACE_OPTIONS[paceKey];
   const paceInstruction = paceConfig?.promptInstruction?.en || paceConfig?.promptInstruction?.de || 'Standard pace.';
   
-  // smarte Zeit-Logik: User-Eingabe ODER Tempo-Standard
   const smartPace = PACE_LOGISTICS[paceKey as keyof typeof PACE_LOGISTICS] || PACE_LOGISTICS.balanced;
   const finalStart = userInputs.dates.dailyStartTime || smartPace.start;
   const finalEnd = userInputs.dates.dailyEndTime || smartPace.end;
 
-  let transportLogistics = `ARRIVAL MODE: ${arrival?.type || 'car'}, DEPARTURE MODE: ${departure?.type || 'car'}.`;
-  if (arrival?.type === 'car' || arrival?.type === 'rv') {
+  // FIX: Adjust Departure (has no type) and Arrival (use camper/mobile_home)
+  let transportLogistics = `ARRIVAL MODE: ${arrival?.type || 'car'}, DEPARTURE TIME: ${departure?.time || 'flexible'}.`;
+  
+  if (arrival?.type === 'car' || arrival?.type === 'camper' || arrival?.type === 'mobile_home') {
       transportLogistics += ` CRITICAL: Start Day 1 directly from ${origin} (Home) by road. DO NOT simulate airport luggage claim.`;
   } else if (arrival?.type === 'flight') {
       transportLogistics += ` FLIGHT ARRIVAL: Time ${arrival.time || '10:00'}. Apply 60min luggage claim rule.`;
@@ -143,4 +147,4 @@ TIME BOUNDARIES (CRITICAL):
 - Day End: ${finalEnd}`
   };
 };
-// --- END OF FILE 141 Zeilen ---
+// --- END OF FILE 144 Zeilen ---

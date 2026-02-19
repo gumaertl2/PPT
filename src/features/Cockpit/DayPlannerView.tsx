@@ -1,5 +1,5 @@
-// 19.02.2026 17:45 - FEAT: Added rendering for 'break', 'check-in', and 'distance_km' in transfers.
-// 19.02.2026 17:00 - FEAT: Extracted DayPlannerView & added smart native date formatting (DE/EN).
+// 19.02.2026 22:30 - FIX: Removed unused lucide-react imports (TS6133).
+// 19.02.2026 17:45 - FEAT: Added rendering for 'break', 'check-in', and 'distance_km'.
 // src/features/Cockpit/DayPlannerView.tsx
 
 import React from 'react';
@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useTripStore } from '../../store/useTripStore';
 import { SightCard } from './SightCard';
 import type { Place, DetailLevel, LanguageCode } from '../../core/types';
-import { Coffee, Utensils, Luggage, MapPin } from 'lucide-react';
+import { Utensils, Luggage } from 'lucide-react'; // FIX: Removed Coffee and MapPin
 
 interface DayPlannerViewProps {
   places: Place[];
@@ -94,7 +94,6 @@ export const DayPlannerView: React.FC<DayPlannerViewProps> = ({
 
                       return (
                           <div key={`transfer-${i}-${actIdx}`} className="relative pl-7 ml-7 py-1">
-                              {/* Connector Line */}
                               <div className="absolute -left-[1px] top-0 bottom-0 w-0.5 bg-slate-100"></div>
                               
                               <div className="flex flex-col gap-1 px-3 py-2 bg-blue-50/50 border border-blue-100 rounded-lg text-sm text-slate-600 print:bg-transparent print:border-none print:px-0">
