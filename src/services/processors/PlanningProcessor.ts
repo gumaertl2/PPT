@@ -1,3 +1,4 @@
+// 19.02.2026 15:10 - FIX: Mapped initialTagesplaner data to SSOT (project.itinerary.days).
 // 05.02.2026 16:30 - REFACTOR: PLANNING PROCESSOR.
 // 06.02.2026 18:10 - FIX: TS2345 Solved. Direct State Update for 'target_countries'.
 // Handles Strategy, Routes, Special Days, Content and Tours.
@@ -18,6 +19,20 @@ export const PlanningProcessor = {
         if (data) {
             setAnalysisResult(step as any, data);
             console.log(`[${step}] Analysis result persisted.`);
+
+            // FIX: Map initialTagesplaner to SSOT (project.itinerary.days)
+            if (step === 'initialTagesplaner' && data.itinerary) {
+                useTripStore.setState((state) => ({
+                    project: {
+                        ...state.project,
+                        itinerary: {
+                            ...state.project.itinerary,
+                            days: data.itinerary
+                        }
+                    }
+                }));
+                console.log(`[PlanningProcessor] Mapped itinerary to project.itinerary SSOT.`);
+            }
 
             // FIX: Apply Geography Correction from ChefPlaner to Store
             if (step === 'chefPlaner' && data.corrections?.inferred_country) {
@@ -164,4 +179,4 @@ export const PlanningProcessor = {
         }
     }
 };
-// --- END OF FILE 162 Zeilen ---
+// --- END OF FILE 178 Zeilen ---

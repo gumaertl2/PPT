@@ -1,3 +1,4 @@
+// 19.02.2026 14:00 - FIX: Replaced local isExecutingRef with globalIsExecutingLock to prevent Multi-Instance Race Conditions ("Klon-Krieger").
 // 17.02.2026 13:00 - FIX: Removed unused 'useState' import to resolve build error TS6133.
 // 17.02.2026 11:10 - FIX: Migrated Workflow State to Global Store to prevent data loss on view switch.
 // 09.02.2026 13:30 - FIX: Strict Queue Management & Safety Delay to prevent workflow stalls.
@@ -76,6 +77,11 @@ const getFriendlyErrorMessage = (error: any, lang: 'de' | 'en'): string => {
   return isDe ? `Fehler: ${msg}` : `Error: ${msg}`;
 };
 
+// --- GLOBAL LOCK ---
+// Dies verhindert den "Klon-Krieger" Bug, bei dem mehrfach gemountete Hooks
+// die Queue parallel abarbeiten und sich gegenseitig die Einträge weglöschen.
+let globalIsExecutingLock = false;
+
 export const useTripGeneration = (): UseTripGenerationReturn => {
   const { t } = useTranslation();
   
@@ -104,7 +110,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
   // Local Ref for Progress Calculation (Reset on Mount if Idle, else keep)
   const initialQueueLength = useRef<number>(queue.length > 0 ? queue.length + (currentStep ? 1 : 0) : 0);
-  const isExecutingRef = useRef<boolean>(false);
   const workflowOptionsRef = useRef<{ mode: 'smart' | 'force' } | undefined>(undefined);
 
   // Sync initial length if a new workflow starts
@@ -122,7 +127,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     resetWorkflow(); // Global Reset
     setManualMode(null, null);
     resetChunking(); 
-    isExecutingRef.current = false;
+    globalIsExecutingLock = false;
     workflowOptionsRef.current = undefined; 
     if (aiSettings.debug) logEvent({ task: 'workflow_manager', type: 'system', content: 'Workflow CANCELLED' });
   }, [aiSettings.debug, logEvent, setManualMode, resetChunking, resetWorkflow]);
@@ -136,8 +141,8 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     let isMounted = true;
 
     const executeNextStep = async () => {
-      // GUARD: Prevent parallel execution
-      if (isExecutingRef.current) return;
+      // GUARD: Prevent parallel execution across all instances
+      if (globalIsExecutingLock) return;
       
       // Access FRESH state from store to avoid closure staleness
       const currentWorkflow = useTripStore.getState().workflow;
@@ -164,12 +169,12 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       }
 
       // LOCK
-      isExecutingRef.current = true;
+      globalIsExecutingLock = true;
 
       const stepDef = WORKFLOW_STEPS.find(s => s.id === nextStepId);
       if (stepDef?.requiresUserInteraction && currentStep !== nextStepId) {
           setWorkflowState({ status: 'waiting_for_user', currentStep: nextStepId });
-          isExecutingRef.current = false; // UNLOCK
+          globalIsExecutingLock = false; // UNLOCK
           return; 
       }
       
@@ -204,7 +209,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
             dismissNotification(loadingId);
             setManualMode(payload, nextStepId);
             setWorkflowState({ status: 'waiting_for_user' });
-            isExecutingRef.current = false; // UNLOCK
+            globalIsExecutingLock = false; // UNLOCK
             return;
         }
 
@@ -250,7 +255,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
         }
       } catch (err) {
         dismissNotification(loadingId);
-        if (!isMounted) { isExecutingRef.current = false; return; }
+        if (!isMounted) { globalIsExecutingLock = false; return; }
         
         const friendlyMsg = getFriendlyErrorMessage(err, lang);
         
@@ -277,7 +282,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
           ]
         });
       } finally {
-          isExecutingRef.current = false; // UNLOCK ALWAYS
+          globalIsExecutingLock = false; // UNLOCK ALWAYS
       }
     };
     
@@ -306,7 +311,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
         error: null,
         currentStep: null 
     });
-    isExecutingRef.current = false; 
+    globalIsExecutingLock = false; 
   }, [setWorkflowState]);
 
   const resumeWorkflow = useCallback(() => {
@@ -333,8 +338,8 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
   }, [manualStepId, processResult, setManualMode, setWorkflowState]);
 
   const startSingleTask = useCallback(async (task: TaskKey, feedback?: string, options?: { mode: 'smart' | 'force' }) => {
-      if (isExecutingRef.current) return;
-      isExecutingRef.current = true;
+      if (globalIsExecutingLock) return;
+      globalIsExecutingLock = true;
 
       setWorkflowState({ status: 'generating', error: null, currentStep: task as WorkflowStepId });
 
@@ -367,7 +372,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
               dismissNotification(loadingId);
               setManualMode(prompt, task); 
               setWorkflowState({ status: 'waiting_for_user' }); 
-              isExecutingRef.current = false;
+              globalIsExecutingLock = false;
               return; 
           }
 
@@ -388,10 +393,10 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
             autoClose: 5000
           });
       } finally {
-          isExecutingRef.current = false;
+          globalIsExecutingLock = false;
       }
   }, [processResult, setManualMode, addNotification, dismissNotification, lang, t, cancelWorkflow, setWorkflowState]);
 
   return { status, currentStep, queue, error, progress, manualPrompt, submitManualResult, startWorkflow, resumeWorkflow, cancelWorkflow, startSingleTask };
 };
-// --- END OF FILE 375 Zeilen ---
+// --- END OF FILE 379 Zeilen ---

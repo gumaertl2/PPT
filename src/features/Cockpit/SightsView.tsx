@@ -1,3 +1,4 @@
+// 19.02.2026 15:25 - FIX: V40/V30 JSON Compatibility for daily activities & Lifted showPlanningMode state.
 // 09.02.2026 12:00 - FIX: Added 'overrideDetailLevel' prop to support Print Settings.
 // 06.02.2026 17:20 - FEAT: Added 'overrideSortMode' prop for Print Report flexibility.
 // 06.02.2026 17:15 - FIX: Print Optimization (Double-Instance-Fix & Clean Layout).
@@ -6,14 +7,14 @@
 // 07.02.2026 15:00 - FIX: IGNORE FILTERS IN PRINT MODE.
 // src/features/Cockpit/SightsView.tsx
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { useTripStore } from '../../store/useTripStore';
 import { SightCard } from './SightCard';
 import { SightFilterModal } from './SightFilterModal'; 
 import { useTranslation } from 'react-i18next';
 import { INTEREST_DATA } from '../../data/interests'; 
 import { APPENDIX_ONLY_INTERESTS } from '../../data/constants';
-import type { LanguageCode, Place, DetailLevel } from '../../core/types'; // FIX: Added DetailLevel
+import type { LanguageCode, Place, DetailLevel } from '../../core/types';
 import { SightsMapView } from './SightsMapView';
 
 import { 
@@ -29,10 +30,9 @@ const TRAVEL_PACE_CONFIG: Record<string, { startHour: number; endHour: number; b
   'relaxed': { startHour: 10, endHour: 16, breakMinutes: 90, bufferMinutes: 45 } 
 };
 
-// NEW: Interface for Props
 interface SightsViewProps {
   overrideSortMode?: 'category' | 'tour' | 'day' | 'alphabetical';
-  overrideDetailLevel?: DetailLevel; // FIX: Added overrideDetailLevel prop
+  overrideDetailLevel?: DetailLevel; 
 }
 
 export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overrideDetailLevel }) => {
@@ -50,7 +50,8 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
   const { userInputs, data, analysis } = project; 
   const places = Object.values(data.places || {});
 
-  const [showPlanningMode, setShowPlanningMode] = useState(false);
+  // FIX: Lokalen State entfernt, wir nutzen Lifting State Up
+  const showPlanningMode = uiState.showPlanningMode || false;
 
   // LOGIC: Determine effective sort mode (Prop > State)
   const activeSortMode = overrideSortMode || (uiState.sortMode as string) || 'category';
@@ -161,9 +162,11 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
       const itineraryDays = project.itinerary?.days || [];
       return itineraryDays.map((day: any, index: number) => {
           let count = 0;
-          if (day.aktivitaeten) {
-              count = day.aktivitaeten.filter((akt: any) => 
-                    places.some((p: any) => p.id === akt.original_sight_id)
+          // FIX: V40/V30 Kompatibilität für Tagesplaner-Keys
+          const activities = day.activities || day.aktivitaeten || [];
+          if (activities.length > 0) {
+              count = activities.filter((akt: any) => 
+                    places.some((p: any) => p.id === (akt.id || akt.original_sight_id))
               ).length;
           }
           const label = `${t('sights.day', {defaultValue: 'Tag'})} ${index + 1}`;
@@ -189,13 +192,11 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
     const reserveList: any[] = [];
     const specialList: any[] = []; 
 
-    // FIX: Use prop override or store state (Print vs Screen)
     const isPrint = !!overrideSortMode || uiState.isPrintMode;
     
     const term = isPrint ? '' : (uiState.searchTerm || '').toLowerCase();
     const activeFilters = isPrint ? [] : (uiState.categoryFilter || []); 
     
-    // FIX: Use derived activeSortMode instead of uiState.sortMode
     const sortMode = activeSortMode;
     
     const selectedCategory = isPrint ? 'all' : uiState.selectedCategory;
@@ -247,7 +248,9 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
                   const dayIndexStr = dayLabel.replace(/[^0-9]/g, '');
                   const dayIndex = parseInt(dayIndexStr) - 1;
                   const day = itineraryDays[dayIndex];
-                  return day?.aktivitaeten?.some((a: any) => a.original_sight_id === p.id);
+                  // FIX: V40/V30 Kompatibilität
+                  const activities = day?.activities || day?.aktivitaeten || [];
+                  return activities.some((a: any) => (a.id || a.original_sight_id) === p.id);
               });
               if (!inSelectedDay) return;
           }
@@ -289,7 +292,6 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
   const renderGroupedList = (list: any[], groupByOverride?: 'city') => {
     if (list.length === 0) return null; 
 
-    // FIX: Use derived activeSortMode
     const sortMode = activeSortMode;
     const groups: Record<string, any[]> = {};
     
@@ -335,8 +337,10 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
 
          days.forEach((day: any, i: number) => {
              const title = `${t('sights.day', {defaultValue: 'Tag'})} ${i + 1}`;
+             // FIX: V40/V30 Kompatibilität
+             const activities = day.activities || day.aktivitaeten || [];
              const dayPlaces = list.filter(p => 
-                  day.aktivitaeten?.some((a: any) => a.original_sight_id === p.id)
+                  activities.some((a: any) => (a.id || a.original_sight_id) === p.id)
              );
 
              if (dayPlaces.length > 0) {
@@ -379,7 +383,7 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
                    data={place} 
                    mode="selection" 
                    showPriorityControls={showPlanningMode}
-                   detailLevel={overrideDetailLevel} // FIX: Pass override level to card
+                   detailLevel={overrideDetailLevel}
                 />
             </div>
           ))}
@@ -389,7 +393,6 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
   };
 
   return (
-    // FIX: Added 'sights-view-root' for print control (hides background instance)
     <div className="pb-24 sights-view-root print:pb-0">
       
       {/* 1. TOP BAR (Budget/Planning) - HIDDEN IN PRINT */}
@@ -444,7 +447,6 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
                             <span>Tour: Sondertage & Ideen</span>
                             <span className="text-xs text-gray-300">{filteredLists.special.length}</span>
                         </h3>
-                        {/* FIX: Use 'renderGroupedList' with 'city' override to group Specials by City in Tour Mode */}
                         <div className="mt-2">
                              {renderGroupedList(filteredLists.special, 'city')}
                         </div>
@@ -459,7 +461,6 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
                     <Filter className="w-3 h-3" />
                     {t('sights.reserve', { defaultValue: 'RESERVE / WENIGER PASSEND' })} ({filteredLists.reserve.length})
                     </div>
-                    {/* Print Header replacement */}
                     <div className="hidden print:block font-bold text-gray-500 border-b mb-2 pb-1 text-xs uppercase">Reserve / Weniger passend</div>
                     
                     <div className="mt-2">{renderGroupedList(filteredLists.reserve)}</div>
@@ -473,7 +474,6 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
                         <Layout className="w-3 h-3" />
                         SONDERTAGE & IDEEN ({filteredLists.special.length})
                     </div>
-                     {/* Print Header replacement */}
                     <div className="hidden print:block font-bold text-black border-b mb-2 pb-1 text-sm uppercase mt-4">Sondertage & Ideen</div>
 
                     <div className="mt-2">
@@ -493,10 +493,10 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
          activeSortMode={activeSortMode}
          onSortModeChange={handleViewModeChange}
          showPlanningMode={showPlanningMode}
-         onTogglePlanningMode={() => setShowPlanningMode(!showPlanningMode)}
+         onTogglePlanningMode={() => setUIState({ showPlanningMode: !showPlanningMode })}
       />
 
     </div>
   );
 };
-// --- END OF FILE 656 Zeilen ---
+// --- END OF FILE 381 Zeilen ---

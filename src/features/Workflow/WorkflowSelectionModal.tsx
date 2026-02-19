@@ -1,3 +1,4 @@
+// 19.02.2026 14:45 - FEAT: Added 'showPlanningMode: true' to handleGoToPrios for direct planning access.
 // 19.02.2026 12:00 - FIX: Repaired TypeScript Errors (TS2367, TS2322, TS6133) & restored missing warning block.
 // 17.02.2026 22:05 - FIX: Added Error Boundary around executeStart & Robust UI handling.
 // 17.02.2026 21:35 - FEAT: UI Integration of 'validateStepStart' for Priority Check.
@@ -96,7 +97,8 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
 
   const handleGoToPrios = () => {
       onClose();
-      setUIState({ viewMode: 'list' }); 
+      // FIX: Trigger the global 'showPlanningMode' state so SightsView opens it immediately
+      setUIState({ viewMode: 'list', showPlanningMode: true }); 
   };
 
   if (!isOpen) return null;
@@ -363,4 +365,4 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
     </>
   );
 };
-// --- END OF FILE 340 Zeilen ---
+// --- END OF FILE 342 Zeilen ---
