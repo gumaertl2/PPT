@@ -1,3 +1,4 @@
+// 19.02.2026 13:45 - FIX: Added tourGuide, chefredakteur & hotelScout to initial selection fallback.
 // 19.02.2026 11:50 - FIX: Removed unused 'canRunGuideDependent' (TS6133).
 // src/hooks/useWorkflowSelection.ts
 
@@ -120,7 +121,8 @@ export const useWorkflowSelection = (isOpen: boolean) => {
 
             WORKFLOW_STEPS.forEach(step => {
                 if (!hasPlaces) {
-                    if (['basis', 'anreicherer', 'foodScout', 'ideenScout', 'infoAutor'].includes(step.id)) {
+                    // FIX: Erweitertes Array für den allerersten Start
+                    if (['basis', 'anreicherer', 'tourGuide', 'chefredakteur', 'foodScout', 'hotelScout', 'ideenScout', 'infoAutor'].includes(step.id)) {
                          defaults.push(step.id);
                          return;
                     }
@@ -176,4 +178,4 @@ export const useWorkflowSelection = (isOpen: boolean) => {
         validateStepStart 
     };
 };
-// --- END OF FILE 214 Zeilen ---
+// --- END OF FILE 215 Zeilen ---

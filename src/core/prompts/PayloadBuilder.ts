@@ -1,3 +1,4 @@
+// 19.02.2026 13:30 - FIX: Removed unused 'LocalizedContent' import to resolve Vercel TS6196 error.
 // 19.02.2026 12:30 - REFACTOR: Removed V30 Legacy Code (transferPlanner chunk logic & buildChefPlanerPayload), extracted helpers.
 // 17.02.2026 18:55 - WIRING: Connected V40 Tagesplaner Pipeline (Preparer -> Template).
 // 10.02.2026 21:00 - FIX: Removed Syntax Error ("\n") in buildChefPlanerPayload.
@@ -39,7 +40,7 @@ import { prepareHotelScoutPayload } from './preparers/prepareHotelScoutPayload';
 import { prepareGeoExpanderPayload } from './preparers/prepareGeoExpanderPayload';
 import { prepareTagesplanerPayload } from './preparers/prepareTagesplanerPayload'; // NEW
 
-import type { LocalizedContent, TaskKey, ChunkingState, TripProject, FoodSearchMode } from '../types';
+import type { TaskKey, ChunkingState, TripProject, FoodSearchMode } from '../types';
 import { filterByRadius } from '../utils/geo';
 import type { GeoPoint } from '../utils/geo';
 
@@ -325,4 +326,4 @@ export const PayloadBuilder = {
     return generatedPrompt;
   }
 };
-// --- END OF FILE 319 Zeilen ---
+// --- END OF FILE 320 Zeilen ---
