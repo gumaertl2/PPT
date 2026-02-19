@@ -1,4 +1,4 @@
-// src/core/Workflow/steps.ts
+// 19.02.2026 13:15 - FIX: Set requiresUserInteraction to false for initialTagesplaner to prevent workflow deadlock.
 // 06.02.2026 17:15 - REFACTOR: FLATTENED DEPENDENCIES & REORDERING.
 // - All core tasks now depend only on 'anreicherer' (Independence).
 // - Moved 'initialTagesplaner' to the end (Late Stage).
@@ -82,7 +82,7 @@ export const WORKFLOW_STEPS: WorkflowStepDef[] = [
     id: 'initialTagesplaner',
     isMandatory: false,
     requires: ['anreicherer'], // FIX: Decoupled from TourGuide
-    requiresUserInteraction: true, // RESTORED: User MUST interact
+    requiresUserInteraction: false, // FIX: Allowed to start directly via WorkflowSelectionModal bypassing internal block
     label: { de: '9. Tagesplan erstellen', en: '9. Create Itinerary' },
     description: { de: 'Erstellt den zeitlichen Ablauf. Sie können vorher Tempo & Prioritäten anpassen.', en: 'Creates the daily schedule. You can adjust pace & priorities beforehand.' }
   },
@@ -94,4 +94,4 @@ export const WORKFLOW_STEPS: WorkflowStepDef[] = [
     description: { de: 'Berechnet Wegezeiten und optimiert die Logistik zwischen Terminen.', en: 'Calculates travel times and optimizes logistics between appointments.' }
   }
 ];
-// Lines: 135
+// --- END OF FILE 97 Zeilen ---
