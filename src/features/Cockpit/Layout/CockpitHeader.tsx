@@ -1,5 +1,5 @@
+// 20.02.2026 23:50 - FIX: Restored the "Double-Tap" Filter shortcut on the Guide button that was lost in the previous merge.
 // 20.02.2026 23:45 - FIX: Made Help button context-sensitive (Wizard Help during data entry, App Manual elsewhere).
-// 20.02.2026 23:35 - UX: Replaced global Help action with context-sensitive App Manual (from description.ts).
 // src/features/Cockpit/Layout/CockpitHeader.tsx
 
 import React, { useState, useRef } from 'react';
@@ -188,6 +188,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                          setUIState({ viewMode: 'list' });
                        } else {
                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                         toggleSightFilter(); // FIX: Double-Tap Shortcut restored!
                        }
                      } else {
                        setViewMode('sights');
@@ -279,12 +280,11 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
           <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
 
               <button 
-                // FIX: Smart Help Router!
                 onClick={() => {
                   if (viewMode === 'wizard') {
-                    onOpenHelp(); // Zeigt die schritt-für-schritt Wizard-Hilfe
+                    onOpenHelp(); 
                   } else {
-                    setShowManualModal(true); // Zeigt das globale Handbuch
+                    setShowManualModal(true); 
                   }
                 }}
                 className="flex flex-col items-center px-2 py-1 text-slate-500 hover:bg-slate-100 rounded transition-colors shrink-0"
@@ -327,4 +327,4 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     </>
   );
 };
-// --- END OF FILE 339 Zeilen ---
+// --- END OF FILE 340 Zeilen ---

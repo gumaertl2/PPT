@@ -1,3 +1,4 @@
+// 20.02.2026 23:55 - FIX: Imported and integrated CatalogModal into CockpitWizard to allow opening the catalog from the InfoModal.
 // 09.02.2026 19:20 - FIX: Disabled global background worker (useLiveStatusWorker removed).
 // 08.02.2026 21:00 - FIX: Pass 'options' (Smart Mode) to startWorkflow.
 // 06.02.2026 19:35 - FEAT: Added 'plan' viewMode handling.
@@ -19,6 +20,7 @@ import { InfoView } from '../info/InfoView';
 import { PlanView } from './PlanView'; 
 import { ConfirmModal } from './ConfirmModal';
 import { InfoModal } from '../Welcome/InfoModal';
+import { CatalogModal } from '../Welcome/CatalogModal'; // NEW: Import Catalog Modal
 import { ManualPromptModal } from './ManualPromptModal'; 
 import { WorkflowSelectionModal } from '../Workflow/WorkflowSelectionModal';
 import { PrintReport } from './PrintReport'; 
@@ -85,6 +87,7 @@ export const CockpitWizard = () => {
   const [showHelp, setShowHelp] = useState(false);
   const [helpContent, setHelpContent] = useState({ title: '', body: '' });
   const [showRerunModal, setShowRerunModal] = useState(false);
+  const [isCatalogOpen, setIsCatalogOpen] = useState(false); // NEW: State for Catalog Modal
 
   const STEPS = [
     { id: 'logistics', label: t('wizard.steps.logistics'), icon: MapIcon, component: LogisticsStep },
@@ -308,6 +311,13 @@ export const CockpitWizard = () => {
         onClose={() => setShowHelp(false)}
         title={helpContent.title}
         content={helpContent.body}
+        onOpenCatalog={() => setIsCatalogOpen(true)} // FIX: Triggers Catalog Modal
+      />
+
+      {/* NEW: Added CatalogModal to be accessible from the Wizard */}
+      <CatalogModal 
+        isOpen={isCatalogOpen} 
+        onClose={() => setIsCatalogOpen(false)} 
       />
 
       <ConfirmModal 
@@ -343,4 +353,4 @@ export const CockpitWizard = () => {
     </div>
   );
 };
-// --- END OF FILE 370 Zeilen ---
+// --- END OF FILE 379 Zeilen ---
