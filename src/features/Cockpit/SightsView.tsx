@@ -1,3 +1,4 @@
+// 20.02.2026 19:40 - UX: Integrated Reserve items into their natural groups (Categories/Tours) and pushed them to the bottom.
 // 19.02.2026 23:45 - FIX: Fixed empty Map in Day Mode & added Smart Map Filtering (Selected Day + Unassigned).
 // 19.02.2026 17:30 - FIX: DayPlannerView now renders exclusively.
 // src/features/Cockpit/SightsView.tsx
@@ -181,7 +182,7 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
   // --- 3. FILTER & SORT LOGIC ---
   const filteredLists = useMemo(() => {
     const mainList: any[] = [];
-    const reserveList: any[] = [];
+    // FIX: Removed separate reserveList - we merge them!
     const specialList: any[] = []; 
 
     const isPrint = !!overrideSortMode || uiState.isPrintMode;
@@ -257,22 +258,29 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
       const duration = p.duration || p.min_duration_minutes || 0;
       const isReserve = (p.userPriority === -1) || (duration < minDuration) || (rating > 0 && rating < minRating);
       
-      if (cat === 'special') specialList.push(p);
-      else if (isReserve) reserveList.push(p);
-      else mainList.push(p);
+      // FIX: Mark place internally so we can style/sort it later
+      const placeWithMeta = { ...p, _isReserve: isReserve };
+
+      if (cat === 'special') specialList.push(placeWithMeta);
+      else mainList.push(placeWithMeta); // FIX: All non-special places go to mainList now!
     });
 
     const sortFn = (a: any, b: any) => {
-      if (sortMode === 'alphabetical') return a.name.localeCompare(b.name);
-      const pA = a.userSelection?.priority ?? 0;
-      const pB = b.userSelection?.priority ?? 0;
+      // 1. Force reserves to the bottom within their group
+      if (a._isReserve && !b._isReserve) return 1;
+      if (!a._isReserve && b._isReserve) return -1;
+
+      // 2. Regular priority sorting
+      if (sortMode === 'alphabetical') return (a.name || '').localeCompare(b.name || '');
+      const pA = a.userPriority ?? a.userSelection?.priority ?? 0;
+      const pB = b.userPriority ?? b.userSelection?.priority ?? 0;
       if (pA !== pB) return pB - pA;
+      
       return (a.category || '').localeCompare(b.category || '');
     };
 
     return { 
         main: mainList.sort(sortFn), 
-        reserve: reserveList.sort(sortFn),
         special: specialList.sort(sortFn)
     };
   }, [places, uiState.searchTerm, uiState.categoryFilter, activeSortMode, uiState.selectedCategory, uiState.isPrintMode, overrideSortMode, userInputs.searchSettings, tourOptions, project.itinerary, t]);
@@ -301,6 +309,9 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
             const tourPlaces = list.filter(p => tour.suggested_order_ids?.includes(p.id));
             if (tourPlaces.length > 0) {
                 groups[title] = tourPlaces.sort((a, b) => {
+                    // FIX: Ensure reserve places stay at the bottom of the tour
+                    if (a._isReserve && !b._isReserve) return 1;
+                    if (!a._isReserve && b._isReserve) return -1;
                     return tour.suggested_order_ids.indexOf(a.id) - tour.suggested_order_ids.indexOf(b.id);
                 });
                 tourPlaces.forEach(p => assignedIds.add(p.id));
@@ -338,6 +349,7 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
                    mode="selection" 
                    showPriorityControls={showPlanningMode}
                    detailLevel={overrideDetailLevel}
+                   isReserve={place._isReserve} // FIX: Pass the flag down for visual dimming
                 />
             </div>
           ))}
@@ -380,7 +392,7 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
       {/* MAP VIEW vs DAY VIEW vs LIST VIEW */}
       {uiState.viewMode === 'map' && !overrideSortMode ? (
         <div className="mb-8 print:hidden">
-            <SightsMapView places={[...filteredLists.main, ...filteredLists.reserve, ...filteredLists.special] as Place[]} />
+            <SightsMapView places={[...filteredLists.main, ...filteredLists.special] as Place[]} />
         </div>
       ) : isDayMode ? (
         <div className="mb-8">
@@ -392,11 +404,11 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
         </div>
       ) : (
         <>
-            {/* LIST 1: CANDIDATES (Main) */}
+            {/* LIST 1: CANDIDATES & RESERVE */}
             <div className="bg-white rounded-xl border-2 border-blue-600 shadow-sm p-4 md:p-6 mb-8 relative mx-4 print:border-none print:shadow-none print:p-0 print:mx-0 print:mb-4">
                 <div className="absolute -top-3 left-6 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1 print:hidden">
                     {showPlanningMode ? <Briefcase className="w-3 h-3" /> : <FileText className="w-3 h-3" />}
-                    {t('sights.candidates', { defaultValue: 'KANDIDATEN' })} ({filteredLists.main.length})
+                    {t('sights.candidates', { defaultValue: 'ORTE & KANDIDATEN' })} ({filteredLists.main.length})
                 </div>
                 
                 <div className="mt-2">{renderGroupedList(filteredLists.main)}</div>
@@ -414,20 +426,7 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
                 )}
             </div>
 
-            {/* LIST 2: RESERVE */}
-            {filteredLists.reserve.length > 0 && (
-                <div className="bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 p-4 md:p-6 relative opacity-90 hover:opacity-100 transition-opacity mx-4 mb-8 print:border print:border-gray-200 print:bg-transparent print:mx-0">
-                    <div className="absolute -top-3 left-6 bg-gray-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1 print:hidden">
-                    <Filter className="w-3 h-3" />
-                    {t('sights.reserve', { defaultValue: 'RESERVE / WENIGER PASSEND' })} ({filteredLists.reserve.length})
-                    </div>
-                    <div className="hidden print:block font-bold text-gray-500 border-b mb-2 pb-1 text-xs uppercase">Reserve / Weniger passend</div>
-                    
-                    <div className="mt-2">{renderGroupedList(filteredLists.reserve)}</div>
-                </div>
-            )}
-
-            {/* LIST 3: SONDERTAGE */}
+            {/* LIST 2: SONDERTAGE */}
             {!isTourMode && filteredLists.special.length > 0 && (
                 <div className="bg-amber-50/50 rounded-xl border-2 border-amber-200 shadow-sm p-4 md:p-6 relative mx-4 mb-8 print:border-none print:bg-transparent print:p-0 print:mx-0">
                     <div className="absolute -top-3 left-6 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1 print:hidden">
@@ -459,4 +458,4 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
     </div>
   );
 };
-// --- END OF FILE 398 Zeilen ---
+// --- END OF FILE 382 Zeilen ---

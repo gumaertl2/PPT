@@ -1,6 +1,6 @@
+// 20.02.2026 19:50 - UX: Restored "Double-Tap" shortcut: Second click on Guide button opens the filter modal.
 // 20.02.2026 15:30 - FIX: Injected global Background-Worker (useTripGeneration) to prevent workflow deadlock on View-Switch.
 // 20.02.2026 10:45 - LAYOUT FIX: Changed container max-width from 6xl to 4xl to perfectly align with main content.
-// 20.02.2026 09:40 - UX FIX: Guide-Button schließt/öffnet nicht mehr ungewollt den Filter, sondern scrollt nach oben.
 // src/features/Cockpit/Layout/CockpitHeader.tsx
 
 import React, { useState, useRef } from 'react';
@@ -191,6 +191,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                          setUIState({ viewMode: 'list' });
                        } else {
                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                         toggleSightFilter(); // FIX: Double-Tap Shortcut restored!
                        }
                      } else {
                        setViewMode('sights');
@@ -317,4 +318,4 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     </>
   );
 };
-// --- END OF FILE 318 Zeilen ---
+// --- END OF FILE 319 Zeilen ---

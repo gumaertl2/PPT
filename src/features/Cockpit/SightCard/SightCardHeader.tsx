@@ -1,5 +1,5 @@
-// 20.02.2026 13:10 - LAYOUT: Moved Check-In and Note buttons to the Header (next to +/- controls).
-// 19.02.2026 16:30 - FEAT: Added 'scheduledInfo' indicator for Day Planner integration.
+// 20.02.2026 19:15 - UX: Dimmed title color if the place is marked as a reserve item.
+// 20.02.2026 13:10 - LAYOUT: Moved Check-In and Note buttons to the Header.
 // src/features/Cockpit/SightCard/SightCardHeader.tsx
 
 import React from 'react';
@@ -12,14 +12,13 @@ interface SightCardHeaderProps {
   highlightText: (text: string) => React.ReactNode;
   renderViewControls: () => React.ReactNode;
   scheduledInfo?: string | null; 
-  // NEW: Check-in props
   isVisited?: boolean;
   visitedAt?: string;
   onToggleVisited?: (e: React.MouseEvent) => void;
-  // NEW: Note props
   showNoteInput?: boolean;
   hasNote?: boolean;
   onToggleNote?: (e: React.MouseEvent) => void;
+  isReserve?: boolean; // NEW: Flag for visual dimming
 }
 
 export const SightCardHeader: React.FC<SightCardHeaderProps> = ({
@@ -34,7 +33,8 @@ export const SightCardHeader: React.FC<SightCardHeaderProps> = ({
   onToggleVisited,
   showNoteInput,
   hasNote,
-  onToggleNote
+  onToggleNote,
+  isReserve
 }) => {
 
   const renderVisitedBadge = () => {
@@ -89,8 +89,9 @@ export const SightCardHeader: React.FC<SightCardHeaderProps> = ({
 
   return (
     <div className="flex justify-between items-start mb-1 gap-2">
-      <h3 className="font-bold text-gray-900 text-base leading-tight flex items-center flex-wrap gap-2 min-w-0">
-        {isHotel && <BedDouble className="w-4 h-4 text-emerald-600 shrink-0" />}
+      {/* NEW: Title turns slate-400 if it's a reserve item */}
+      <h3 className={`font-bold text-base leading-tight flex items-center flex-wrap gap-2 min-w-0 ${isReserve ? 'text-slate-400' : 'text-gray-900'}`}>
+        {isHotel && <BedDouble className={`w-4 h-4 shrink-0 ${isReserve ? 'text-slate-400' : 'text-emerald-600'}`} />}
         <span className="break-words">{highlightText(name)}</span>
 
         {scheduledInfo && !isVisited && (
@@ -102,7 +103,6 @@ export const SightCardHeader: React.FC<SightCardHeaderProps> = ({
         {isSelected && isHotel && <CheckCircle2 className="w-4 h-4 text-emerald-600 fill-emerald-100 shrink-0" />}
       </h3>
       
-      {/* NEW: Action Group Top Right */}
       <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
           {renderVisitedBadge()}
           {renderNoteButton()}
@@ -111,4 +111,4 @@ export const SightCardHeader: React.FC<SightCardHeaderProps> = ({
     </div>
   );
 };
-// --- END OF FILE 98 Zeilen ---
+// --- END OF FILE 101 Zeilen ---

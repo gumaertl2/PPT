@@ -1,5 +1,5 @@
-// 20.02.2026 14:15 - FIX: Switched to functional state updates for queue slicing to prevent deadlocks after async processing.
-// 20.02.2026 11:15 - FIX: Resolved Workflow-Deadlock by removing 'chunkingState.currentChunk' from useEffect dependencies.
+// 20.02.2026 20:15 - FIX: Added Hard Kill-Switch (Abort Guard) to effectively cancel background tasks and dismiss loading modal immediately.
+// 20.02.2026 14:15 - FIX: Switched to functional state updates for queue slicing.
 // src/hooks/useTripGeneration.ts
 
 import { useCallback, useEffect, useRef } from 'react';
@@ -100,6 +100,9 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
   const initialQueueLength = useRef<number>(queue.length > 0 ? queue.length + (currentStep ? 1 : 0) : 0);
   const workflowOptionsRef = useRef<{ mode: 'smart' | 'force' } | undefined>(undefined);
+  
+  // NEW: Ref to track the active notification so we can kill it immediately
+  const activeNotificationId = useRef<string | null>(null);
 
   useEffect(() => {
       if (status === 'generating' && initialQueueLength.current === 0 && queue.length > 0) {
@@ -117,8 +120,15 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     resetChunking(); 
     globalIsExecutingLock = false;
     workflowOptionsRef.current = undefined; 
+    
+    // KILL-SWITCH: Close the loading modal instantly
+    if (activeNotificationId.current) {
+        dismissNotification(activeNotificationId.current);
+        activeNotificationId.current = null;
+    }
+
     if (aiSettings.debug) logEvent({ task: 'workflow_manager', type: 'system', content: 'Workflow CANCELLED' });
-  }, [aiSettings.debug, logEvent, setManualMode, resetChunking, resetWorkflow]);
+  }, [aiSettings.debug, logEvent, setManualMode, resetChunking, resetWorkflow, dismissNotification]);
 
   const processResult = useCallback((step: WorkflowStepId | TaskKey, data: any) => {
       ResultProcessor.process(step, data);
@@ -183,6 +193,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
           }
         ]
       });
+      activeNotificationId.current = loadingId;
 
       try {
         const apiKey = useTripStore.getState().apiKey;
@@ -204,7 +215,15 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
             workflowOptionsRef.current 
         );
         
+        // --- ABORT GUARD ---
+        // Check if the user clicked cancel while we were waiting for the AI
+        if (useTripStore.getState().workflow.status !== 'generating') {
+            console.log(`[Workflow] Task ${nextStepId} finished, but workflow was cancelled. Dropping result.`);
+            return; // Abort processing silently!
+        }
+
         dismissNotification(loadingId);
+        if (activeNotificationId.current === loadingId) activeNotificationId.current = null;
         
         if (isMounted) {
             processResult(nextStepId, result);
@@ -216,7 +235,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
               
               if (isAutoMode) {
                   resetChunking(); 
-                  // FIX: Functional update guarantees the correct queue state is sliced!
                   const currentGlobalQueue = useTripStore.getState().workflow.queue;
                   setWorkflowState({ queue: currentGlobalQueue.slice(1) });
               } else {
@@ -232,7 +250,12 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
             }, 0);
         }
       } catch (err) {
+        // --- ABORT GUARD FOR ERRORS ---
+        if (useTripStore.getState().workflow.status !== 'generating') return;
+
         dismissNotification(loadingId);
+        if (activeNotificationId.current === loadingId) activeNotificationId.current = null;
+        
         if (!isMounted) { globalIsExecutingLock = false; return; }
         
         const friendlyMsg = getFriendlyErrorMessage(err, lang);
@@ -338,6 +361,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
           }
         ]
       });
+      activeNotificationId.current = loadingId;
 
       try {
           const apiKey = useTripStore.getState().apiKey;
@@ -352,11 +376,20 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
           const result = await TripOrchestrator.executeTask(task, feedback, undefined, options);
 
+          // --- ABORT GUARD ---
+          if (useTripStore.getState().workflow.status !== 'generating') return;
+
           dismissNotification(loadingId);
+          if (activeNotificationId.current === loadingId) activeNotificationId.current = null;
+          
           processResult(task, result);
           setWorkflowState({ status: 'success', currentStep: null });
       } catch (err) { 
+          // --- ABORT GUARD FOR ERRORS ---
+          if (useTripStore.getState().workflow.status !== 'generating') return;
+
           dismissNotification(loadingId);
+          if (activeNotificationId.current === loadingId) activeNotificationId.current = null;
           
           const friendlyMsg = getFriendlyErrorMessage(err, lang);
           setWorkflowState({ status: 'error', error: friendlyMsg });
@@ -373,4 +406,4 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
   return { status, currentStep, queue, error, progress, manualPrompt, submitManualResult, startWorkflow, resumeWorkflow, cancelWorkflow, startSingleTask };
 };
-// --- END OF FILE 379 Zeilen ---
+// --- END OF FILE 402 Zeilen ---

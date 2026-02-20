@@ -1,5 +1,5 @@
+// 20.02.2026 19:15 - UX: Passed 'isReserve' flag to card styles to visually dim reserve items within their natural group.
 // 20.02.2026 13:10 - LAYOUT: Cleaned up action controls, wired Check-In & Note to Header.
-// 20.02.2026 12:45 - FIX: Made 'Notiz' button independent of Planning Mode (always visible).
 // src/features/Cockpit/SightCard/index.tsx
 
 import React, { useState, useEffect, useRef } from 'react'; 
@@ -21,6 +21,7 @@ interface SightCardProps {
   mode?: 'selection' | 'view'; 
   showPriorityControls?: boolean;
   detailLevel?: ViewLevel;
+  isReserve?: boolean; // NEW
 }
 
 export const SightCard: React.FC<SightCardProps> = ({ 
@@ -28,7 +29,8 @@ export const SightCard: React.FC<SightCardProps> = ({
   data, 
   mode = 'selection', 
   showPriorityControls = true,
-  detailLevel: overrideDetailLevel
+  detailLevel: overrideDetailLevel,
+  isReserve
 }) => {
   const { t } = useTranslation(); 
    
@@ -187,7 +189,7 @@ export const SightCard: React.FC<SightCardProps> = ({
 
   const renderActionControls = () => {
     if (mode !== 'selection') return null;
-    if (!showPriorityControls) return null; // FIX: Zurück zur alten Logik, da Notiz jetzt oben im Header ist!
+    if (!showPriorityControls) return null; 
     
     const btnBase = "px-2 py-0.5 text-[10px] font-bold rounded shadow-sm transition-all border flex items-center gap-1";
     const isFixed = !!activeData.isFixed;
@@ -220,8 +222,9 @@ export const SightCard: React.FC<SightCardProps> = ({
       borderClass = 'border-green-500 border-l-4';
   } else if (priority === 2) {
       borderClass = 'border-blue-400 border-l-4';
-  } else if (priority === -1) {
-      borderClass = 'border-gray-100 opacity-60';
+  } else if (isReserve || priority === -1) { // FIX: Applies visual dimming for ALL reserve items
+      borderClass = 'border-slate-200 opacity-60';
+      bgClass = 'bg-slate-50/50';
   }
 
   if (!isVisited && isSpecial) {
@@ -241,7 +244,6 @@ export const SightCard: React.FC<SightCardProps> = ({
     <>
       <div ref={cardRef} className={`${bgClass} rounded-lg shadow-sm border p-3 mb-3 transition-all hover:shadow-md ${borderClass}`}>
         
-        {/* FIX: Header handles Check-in and Notes now */}
         <SightCardHeader 
             name={name} 
             isHotel={isHotel} 
@@ -255,6 +257,7 @@ export const SightCard: React.FC<SightCardProps> = ({
             showNoteInput={showNoteInput}
             hasNote={!!activeData.userNote}
             onToggleNote={(e) => { e.stopPropagation(); setShowNoteInput(!showNoteInput); }}
+            isReserve={isReserve} 
         />
         
         <SightCardMeta 
@@ -298,7 +301,6 @@ export const SightCard: React.FC<SightCardProps> = ({
             </div>
         )}
 
-        {/* Die Prio-Leiste (wieder auf Planungsmodus limitiert) */}
         {renderActionControls()}
         
         <SightCardBody 
@@ -329,4 +331,4 @@ export const SightCard: React.FC<SightCardProps> = ({
     </>
   );
 };
-// --- END OF FILE 402 Zeilen ---
+// --- END OF FILE 403 Zeilen ---
