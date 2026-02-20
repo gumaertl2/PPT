@@ -1,6 +1,5 @@
-// 20.02.2026 09:55 - FIX: Resolved TS build errors (unused isFullscreen in MapLegend & type cast for 'day' sortMode).
-// 20.02.2026 01:25 - FIX: Switched Fullscreen to "Theater Mode" (Full width, but keeps Menu Bar visible).
-// 20.02.2026 01:15 - FEAT: Added dynamic viewport height for better Map UX.
+// 20.02.2026 18:35 - FEAT: Added GPS "Locate Me" Button and pulsing Blue Dot for current user location.
+// 20.02.2026 09:55 - FIX: Resolved TS build errors.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -9,7 +8,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useTripStore } from '../../store/useTripStore';
 import type { Place } from '../../core/types/models';
-import { ExternalLink, RefreshCw, Zap, Maximize, Minimize } from 'lucide-react'; 
+import { ExternalLink, RefreshCw, Zap, Maximize, Minimize, Navigation } from 'lucide-react'; 
 import { GeocodingService } from '../../services/GeocodingService'; 
 import { LiveScout } from '../../services/LiveScout'; 
 
@@ -53,24 +52,6 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 const DEFAULT_COLOR = '#64748b'; 
 
-// --- FARBPALETTE FÜR TAGE (Geplante Orte) ---
-const DAY_COLORS = [
-    '#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ec4899', 
-    '#0ea5e9', '#f43f5e', '#14b8a6', '#f97316', '#6366f1'  
-];
-
-const getCategoryColor = (cat?: string, place?: Place): string => {
-  if (!cat) return DEFAULT_COLOR;
-  if (cat === 'special' && place?.details?.specialType) {
-      if (place.details.specialType === 'sunny') return CATEGORY_COLORS['sunny'];
-      if (place.details.specialType === 'rainy') return CATEGORY_COLORS['rainy'];
-  }
-  const normalized = cat.toLowerCase().trim();
-  if (CATEGORY_COLORS[normalized]) return CATEGORY_COLORS[normalized];
-  const match = Object.keys(CATEGORY_COLORS).find(key => normalized.includes(key));
-  return match ? CATEGORY_COLORS[match] : DEFAULT_COLOR;
-};
-
 // --- SMART ICON GENERATOR ---
 const createSmartIcon = (categoryColor: string, isSelected: boolean, dayNumber?: number, isHotel?: boolean) => {
   const baseSize = isSelected ? 28 : 22;
@@ -107,6 +88,24 @@ const createSmartIcon = (categoryColor: string, isSelected: boolean, dayNumber?:
   });
 };
 
+// --- FARBPALETTE FÜR TAGE (Geplante Orte) ---
+const DAY_COLORS = [
+    '#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ec4899', 
+    '#0ea5e9', '#f43f5e', '#14b8a6', '#f97316', '#6366f1'  
+];
+
+const getCategoryColor = (cat?: string, place?: Place): string => {
+  if (!cat) return DEFAULT_COLOR;
+  if (cat === 'special' && place?.details?.specialType) {
+      if (place.details.specialType === 'sunny') return CATEGORY_COLORS['sunny'];
+      if (place.details.specialType === 'rainy') return CATEGORY_COLORS['rainy'];
+  }
+  const normalized = cat.toLowerCase().trim();
+  if (CATEGORY_COLORS[normalized]) return CATEGORY_COLORS[normalized];
+  const match = Object.keys(CATEGORY_COLORS).find(key => normalized.includes(key));
+  return match ? CATEGORY_COLORS[match] : DEFAULT_COLOR;
+};
+
 interface SightsMapViewProps {
   places: Place[]; 
 }
@@ -121,6 +120,16 @@ const MapStyles = () => (
     .marker-pulse > div {
       animation: pulse-black 1.5s infinite;
       z-index: 9999 !important;
+    }
+    /* NEW: Blue pulse for GPS Location */
+    @keyframes pulse-blue {
+      0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); transform: scale(1); }
+      70% { box-shadow: 0 0 0 15px rgba(59, 130, 246, 0); transform: scale(1.1); }
+      100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); transform: scale(1); }
+    }
+    .user-pulse > div {
+      animation: pulse-blue 1.5s infinite;
+      z-index: 10000 !important;
     }
     .leaflet-container {
       z-index: 1;
@@ -173,7 +182,35 @@ const MapResizer: React.FC<{ isFullscreen: boolean }> = ({ isFullscreen }) => {
     return null;
 };
 
-// FIX: Removed unused `isFullscreen` prop to fix TS6133
+// NEW: User Location Marker Component (Blue Dot)
+const UserLocationMarker: React.FC<{ location: [number, number] | null }> = ({ location }) => {
+    const map = useMap();
+    
+    useEffect(() => {
+        if (location) {
+            map.flyTo(location, 14, { animate: true, duration: 1.5 });
+        }
+    }, [location, map]);
+
+    if (!location) return null;
+
+    const userIcon = L.divIcon({
+        className: 'custom-map-marker user-pulse',
+        html: `<div style="background-color: #3b82f6; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4);"></div>`,
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+        popupAnchor: [0, -10]
+    });
+
+    return (
+        <Marker position={location} icon={userIcon} zIndexOffset={9999}>
+            <Popup>
+                <div className="text-xs font-bold text-blue-600 p-1">Mein aktueller Standort</div>
+            </Popup>
+        </Marker>
+    );
+};
+
 const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
   const categories = useMemo(() => {
     const cats = new Set<string>();
@@ -228,6 +265,10 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
   
   // Fullscreen State
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // NEW: GPS Location State
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
 
   const allPlacesFromStore = useMemo(() => Object.values(project.data.places), [project.data.places]);
 
@@ -323,6 +364,28 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
     }
   }, [uiState.selectedPlaceId]);
 
+  // NEW: HTML5 GPS Handler
+  const handleLocateUser = () => {
+      if (!navigator.geolocation) {
+          alert("Dein Browser oder Gerät unterstützt leider kein GPS.");
+          return;
+      }
+
+      setIsLocating(true);
+      navigator.geolocation.getCurrentPosition(
+          (position) => {
+              setUserLocation([position.coords.latitude, position.coords.longitude]);
+              setIsLocating(false);
+          },
+          (error) => {
+              console.error("GPS Error:", error);
+              alert("Standort konnte nicht ermittelt werden. Bitte überprüfe deine Berechtigungen.");
+              setIsLocating(false);
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+  };
+
   const validPlaces = places.filter(p => p.location && p.location.lat && p.location.lng);
 
   const containerClasses = isFullscreen
@@ -357,6 +420,15 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
           {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
       </button>
 
+      {/* 4. GPS LOCATE ME BUTTON (Neu) */}
+      <button 
+          onClick={handleLocateUser}
+          className={`absolute top-[68px] right-4 z-[1000] bg-white text-blue-600 p-2.5 rounded-xl shadow-lg border border-slate-200 hover:bg-blue-50 transition-all focus:outline-none ${isLocating ? 'animate-pulse opacity-70' : ''}`}
+          title="Meinen aktuellen GPS-Standort anzeigen"
+      >
+          <Navigation className={`w-5 h-5 ${isLocating ? 'animate-spin text-slate-400' : 'fill-blue-100'}`} />
+      </button>
+
       <MapStyles />
       <MapContainer 
         center={defaultCenter} 
@@ -367,6 +439,9 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
         <MapResizer isFullscreen={isFullscreen} />
         <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <MapLogic places={places} />
+        
+        {/* NEW: Renders the Blue Dot if GPS location is known */}
+        <UserLocationMarker location={userLocation} />
 
         {validPlaces.map((place) => {
           const isSelected = uiState.selectedPlaceId === place.id;
@@ -408,7 +483,6 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
                         let targetSortMode = uiState.sortMode || 'category';
                         let targetFilter = uiState.categoryFilter || [];
                         
-                        // FIX: Type cast to string to prevent TS2367
                         if ((targetSortMode as string) === 'day') {
                             const isVisibleInCurrentView = dayNumber && (targetFilter.length === 0 || targetFilter.some(f => f.includes(String(dayNumber))));
                             if (!isVisibleInCurrentView) {
@@ -442,4 +516,4 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
     </div>
   );
 };
-// --- END OF FILE 478 Zeilen ---
+// --- END OF FILE 528 Zeilen ---
