@@ -1,11 +1,11 @@
+// 21.02.2026 00:30 - UX: Cleaned up Meta Bar. Removed Live-Check and Price to avoid redundancy, as they are now elegantly displayed in SightCardBody.
 // 09.02.2026 18:05 - FEAT: Traffic Light UI for Live Check.
 // 11.02.2026 19:15 - FIX: Smart Links (Search & Guide) with Award Context.
 // src/features/Cockpit/SightCard/SightCardMeta.tsx
 
-import React, { useState } from 'react';
-import { Sun, CloudRain, CreditCard, ExternalLink, Check, BookOpen, Globe, Search, Map as MapIcon, Sparkles, Zap, Loader2, AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import React from 'react';
+import { Sun, CloudRain, ExternalLink, Check, BookOpen, Globe, Search, Map as MapIcon, Sparkles } from 'lucide-react';
 import { VALID_POI_CATEGORIES, INTEREST_DATA } from '../../../data/interests';
-import { LiveScout } from '../../../services/LiveScout'; 
 
 interface SightCardMetaProps {
   data: any;
@@ -14,7 +14,7 @@ interface SightCardMetaProps {
   isSpecial: boolean;
   specialType: string;
   isHotel: boolean;
-  priceEstimate: string | null;
+  priceEstimate: string | null; // Kept in interface for backwards compatibility, but not rendered here anymore
   bookingUrl: string | null;
   sourceUrl: string | null;
   websiteUrl: string | null;
@@ -34,7 +34,6 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
   isSpecial,
   specialType,
   isHotel,
-  priceEstimate,
   bookingUrl,
   sourceUrl,
   websiteUrl,
@@ -46,7 +45,6 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
   ensureAbsoluteUrl,
   t
 }) => {
-  const [isChecking, setIsChecking] = useState(false);
 
   // FIX: Smart Search Query now includes Awards context
   const getGoogleSearchQuery = () => {
@@ -75,19 +73,6 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
   };
 
   const guideLink = getSmartGuideLink();
-
-  const handleLiveCheck = async (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (isChecking) return;
-      setIsChecking(true);
-      try {
-          await LiveScout.verifyPlace(data.id);
-      } catch (err) {
-          console.error("Live Check failed", err);
-      } finally {
-          setIsChecking(false);
-      }
-  };
 
   const renderSpecialBadge = () => {
       if (specialType === 'wildcard') {
@@ -124,70 +109,17 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
       );
   };
 
-  // --- TRAFFIC LIGHT LOGIC ---
-  const renderLiveStatus = () => {
-      const status = data.liveStatus;
-      
-      if (isChecking) {
-          return <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />;
-      }
-
-      if (status) {
-          let colorClass = 'text-gray-500';
-          let Icon = Zap;
-          let label = status.openingHoursToday || 'Geprüft';
-
-          if (status.status === 'open') {
-              colorClass = 'text-green-600 bg-green-50';
-              Icon = CheckCircle;
-          } else if (status.status === 'corrected') {
-              colorClass = 'text-amber-600 bg-amber-50';
-              Icon = Info;
-          } else if (status.status === 'closed' || status.status === 'permanently_closed') {
-              colorClass = 'text-red-600 bg-red-50';
-              Icon = AlertTriangle;
-              label = 'Geschlossen';
-          }
-          
-          return (
-              <div 
-                className={`flex items-center gap-1 ${colorClass} px-1.5 py-0.5 rounded cursor-help transition-all hover:bg-opacity-80 border border-transparent hover:border-current`}
-                title={`STATUS: ${status.status.toUpperCase()}\n\nINFO: ${status.note || '-'}\n\nGEPRÜFT: ${new Date(status.lastChecked).toLocaleTimeString()}`}
-                onClick={handleLiveCheck} 
-              >
-                  <Icon className="w-3 h-3" />
-                  <span className="font-bold text-[10px] uppercase">{label}</span>
-              </div>
-          );
-      }
-
-      return (
-          <button 
-            onClick={handleLiveCheck}
-            className="text-slate-400 hover:text-amber-500 transition-colors flex items-center gap-1"
-            title="Live-Check: Öffnungszeiten & Existenz prüfen"
-          >
-              <Zap className="w-3.5 h-3.5" />
-          </button>
-      );
-  };
-
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 mb-1">
         {renderCategory()}
+        
         <div className="flex items-center gap-1" title={t('sights.duration_hint', { defaultValue: 'Dauer in Stunden' })}>
            <span className="text-gray-400">|</span><span className="text-gray-400">⏱</span>
            <input type="number" min="0" step="0.5" value={customDuration || 0} onChange={(e) => { e.stopPropagation(); onDurationChange(e); }} onClick={(e) => e.stopPropagation()} className="w-8 bg-transparent border-b border-gray-300 p-0 text-center text-xs focus:border-indigo-500 focus:ring-0" />
            <span>h</span>
         </div>
-        {priceEstimate && (<><span className="text-gray-400">|</span><div className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-1.5 rounded"><CreditCard className="w-3 h-3" /><span>{priceEstimate}</span></div></>)}
         
         <div className="flex-1"></div>
-
-        {/* LIVE CHECK */}
-        {renderLiveStatus()}
-
-        <span className="text-gray-200">|</span>
 
         {/* MAP BUTTON */}
         <button onClick={onShowMap} className="text-gray-400 hover:text-indigo-600 transition-colors mr-1" title={t('sights.show_on_map', { defaultValue: 'Auf Karte zeigen' })}>
@@ -218,4 +150,4 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
     </div>
   );
 };
-// --- END OF FILE 190 Zeilen ---
+// --- END OF FILE 119 Zeilen ---
