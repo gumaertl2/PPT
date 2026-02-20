@@ -429,13 +429,16 @@
     "footer_tip": "Tipp: Speichere den Ausdruck als PDF, um ihn digital mitzunehmen.",
     "btn_start": "Druck starten",
     "section_days": "Reiseführer: Tage (Chronologisch)",
+    "section_diary": "Mein Reisetagebuch",
+    "no_diary_entries": "Noch keine Einträge im Tagebuch vorhanden.",
     "sections": {
       "briefing": "Briefing & Strategie",
       "analysis": "Fundament & Analyse",
       "days": "Reiseführer (Tage)",
       "tours": "Reiseführer (Touren)",
       "categories": "Reiseführer (Kategorien)",
-      "infos": "Reise-Infos A-Z"
+      "infos": "Reise-Infos A-Z",
+      "diary": "Reisetagebuch"
     }
   },
   "adhoc_food": {

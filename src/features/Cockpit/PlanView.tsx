@@ -1,6 +1,5 @@
-// 20.02.2026 13:45 - FEAT: Made Live-Diary interactive (Edit Notes & Undo Check-in directly from PlanView).
-// 20.02.2026 12:00 - FEAT: Added rendering of 'userNote' (Personal Diary Entry) in PlanView.
-// 20.02.2026 00:30 - FEAT: Added Chronological Live-Diary for visited places.
+// 20.02.2026 17:15 - FEAT: Added Custom Diary Entries with HTML5 GPS Geolocation support.
+// 20.02.2026 13:45 - FEAT: Made Live-Diary interactive (Edit Notes & Undo Check-in).
 // src/features/Cockpit/PlanView.tsx
 
 import React, { useMemo, useState } from 'react';
@@ -19,9 +18,12 @@ import {
   Clock,
   ArrowRight,
   PenLine,
-  X
+  X,
+  Plus,
+  MapPin,
+  Trash2
 } from 'lucide-react';
-import type { LanguageCode } from '../../core/types';
+import type { LanguageCode, Place } from '../../core/types';
 import { 
   STRATEGY_OPTIONS, 
   VIBE_OPTIONS, 
@@ -35,15 +37,21 @@ export const PlanView: React.FC = () => {
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
   
-  // FIX: Added updatePlace & togglePlaceVisited for interactive diary
-  const { project, updatePlace, togglePlaceVisited } = useTripStore();
+  // FIX: Access setProject to inject custom diary entries
+  const { project, updatePlace, togglePlaceVisited, setProject } = useTripStore();
   const { userInputs, analysis, data } = project;
   const { logistics, travelers, dates, selectedInterests, pace, budget, vibe, strategyId } = userInputs;
   const chefPlaner = analysis.chefPlaner;
   const routeAnalysis = analysis.routeArchitect;
 
-  // NEW: State for interactive notes in the diary
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+
+  // NEW: Custom Diary Entry State
+  const [isAddingCustom, setIsAddingCustom] = useState(false);
+  const [customTitle, setCustomTitle] = useState('');
+  const [customNote, setCustomNote] = useState('');
+  const [isFetchingGPS, setIsFetchingGPS] = useState(false);
+  const [customLocation, setCustomLocation] = useState<{lat: number, lng: number} | null>(null);
 
   const isRoundtripContext = ['roundtrip', 'mobil'].includes(logistics.mode);
 
@@ -308,28 +316,156 @@ export const PlanView: React.FC = () => {
     );
   };
 
+  // --- HTML5 GPS Logic ---
+  const handleFetchGPS = () => {
+    setIsFetchingGPS(true);
+    if (!navigator.geolocation) {
+        alert("Dein Browser unterstützt kein GPS.");
+        setIsFetchingGPS(false);
+        return;
+    }
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            setCustomLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+            setIsFetchingGPS(false);
+        },
+        (err) => {
+            console.error(err);
+            alert("GPS konnte nicht abgerufen werden. Bitte erlaube den Standortzugriff.");
+            setIsFetchingGPS(false);
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const handleSaveCustomEntry = () => {
+      if (!customTitle.trim() && !customNote.trim()) return;
+      
+      const newId = `custom_${crypto.randomUUID()}`;
+      const newPlace: Place = {
+          id: newId,
+          name: customTitle.trim() || 'Mein Erlebnis',
+          category: 'custom_diary',
+          visited: true,
+          visitedAt: new Date().toISOString(),
+          userNote: customNote.trim(),
+          location: customLocation || undefined
+      };
+
+      setProject({
+          ...project,
+          data: {
+              ...project.data,
+              places: {
+                  ...project.data.places,
+                  [newId]: newPlace
+              }
+          }
+      });
+
+      // Reset form
+      setIsAddingCustom(false);
+      setCustomTitle('');
+      setCustomNote('');
+      setCustomLocation(null);
+  };
+
+  const handleDeleteCustom = (id: string) => {
+      if (confirm("Diesen Tagebucheintrag wirklich löschen?")) {
+          const newPlaces = { ...project.data.places };
+          delete newPlaces[id];
+          setProject({ ...project, data: { ...project.data, places: newPlaces } });
+      }
+  };
+
   const renderVisitedDiary = () => {
     const visitedPlaces = Object.values(data?.places || {})
         .filter((p: any) => p.visited && p.visitedAt)
         .sort((a: any, b: any) => new Date(a.visitedAt).getTime() - new Date(b.visitedAt).getTime());
 
-    if (visitedPlaces.length === 0) return null;
-
     return (
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-emerald-100 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="flex items-center gap-3 mb-6 border-b border-slate-50 pb-4">
-                <div className="p-2.5 bg-emerald-100 text-emerald-600 rounded-xl">
-                    <CheckCircle size={24} />
+            <div className="flex items-center justify-between mb-6 border-b border-slate-50 pb-4">
+                <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-emerald-100 text-emerald-600 rounded-xl shrink-0">
+                        <CheckCircle size={24} />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold text-slate-900">
+                            Live-Reisetagebuch
+                        </h2>
+                        <p className="text-sm text-slate-500">
+                            Deine besuchten Orte in chronologischer Reihenfolge.
+                        </p>
+                    </div>
                 </div>
-                <div>
-                    <h2 className="text-xl font-bold text-slate-900">
-                        Live-Reisetagebuch
-                    </h2>
-                    <p className="text-sm text-slate-500">
-                        Deine besuchten Orte in chronologischer Reihenfolge.
-                    </p>
-                </div>
+                {/* NEW: Add Entry Button */}
+                <button 
+                   onClick={() => setIsAddingCustom(!isAddingCustom)}
+                   className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white rounded-lg text-xs font-bold transition-colors shadow-sm"
+                >
+                   <Plus size={14} /> Eigener Eintrag
+                </button>
             </div>
+
+            {/* Mobile Add Entry Button */}
+            <button 
+               onClick={() => setIsAddingCustom(!isAddingCustom)}
+               className="sm:hidden w-full flex justify-center items-center gap-1.5 px-3 py-2 mb-4 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-bold shadow-sm"
+            >
+               <Plus size={16} /> Eigener Eintrag hinzufügen
+            </button>
+
+            {/* NEW: Custom Entry Form */}
+            {isAddingCustom && (
+                <div className="mb-6 p-4 bg-indigo-50/40 border border-indigo-100 rounded-2xl animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-bold text-indigo-900 flex items-center gap-2">
+                           <PenLine size={16} className="text-indigo-500" /> Was hast du entdeckt?
+                        </h4>
+                        <button onClick={() => setIsAddingCustom(false)} className="text-slate-400 hover:text-slate-600"><X size={16}/></button>
+                    </div>
+                    
+                    <input 
+                        type="text" 
+                        placeholder="Titel (z.B. Ein kleines Café am Eck, Wunderschöner Ausblick...)" 
+                        className="w-full text-sm p-3 mb-3 border border-indigo-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white placeholder:text-slate-300 font-medium text-slate-800 shadow-sm"
+                        value={customTitle} 
+                        onChange={e => setCustomTitle(e.target.value)}
+                        autoFocus
+                    />
+                    
+                    <textarea 
+                        placeholder="Deine Erlebnisse oder Notizen..." 
+                        className="w-full text-sm p-3 mb-3 border border-indigo-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white placeholder:text-slate-300 resize-y min-h-[80px] shadow-sm leading-relaxed"
+                        value={customNote} 
+                        onChange={e => setCustomNote(e.target.value)}
+                    />
+                    
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                        <button 
+                           onClick={handleFetchGPS} 
+                           className={`flex items-center gap-2 text-xs font-bold px-3 py-2 rounded-lg transition-colors border shadow-sm w-full sm:w-auto justify-center ${customLocation ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                        >
+                           <MapPin size={14} className={isFetchingGPS ? 'animate-bounce text-indigo-500' : ''} /> 
+                           {isFetchingGPS ? 'Ortung läuft...' : customLocation ? 'Standort gespeichert ✓' : 'Aktuellen Standort (GPS) taggen'}
+                        </button>
+                        
+                        <button 
+                           onClick={handleSaveCustomEntry} 
+                           className="w-full sm:w-auto text-sm bg-indigo-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-indigo-700 transition-colors shadow-md flex items-center justify-center gap-2"
+                        >
+                           <CheckCircle2 size={16} /> Ins Tagebuch eintragen
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {visitedPlaces.length === 0 && !isAddingCustom && (
+                <div className="text-center py-8 text-slate-400 text-sm italic">
+                    Noch keine Einträge. Checke bei Orten ein oder erstelle einen eigenen Eintrag!
+                </div>
+            )}
 
             <div className="space-y-1">
                 {visitedPlaces.map((place: any) => {
@@ -341,41 +477,67 @@ export const PlanView: React.FC = () => {
                         hour: '2-digit', minute: '2-digit'
                     }).format(dateObj);
 
-                    const categoryLabel = INTEREST_DATA[place.category] ? resolveLabel(INTEREST_DATA[place.category]) : place.category;
+                    const isCustomEntry = place.category === 'custom_diary';
+                    const categoryLabel = isCustomEntry ? 'Eigener Eintrag' : (INTEREST_DATA[place.category] ? resolveLabel(INTEREST_DATA[place.category]) : place.category);
 
                     return (
                         <div key={place.id} className="relative pl-6 ml-3 py-2 border-l-2 border-emerald-200">
                             <div className="absolute -left-[9px] top-6 w-4 h-4 rounded-full bg-emerald-500 ring-4 ring-white"></div>
-                            <div className="bg-emerald-50/30 border border-emerald-100 rounded-xl p-3 hover:bg-emerald-50 transition-colors">
+                            <div className={`border rounded-xl p-3 hover:shadow-md transition-all ${isCustomEntry ? 'bg-indigo-50/30 border-indigo-100' : 'bg-emerald-50/30 border-emerald-100 hover:bg-emerald-50'}`}>
                                 
                                 <div className="flex justify-between items-start mb-1 gap-2">
-                                    <h4 className="font-bold text-slate-800 text-sm leading-tight">{place.name}</h4>
+                                    <h4 className={`font-bold text-sm leading-tight ${isCustomEntry ? 'text-indigo-900' : 'text-slate-800'}`}>
+                                        {place.name}
+                                    </h4>
                                     
                                     {/* INTERACTIVE BADGE AREA */}
                                     <div className="flex items-center gap-1.5 shrink-0">
-                                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${isCustomEntry ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}`}>
                                             <Clock size={10} /> {dateStr}, {timeStr} {currentLang === 'de' ? 'Uhr' : ''}
                                         </span>
                                         <button 
                                             onClick={() => setEditingNoteId(editingNoteId === place.id ? null : place.id)}
-                                            className={`p-1.5 rounded transition-colors ${editingNoteId === place.id ? 'bg-indigo-100 text-indigo-700' : 'bg-white text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'} shadow-sm border border-slate-200`}
+                                            className={`p-1.5 rounded transition-colors shadow-sm border ${editingNoteId === place.id ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-white text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border-slate-200'}`}
                                             title="Notiz bearbeiten"
                                         >
                                             <PenLine size={12} />
                                         </button>
-                                        <button 
-                                            onClick={() => togglePlaceVisited(place.id)}
-                                            className="p-1.5 rounded bg-white text-emerald-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors shadow-sm border border-slate-200 group"
-                                            title="Check-in rückgängig machen"
-                                        >
-                                            <CheckCircle2 size={12} className="group-hover:hidden" />
-                                            <X size={12} className="hidden group-hover:block" />
-                                        </button>
+                                        
+                                        {isCustomEntry ? (
+                                            <button 
+                                                onClick={() => handleDeleteCustom(place.id)}
+                                                className="p-1.5 rounded bg-white text-slate-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors shadow-sm border border-slate-200"
+                                                title="Eintrag löschen"
+                                            >
+                                                <Trash2 size={12} />
+                                            </button>
+                                        ) : (
+                                            <button 
+                                                onClick={() => togglePlaceVisited(place.id)}
+                                                className="p-1.5 rounded bg-white text-emerald-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors shadow-sm border border-slate-200 group"
+                                                title="Check-in rückgängig machen"
+                                            >
+                                                <CheckCircle2 size={12} className="group-hover:hidden" />
+                                                <X size={12} className="hidden group-hover:block" />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                                 
                                 <div className="text-xs text-slate-500 flex gap-1 items-center font-medium mb-1.5">
-                                    <MapIcon size={10} className="text-emerald-400" /> {categoryLabel || 'Ort'}
+                                    {isCustomEntry ? <PenLine size={10} className="text-indigo-400" /> : <MapIcon size={10} className="text-emerald-400" />} 
+                                    {categoryLabel}
+                                    {place.location?.lat && (
+                                        <a 
+                                           href={`https://www.google.com/maps/search/?api=1&query=${place.location.lat},${place.location.lng}`} 
+                                           target="_blank" 
+                                           rel="noopener noreferrer"
+                                           className="ml-2 flex items-center gap-0.5 text-blue-500 hover:underline"
+                                           title="Auf Karte anzeigen"
+                                        >
+                                            <MapPin size={10}/> GPS
+                                        </a>
+                                    )}
                                 </div>
 
                                 {/* EDIT OR SHOW NOTE */}
@@ -385,7 +547,7 @@ export const PlanView: React.FC = () => {
                                             value={place.userNote || ''}
                                             onChange={(e) => updatePlace(place.id, { userNote: e.target.value })}
                                             placeholder="Meine persönliche Notiz / Erlebnisbericht..."
-                                            className="w-full text-xs text-indigo-900 bg-indigo-50/50 border border-indigo-200 rounded-md p-2 focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:bg-white placeholder:text-indigo-300 resize-y min-h-[60px]"
+                                            className="w-full text-xs text-indigo-900 bg-indigo-50/50 border border-indigo-200 rounded-md p-2 focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white placeholder:text-indigo-300 resize-y min-h-[60px]"
                                             autoFocus
                                         />
                                     </div>
@@ -396,7 +558,11 @@ export const PlanView: React.FC = () => {
                                         title="Klicken zum Bearbeiten"
                                     >
                                         <PenLine className="absolute top-2 right-2 w-3 h-3 text-indigo-200 group-hover:text-indigo-400 transition-colors" />
-                                        "{place.userNote}"
+                                        {place.userNote.split('\n').map((line: string, i: number) => (
+                                            <React.Fragment key={i}>
+                                                {line}<br/>
+                                            </React.Fragment>
+                                        ))}
                                     </div>
                                 ) : null}
 
@@ -418,4 +584,4 @@ export const PlanView: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 417 Zeilen ---
+// --- END OF FILE 528 Zeilen ---

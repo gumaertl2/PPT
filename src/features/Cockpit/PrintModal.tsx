@@ -1,5 +1,5 @@
-// 20.02.2026 10:20 - FIX: Enforced strict I18N keys for 'days' section (Reiseführer: Tage).
-// 20.02.2026 10:10 - FEAT: Added 'Tagesplan (Tage)' section to Print Modal.
+// 20.02.2026 17:30 - FEAT: Added 'diary' (Reisetagebuch) toggle to Print Modal.
+// 20.02.2026 10:20 - FIX: Enforced strict I18N keys for 'days' section.
 // src/features/Cockpit/PrintModal.tsx
 
 import React, { useState } from 'react';
@@ -13,7 +13,8 @@ import {
   Info, 
   Settings2,
   CheckCircle2,
-  CalendarDays 
+  CalendarDays,
+  Book // NEW
 } from 'lucide-react';
 import type { PrintConfig, DetailLevel } from '../../core/types';
 
@@ -32,7 +33,8 @@ const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onConfirm }) =
     days: true,
     tours: true,
     categories: true,
-    infos: true
+    infos: true,
+    diary: true // NEW
   });
 
   if (!isOpen) return null;
@@ -63,7 +65,7 @@ const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onConfirm }) =
 
         <div className="p-8 space-y-8">
           
-          {/* DETAIL-STUFEN (3 Schalter) */}
+          {/* DETAIL-STUFEN */}
           <div className="space-y-3">
             <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 ml-1">
               <Settings2 size={14} /> {t('print.detail_level')}
@@ -98,6 +100,7 @@ const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onConfirm }) =
                 { id: 'tours', label: t('print.sections.tours', {defaultValue: 'Reiseführer (Touren)'}), icon: <Map size={16} /> },
                 { id: 'categories', label: t('print.sections.categories', {defaultValue: 'Reiseführer (Kategorien)'}), icon: <Layout size={16} /> },
                 { id: 'infos', label: t('print.sections.infos', {defaultValue: 'Reise-Infos A-Z'}), icon: <Info size={16} /> },
+                { id: 'diary', label: t('print.sections.diary', {defaultValue: 'Reisetagebuch'}), icon: <Book size={16} /> }, // NEW
               ].map((section) => (
                 <button
                   key={section.id}
@@ -150,4 +153,4 @@ const PrintModal: React.FC<PrintModalProps> = ({ isOpen, onClose, onConfirm }) =
 };
 
 export default PrintModal;
-// --- END OF FILE 149 Zeilen ---
+// --- END OF FILE 151 Zeilen ---

@@ -1,11 +1,9 @@
-// 20.02.2026 10:25 - FIX: Restored missing comments (Strict Code Integrity) and applied exact I18N keys.
-// 20.02.2026 10:10 - FEAT: Added rendering block for 'days' (Day Planner) section.
-// 09.02.2026 12:55 - FIX: Added 'overrideDetailLevel' to support Print Settings (Strict User Base).
+// 20.02.2026 17:30 - FEAT: Added 'DiaryPrintView' to render the personal travel diary chronologically.
+// 20.02.2026 10:25 - FIX: Restored missing comments and applied exact I18N keys.
 // src/features/Cockpit/PrintReport.tsx
 
 import React from 'react';
 import { useTripStore } from '../../store/useTripStore';
-// FIX: Named import ensures compatibility
 import { BriefingView } from './BriefingView'; 
 import { AnalysisReviewView } from './AnalysisReviewView';
 import { RouteReviewView } from './RouteReviewView';
@@ -19,14 +17,12 @@ interface PrintReportProps {
 }
 
 export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { project, uiState } = useTripStore();
   const { logistics } = project.userInputs;
 
-  // SAFETY GUARD: Prevent crash if config is missing (Fixes TypeError: config is undefined)
   if (!config) return null;
 
-  // Helper für saubere Seitenumbrüche
   const PageBreak = () => <div className="break-before-page" style={{ pageBreakBefore: 'always' }} />;
 
   const SectionHeader = ({ title }: { title: string }) => (
@@ -34,6 +30,58 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
         <h2 className="text-2xl font-black uppercase tracking-wider text-slate-900">{title}</h2>
     </div>
   );
+
+  // NEW: Print-Optimized Version of the Diary
+  const DiaryPrintView = () => {
+      const visitedPlaces = Object.values(project.data?.places || {})
+          .filter((p: any) => p.visited && p.visitedAt)
+          .sort((a: any, b: any) => new Date(a.visitedAt).getTime() - new Date(b.visitedAt).getTime());
+
+      if (visitedPlaces.length === 0) return <p className="text-slate-500 italic mt-4">{t('print.no_diary_entries', { defaultValue: 'Noch keine Einträge im Tagebuch vorhanden.' })}</p>;
+
+      const currentLang = i18n.language.substring(0, 2);
+
+      return (
+          <div className="space-y-6 mt-4">
+              {visitedPlaces.map((place: any) => {
+                  const dateObj = new Date(place.visitedAt);
+                  const dateStr = new Intl.DateTimeFormat(currentLang === 'de' ? 'de-DE' : 'en-US', {
+                      weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric'
+                  }).format(dateObj);
+                  const timeStr = new Intl.DateTimeFormat(currentLang === 'de' ? 'de-DE' : 'en-US', {
+                      hour: '2-digit', minute: '2-digit'
+                  }).format(dateObj);
+
+                  const isCustomEntry = place.category === 'custom_diary';
+                  
+                  return (
+                      <div key={place.id} className="border-l-4 border-emerald-500 pl-4 py-1 print:break-inside-avoid">
+                          <div className="flex justify-between items-start mb-1">
+                              <h4 className="font-bold text-slate-900 text-lg leading-tight">{place.name}</h4>
+                              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded shrink-0 ml-4">
+                                  {dateStr}, {timeStr}
+                              </span>
+                          </div>
+                          {!isCustomEntry && (
+                              <div className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-2">
+                                  {place.category}
+                              </div>
+                          )}
+                          {place.userNote && (
+                              <div className="mt-2 text-sm text-slate-700 italic border-l-2 border-slate-200 pl-3 py-1 leading-relaxed">
+                                  {place.userNote.split('\n').map((line: string, i: number) => (
+                                      <React.Fragment key={i}>
+                                          {line}<br/>
+                                      </React.Fragment>
+                                  ))}
+                              </div>
+                          )}
+                      </div>
+                  );
+              })}
+          </div>
+      );
+  };
 
   return (
     <div className="print-report font-sans text-slate-900 bg-white max-w-[210mm] mx-auto">
@@ -86,7 +134,7 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
         <>
            {(config.sections.briefing || config.sections.analysis) && <PageBreak />}
            <section className="print-section">
-              <SectionHeader title={t('print.sections.days', { defaultValue: 'Reiseführer: Tage (Chronologisch)' })} />
+              <SectionHeader title={t('print.section_days', { defaultValue: 'Reiseführer: Tage (Chronologisch)' })} />
               {/* Force SightsView into Day Sort Mode & Apply Detail Level */}
               <SightsView 
                   overrideSortMode="day" 
@@ -137,6 +185,17 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
         </>
       )}
 
+      {/* G) REISETAGEBUCH (Chronik) */}
+      {config.sections.diary && (
+        <>
+           {(config.sections.briefing || config.sections.analysis || config.sections.days || config.sections.tours || config.sections.categories || config.sections.infos) && <PageBreak />}
+           <section className="print-section">
+              <SectionHeader title={t('print.section_diary', { defaultValue: 'Mein Reisetagebuch' })} />
+              <DiaryPrintView />
+           </section>
+        </>
+      )}
+
       {/* FOOTER */}
       <div className="mt-16 pt-4 border-t border-slate-100 text-center text-xs text-slate-400">
          Generiert mit Papatours AI • {project.meta.id}
@@ -145,4 +204,4 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
     </div>
   );
 };
-// --- END OF FILE 149 Zeilen ---
+// --- END OF FILE 207 Zeilen ---

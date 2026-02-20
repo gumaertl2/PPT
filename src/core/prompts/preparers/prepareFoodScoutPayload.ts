@@ -1,4 +1,4 @@
-// 20.02.2026 15:55 - FEAT: Expanded Restaurant Search to cover ALL visited cities (districts) and stops, not just the main hub.
+// 20.02.2026 16:30 - FIX: Reverted to Single-City processing. Multi-City logic moved to FoodWorkflow loop to prevent AI overload.
 // 16.02.2026 17:20 - UPDATE: SIMPLE PASS-THROUGH & DYNAMIC GUIDES.
 // src/core/prompts/preparers/prepareFoodScoutPayload.ts
 
@@ -22,47 +22,13 @@ export const prepareFoodScoutPayload = (
         project = projectOrPayload as TripProject;
     }
 
-    const { userInputs, data, analysis } = project;
+    const { userInputs } = project;
     
-    // --- 1. DETECT LOCATIONS (ALL HUBS & CITIES) ---
-    let hubs: string[] = [];
-
-    // A) Base logistics locations (Hauptorte)
-    if (userInputs?.logistics?.mode === 'stationaer') {
-        if (userInputs.logistics.stationary?.destination) {
-            hubs.push(userInputs.logistics.stationary.destination);
-        }
-    } else {
-        if (analysis?.routeArchitect?.routes?.[0]?.stages) {
-            hubs = analysis.routeArchitect.routes[0].stages.map((s: any) => s.location_name);
-        } else if (userInputs?.logistics?.roundtrip?.stops) {
-            hubs = userInputs.logistics.roundtrip.stops.map((s: any) => s.location);
-        }
-    }
-
-    // B) NEW: Add all discovered cities/districts from the generated places list
-    const places = Object.values(data?.places || {});
-    places.forEach((p: any) => {
-        if (p.category === 'districts' || p.category === 'city_info') {
-            // Bereinige den Namen (entferne Klammern wie "(Altstadt)")
-            const cityName = p.name ? p.name.split('(')[0].trim() : '';
-            if (cityName) hubs.push(cityName);
-        }
-    });
-
-    // C) Bereinigung (Duplikate entfernen)
-    hubs = Array.from(new Set(hubs)).filter(h => h && h.length > 2);
-
-    // Fallback, falls die Liste aus irgendeinem Grund leer ist
-    let targetLocation = hubs.length > 0 ? hubs.join(', ') : "Region";
-
-    // Legacy candidates override
+    // --- 1. DETECT LOCATION (SINGLE TARGET) ---
+    // The FoodWorkflow loop passes exactly ONE city via options.candidates
     const candidates = options?.candidates || [];
-    if (candidates.length > 0) {
-        targetLocation = candidates.join(', ');
-    }
+    let targetLocation = candidates.length > 0 ? candidates[0] : (userInputs?.logistics?.stationary?.destination || "Region");
 
-    // Feedback override (falls der User sagt: "Suche nur in München")
     if (feedback && feedback.includes('LOC:')) {
         const match = feedback.match(/LOC:([^|]+)/);
         if (match) targetLocation = match[1].trim();
@@ -89,7 +55,7 @@ export const prepareFoodScoutPayload = (
     // --- 4. RETURN PAYLOAD ---
     return {
         context: {
-            // Die KI bekommt nun z.B.: "Wolkenstein, Bozen, Brixen, Trient (Italien)"
+            // Die KI bekommt durch die Schleife immer nur EINE Stadt + Land (z.B. "Bozen (Italien)")
             location_name: `${targetLocation} (${country})`, 
             target_town: targetLocation,
             country: country, 
@@ -102,4 +68,4 @@ export const prepareFoodScoutPayload = (
         ...options 
     };
 };
-// --- END OF FILE 98 Zeilen ---
+// --- END OF FILE 71 Zeilen ---

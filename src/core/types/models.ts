@@ -1,7 +1,5 @@
+// 20.02.2026 17:30 - FEAT: Added 'diary' to PrintConfig for exporting the Personal Travel Diary.
 // 20.02.2026 12:00 - FEAT: Added 'userNote' to Place model for personal diary notes.
-// 20.02.2026 10:10 - FEAT: Added 'days' to PrintConfig for exporting the Day Planner.
-// 17.02.2026 19:30 - FIX: Re-applying V40 Fields (isFixed, fixedDate) & LiveStatus.
-// 09.02.2026 18:00 - FIX: Added 'LiveStatus' interface (with corrected status) to Place model.
 // src/core/types/models.ts
 
 import type { LanguageCode } from './shared';
@@ -293,7 +291,7 @@ export interface Place {
 
   visited?: boolean;
   visitedAt?: string; 
-  userNote?: string; // NEW: Persoenliche Notiz des Users
+  userNote?: string;
   googlePlaceId?: string; 
   
   // Enriched Links
@@ -318,6 +316,7 @@ export interface PrintConfig {
     tours: boolean;
     categories: boolean;
     infos: boolean;
+    diary: boolean; // NEW: Reisetagebuch
   };
   layout: 'standard' | 'compact';
   showImages: boolean;
@@ -351,4 +350,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 327 Zeilen ---
+// --- END OF FILE 328 Zeilen ---

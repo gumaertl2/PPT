@@ -1,8 +1,7 @@
+// 20.02.2026 16:30 - FEAT: Implemented true Multi-City Chunking. Scans all hubs/districts and runs sequential foodScout loop.
 // 16.02.2026 21:40 - FIX: UNUSED VARIABLE (Vercel Build Error).
 // 13.02.2026 12:00 - FEAT: "Quality Doorman" Logic (Loop-on-Failure).
-// - Logic: Scans results for missing addresses/websites.
-// - Logic: Triggers specific REPAIR CALLS only for defective candidates.
-// - Logic: Merges repair data back into the main list.
+// src/core/Workflow/FoodWorkflow.ts
 
 import { v4 as uuidv4 } from 'uuid';
 import { useTripStore } from '../../store/useTripStore';
@@ -22,8 +21,8 @@ export const FoodWorkflow = {
      * Executes the Inverted Search Pipeline for Food:
      * 1. Determine Country/Region
      * 2. Load Guides (Michelin, Falstaff, etc.)
-     * 3. Expand Location (if needed) -> Get List of Towns
-     * 4. Scout each Town (using Flash/Speed)
+     * 3. Expand Locations (Hubs + Districts) -> Get List of Towns
+     * 4. Scout each Town (using Flash/Speed in a loop!)
      * 5. QUALITY CHECK: Repair missing addresses (Loop-on-Failure)
      * 6. Enrich & Verify Candidates (using Thinking/Quality)
      */
@@ -33,13 +32,12 @@ export const FoodWorkflow = {
     ) {
         const store = useTripStore.getState();
         
-        console.log(`[FoodWorkflow] Starting INVERTED SEARCH PIPELINE V40.95`);
+        console.log(`[FoodWorkflow] Starting INVERTED SEARCH PIPELINE V40.95 (Multi-City)`);
         
         try {
-            // Reset Chunking State for UI Feedback
             store.setChunkingState({ isActive: true, currentChunk: 0, totalChunks: 4, results: [] });
             
-            // 1. DETERMINE COUNTRY (AdHoc Support)
+            // 1. DETERMINE COUNTRY 
             let targetCountry = "";
             if (feedback) {
                 const countryMatch = feedback.match(/COUNTRY:\s*([^|]+)/i);
@@ -49,28 +47,50 @@ export const FoodWorkflow = {
             if (!targetCountry && store.project.meta.language === 'de') targetCountry = "Deutschland";
             if (!targetCountry) targetCountry = "Europe";
 
-            // 2. GET GUIDES (OBJECT ARRAY)
+            // 2. GET GUIDES 
             const existingGuides = getGuidesForCountry(targetCountry);
             
-            // 3. DETERMINE LOCATIONS
+            // 3. BUILD TOWN LIST (Dynamic Chunking)
             let townList: string[] = [];
             const locMatch = feedback?.match(/LOC:([^|]+)/);
             const manualLocation = locMatch ? locMatch[1] : undefined;
             const geoInput = manualLocation ? [manualLocation] : undefined;
 
+            // Optional: Start with GeoExpander baseline
             const geoResult = await runStep('geoExpander', feedback, true, geoInput);
             if (geoResult && Array.isArray(geoResult.candidates)) townList = geoResult.candidates;
             else if (Array.isArray(geoResult)) townList = geoResult;
 
-            console.log(`[FoodWorkflow] Starting Sequential Food Scouting for ${townList.length} towns...`);
+            // SMART SCANNER: Add all actually visited hubs and cities to the list!
+            const logistics = store.project.userInputs.logistics;
+            if (logistics.mode === 'stationaer' && logistics.stationary?.destination) {
+                townList.push(logistics.stationary.destination);
+            } else if (store.project.analysis?.routeArchitect?.routes?.[0]?.stages) {
+                townList.push(...store.project.analysis.routeArchitect.routes[0].stages.map((s: any) => s.location_name));
+            } else if (logistics.roundtrip?.stops) {
+                townList.push(...logistics.roundtrip.stops.map((s: any) => s.location));
+            }
+
+            const places = Object.values(store.project.data.places || {});
+            places.forEach((p: any) => {
+                if (p.category === 'districts' || p.category === 'city_info') {
+                    const cityName = cleanTownName(p.name);
+                    if (cityName) townList.push(cityName);
+                }
+            });
+
+            // Clean up and deduplicate the townList
+            townList = Array.from(new Set(townList.map(t => cleanTownName(t)))).filter(t => t && t.length > 2);
+            if (townList.length === 0) townList = ["Region"];
+
+            console.log(`[FoodWorkflow] Starting Sequential Food Scouting for ${townList.length} towns:`, townList);
             
-            // 4. SCOUTING LOOP (Flash)
+            // 4. SCOUTING LOOP (Flash per City)
             let allScoutCandidates: any[] = [];
-            const totalSteps = townList.length + 1;
+            const totalSteps = townList.length + 1; // +1 for Enricher Phase
             
             for (let i = 0; i < townList.length; i++) {
-                const rawTown = townList[i];
-                const town = cleanTownName(rawTown); 
+                const town = townList[i];
                 
                 store.setChunkingState({ isActive: true, currentChunk: i + 1, totalChunks: totalSteps });
                 console.log(`[FoodWorkflow] Scanning Town ${i+1}/${townList.length}: ${town}`);
@@ -80,7 +100,7 @@ export const FoodWorkflow = {
                         'foodScout', 
                         feedback, 
                         true, // skipSave
-                        [town], 
+                        [town], // Pass single town!
                         true, // enableSearch
                         { guides: existingGuides } 
                     );
@@ -88,7 +108,7 @@ export const FoodWorkflow = {
                     if (stepResult && Array.isArray(stepResult.candidates)) {
                         const tagged = stepResult.candidates.map((c: any) => ({
                             ...c,
-                            city: town,
+                            city: town, // Tag it with the searched city
                             id: c.id || uuidv4()
                         }));
                         allScoutCandidates.push(...tagged);
@@ -103,16 +123,13 @@ export const FoodWorkflow = {
             console.log(`[FoodWorkflow] Quality Check for ${allScoutCandidates.length} candidates...`);
             
             for (const candidate of allScoutCandidates) {
-                // Check for missing critical data
                 const isAddressMissing = !candidate.address || candidate.address.length < 5 || candidate.address.toLowerCase().includes("unknown");
                 
                 if (isAddressMissing) {
-                    console.log(`[FoodWorkflow] REPAIRING: ${candidate.name} in ${candidate.city} (Missing Address)`);
+                    console.log(`[FoodWorkflow] REPAIRING: ${candidate.name} in ${candidate.city}`);
                     
                     try {
-                        // Trigger a specific, lightweight repair call using 'foodEnricher' schema or similar
                         const repairFeedback = `REPAIR_MODE|NAME:${candidate.name}|CITY:${candidate.city}|MISSING:Address`;
-                        
                         const repairResult = await runStep(
                             'foodScout', 
                             repairFeedback, 
@@ -125,7 +142,6 @@ export const FoodWorkflow = {
                         if (repairResult && repairResult.candidates && repairResult.candidates.length > 0) {
                             const repaired = repairResult.candidates[0];
                             if (repaired.address && repaired.address.length > 5) {
-                                console.log(`[FoodWorkflow] REPAIR SUCCESS: ${repaired.address}`);
                                 candidate.address = repaired.address;
                                 if (repaired.phone) candidate.phone = repaired.phone;
                                 if (repaired.website) candidate.website = repaired.website;
@@ -170,4 +186,4 @@ export const FoodWorkflow = {
         }
     }
 };
-// --- END OF FILE 159 Zeilen ---
+// --- END OF FILE 178 Zeilen ---

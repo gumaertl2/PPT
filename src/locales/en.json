@@ -429,13 +429,16 @@
     "footer_tip": "Tip: Save print as PDF to take it digitally.",
     "btn_start": "Start Print",
     "section_days": "Guide: Days (Chronological)",
+    "section_diary": "My Travel Diary",
+    "no_diary_entries": "No entries in the diary yet.",
     "sections": {
       "briefing": "Briefing & Strategy",
       "analysis": "Foundation & Analysis",
       "days": "Guide (Days)",
       "tours": "Guide (Tours)",
       "categories": "Guide (Categories)",
-      "infos": "Travel Infos A-Z"
+      "infos": "Travel Infos A-Z",
+      "diary": "Travel Diary"
     }
   },
   "adhoc_food": {
