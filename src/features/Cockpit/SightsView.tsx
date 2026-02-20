@@ -1,6 +1,6 @@
+// 20.02.2026 20:25 - FIX: Removed unused 'Filter' import from lucide-react (TS6133).
 // 20.02.2026 19:40 - UX: Integrated Reserve items into their natural groups (Categories/Tours) and pushed them to the bottom.
 // 19.02.2026 23:45 - FIX: Fixed empty Map in Day Mode & added Smart Map Filtering (Selected Day + Unassigned).
-// 19.02.2026 17:30 - FIX: DayPlannerView now renders exclusively.
 // src/features/Cockpit/SightsView.tsx
 
 import React, { useMemo, useEffect } from 'react';
@@ -17,8 +17,7 @@ import { DayPlannerView } from './DayPlannerView';
 import { 
   FileText,
   Briefcase, 
-  Layout,
-  Filter
+  Layout
 } from 'lucide-react';
 
 const TRAVEL_PACE_CONFIG: Record<string, { startHour: number; endHour: number; breakMinutes: number; bufferMinutes: number }> = {
@@ -182,7 +181,6 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
   // --- 3. FILTER & SORT LOGIC ---
   const filteredLists = useMemo(() => {
     const mainList: any[] = [];
-    // FIX: Removed separate reserveList - we merge them!
     const specialList: any[] = []; 
 
     const isPrint = !!overrideSortMode || uiState.isPrintMode;
@@ -258,11 +256,10 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
       const duration = p.duration || p.min_duration_minutes || 0;
       const isReserve = (p.userPriority === -1) || (duration < minDuration) || (rating > 0 && rating < minRating);
       
-      // FIX: Mark place internally so we can style/sort it later
       const placeWithMeta = { ...p, _isReserve: isReserve };
 
       if (cat === 'special') specialList.push(placeWithMeta);
-      else mainList.push(placeWithMeta); // FIX: All non-special places go to mainList now!
+      else mainList.push(placeWithMeta); 
     });
 
     const sortFn = (a: any, b: any) => {
@@ -308,8 +305,8 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
             const title = tour.tour_title || "Tour";
             const tourPlaces = list.filter(p => tour.suggested_order_ids?.includes(p.id));
             if (tourPlaces.length > 0) {
+                // Keep the AI suggestion order for the tour, but push reserves to the end
                 groups[title] = tourPlaces.sort((a, b) => {
-                    // FIX: Ensure reserve places stay at the bottom of the tour
                     if (a._isReserve && !b._isReserve) return 1;
                     if (!a._isReserve && b._isReserve) return -1;
                     return tour.suggested_order_ids.indexOf(a.id) - tour.suggested_order_ids.indexOf(b.id);
@@ -349,7 +346,7 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
                    mode="selection" 
                    showPriorityControls={showPlanningMode}
                    detailLevel={overrideDetailLevel}
-                   isReserve={place._isReserve} // FIX: Pass the flag down for visual dimming
+                   isReserve={place._isReserve} 
                 />
             </div>
           ))}
@@ -458,4 +455,4 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
     </div>
   );
 };
-// --- END OF FILE 382 Zeilen ---
+// --- END OF FILE 381 Zeilen ---
