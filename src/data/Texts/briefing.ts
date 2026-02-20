@@ -1,3 +1,4 @@
+// 20.02.2026 21:00 - DOCS: Updated Architecture (Smart Autosave, Live-Tagebuch, Reserve-Logik, Background Worker, Multi-City Chunking).
 // 10.02.2026 12:00 - DOCS: Added LiveUpdate Service & Safety Protocols.
 // 01.02.2026 15:00 - DOCS: Updated Architecture (SightCard Split, SSOT Logistics, Path Fixes).
 // 27.01.2026 16:00 - DOCS: FINAL SYSTEM LAW.
@@ -39,7 +40,7 @@ Damit generierter Code sofort kompilierbar ist, nutze ausschließlich diesen Sta
 Das Herzstück der V40 ist der **modulare Zustand Store**. Um das "God Object" Problem zu vermeiden, wurde der Store in thematische "Slices" zerlegt.
 Die UI ist in **Feature-Ordnern** organisiert (\`src/features/...\`).
 
-#### A. STATE MANAGEMENT (Zustand Slices)
+#### A. STATE MANAGEMENT (Zustand Slices & Smart Autosave)
 Der Store (\`useTripStore\`) ist ein Assembler, der folgende Slices zusammenfügt:
 1.  **ProjectSlice** (\`src/store/slices/createProjectSlice.ts\`):
     * Hält das \`project\`-Objekt (UserInputs, Daten).
@@ -54,6 +55,8 @@ Der Store (\`useTripStore\`) ist ein Assembler, der folgende Slices zusammenfüg
 4.  **AnalysisSlice** (\`src/store/slices/createAnalysisSlice.ts\`):
     * Speichert Ergebnisse der KI-Tasks (z.B. ChefPlaner).
 
+*WICHTIG (Smart Autosave):* Der Store nutzt die **Zustand \`persist\` Middleware**. Alle Nutzdaten (\`project\`, \`apiKey\`) und die aktuelle Ansicht (\`view\`) werden in Echtzeit im LocalStorage gespeichert. Temporäre Status (wie \`chunkingState\` oder laufende Workflows) sind auf einer Blacklist, damit die App nach einem Reload (Tab Close) immer stabil am letzten Ort startet.
+
 #### B. DATA PROCESSING LAYER (Neu seit V40.3)
 Um "God Objects" zu vermeiden, wurde die Datenverarbeitung aus der UI entfernt.
 * **ResultProcessor** (\`src/services/ResultProcessor.ts\`):
@@ -64,6 +67,7 @@ Um "God Objects" zu vermeiden, wurde die Datenverarbeitung aus der UI entfernt.
 * **useTripGeneration** (\`src/hooks/useTripGeneration.ts\`):
     * Reiner UI-Hook (Queue, Status, Notifications).
     * Delegiert Datenlogik an \`ResultProcessor\`.
+    * **Globaler Background Worker:** Läuft im \`CockpitHeader\`, damit Hintergrund-Tasks bei Ansichtswechseln (z.B. Plan -> Guide) nicht abgebrochen werden.
 
 #### C. COMPONENT ARCHITECTURE (UI Refactoring)
 Wir vermeiden "Blob-Komponenten" (>500 Zeilen).
@@ -104,9 +108,10 @@ interface TripProject {
       ideenScout?: IdeenScoutResult; // Flex-Optionen
   };
   data: {
-      // 1. GUIDE VIEW (Physische Orte & Aktivitäten)
-      // Hier landen: Museen, Wandern, Sport, Natur, Restaurants, Hotels (als Marker).
+      // 1. GUIDE VIEW & TAGEBUCH (Physische Orte & Aktivitäten)
+      // Hier landen: Museen, Wandern, Restaurants, Hotels UND custom_diary Einträge.
       places: Record<string, Place>;  // IMMER mit ID (UUID v4).
+                                      // Inkl. visited, visitedAt, userNote, liveStatus
       routes: Record<string, Route>;
       
       // 2. INFO VIEW (Reines Wissen & Texte)
@@ -191,14 +196,15 @@ Verständnis-Beispiel für den Task "Anreicherer":
 
 ### 7. Business Rules & UI Standards
 
-**A. Die "Reserve"-Logik (SightsView)**
+**A. Die "Reserve"-Logik (Kontextuelle Gruppierung)**
 Ein Ort kommt in die Reserve, wenn: Prio -1, Dauer < min, oder Rating < min.
-Orte ohne Rating bleiben in der Hauptliste.
+*Neues V40 Paradigma:* Reserve-Orte werden NICHT mehr in eine separate Liste am Ende der Seite verbannt. Sie werden kontextuell in ihre jeweilige Kategorie (oder Tour) einsortiert. Innerhalb der Gruppe wandern sie nach unten und werden **visuell gedimmt** (graue Schrift, reduzierte Opacity) dargestellt, um sofort als Backup-Alternativen erkannt zu werden.
 
 **B. UI-Konzept: View Switcher & Map Integration**
 Statt einfacher Filter nutzen wir "Sichten" (Views):
 1.  **Liste (Standard):** Gruppierung nach Kategorie, Tour, Tag oder A-Z.
 2.  **Karte (Leaflet):**
+    * **HTML5 Geolocation:** Ein "Locate Me" Button (Navigation Icon) ermöglicht es, den aktuellen Standort des Users (Blue Dot) auf der Karte abzurufen.
     * **Bidirektionale Navigation:** Klick auf Karte wählt Ort in Liste (Scroll-To). Klick auf Karten-Icon in Liste zoomt auf Ort in Karte.
     * **Strict Color Mapping:** Marker-Farben folgen EXAKT den Keys in \`interests.ts\` (keine Synonyme).
     * **Smart Zoom:**
@@ -219,6 +225,12 @@ Details werden stufenweise enthüllt, um die UI ruhig zu halten:
 
 **E. Logistics Intelligence (SSOT)**
 Auswahl eines Hotels in der SightCard schreibt die ID via \`assignHotelToLogistics\` direkt in die Logistik-Daten (Step 1).
+
+**F. Live-Tagebuch (Interactive Travel Journal)**
+Das System agiert als aktiver Reisebegleiter:
+* **Check-Ins:** Orte können abgehakt werden (speichert \`visitedAt\` Timestamp).
+* **Notizen:** Jeder Ort hat ein interaktives Feld für persönliche Erlebnisse (\`userNote\`).
+* **Custom Entries (\`custom_diary\`):** Der User kann völlig freie, neue Einträge anlegen, die nicht von der KI kommen. Diese Einträge können direkt mit dem HTML5 GPS des Smartphones getaggt werden.
 
 ---
 
@@ -258,9 +270,9 @@ Die monolithischen Services wurden in spezialisierte Module zerlegt.
 
 | Datei | Status | Funktion (V40.5) |
 | :--- | :--- | :--- |
-| \`src/store/useTripStore.ts\` | ✅ Stable | **SSOT State Manager.** Hält den globalen State, aber KEINE Business-Logik. |
-| \`src/services/orchestrator.ts\` | ✅ V40.5 | **Workflow Engine.** Steuert die "Magic Chain" und implementiert die "Inverted Search Pipeline". |
-| \`src/hooks/useTripGeneration.ts\` | ✅ V40.5 | **Phase Controller.** Enthält den "Dependency Guard" (sperrt TourGuide/Chefredakteur bis Anreicherung fertig). |
+| \`src/store/useTripStore.ts\` | ✅ Stable | **SSOT State Manager.** Hält den globalen State. Nutzt \`persist\` Middleware für Smart Autosave. |
+| \`src/services/orchestrator.ts\` | ✅ V40.6 | **Workflow Engine.** Steuert die "Magic Chain" und implementiert die "Inverted Search Pipeline". |
+| \`src/hooks/useTripGeneration.ts\` | ✅ V40.6 | **Global Background Worker.** Injected im \`CockpitHeader\`. Beinhaltet den **Abort Guard (Kill-Switch)** für saubere Abbrüche. |
 | \`src/services/ResultProcessor.ts\` | ✅ Refactored | **Central Dispatcher.** Fungiert nur noch als Router. Delegiert die Arbeit an Sub-Prozessoren. |
 | \`src/services/processors/PlaceProcessor.ts\` | 🆕 New | **POI Logic.** Validiert Orte, generiert UUIDs, verhindert Duplikate (Fuzzy Match). |
 | \`src/services/processors/FoodProcessor.ts\` | 🆕 New | **Gastro Logic.** Verarbeitet "Inverted Search" Ergebnisse (Scout vs. Enricher). |
@@ -338,6 +350,7 @@ Agenten arbeiten nicht isoliert. Der Orchestrator kennt Abhängigkeiten:
 
 **B. The Chunking Engine (Scaling)**
 Das System verarbeitet große Datenmengen (z.B. 50 Sights) stabil durch "Smart Chunking":
+* **Multi-City Chunking (FoodWorkflow):** Das System scannt dynamisch alle auf der Route besuchten Orte (Logistik-Hubs, Ausflugsziele, \`districts\`) und ruft den \`foodScout\` in einer sequenziellen Schleife für *jede einzelne Stadt* auf, um die KI nicht zu überlasten.
 * **Hybrid-Modus:**
     * *Auto (API-Key):* Sequenzielle Abarbeitung im Hintergrund mit Rate-Limit-Schutz (500ms Delay).
     * *Manual:* Fallback auf UI-Loop für Copy-Paste ohne Key.
@@ -347,6 +360,7 @@ Das System verarbeitet große Datenmengen (z.B. 50 Sights) stabil durch "Smart C
 **C. Defense Layer (Zero Error)**
 * **Model Matrix:** Dynamische Wahl des Modells (Pro vs. Flash) basierend auf Task-Komplexität und User-Settings.
 * **Zod Firewall:** Jede KI-Antwort wird *nach* dem Empfang gegen das \`validation.ts\` Schema geprüft. Invalide Daten erreichen niemals den Store.
+* **Abort Guard (Kill-Switch):** Bricht der User einen Workflow ab, wird das Loading-Modal sofort zerstört. Falls die KI verspätet antwortet, verweigert der Guard die Speicherung der Daten, um Race Conditions zu verhindern.
 
 **D. Timing & Stability Protocol (Safety Delays)**
 Um Race-Conditions zwischen React-State und API zu verhindern, gelten harte physikalische Wartezeiten:
@@ -395,4 +409,4 @@ Merk dir, dass ich für das Papatours Projekt immer unter dem Strict Code Integr
 `
   }
 };
-// --- END OF FILE 827 Zeilen ---
+// --- END OF FILE 846 Zeilen ---

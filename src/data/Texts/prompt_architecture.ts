@@ -1,4 +1,4 @@
-// src/data/Texts/prompt_architecture.ts
+// 20.02.2026 21:15 - DOCS: Updated Agent behaviors (Multi-City Chunking for Food, Geo-Context Guard for InfoAutor).
 // 05.02.2026 19:30 - DOCS: SYNC WITH CODE (Inverted Search Pipeline).
 // - Updated Food Workflow to reflect "Collector -> Auditor" Strategy.
 // - Removed obsolete "Source-First" logic.
@@ -92,9 +92,9 @@ Das Herzstück der Datenverarbeitung (\`src/services/ResultProcessor.ts\`).
 #### Phase 1: Der Food Scout (The Collector)
 * **Template:** \`foodScout.ts\`
 * **Strategie:** "Broad Search" (Sammel-Phase).
-* **Input:** Eine Liste von Städten/Clustern (vom \`GeoExpander\`).
+* **Input (Multi-City Chunking):** Der \`FoodWorkflow\` scannt dynamisch alle auf der Route besuchten Orte im Store. Um eine KI-Überlastung zu verhindern, wird der FoodScout *sequenziell in einer Schleife* für jeweils nur **eine** Stadt einzeln aufgerufen.
 * **Aufgabe:**
-    * Identifiziere ALLE bekannten, gehobenen Gasthäuser in den Ziel-Clustern.
+    * Identifiziere ALLE bekannten, gehobenen Gasthäuser im Zielgebiet.
     * **Filter:** Ignoriere Fast Food und Imbisse. Fokus auf Qualität.
     * **Modus:** "Dumb Collector" – Er prüft KEINE Guides und generiert KEINE Links. Er liefert "Raw Candidates".
 * **Output:** Liste von \`candidates\` (Name, Ort).
@@ -147,8 +147,10 @@ Das Herzstück der Datenverarbeitung (\`src/services/ResultProcessor.ts\`).
 * **Visualisierung:** Wildcards werden im Frontend explizit als solche markiert.
 
 ### J. Der "Info Autor" (Der Reiseführer)
-**Aufgabe:** Schreibt die redaktionellen Kapitel für den "Info"-Bereich.
+**Aufgabe:** Schreibt die redaktionellen Kapitel (A-Z) für den "Info"-Bereich.
 * **Template:** \`infoAutor.ts\`
+* **Input (Dynamic Multi-City):** Der Preparer scannt automatisch alle \`places\` nach der Kategorie \`districts\` oder \`city_info\` und generiert für jede physisch besuchte Stadt der Route einen eigenen Text-Guide.
+* **Geo-Context Guard:** Erweitert den Städtenamen zwingend um das Land/die Region (z.B. "Wolkenstein (Italien)"), um geografische Halluzinationen zu blockieren.
 * **Output:** \`ContentChapter\`.
 
 ### K. Der "Chefredakteur" (Der Detail-Liebhaber)
@@ -167,4 +169,4 @@ Das Herzstück der Datenverarbeitung (\`src/services/ResultProcessor.ts\`).
 `
   }
 };
-// --- END OF FILE 311 Zeilen ---
+// --- END OF FILE 318 Zeilen ---

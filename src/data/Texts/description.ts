@@ -1,106 +1,97 @@
+// 20.02.2026 22:00 - DOCS: Added descriptions for the Actions Menu and the individual AI Workflows to the User Manual.
+// 20.02.2026 21:40 - DOCS: Rewrote description to serve as a practical User Manual / Onboarding Guide.
+// src/data/Texts/description.ts
 /**
- * src/data/texts/description.ts
- * Inhalt: Programm-Beschreibung / Info
+ * Inhalt: Programm-Beschreibung / Info / Handbuch
  */
 
 export const description = {
   de: {
-    title: "Programm Information",
-    content: `**Willkommen beim Papa-Tours Reiseplan-Generator (V30.3) – Ihr persönlicher Reise-Architekt!**
+    title: "Papatours Handbuch",
+    content: `**Willkommen bei Papatours – Ihrem persönlichen KI-Reiseplaner und digitalen Tagebuch!**
 
-Haben Sie sich jemals gewünscht, einen Reise-Experten an Ihrer Seite zu haben, der einen perfekten, auf Sie zugeschnittenen Urlaub plant?
-Genau das ist die Mission dieses Programms.
-
-Vergessen Sie stundenlange Recherche und die Unsicherheit, ob Sie die richtigen Orte ausgewählt haben.
-Dieser Assistent nimmt Ihre Wünsche und verwandelt sie in einen professionellen, logisch optimierten und verlässlichen Reiseplan.
+Dieses Handbuch erklärt Ihnen, wie Sie die App optimal nutzen: Von der ersten Idee bis zu den Erinnerungen während der Reise.
 
 ---
 
-**Leistungsmerkmale der Version 30.3:**
+### Phase 1: Die Planung (Der Assistent)
 
-* ✨ **Die Magic Chain & Orchestrator:** Ein intelligenter Workflow steuert die KI.
-Nach der initialen Strategie-Freigabe erstellt das System Sehenswürdigkeiten, Texte, Restaurant-Tipps und den Reiseführer vollautomatisch – jetzt mit verbessertem "Smart Chunking" für höchste Stabilität auch bei langen Reisen.
-* 🛡️ **Sicherheit & Stabilität:** Der integrierte API-Service bietet clientseitige Verschlüsselung Ihrer Schlüssel und schützt durch intelligentes Rate-Limiting (getrennt für Pro 2.5/Flash 2.5 Modelle) vor Fehlern.
-* 💡 **Spezialisierte KI-Experten:**
-    * **Der Ideen-Scout:** Entwickelt flexible Pläne für "Sondertage" (z.B. Schlechtwetter-Optionen).
-Bei kleinen Orten erweitert er automatisch den Suchradius auf die Region.
-    * **Der Info-Autor:** Erstellt automatisch recherchierte Kapitel.
-Er erkennt intelligent alle Länder Ihrer Route und liefert spezifische Infos (Maut, Regeln) für jedes einzelne Land.
-    * **Der Food-Scout (Upgrade):** Nutzt nun einen **3-Stufen-Prozess** (Sammeln -> Filtern -> Veredeln), um Restaurants mit höchster Präzision zu finden und Halluzinationen auszuschließen.
-    * **Der Country-Scout:** Ein spezialisierter Agent, der bei unbekannten Reisezielen automatisch die besten lokalen Quellen (Guides, Portale) recherchiert und die interne Datenbank aktualisiert.
-* 🗺️ **Integrierte Karte:** Sehen Sie jederzeit, wo Ihre geplanten Aktivitäten liegen.
-Mit einem Klick wechseln Sie zwischen Text und Karte.
+Wenn Sie eine neue Reise starten, führt Sie ein Assistent (Wizard) durch 5 einfache Schritte:
+1. **Cockpit:** Wohin geht es? (Stationär im Hotel oder als Rundreise).
+2. **Wer & Wie:** Wer reist mit und wie ist die allgemeine Stimmung (z.B. entspannt oder sportlich)?
+3. **Interessen:** Was machen Sie gerne? (z.B. Museen, Wandern, Kulinarik).
+4. **Termine:** Wann reisen Sie und gibt es schon feste Termine (z.B. ein gebuchter Flug)?
+5. **Start:** Hier fassen wir alles zusammen. Ein Klick auf "Generieren" weckt die KI auf!
 
-* 📱 **Viewer-App Generator:** Erstellen Sie mit einem Klick eine eigenständige "Reise-Viewer"-Datei.
-Diese HTML-Datei enthält Ihren kompletten Plan und den Programmcode, läuft offline auf jedem Smartphone und benötigt keinen Server mehr.
-
-**Der neue 2-Stufen-Workflow (UI-Logik)**
-
-Um Ihnen maximale Kontrolle zu geben, ist der Prozess in zwei Hauptaktionen unterteilt:
-
-* **1. Guide (Zauberstab):**
-    Startet die Recherche und Erstellung der Inhalte.
-Erstellt das Fundament, findet Sehenswürdigkeiten und strukturiert diese in Touren.
-    **Ergebnis:** Ein fertiger "Reiseführer" zum Stöbern, noch ohne festes Zeitkorsett.
-* **2. Tagesplan:**
-    Startet die logistische Planung.
-    Nimmt den Reiseführer und gießt ihn in einen konkreten Kalender.
-**Ergebnis:** Ein detaillierter Ablaufplan mit Uhrzeiten und Transfers.
-
-**Die Power-Tools für maximale Kontrolle**
-
-* 🍽️ **Ad-Hoc Suche:** Sie sind unterwegs und brauchen spontan ein Restaurant?
-Nutzen Sie die neue Ad-Hoc Suche, um unabhängig von einem Reiseplan sofortige Empfehlungen für Ihren aktuellen Standort zu erhalten.
-* 🔧 **Experten-Modus:** Schalten Sie die Oberfläche um. Der "User-Modus" bietet eine aufgeräumte Bedienung, während der "Experten-Modus" Zugriff auf JSON-Editoren, Debug-Logs und manuelle Parameter (z.B. Anzahl der Vorschläge) gewährt.
-* 🔀 **Intelligente Reise-Fusion (Merge):** Planen Sie gemeinsam? Führen Sie jetzt mehrere Reise-Dateien intelligent zusammen.
-Das System kombiniert Ihre Pläne und filtert dabei automatisch doppelte Orte heraus.
-* ✏️ **Der "Open-Heart" Editor:** Öffnen Sie jeden Eintrag und bearbeiten Sie die Rohdaten (JSON) direkt.
-Korrigieren Sie Öffnungszeiten oder fügen Sie eigene Notizen hinzu – ohne KI-Neustart.
-
-**Ihre Vorteile auf einen Blick:**
-
-* ✅ **Die Matrix-Intelligenz:** Kombinieren Sie jede Logistik mit jedem Thema.
-Planen Sie einen Wanderurlaub von einem festen Hotel aus (Sternfahrt) oder eine Kulturreise als Roadtrip.
-* ✅ **Relevanz statt Füllmaterial:** Der Plan konzentriert sich auf Erlebnisse mit echtem Mehrwert.
-* ✅ **Effizienz in Zeit und Weg:** Ihre Routen sind so optimiert, dass Sie unnötige Fahrten vermeiden.
-* ✅ **Verlässlichkeit als Fundament:** Jede Information wird durch spezialisierte KI-Agenten geprüft.
+*Tipp: Die KI plant die Route, sucht passende Sehenswürdigkeiten, checkt Öffnungszeiten und schreibt einen kompletten Reiseführer für Sie.*
 
 ---
 
-**Wie funktioniert das?**
-**Unser einzigartiger Redaktions-Prozess**
+### Phase 2: Die 4 Hauptansichten (Ihr Reisebegleiter)
 
-Stellen Sie sich vor, Ihr Reiseplan wird wie ein hochwertiges Magazin von einem Team aus Spezialisten erstellt – und **Sie sind der Chefredakteur**.
-* **Schritt 1: Der Stratege prüft Ihre Idee (Human-in-the-Loop)**
-    Zuerst analysiert der **Chef-Planer** Ihre Wünsche.
-Er prüft Machbarkeit, korrigiert Tippfehler und schlägt eine optimale Anzahl an Zielen vor (Smart Override).
-* **Schritt 2: Die Weichenstellung**
-    Bei Rundreisen schlägt Ihnen der **Routen-Architekt** verschiedene Optionen vor. Sie entscheiden manuell.
-* **Schritt 3: Die Magie (Der Orchestrator)**
-    Ab hier können Sie sich zurücklehnen.
-Die "Magic Chain" koordiniert das Team:
-    * **Sammler & Anreicherer:** Finden die besten Orte und prüfen alle Fakten.
-    * **Reiseführer-Architekt:** Baut logische Touren für jeden Ort.
-    * **Die Redaktion:** Ein Team aus KI-Autoren schreibt Texte, sucht Restaurants und plant Alternativen.
-* **Schritt 4: Ihr maßgeschneidertes Ergebnis**
-    Sie erhalten einen vollständigen Reiseführer oder einen strikten Tagesplan – ganz nach Wahl.
+Sobald die KI fertig ist, verwandelt sich die App in Ihren interaktiven Reisebegleiter. Oben in der Menüleiste finden Sie die vier wichtigsten Schalter:
+
+📝 **1. Plan (Das Dashboard & Tagebuch)**
+Hier finden Sie die Zusammenfassung Ihrer Reise, Ihre Routenplanung und (ganz wichtig) Ihr **Live-Reisetagebuch**. 
+* **Vor Ort:** Nutzen Sie den Button "Eigener Eintrag", um spontane Erlebnisse samt Ihrem aktuellen GPS-Standort festzuhalten. Orte, die Sie besuchen, tauchen hier automatisch chronologisch auf.
+
+📖 **2. Guide (Der Reiseführer & Katalog)**
+Dies ist das Herzstück. Hier finden Sie alle von der KI gesammelten Orte (Sehenswürdigkeiten, Restaurants, Natur).
+* **Organisieren:** Sortieren Sie die Liste nach Kategorien, Alphabet oder nach Touren.
+* **Planen:** Nutzen Sie die Prioritäts-Buttons ("Fix", "Prio 1", "Prio 2"), um Orte in Ihren Kalender zu schieben oder unpassende Dinge auszublenden ("Ignore").
+* **Notizen:** Klicken Sie auf einen Ort, um eine eigene Notiz für Ihr Tagebuch hinzuzufügen oder "einzuchecken".
+
+🌍 **3. Karte (Die visuelle Übersicht)**
+Sehen Sie alle Orte übersichtlich auf der Landkarte. Die Farben entsprechen den jeweiligen Kategorien (z.B. Grün für Natur, Rot für Kultur).
+* **Wo bin ich?** Klicken Sie auf das kleine Fadenkreuz-Symbol oben rechts auf der Karte. Die App ortet Sie per GPS und zeigt Ihnen mit einem blauen Punkt, wo Sie gerade stehen.
+
+ℹ️ **4. Info (Das Lexikon)**
+Hier finden Sie alle allgemeinen Texte, die nicht an eine direkte Koordinate gebunden sind:
+* A-Z Stadtführer für alle besuchten Orte.
+* Wissenswertes zur Region, Einreise- und Mautbestimmungen.
+* Eine Budget-Schätzung für Ihre Reise.
 
 ---
 
-**Mächtige Werkzeuge für Ihre fertige Reise**
+### Phase 3: Das Aktionen-Menü (Ihre Werkzeuge)
 
-Sobald Ihr Plan fertig ist, können Sie ihn mit nützlichen Werkzeugen weiter nutzen:
+Unter dem Menü-Punkt **"Aktionen"** (oben rechts) finden Sie mächtige Helfer und Werkzeuge, um Ihre Reise nachträglich anzupassen:
 
-* **Viewer-App:** Exportieren Sie die Reise als App für Ihr Handy.
-* **Interaktive Karte:** Nutzen Sie die eingebaute Karte oder exportieren Sie zu Google My Maps.
-* **PDF & Druck:** Erstellen Sie eine druckfreundliche Version.
-* **Kalender-Export:** Übertragen Sie Termine in Ihren Kalender (.ics).
-* **Speichern & Laden:** Sichern Sie Ihren Arbeitsstand jederzeit.
+* 🤖 **KI-Workflows:** Das Kontrollzentrum der App (siehe Phase 4). Hier können Sie einzelne KI-Agenten gezielt neu starten.
+* 📋 **Daten:** Bringt Sie zurück zum Start-Assistenten, falls Sie grundlegende Dinge (z.B. Reisedatum oder Interessen) ändern möchten.
+* 🏛️ **Fundament:** Zeigt Ihnen die strategische Machbarkeitsprüfung der KI (Chef-Planer).
+* 🗺️ **Route:** Öffnet den Routenplaner (nur bei Rundreisen relevant), um Etappen anzupassen.
+* 🍽️ **Ad-Hoc Food:** Sie haben spontan Hunger? Dieses Tool nutzt Ihren aktuellen GPS-Standort und sucht sofort nach den besten Restaurants in Gehweite.
+* 🖨️ **Drucken / PDF:** Generiert ein wunderschönes, tintensparendes Dokument Ihrer Reise (inkl. Reisetagebuch).
+* 📍 **Google Maps Export:** Kopiert alle Orte, um sie direkt in "Google My Maps" einzufügen.
+* 💾 **Speichern & Laden:** Ihre Reise wird automatisch (Autosave) gesichert. Hier können Sie die Reise aber als Datei herunterladen, um sie als Backup am PC zu speichern oder an Mitreisende zu senden.
 
-Bereit, Ihre Traumreise zu planen?`
+---
+
+### Phase 4: Die KI-Spezialisten (Workflows)
+
+Im Menüpunkt "KI-Workflows" können Sie unserem Team aus digitalen Spezialisten bei der Arbeit zusehen oder ihnen gezielt neue Aufträge geben (z.B. wenn Sie nur nach neuen Restaurants suchen möchten, ohne den Rest zu verändern). 
+
+Das Team besteht aus folgenden Experten:
+
+* 👨‍💼 **Chef-Planer:** Analysiert Ihre Grundidee auf Machbarkeit, Wetterbedingungen und Logistik. Erstellt die Strategie für alle anderen.
+* 🕵️ **Sammler (Orte & Sehenswürdigkeiten):** Durchkämmt die Region nach den besten Orten, die exakt zu Ihren gewählten Interessen passen.
+* 🔍 **Anreicherer (Fakten-Check):** Nimmt die gefundenen Orte und recherchiert die harten Fakten: Adressen, GPS-Koordinaten, offizielle Websites und Öffnungszeiten.
+* 👨‍🍳 **Food-Scout & Enricher:** Der Feinschmecker. Sucht erstklassige Restaurants, Cafés und Bars und gleicht diese mit bekannten Restaurant-Führern ab.
+* 🛣️ **Routen-Architekt:** (Nur bei Rundreisen). Berechnet die beste Reihenfolge der Stopps und optimiert die Fahrzeiten.
+* 🗺️ **Tour-Guide (Clustering):** Sortiert alle Sehenswürdigkeiten in sinnvolle, geografisch zusammenhängende Tages-Touren (z.B. "Altstadt-Spaziergang" oder "Natur-Ausflug").
+* ✍️ **Chefredakteur:** Schreibt inspirierende, detaillierte Texte und Hintergründe für Ihre absoluten Top-Highlights.
+* 📚 **Info-Autor:** Verfasst die Texte für den "Info"-Tab. Er schreibt maßgeschneiderte A-Z Stadtführer für jeden Ort, den Sie besuchen, sowie länderspezifische Hinweise (Maut, Regeln).
+* 💡 **Ideen-Scout (Sondertage):** Der Joker. Er liefert kreative Alternativ-Pläne für Regentage oder spontane Planänderungen.
+
+**Papatours als App auf dem Smartphone (PWA):**
+Sie müssen nichts aus dem App-Store herunterladen! Öffnen Sie Papatours einfach im Safari (iPhone) oder Chrome (Android) und tippen Sie auf "Zum Home-Bildschirm hinzufügen". Schon verhält sich Papatours wie eine echte App und funktioniert mit Ihren gespeicherten Daten sogar offline!
+
+Viel Spaß beim Planen und Erleben Ihrer nächsten Traumreise!`
   },
   en: {
     title: "Program Information",
     content: "Content available in German."
   }
 };
+// --- END OF FILE 108 Zeilen ---

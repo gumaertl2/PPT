@@ -1,6 +1,5 @@
-// 20.02.2026 19:50 - UX: Restored "Double-Tap" shortcut: Second click on Guide button opens the filter modal.
-// 20.02.2026 15:30 - FIX: Injected global Background-Worker (useTripGeneration) to prevent workflow deadlock on View-Switch.
-// 20.02.2026 10:45 - LAYOUT FIX: Changed container max-width from 6xl to 4xl to perfectly align with main content.
+// 20.02.2026 23:45 - FIX: Made Help button context-sensitive (Wizard Help during data entry, App Manual elsewhere).
+// 20.02.2026 23:35 - UX: Replaced global Help action with context-sensitive App Manual (from description.ts).
 // src/features/Cockpit/Layout/CockpitHeader.tsx
 
 import React, { useState, useRef } from 'react';
@@ -25,15 +24,16 @@ import { AdHocFoodModal } from '../AdHocFoodModal';
 import { SafeExitModal } from '../SafeExitModal'; 
 import { ActionsMenu } from './ActionsMenu'; 
 import type { CockpitViewMode, PrintConfig } from '../../../core/types'; 
-// NEW FIX: Import the Workflow Engine to run it globally
 import { useTripGeneration } from '../../../hooks/useTripGeneration';
+import { InfoModal } from '../../Welcome/InfoModal'; 
+import { description } from '../../../data/Texts/description';
 
 interface CockpitHeaderProps {
   viewMode: CockpitViewMode;
   setViewMode: (mode: CockpitViewMode) => void;
   onReset: () => void;       
   onLoad: (hasAnalysis: boolean) => void; 
-  onOpenHelp: () => void;   
+  onOpenHelp: () => void; 
 }
 
 export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
@@ -43,10 +43,8 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
   onLoad,
   onOpenHelp
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   
-  // NEW FIX: Starte den Herzschrittmacher (Workflow Engine) hier. 
-  // Da der Header nie unmounted wird, bricht die Queue beim Wechsel in den Guide-View nicht mehr ab!
   useTripGeneration();
 
   const { 
@@ -67,10 +65,13 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false); 
   const [isAdHocModalOpen, setIsAdHocModalOpen] = useState(false); 
   const [showExitModal, setShowExitModal] = useState(false); 
+  const [showManualModal, setShowManualModal] = useState(false); 
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const isFilterActive = uiState.searchTerm || uiState.categoryFilter.length > 0;
+
+  const currentLang = (i18n.language.substring(0, 2) === 'en' ? 'en' : 'de') as 'de' | 'en';
+  const manualContent = description[currentLang] || description['de'];
 
   // --- ACTIONS LOGIC ---
 
@@ -103,7 +104,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     }, 500);
   };
 
-  // SAFE EXIT HANDLERS
   const handleHomeClick = () => {
       setShowExitModal(true);
   };
@@ -151,14 +151,12 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     <>
       <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
 
-      {/* Unsichtbarer Abstandhalter, der das Layout schützt */}
       <div className="h-16 w-full shrink-0 bg-transparent no-print"></div>
 
-      {/* Header ist fixed an der Decke des Bildschirms */}
       <header className="bg-white border-b border-slate-200 fixed top-0 left-0 w-full h-16 z-[999] shadow-sm transform-none">
         <div className="max-w-4xl mx-auto px-4 h-full flex items-center justify-between gap-2 sm:gap-4">
           
-          {/* LEFT GROUP: Home + Scrollable Nav + Search */}
+          {/* LEFT GROUP */}
           <div className="flex items-center gap-1 md:gap-2 flex-1 min-w-0">
             
             <button 
@@ -169,7 +167,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
               <Home className="w-6 h-6" />
             </button>
             
-            {/* Scrollable Nav Container */}
             <div className="flex items-center gap-1 overflow-x-auto no-scrollbar mask-gradient pr-2 shrink min-w-0">
                  <button 
                     onClick={() => setViewMode('plan')} 
@@ -178,7 +175,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                          ? 'text-blue-600 bg-blue-50' 
                          : 'text-slate-500 hover:bg-slate-100'
                     }`}
-                    title={t('tooltips.plan')}
+                    title={t('wizard.toolbar.plan')}
                  >
                    <Edit3 className="w-4 h-4 lg:w-5 lg:h-5 mb-0.5" />
                    <span className="text-[10px] font-bold uppercase tracking-wide hidden xl:inline">{t('wizard.toolbar.plan')}</span>
@@ -191,7 +188,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                          setUIState({ viewMode: 'list' });
                        } else {
                          window.scrollTo({ top: 0, behavior: 'smooth' });
-                         toggleSightFilter(); // FIX: Double-Tap Shortcut restored!
                        }
                      } else {
                        setViewMode('sights');
@@ -204,7 +200,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                        ? 'text-blue-600 bg-blue-50' 
                        : 'text-slate-500 hover:bg-slate-100'
                    }`}
-                   title={t('tooltips.guide')}
+                   title={t('wizard.toolbar.guide')}
                  >
                    <BookOpen className="w-4 h-4 lg:w-5 lg:h-5 mb-0.5" />
                    <span className="text-[10px] font-bold uppercase tracking-wide hidden xl:inline">{t('wizard.toolbar.guide')}</span>
@@ -217,7 +213,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                        ? 'text-blue-600 bg-blue-50' 
                        : 'text-slate-500 hover:bg-slate-100'
                    }`}
-                   title={t('tooltips.info')}
+                   title={t('wizard.toolbar.info_travel')}
                  >
                    <Info className="w-4 h-4 lg:w-5 lg:h-5 mb-0.5" />
                    <span className="text-[10px] font-bold uppercase tracking-wide hidden xl:inline">{t('wizard.toolbar.info_travel')}</span>
@@ -233,7 +229,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                        ? 'text-blue-600 bg-blue-50' 
                        : 'text-slate-500 hover:bg-slate-100'
                    }`}
-                   title={t('tooltips.map')}
+                   title={t('wizard.toolbar.map')}
                  >
                    <MapIcon className="w-4 h-4 lg:w-5 lg:h-5 mb-0.5" />
                    <span className="text-[10px] font-bold uppercase tracking-wide hidden xl:inline">{t('wizard.toolbar.map')}</span>
@@ -256,7 +252,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                  </button>
             </div>
 
-             {/* Search Bar */}
              <div className="relative flex items-center ml-1 group shrink-0 hidden sm:flex">
                 <Search className="absolute left-2 w-3 h-3 text-slate-400 pointer-events-none" />
                 <input 
@@ -278,14 +273,20 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                   </button>
                 )}
              </div>
-
           </div>
           
           {/* RIGHT GROUP */}
           <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
 
               <button 
-                onClick={onOpenHelp} 
+                // FIX: Smart Help Router!
+                onClick={() => {
+                  if (viewMode === 'wizard') {
+                    onOpenHelp(); // Zeigt die schritt-für-schritt Wizard-Hilfe
+                  } else {
+                    setShowManualModal(true); // Zeigt das globale Handbuch
+                  }
+                }}
                 className="flex flex-col items-center px-2 py-1 text-slate-500 hover:bg-slate-100 rounded transition-colors shrink-0"
                 title={t('tooltips.help')}
               >
@@ -315,7 +316,15 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
       <PrintModal isOpen={isPrintModalOpen} onClose={() => setIsPrintModalOpen(false)} onConfirm={handlePrintConfirm} />
       <AdHocFoodModal isOpen={isAdHocModalOpen} onClose={() => setIsAdHocModalOpen(false)} />
       <SafeExitModal isOpen={showExitModal} onCancel={() => setShowExitModal(false)} onDiscard={handleExitDiscard} onSave={handleExitSave} />
+      
+      {/* Renders the Context-Sensitive App Manual */}
+      <InfoModal 
+        isOpen={showManualModal} 
+        onClose={() => setShowManualModal(false)} 
+        title={manualContent.title as string} 
+        content={manualContent.content as string} 
+      />
     </>
   );
 };
-// --- END OF FILE 319 Zeilen ---
+// --- END OF FILE 339 Zeilen ---
