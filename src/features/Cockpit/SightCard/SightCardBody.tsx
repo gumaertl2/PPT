@@ -1,5 +1,5 @@
+// 21.02.2026 00:45 - FIX: TypeScript Error TS2322. Removed 'title' prop from Lucide Icon and wrapped it in a span.
 // 21.02.2026 00:10 - UX: Unified Live-Check UI. Replaces LLM estimates with real Live Data for hours and prices.
-// 06.02.2026 21:50 - FEATURE: Conditional Regenerate Button.
 // src/features/Cockpit/SightCard/SightCardBody.tsx
 
 import React, { useState } from 'react';
@@ -67,7 +67,8 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
           <div className={`flex items-center gap-1.5 px-2 py-1 rounded border font-medium text-xs shadow-sm transition-all ${isLive ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-white text-slate-600 border-slate-200'}`}>
               <Banknote className={`w-3.5 h-3.5 ${isLive ? 'text-emerald-600' : 'text-slate-400'}`} />
               <span>{highlightText(String(finalPrice))}</span>
-              {isLive && <Zap className="w-2.5 h-2.5 text-emerald-500 fill-current ml-0.5" title="Live abgerufener Preis" />}
+              {/* FIX: Wrapped Icon in a span to hold the title attribute, preventing TS2322 */}
+              {isLive && <span title="Live abgerufener Preis" className="flex items-center"><Zap className="w-2.5 h-2.5 text-emerald-500 fill-current ml-0.5" /></span>}
           </div>
       );
   };
