@@ -1,3 +1,4 @@
+// 21.02.2026 13:00 - FEAT: Added expenses structure and CRUD actions for Trip Finance. Replaced 'pets' with 'travelerNames'.
 // 19.02.2026 21:50 - FEAT: Added 'togglePlaceVisited' action for Live-Tracking.
 // 06.02.2026 18:55 - FIX: Confirmed async loadProject logic for file reading.
 // 06.02.2026 15:15 - FEAT: Updates 'currentFileName' in UIState on Load/Save.
@@ -6,6 +7,7 @@
 import type { StateCreator } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import type { TripProject, LanguageCode } from '../../core/types';
+import type { Expense } from '../../core/types/shared';
 import {
   DEFAULT_SIGHTS_COUNT,
   DEFAULT_MIN_RATING,
@@ -21,7 +23,12 @@ export interface ProjectSlice {
   saveProject: (fileName?: string) => void;
   resetProject: () => void;
   setLanguage: (lang: LanguageCode) => void;
-  togglePlaceVisited: (placeId: string) => void; // NEU
+  togglePlaceVisited: (placeId: string) => void; 
+  
+  // Trip Finance
+  addExpense: (expense: Expense) => void;
+  updateExpense: (id: string, data: Partial<Expense>) => void;
+  deleteExpense: (id: string) => void;
 }
 
 // Helper für Initial State
@@ -46,7 +53,7 @@ const createInitialProject = (): TripProject => ({
       origin: '',
       nationality: '',
       groupType: 'couple',
-      pets: false
+      travelerNames: '' // REPLACED 'pets' with 'travelerNames'
     },
     dates: {
       start: '',
@@ -86,7 +93,7 @@ const createInitialProject = (): TripProject => ({
     notes: '',
     aiOutputLanguage: 'de'
   },
-  data: { places: {}, content: {}, routes: {} },
+  data: { places: {}, content: {}, routes: {}, expenses: {} }, // ADDED 'expenses' dictionary
   itinerary: { days: [] }
 });
 
@@ -119,6 +126,11 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
           data = JSON.parse(text);
       } else {
           throw new Error("Invalid input format for loadProject");
+      }
+      
+      // Ensure expenses dictionary exists in loaded projects
+      if (!data.data.expenses) {
+          data.data.expenses = {};
       }
       
       set((state: any) => ({
@@ -226,5 +238,50 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
       }
     };
   }),
+
+  // --- TRIP FINANCE ACTIONS ---
+  addExpense: (expense: Expense) => set((state: any) => ({
+    project: {
+      ...state.project,
+      data: {
+        ...state.project.data,
+        expenses: {
+          ...(state.project.data.expenses || {}),
+          [expense.id]: expense
+        }
+      }
+    }
+  })),
+
+  updateExpense: (id: string, updateData: Partial<Expense>) => set((state: any) => {
+    const existing = state.project.data.expenses?.[id];
+    if (!existing) return state;
+    return {
+      project: {
+        ...state.project,
+        data: {
+          ...state.project.data,
+          expenses: {
+            ...state.project.data.expenses,
+            [id]: { ...existing, ...updateData }
+          }
+        }
+      }
+    };
+  }),
+
+  deleteExpense: (id: string) => set((state: any) => {
+    const newExpenses = { ...(state.project.data.expenses || {}) };
+    delete newExpenses[id];
+    return {
+      project: {
+        ...state.project,
+        data: {
+          ...state.project.data,
+          expenses: newExpenses
+        }
+      }
+    };
+  }),
 });
-// --- END OF FILE 190 Zeilen ---
+// --- END OF FILE 264 Zeilen ---

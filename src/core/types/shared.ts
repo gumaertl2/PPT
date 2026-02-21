@@ -1,3 +1,4 @@
+// 21.02.2026 13:00 - FEAT: Added 'Expense' interface for the new Trip Finance / Reisekasse feature.
 // 05.02.2026 17:00 - REFACTOR: SHARED TYPES.
 // Core definitions used across UI and Logic.
 // src/core/types/shared.ts
@@ -72,4 +73,17 @@ export interface AppError {
   retryAfter?: number; 
   details?: string;
 }
-// --- END OF FILE 68 Zeilen ---
+
+// --- TRIP FINANCE / REISEKASSE ---
+export interface Expense {
+  id: string;
+  placeId?: string; // Optionaler Link zu Ort/Aktivität
+  title: string;
+  amount: number;
+  currency: string;
+  paidBy: string; // Name des Zahlers
+  splitAmong: string[]; // Namen der Personen, auf die aufgeteilt wird
+  timestamp: number;
+  geo?: { lat: number; lng: number };
+}
+// --- END OF FILE 84 Zeilen ---

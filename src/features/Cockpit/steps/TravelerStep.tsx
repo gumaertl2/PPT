@@ -1,10 +1,5 @@
-/**
- * src/features/cockpit/steps/TravelerStep.tsx
- * SCHRITT 2: WER & WIE
- * UPDATE: Speicherung pro Option-ID (Fix für falsche "i"-Zuordnung).
- * UPDATE: Beim Wechseln der Option wird der passende Text geladen oder geleert.
- * FIX: Removed unused 'Check' import.
- */
+// 21.02.2026 13:00 - UX: Replaced 'Pets' switch with a smart comma-separated text input for traveler names (Trip Finance).
+// src/features/Cockpit/steps/TravelerStep.tsx
 
 import React, { useState } from 'react';
 import { useTripStore } from '../../../store/useTripStore';
@@ -22,9 +17,7 @@ import {
   Flag,
   Heart,
   Briefcase,
-  Coffee,
-  Dog
-  // FIX: Removed unused 'Check' import
+  Coffee
 } from 'lucide-react';
 import { 
   STRATEGY_OPTIONS, 
@@ -59,11 +52,9 @@ export const TravelerStep = () => {
   } | null>(null);
 
   // Helper um den spezifischen Key für eine Option zu generieren
-  // z.B. "saved_vibe_entdeckerisch"
   const getSpecificKey = (key: string, optionId: string) => `saved_${key}_${optionId}`;
   
   // Helper für den globalen Key (für Prompt-Generierung)
-  // z.B. "cat_vibe"
   const getGlobalKey = (key: string) => `cat_${key}`;
 
   const openEditor = (
@@ -96,13 +87,12 @@ export const TravelerStep = () => {
     if (editConfig) {
       const { key, optionId, currentText } = editConfig;
       
-      // 1. Speichere spezifisch für diese Option (z.B. vibe_entdeckerisch)
+      // 1. Speichere spezifisch für diese Option
       const specificKey = getSpecificKey(key, optionId);
       setCustomPreference(specificKey, currentText);
 
       // 2. Wenn die Option gerade ausgewählt ist, aktualisiere AUCH den globalen Slot für den Prompt
-      // Prüfe, ob die bearbeitete Option der aktuell gewählten entspricht
-      const currentSelection = userInputs[key]; // z.B. userInputs.vibe
+      const currentSelection = userInputs[key]; 
       if (currentSelection === optionId) {
          setCustomPreference(getGlobalKey(key), currentText);
       }
@@ -123,12 +113,10 @@ export const TravelerStep = () => {
     const specificKey = getSpecificKey(key, optionId);
     const savedTextForNewOption = customPreferences[specificKey];
 
-    // 3. Aktualisiere den globalen Prompt-Slot ("cat_vibe")
+    // 3. Aktualisiere den globalen Prompt-Slot
     if (savedTextForNewOption) {
-      // Ja, wir haben einen Text -> Global setzen
       setCustomPreference(getGlobalKey(key), savedTextForNewOption);
     } else {
-      // Nein, kein Text -> Global leeren (damit kein alter Text von der vorigen Option drin steht)
       setCustomPreference(getGlobalKey(key), ''); 
     }
   };
@@ -187,10 +175,7 @@ export const TravelerStep = () => {
           {Object.values(options).map((opt: any) => {
             const isActive = currentValue === opt.id;
             
-            // Text Logik
             const textForEditor = opt.promptInstruction?.[currentLang] || opt.description?.[currentLang] || '';
-            
-            // Check: Hat DIESE Option einen gespeicherten Text?
             const specificKey = getSpecificKey(key, opt.id);
             const hasSavedTextForThisOption = !!customPreferences[specificKey];
 
@@ -210,17 +195,12 @@ export const TravelerStep = () => {
                     {opt.label[currentLang]}
                   </span>
                   
-                  {/* INFO BUTTON (Edit)
-                      - Gelb/Amber: Wenn für DIESE Option ein Text gespeichert wurde.
-                      - Grau: Default.
-                      - Immer klickbar.
-                  */}
                   <button
                     onClick={(e) => openEditor(e, key, opt.id, opt.label[currentLang], textForEditor)}
                     className={`p-1.5 rounded-full transition-colors z-10
                       ${hasSavedTextForThisOption
-                        ? 'text-amber-500 bg-amber-50 border border-amber-200' // Gelb (Editiert)
-                        : 'text-slate-300 hover:bg-slate-100 hover:text-slate-500' // Grau (Default)
+                        ? 'text-amber-500 bg-amber-50 border border-amber-200' 
+                        : 'text-slate-300 hover:bg-slate-100 hover:text-slate-500' 
                       }
                     `}
                     title={t('actions.edit')}
@@ -277,19 +257,20 @@ export const TravelerStep = () => {
              </div>
            </div>
            
-           {/* HAUSTIER SWITCH */}
-            <div className="flex items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-200">
-                <div className="flex items-center gap-2">
-                    <Dog className="w-4 h-4 text-slate-500" />
-                    <span className="text-sm font-medium text-slate-700">{t('profile.pets_title')}</span>
-                </div>
-                <button 
-                    onClick={() => setTravelers({ pets: !travelers.pets })}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${travelers.pets ? 'bg-blue-600' : 'bg-slate-300'}`}
-                >
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${travelers.pets ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
-            </div>
+           {/* REISENDE NAMEN (Reisekasse) */}
+           <div className="mt-4 animate-fade-in">
+              <label className="text-[10px] text-slate-400 block mb-1">
+                 {t('profile.traveler_names', { defaultValue: 'Namen der Reisenden (für Reisekasse)' })}
+              </label>
+              <input 
+                type="text" 
+                placeholder="z.B. Anna, Ben, Charlie"
+                className="w-full text-sm border-slate-300 rounded-md placeholder:text-slate-300"
+                value={travelers.travelerNames || ''}
+                onChange={(e) => setTravelers({ travelerNames: e.target.value })}
+              />
+              <p className="text-[9px] text-slate-400 mt-1">Namen durch Komma trennen, um Ausgaben später aufzuteilen.</p>
+           </div>
            
            {travelers.children > 0 && (
              <div className="mt-4 animate-fade-in">
@@ -374,7 +355,6 @@ export const TravelerStep = () => {
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up">
             <div className="px-5 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <h3 className="font-bold text-slate-800">
-                {/* Header Farbe passend zur Kategorie */}
                 <span className={
                     editConfig.key === 'vibe' ? 'text-amber-500' :
                     editConfig.key === 'budget' ? 'text-green-600' :
@@ -404,4 +384,4 @@ export const TravelerStep = () => {
     </div>
   );
 };
-// --- END OF FILE 372 Zeilen ---
+// --- END OF FILE 365 Zeilen ---
