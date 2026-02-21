@@ -1,3 +1,4 @@
+// 21.02.2026 15:20 - FIX: Removed unused 'Plus' import to fix TS6133.
 // 21.02.2026 14:45 - REFACTOR: Replaced duplicate expense logic with reusable ExpenseEntryButton.
 // src/features/Cockpit/PlanView.tsx
 
@@ -7,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { 
   Users, CheckCircle, CheckCircle2, Lightbulb, Map as MapIcon, ExternalLink, 
   Layout as LayoutIcon, Navigation, Quote, Clock, ArrowRight, PenLine, X, 
-  Plus, MapPin, Trash2
+  MapPin, Trash2 // FIX: Removed Plus
 } from 'lucide-react';
 import type { LanguageCode, Place } from '../../core/types';
 import { STRATEGY_OPTIONS, VIBE_OPTIONS, BUDGET_OPTIONS, PACE_OPTIONS, INTEREST_DATA } from '../../data/staticData';
@@ -297,4 +298,4 @@ export const PlanView: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 295 Zeilen ---
+// --- END OF FILE 294 Zeilen ---

@@ -1,8 +1,8 @@
+// 21.02.2026 15:20 - FIX: Added 'travelerNames' to TripUserProfile and 'expenses' to TripProject data for Trip Finance feature.
 // 20.02.2026 17:30 - FEAT: Added 'diary' to PrintConfig for exporting the Personal Travel Diary.
-// 20.02.2026 12:00 - FEAT: Added 'userNote' to Place model for personal diary notes.
 // src/core/types/models.ts
 
-import type { LanguageCode } from './shared';
+import type { LanguageCode, Expense } from './shared';
 
 // --- SUB-TYPES ---
 export interface RouteStop {
@@ -37,6 +37,7 @@ export interface TripUserProfile {
     nationality: string;
     groupType: 'couple' | 'family' | 'friends' | 'solo' | 'other';
     pets: boolean;
+    travelerNames?: string; // FIX: Added for Trip Finance
     interests?: string[]; // Legacy compat
   };
   dates: {
@@ -345,9 +346,10 @@ export interface TripProject {
     places: Record<string, Place>; 
     content: Record<string, any>; 
     routes: Record<string, any>;
+    expenses?: Record<string, Expense>; // FIX: Added expenses to the root data model
   };
   itinerary: {
     days: any[];
   };
 }
-// --- END OF FILE 328 Zeilen ---
+// --- END OF FILE 330 Zeilen ---

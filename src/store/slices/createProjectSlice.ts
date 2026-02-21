@@ -1,7 +1,5 @@
+// 21.02.2026 15:20 - FIX: Ensured 'travelerNames' and 'expenses' map smoothly to TripProject definition.
 // 21.02.2026 13:00 - FEAT: Added expenses structure and CRUD actions for Trip Finance. Replaced 'pets' with 'travelerNames'.
-// 19.02.2026 21:50 - FEAT: Added 'togglePlaceVisited' action for Live-Tracking.
-// 06.02.2026 18:55 - FIX: Confirmed async loadProject logic for file reading.
-// 06.02.2026 15:15 - FEAT: Updates 'currentFileName' in UIState on Load/Save.
 // src/store/slices/createProjectSlice.ts
 
 import type { StateCreator } from 'zustand';
@@ -53,7 +51,8 @@ const createInitialProject = (): TripProject => ({
       origin: '',
       nationality: '',
       groupType: 'couple',
-      travelerNames: '' // REPLACED 'pets' with 'travelerNames'
+      pets: false, // Legacy fallback for strict typing
+      travelerNames: '' // NEW 
     },
     dates: {
       start: '',
@@ -93,7 +92,12 @@ const createInitialProject = (): TripProject => ({
     notes: '',
     aiOutputLanguage: 'de'
   },
-  data: { places: {}, content: {}, routes: {}, expenses: {} }, // ADDED 'expenses' dictionary
+  data: { 
+      places: {}, 
+      content: {}, 
+      routes: {}, 
+      expenses: {} // NEW
+  }, 
   itinerary: { days: [] }
 });
 
@@ -116,7 +120,7 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
           data = fileOrProject;
       } 
       else if (fileOrProject instanceof File) {
-          filenameToSet = fileOrProject.name; // <-- Capture Filename
+          filenameToSet = fileOrProject.name; 
           const text = await new Promise<string>((resolve, reject) => {
              const reader = new FileReader();
              reader.onload = (e) => resolve(e.target?.result as string);
@@ -128,7 +132,6 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
           throw new Error("Invalid input format for loadProject");
       }
       
-      // Ensure expenses dictionary exists in loaded projects
       if (!data.data.expenses) {
           data.data.expenses = {};
       }
@@ -142,7 +145,6 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
         view: 'wizard' 
       }));
 
-      // Set filename in UI State if available
       if (filenameToSet && get().setUIState) {
         get().setUIState({ currentFileName: filenameToSet });
       }
@@ -184,7 +186,6 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
         fileName = `${safeName}_${new Date().toISOString().slice(0,10)}.json`;
     }
     
-    // Set filename in UI State
     if (get().setUIState) {
         get().setUIState({ currentFileName: fileName });
     }
@@ -239,7 +240,6 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     };
   }),
 
-  // --- TRIP FINANCE ACTIONS ---
   addExpense: (expense: Expense) => set((state: any) => ({
     project: {
       ...state.project,

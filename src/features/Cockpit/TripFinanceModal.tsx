@@ -1,12 +1,13 @@
-// 21.02.2026 15:10 - UX: Added Standalone ExpenseEntryButton to Modal Header and Empty State.
-// 21.02.2026 14:35 - UX: Added live difference calculator for exact split mode.
+// 21.02.2026 16:45 - FIX: Added missing 'currentLang' variable to fix Runtime ReferenceError in Feed tab.
+// 21.02.2026 16:35 - UX: Added full I18N support and aligned inline-edit design with the new entry modal.
 // src/features/Cockpit/TripFinanceModal.tsx
 
 import React, { useState, useMemo } from 'react';
 import { useTripStore } from '../../store/useTripStore';
-import { X, Wallet, ListFilter, Trash2, ArrowRightLeft, Banknote, Edit3, Save, Users, CheckCircle2 } from 'lucide-react'; 
-import type { Expense } from '../../core/types/shared';
-import { ExpenseEntryButton } from './ExpenseEntryButton'; // NEW: Import the reusable button
+import { useTranslation } from 'react-i18next';
+import { X, Wallet, ListFilter, Trash2, ArrowRightLeft, Banknote, Edit3, Save, CheckCircle2, Users } from 'lucide-react'; 
+import type { Expense, LanguageCode } from '../../core/types/shared';
+import { ExpenseEntryButton } from './ExpenseEntryButton'; 
 
 interface TripFinanceModalProps {
   isOpen: boolean;
@@ -15,9 +16,10 @@ interface TripFinanceModalProps {
 
 export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onClose }) => {
   const { project, deleteExpense, updateExpense } = useTripStore();
+  const { t, i18n } = useTranslation();
+  const currentLang = i18n.language.substring(0, 2) as LanguageCode;
   const [activeTab, setActiveTab] = useState<'feed' | 'settlement'>('settlement');
   
-  // Edit State
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editAmount, setEditAmount] = useState('');
@@ -26,12 +28,13 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
   const [editSplitMode, setEditSplitMode] = useState<'equal'|'exact'>('equal');
   const [editSplitAmong, setEditSplitAmong] = useState<string[]>([]);
   const [editSplitExact, setEditSplitExact] = useState<Record<string, string>>({});
+  const [showSplit, setShowSplit] = useState(false);
   
   const expenses = Object.values(project.data.expenses || {}) as Expense[];
   const sortedFeed = [...expenses].sort((a, b) => b.timestamp - a.timestamp);
 
   const rawNames = project.userInputs.travelers.travelerNames || '';
-  const allNames = rawNames.split(',').map(n => n.trim()).filter(Boolean);
+  const allNames = rawNames.split(',').map((n: string) => n.trim()).filter(Boolean);
 
   const startEdit = (exp: Expense) => {
       setEditingId(exp.id);
@@ -39,6 +42,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
       setEditAmount(exp.amount.toString());
       setEditCurrency(exp.currency || 'EUR');
       setEditPaidBy(exp.paidBy);
+      setShowSplit(false);
       
       if (exp.splitExact && Object.keys(exp.splitExact).length > 0) {
           setEditSplitMode('exact');
@@ -84,7 +88,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
               }
           }
           if (Math.abs(sum - numAmount) > 0.05) {
-              alert(`Fehler: Die Summe der exakten Aufteilung (${sum.toFixed(2)}) entspricht nicht dem Gesamtbetrag (${numAmount.toFixed(2)}).`);
+              alert(t('finance.error_split_sum', { defaultValue: 'Summe der Aufteilung entspricht nicht dem Gesamtbetrag!' }));
               return;
           }
           finalSplitExact = exactData;
@@ -101,13 +105,12 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
       setEditingId(null);
   };
 
-  // --- ABRECHNUNGS-MATHEMATIK ---
   const settlement = useMemo(() => {
       const balances: Record<string, number> = {};
       const paidTotals: Record<string, number> = {};
       const totalsByCurrency: Record<string, number> = {};
 
-      allNames.forEach(n => {
+      allNames.forEach((n: string) => { 
           balances[n] = 0;
           paidTotals[n] = 0;
       });
@@ -117,15 +120,12 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
           if (!totalsByCurrency[cur]) totalsByCurrency[cur] = 0;
           totalsByCurrency[cur] += exp.amount;
 
-          // Echte gezahlte Beträge
           if (!paidTotals[exp.paidBy]) paidTotals[exp.paidBy] = 0;
           paidTotals[exp.paidBy] += exp.amount;
 
-          // Bilanzen: Zahler bekommt Plus
           if (!balances[exp.paidBy]) balances[exp.paidBy] = 0;
           balances[exp.paidBy] += exp.amount;
 
-          // Bilanzen: Aufteiler bekommen Minus
           if (exp.splitExact && Object.keys(exp.splitExact).length > 0) {
               Object.entries(exp.splitExact).forEach(([person, amt]) => {
                   if (!balances[person]) balances[person] = 0;
@@ -169,54 +169,53 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in" onClick={onClose}>
-      <div className="bg-slate-50 w-full max-w-xl h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+      <div className="bg-slate-50 w-full max-w-xl max-h-[90dvh] h-full sm:h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
         
-        {/* HEADER */}
-        <div className="bg-white border-b border-slate-200 px-5 py-4 flex justify-between items-center shrink-0 z-[110]">
+        <div className="relative z-50 bg-white border-b border-slate-200 px-4 sm:px-5 py-3 sm:py-4 flex justify-between items-center shrink-0">
           <div className="flex items-center gap-2 text-slate-800">
             <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600"><Wallet className="w-5 h-5" /></div>
-            <h2 className="text-lg font-bold">Reisekasse</h2>
+            <h2 className="text-lg font-bold">{t('finance.title', { defaultValue: 'Reisekasse' })}</h2>
           </div>
           
           <div className="flex items-center gap-2">
-            <ExpenseEntryButton travelers={rawNames} mode="standalone" />
+            <ExpenseEntryButton travelers={rawNames} mode="standalone" align="right" />
             <div className="w-px h-6 bg-slate-200 mx-1 hidden sm:block"></div>
-            <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"><X className="w-5 h-5" /></button>
+            <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors" title={t('actions.close', { defaultValue: 'Schließen' })}><X className="w-5 h-5" /></button>
           </div>
         </div>
 
-        {/* TABS */}
         <div className="flex p-3 bg-white border-b border-slate-200 shrink-0 gap-2 z-[100]">
             <button 
                 onClick={() => setActiveTab('settlement')} 
                 className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors flex justify-center items-center gap-2 ${activeTab === 'settlement' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
             >
-                <ArrowRightLeft className="w-4 h-4" /> Abrechnung
+                <ArrowRightLeft className="w-4 h-4" /> {t('finance.tab_settlement', { defaultValue: 'Abrechnung' })}
             </button>
             <button 
                 onClick={() => setActiveTab('feed')} 
                 className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors flex justify-center items-center gap-2 ${activeTab === 'feed' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
             >
-                <ListFilter className="w-4 h-4" /> Historie ({expenses.length})
+                <ListFilter className="w-4 h-4" /> {t('finance.tab_feed', { defaultValue: 'Historie' })} ({expenses.length})
             </button>
         </div>
 
-        {/* CONTENT */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 relative">
             
             {expenses.length === 0 ? (
                 <div className="text-center py-12 text-slate-400 flex flex-col items-center">
                     <Wallet className="w-12 h-12 mb-4 opacity-20" />
-                    <p className="mb-4">Noch keine Ausgaben erfasst.</p>
-                    <ExpenseEntryButton travelers={rawNames} mode="standalone" isMobile={true} />
+                    <p className="mb-4">{t('finance.empty_state', { defaultValue: 'Noch keine Ausgaben erfasst.' })}</p>
+                    <div className="w-full max-w-[200px]">
+                        <ExpenseEntryButton travelers={rawNames} mode="standalone" isMobile={true} align="center" />
+                    </div>
                 </div>
             ) : activeTab === 'settlement' ? (
                 <div className="space-y-6 animate-in fade-in">
                     
                     <div className="grid grid-cols-2 gap-4">
                         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                            <h3 className="text-xs font-bold text-slate-400 uppercase mb-3">Gesamtkosten</h3>
+                            <h3 className="text-xs font-bold text-slate-400 uppercase mb-3">{t('finance.total_costs', { defaultValue: 'Gesamtkosten' })}</h3>
                             <div className="flex flex-wrap gap-3">
                                 {Object.entries(settlement.totalsByCurrency).map(([cur, total]) => (
                                     <div key={cur} className="text-xl font-black text-emerald-700">
@@ -226,7 +225,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                             </div>
                         </div>
                         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                             <h3 className="text-[10px] font-bold text-slate-400 uppercase mb-2">Wer hat gezahlt?</h3>
+                             <h3 className="text-[10px] font-bold text-slate-400 uppercase mb-2">{t('finance.paid_by_summary', { defaultValue: 'Wer hat gezahlt?' })}</h3>
                              <div className="space-y-1.5">
                                  {Object.entries(settlement.paidTotals).sort((a,b) => b[1]-a[1]).map(([name, total]) => (
                                      <div key={name} className="flex justify-between items-center text-xs">
@@ -239,9 +238,9 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                     </div>
 
                     <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                        <h3 className="text-xs font-bold text-slate-400 uppercase mb-4 flex items-center gap-1.5"><ArrowRightLeft className="w-3.5 h-3.5" /> Wer schuldet wem?</h3>
+                        <h3 className="text-xs font-bold text-slate-400 uppercase mb-4 flex items-center gap-1.5"><ArrowRightLeft className="w-3.5 h-3.5" /> {t('finance.who_owes_who', { defaultValue: 'Wer schuldet wem?' })}</h3>
                         {settlement.transfers.length === 0 ? (
-                            <div className="text-sm text-slate-500 text-center py-4 bg-slate-50 rounded-lg">Die Kasse ist perfekt ausgeglichen! 🎉</div>
+                            <div className="text-sm text-slate-500 text-center py-4 bg-slate-50 rounded-lg">{t('finance.perfectly_balanced', { defaultValue: 'Die Kasse ist perfekt ausgeglichen! 🎉' })}</div>
                         ) : (
                             <div className="space-y-3">
                                 {settlement.transfers.map((t, idx) => (
@@ -261,7 +260,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                     </div>
 
                     <div>
-                        <h3 className="text-xs font-bold text-slate-400 uppercase mb-2 ml-1">Stand (Bilanzen)</h3>
+                        <h3 className="text-xs font-bold text-slate-400 uppercase mb-2 ml-1">{t('finance.balances', { defaultValue: 'Stand (Bilanzen)' })}</h3>
                         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                             {Object.entries(settlement.balances).map(([name, bal], idx) => (
                                 <div key={name} className={`flex justify-between items-center p-3 text-sm ${idx !== 0 ? 'border-t border-slate-100' : ''}`}>
@@ -279,62 +278,83 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                     {sortedFeed.map(exp => (
                         <div key={exp.id}>
                             {editingId === exp.id ? (
-                                <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-300 shadow-md">
-                                    <div className="flex justify-between items-center mb-3">
-                                        <span className="text-xs font-bold text-emerald-700 uppercase"><Edit3 className="w-3.5 h-3.5 inline mr-1" /> Bearbeiten</span>
-                                        <button onClick={() => setEditingId(null)} className="text-emerald-500 hover:text-emerald-800"><X className="w-4 h-4"/></button>
+                                <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-300 shadow-md">
+                                    <div className="flex justify-between items-center mb-4 border-b border-emerald-100/50 pb-2">
+                                        <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5"><Edit3 className="w-3.5 h-3.5" /> {t('actions.edit', { defaultValue: 'Bearbeiten' })}</span>
+                                        <button onClick={() => setEditingId(null)} className="text-emerald-500 hover:text-emerald-800 bg-emerald-100/50 p-1 rounded-full"><X className="w-4 h-4"/></button>
                                     </div>
-                                    <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2 mb-2 focus:ring-emerald-500 bg-white" placeholder="Titel" />
-                                    <div className="flex gap-2 mb-3">
-                                        <input type="number" step="0.01" value={editAmount} onChange={e => setEditAmount(e.target.value)} className="flex-1 text-base font-bold border-emerald-200 rounded-lg p-2 focus:ring-emerald-500 bg-white" />
-                                        <input type="text" value={editCurrency} onChange={e => setEditCurrency(e.target.value.toUpperCase())} className="w-20 text-sm font-bold border-emerald-200 rounded-lg p-2 bg-white" placeholder="EUR" />
+                                    
+                                    <label className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">{t('finance.purpose', { defaultValue: 'Verwendungszweck' })}</label>
+                                    <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2.5 mb-4 focus:ring-emerald-500 bg-white shadow-sm" placeholder={t('finance.title_placeholder', { defaultValue: 'Titel' })} />
+                                    
+                                    <div className="flex gap-2 mb-4">
+                                        <input type="number" step="0.01" value={editAmount} onChange={e => setAmount(e.target.value)} className="flex-1 text-lg font-bold border-emerald-200 rounded-lg p-2.5 focus:ring-emerald-500 bg-white shadow-sm" />
+                                        <select value={editCurrency} onChange={e => setEditCurrency(e.target.value)} className="w-24 text-sm font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 cursor-pointer shadow-sm">
+                                            <option value="EUR">EUR</option>
+                                            <option value="USD">USD</option>
+                                            <option value="CHF">CHF</option>
+                                            <option value="GBP">GBP</option>
+                                            <option value="COP">COP</option>
+                                            <option value="SEK">SEK</option>
+                                        </select>
                                     </div>
-                                    <div className="mb-3">
-                                        <span className="text-[10px] font-bold text-emerald-600 block mb-1">Wer hat bezahlt?</span>
+                                    
+                                    <div className="mb-4">
+                                        <span className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">{t('finance.paid_by', { defaultValue: 'Wer hat bezahlt?' })}</span>
                                         <div className="flex flex-wrap gap-1.5">
-                                            {allNames.map(n => (
-                                                <button key={n} onClick={() => setEditPaidBy(n)} className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all ${editPaidBy === n ? 'bg-emerald-600 text-white shadow-sm' : 'bg-white text-emerald-700 border border-emerald-200'}`}>{n}</button>
+                                            {allNames.map((n: string) => ( 
+                                                <button key={n} onClick={() => setEditPaidBy(n)} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${editPaidBy === n ? 'bg-emerald-600 text-white' : 'bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-100'}`}>{n}</button>
                                             ))}
                                         </div>
                                     </div>
-                                    <div className="mb-4">
-                                        <div className="flex bg-white border border-emerald-200 rounded-lg mb-2 p-0.5">
-                                            <button onClick={() => setEditSplitMode('equal')} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${editSplitMode === 'equal' ? 'bg-emerald-100 text-emerald-800' : 'text-emerald-600 hover:bg-emerald-50'}`}>Gleichmäßig</button>
-                                            <button onClick={() => setEditSplitMode('exact')} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${editSplitMode === 'exact' ? 'bg-emerald-100 text-emerald-800' : 'text-emerald-600 hover:bg-emerald-50'}`}>Exakter Betrag</button>
-                                        </div>
-                                        {editSplitMode === 'equal' ? (
-                                            <div className="flex flex-wrap gap-1.5">
-                                               {allNames.map(n => {
-                                                   const active = editSplitAmong.includes(n);
-                                                   return <button key={n} onClick={() => setEditSplitAmong(active ? editSplitAmong.filter(x => x !== n) : [...editSplitAmong, n])} className={`px-2 py-1 rounded text-[10px] font-bold border ${active ? 'bg-blue-500 text-white border-blue-600' : 'bg-white text-emerald-600 border-emerald-200'}`}>{n} {active && '✓'}</button>;
-                                               })}
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-1.5 bg-white p-2 rounded-lg border border-emerald-200">
-                                                {allNames.map(n => (
-                                                    <div key={n} className="flex justify-between items-center">
-                                                        <span className="text-xs font-bold text-slate-600">{n}</span>
-                                                        <div className="relative w-24">
-                                                            <input type="number" step="0.01" value={editSplitExact[n] || ''} onChange={e => setEditSplitExact(prev => ({...prev, [n]: e.target.value}))} className="w-full text-right text-sm pr-7 pl-2 py-1 border border-slate-200 rounded focus:ring-emerald-500" />
-                                                            <span className="absolute right-2 top-1.5 text-slate-400 text-[10px]">{editCurrency}</span>
-                                                        </div>
+                                    
+                                    <div className="mb-5">
+                                        <button onClick={(e) => { e.stopPropagation(); setShowSplit(!showSplit); }} className="text-xs font-bold text-emerald-800 flex items-center gap-1.5 bg-emerald-100/50 px-3 py-2 rounded-lg border border-emerald-200/50 hover:bg-emerald-100 transition-colors w-full">
+                                            <Users className="w-3.5 h-3.5" /> 
+                                            {t('finance.split_among', { defaultValue: 'Aufgeteilt auf:' })} {editSplitMode === 'exact' ? t('finance.exact', { defaultValue: 'Exakt' }) : (editSplitAmong.length === allNames.length ? t('finance.everyone', { defaultValue: 'Alle' }) : `${editSplitAmong.length} ${t('finance.persons', { defaultValue: 'Personen' })}`)} ✎
+                                        </button>
+
+                                        {showSplit && (
+                                            <div className="mt-2 p-3 bg-white rounded-xl border border-emerald-200 shadow-sm animate-in fade-in slide-in-from-top-1">
+                                                <div className="flex bg-emerald-50 border border-emerald-100 rounded-lg mb-3 p-1">
+                                                    <button onClick={() => setEditSplitMode('equal')} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${editSplitMode === 'equal' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.equal', { defaultValue: 'Gleichmäßig' })}</button>
+                                                    <button onClick={() => setEditSplitMode('exact')} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${editSplitMode === 'exact' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.exact_amount', { defaultValue: 'Exakter Betrag' })}</button>
+                                                </div>
+
+                                                {editSplitMode === 'equal' ? (
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                    {allNames.map((n: string) => { 
+                                                        const active = editSplitAmong.includes(n);
+                                                        return <button key={n} onClick={() => setEditSplitAmong(active ? editSplitAmong.filter(x => x !== n) : [...editSplitAmong, n])} className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${active ? 'bg-emerald-500 text-white border-emerald-600 shadow-sm' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'}`}>{n} {active && '✓'}</button>;
+                                                    })}
                                                     </div>
-                                                ))}
-                                                {/* LIVE CALCULATOR */}
-                                                {(() => {
-                                                    const rem = calculateRemaining();
-                                                    const isPerfect = Math.abs(rem) < 0.01;
-                                                    return (
-                                                        <div className={`mt-2 p-2 rounded flex items-center justify-between text-xs font-bold ${isPerfect ? 'bg-emerald-100 text-emerald-700' : rem < 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
-                                                            <span>{isPerfect ? 'Aufteilung stimmt!' : rem > 0 ? 'Noch zu verteilen:' : 'Zu viel verteilt:'}</span>
-                                                            <span className="flex items-center gap-1">{isPerfect && <CheckCircle2 className="w-3.5 h-3.5" />}{Math.abs(rem).toFixed(2)} {editCurrency}</span>
-                                                        </div>
-                                                    );
-                                                })()}
+                                                ) : (
+                                                    <div className="space-y-2">
+                                                        {allNames.map((n: string) => ( 
+                                                            <div key={n} className="flex justify-between items-center bg-slate-50 p-1.5 rounded-lg border border-slate-100">
+                                                                <span className="text-xs font-bold text-slate-700 ml-1">{n}</span>
+                                                                <div className="relative w-24">
+                                                                    <input type="number" step="0.01" value={editSplitExact[n] || ''} onChange={e => setSplitExact(prev => ({...prev, [n]: e.target.value}))} className="w-full text-right text-sm pr-8 pl-2 py-1.5 border border-emerald-200 rounded-md focus:ring-emerald-500 bg-white" />
+                                                                    <span className="absolute right-2 top-2 text-slate-400 text-[10px] font-bold">{editCurrency}</span>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                        {(() => {
+                                                            const rem = calculateRemaining();
+                                                            const isPerfect = Math.abs(rem) < 0.01;
+                                                            return (
+                                                                <div className={`mt-3 p-2 rounded-lg flex items-center justify-between text-xs font-bold border ${isPerfect ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : rem < 0 ? 'bg-red-100 text-red-800 border-red-200' : 'bg-amber-100 text-amber-800 border-amber-200'}`}>
+                                                                    <span>{isPerfect ? t('finance.split_perfect', { defaultValue: 'Aufteilung stimmt!' }) : rem > 0 ? t('finance.split_remaining', { defaultValue: 'Noch zu verteilen:' }) : t('finance.split_too_much', { defaultValue: 'Zu viel verteilt:' })}</span>
+                                                                    <span className="flex items-center gap-1">{isPerfect && <CheckCircle2 className="w-4 h-4" />}{Math.abs(rem).toFixed(2)} {editCurrency}</span>
+                                                                </div>
+                                                            );
+                                                        })()}
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </div>
-                                    <button onClick={handleSaveEdit} className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg shadow-sm flex justify-center items-center gap-2"><Save className="w-4 h-4"/> Speichern</button>
+                                    <button onClick={handleSaveEdit} disabled={!editAmount || !editTitle.trim() || isNaN(parseFloat(editAmount)) || !editPaidBy || (editSplitMode==='equal' && editSplitAmong.length === 0)} className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"><Save className="w-4 h-4"/> {t('finance.save', { defaultValue: 'Speichern' })}</button>
                                 </div>
                             ) : (
                                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-start gap-3 hover:border-blue-200 transition-colors cursor-pointer group" onClick={() => startEdit(exp)}>
@@ -345,17 +365,17 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                             <span className="font-black text-slate-800 whitespace-nowrap">{exp.amount.toFixed(2)} {exp.currency}</span>
                                         </div>
                                         <div className="text-xs text-slate-500 mt-1 flex flex-wrap gap-x-3 gap-y-1">
-                                            <span>{new Date(exp.timestamp).toLocaleDateString('de-DE')}</span>
+                                            <span>{new Date(exp.timestamp).toLocaleDateString(currentLang === 'de' ? 'de-DE' : 'en-US')}</span>
                                             <span>•</span>
-                                            <span>Gezahlt von <strong className="text-emerald-700">{exp.paidBy}</strong></span>
+                                            <span>{t('finance.paid_by_label', { defaultValue: 'Gezahlt von' })} <strong className="text-emerald-700">{exp.paidBy}</strong></span>
                                         </div>
                                         {exp.splitExact && Object.keys(exp.splitExact).length > 0 ? (
-                                            <div className="text-[10px] text-blue-500 mt-1 bg-blue-50 px-2 py-0.5 rounded inline-block">Aufteilung: Exakt</div>
+                                            <div className="text-[10px] text-blue-500 mt-1 bg-blue-50 px-2 py-0.5 rounded inline-block">{t('finance.split_exact_label', { defaultValue: 'Aufteilung: Exakt' })}</div>
                                         ) : exp.splitAmong && exp.splitAmong.length > 0 ? (
-                                            <div className="text-[10px] text-slate-400 mt-1 truncate">Für: {exp.splitAmong.join(', ')}</div>
+                                            <div className="text-[10px] text-slate-400 mt-1 truncate">{t('finance.for', { defaultValue: 'Für:' })} {exp.splitAmong.join(', ')}</div>
                                         ) : null}
                                     </div>
-                                    <button onClick={(e) => { e.stopPropagation(); deleteExpense(exp.id); }} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0" title="Löschen"><Trash2 className="w-4 h-4" /></button>
+                                    <button onClick={(e) => { e.stopPropagation(); deleteExpense(exp.id); }} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0" title={t('actions.delete', { defaultValue: 'Löschen' })}><Trash2 className="w-4 h-4" /></button>
                                 </div>
                             )}
                         </div>
@@ -367,4 +387,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </div>
   );
 };
-// --- END OF FILE 314 Zeilen ---
+// --- END OF FILE 357 Zeilen ---

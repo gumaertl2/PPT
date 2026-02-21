@@ -1,3 +1,4 @@
+// 21.02.2026 15:25 - FIX: TypeScript alignment for travelerNames and removed 'pets' constraint.
 // 21.02.2026 13:00 - UX: Replaced 'Pets' switch with a smart comma-separated text input for traveler names (Trip Finance).
 // src/features/Cockpit/steps/TravelerStep.tsx
 
