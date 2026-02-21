@@ -1,5 +1,6 @@
-// 20.02.2026 23:50 - FIX: Restored the "Double-Tap" Filter shortcut on the Guide button that was lost in the previous merge.
-// 20.02.2026 23:45 - FIX: Made Help button context-sensitive (Wizard Help during data entry, App Manual elsewhere).
+// 21.02.2026 01:00 - FIX: Smart Search Routing. Prevents forcing the user into 'sights' view when searching while inside the 'info' view.
+// 20.02.2026 23:50 - FIX: Restored the "Double-Tap" Filter shortcut on the Guide button.
+// 20.02.2026 23:45 - FIX: Made Help button context-sensitive.
 // src/features/Cockpit/Layout/CockpitHeader.tsx
 
 import React, { useState, useRef } from 'react';
@@ -188,7 +189,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                          setUIState({ viewMode: 'list' });
                        } else {
                          window.scrollTo({ top: 0, behavior: 'smooth' });
-                         toggleSightFilter(); // FIX: Double-Tap Shortcut restored!
+                         toggleSightFilter();
                        }
                      } else {
                        setViewMode('sights');
@@ -259,7 +260,10 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                   type="text" 
                   value={uiState.searchTerm || ''}
                   onChange={(e) => {
-                      if (viewMode !== 'sights') setViewMode('sights');
+                      // FIX: Allow searching within the info view without forcing a jump to sights.
+                      if (viewMode !== 'sights' && viewMode !== 'info') {
+                          setViewMode('sights');
+                      }
                       setUIState({ searchTerm: e.target.value });
                   }}
                   placeholder={t('sights.search_placeholder', { defaultValue: 'Suchen...' })}
@@ -317,7 +321,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
       <AdHocFoodModal isOpen={isAdHocModalOpen} onClose={() => setIsAdHocModalOpen(false)} />
       <SafeExitModal isOpen={showExitModal} onCancel={() => setShowExitModal(false)} onDiscard={handleExitDiscard} onSave={handleExitSave} />
       
-      {/* Renders the Context-Sensitive App Manual */}
       <InfoModal 
         isOpen={showManualModal} 
         onClose={() => setShowManualModal(false)} 
@@ -327,4 +330,4 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     </>
   );
 };
-// --- END OF FILE 340 Zeilen ---
+// --- END OF FILE 344 Zeilen ---
