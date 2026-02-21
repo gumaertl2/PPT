@@ -11,6 +11,7 @@
     "loading": "Wird geladen...",
     "save": "Speichern",
     "cancel": "Abbrechen",
+    "close": "Schließen",
     "add": "Hinzufügen",
     "delete": "Löschen",
     "edit": "Bearbeiten",
@@ -364,7 +365,8 @@
     "no_places": "Keine Orte gefunden.",
     "planning_mode": "Planungsmodus",
     "planning_mode_desc": "Aktivieren Sie dies, um Budget, Prioritäten und die Reserve-Liste anzuzeigen.",
-    "planning_active": "Planungsmodus aktiv"
+    "planning_active": "Planungsmodus aktiv",
+    "open_map": "Auf Karte öffnen"
   },
   "route": {
     "no_results": "Keine Routenvorschläge verfügbar.",
@@ -502,7 +504,46 @@
       "save": "Projekt als Datei speichern",
       "load": "Projekt aus Datei laden",
       "new": "Neues Projekt starten (Reset)",
-      "log": "System-Logbuch (Debug)"
+      "log": "System Logbuch (Debug)"
     }
+  },
+  "finance": {
+    "title": "Reisekasse",
+    "tab_settlement": "Abrechnung",
+    "tab_feed": "Historie",
+    "empty_state": "Noch keine Ausgaben erfasst.",
+    "total_costs": "Gesamtkosten",
+    "paid_by_summary": "Wer hat gezahlt?",
+    "who_owes_who": "Wer schuldet wem?",
+    "perfectly_balanced": "Die Kasse ist perfekt ausgeglichen! 🎉",
+    "balances": "Stand (Bilanzen)",
+    "expense": "Ausgabe",
+    "add_expense": "Ausgabe erfassen",
+    "new_expense": "Neue Ausgabe",
+    "costs": "Kosten",
+    "purpose": "Verwendungszweck",
+    "purpose_placeholder": "z.B. Supermarkt, Taxi...",
+    "title_placeholder": "Titel",
+    "paid_by": "Wer hat bezahlt?",
+    "paid_by_label": "Gezahlt von",
+    "split_among": "Aufgeteilt auf:",
+    "exact": "Exakt",
+    "everyone": "Alle",
+    "persons": "Personen",
+    "equal": "Gleichmäßig",
+    "exact_amount": "Exakter Betrag",
+    "split_exact_label": "Aufteilung: Exakt",
+    "for": "Für:",
+    "split_perfect": "Aufteilung stimmt!",
+    "split_remaining": "Noch zu verteilen:",
+    "split_too_much": "Zu viel verteilt:",
+    "save": "Speichern",
+    "error_no_names": "Bitte hinterlege im Planer (Schritt: \"Wer & Wie\") zuerst die Namen der Reisenden.",
+    "error_split_sum": "Summe der Aufteilung entspricht nicht dem Gesamtbetrag!",
+    "gps_tag": "Aktuellen Standort (GPS) taggen",
+    "gps_fetching": "Ortung läuft...",
+    "gps_saved": "Standort gespeichert ✓",
+    "error_no_gps": "Dein Browser unterstützt kein GPS.",
+    "error_gps_failed": "GPS konnte nicht abgerufen werden."
   }
 }

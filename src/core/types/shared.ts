@@ -1,3 +1,4 @@
+// 21.02.2026 17:15 - FIX: Renamed 'geo' to 'location' in Expense interface for consistency with Diary entries.
 // 21.02.2026 14:00 - FEAT: Added 'splitExact' to Expense interface for advanced custom splits.
 // 21.02.2026 13:00 - FEAT: Added 'Expense' interface for the new Trip Finance / Reisekasse feature.
 // 05.02.2026 17:00 - REFACTOR: SHARED TYPES.
@@ -83,8 +84,8 @@ export interface Expense {
   currency: string;
   paidBy: string; 
   splitAmong: string[]; 
-  splitExact?: Record<string, number>; // NEW: Für ungleiche Aufteilung (Name -> Betrag)
+  splitExact?: Record<string, number>; 
   timestamp: number;
-  geo?: { lat: number; lng: number };
+  location?: { lat: number; lng: number }; // FIXED: Renamed to 'location' to match Diary/Notes logic
 }
 // --- END OF FILE 85 Zeilen ---

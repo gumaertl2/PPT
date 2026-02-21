@@ -1,11 +1,12 @@
+// 21.02.2026 17:40 - FEAT: Added GPS location icon and Google Maps link to expense history items (matching Diary style).
+// 21.02.2026 16:55 - FIX: Corrected state setters (setEditAmount, setEditSplitExact), removed obsolete 'align' props, typed 'prev'.
 // 21.02.2026 16:45 - FIX: Added missing 'currentLang' variable to fix Runtime ReferenceError in Feed tab.
-// 21.02.2026 16:35 - UX: Added full I18N support and aligned inline-edit design with the new entry modal.
 // src/features/Cockpit/TripFinanceModal.tsx
 
 import React, { useState, useMemo } from 'react';
 import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
-import { X, Wallet, ListFilter, Trash2, ArrowRightLeft, Banknote, Edit3, Save, CheckCircle2, Users } from 'lucide-react'; 
+import { X, Wallet, ListFilter, Trash2, ArrowRightLeft, Banknote, Edit3, Save, CheckCircle2, Users, MapPin } from 'lucide-react'; 
 import type { Expense, LanguageCode } from '../../core/types/shared';
 import { ExpenseEntryButton } from './ExpenseEntryButton'; 
 
@@ -179,7 +180,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
           </div>
           
           <div className="flex items-center gap-2">
-            <ExpenseEntryButton travelers={rawNames} mode="standalone" align="right" />
+            <ExpenseEntryButton travelers={rawNames} mode="standalone" />
             <div className="w-px h-6 bg-slate-200 mx-1 hidden sm:block"></div>
             <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors" title={t('actions.close', { defaultValue: 'Schließen' })}><X className="w-5 h-5" /></button>
           </div>
@@ -207,7 +208,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                     <Wallet className="w-12 h-12 mb-4 opacity-20" />
                     <p className="mb-4">{t('finance.empty_state', { defaultValue: 'Noch keine Ausgaben erfasst.' })}</p>
                     <div className="w-full max-w-[200px]">
-                        <ExpenseEntryButton travelers={rawNames} mode="standalone" isMobile={true} align="center" />
+                        <ExpenseEntryButton travelers={rawNames} mode="standalone" isMobile={true} />
                     </div>
                 </div>
             ) : activeTab === 'settlement' ? (
@@ -288,7 +289,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                     <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2.5 mb-4 focus:ring-emerald-500 bg-white shadow-sm" placeholder={t('finance.title_placeholder', { defaultValue: 'Titel' })} />
                                     
                                     <div className="flex gap-2 mb-4">
-                                        <input type="number" step="0.01" value={editAmount} onChange={e => setAmount(e.target.value)} className="flex-1 text-lg font-bold border-emerald-200 rounded-lg p-2.5 focus:ring-emerald-500 bg-white shadow-sm" />
+                                        <input type="number" step="0.01" value={editAmount} onChange={e => setEditAmount(e.target.value)} className="flex-1 text-lg font-bold border-emerald-200 rounded-lg p-2.5 focus:ring-emerald-500 bg-white shadow-sm" />
                                         <select value={editCurrency} onChange={e => setEditCurrency(e.target.value)} className="w-24 text-sm font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 cursor-pointer shadow-sm">
                                             <option value="EUR">EUR</option>
                                             <option value="USD">USD</option>
@@ -334,7 +335,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                                             <div key={n} className="flex justify-between items-center bg-slate-50 p-1.5 rounded-lg border border-slate-100">
                                                                 <span className="text-xs font-bold text-slate-700 ml-1">{n}</span>
                                                                 <div className="relative w-24">
-                                                                    <input type="number" step="0.01" value={editSplitExact[n] || ''} onChange={e => setSplitExact(prev => ({...prev, [n]: e.target.value}))} className="w-full text-right text-sm pr-8 pl-2 py-1.5 border border-emerald-200 rounded-md focus:ring-emerald-500 bg-white" />
+                                                                    <input type="number" step="0.01" value={editSplitExact[n] || ''} onChange={e => setEditSplitExact((prev: Record<string, string>) => ({...prev, [n]: e.target.value}))} className="w-full text-right text-sm pr-8 pl-2 py-1.5 border border-emerald-200 rounded-md focus:ring-emerald-500 bg-white" />
                                                                     <span className="absolute right-2 top-2 text-slate-400 text-[10px] font-bold">{editCurrency}</span>
                                                                 </div>
                                                             </div>
@@ -343,7 +344,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                                             const rem = calculateRemaining();
                                                             const isPerfect = Math.abs(rem) < 0.01;
                                                             return (
-                                                                <div className={`mt-3 p-2 rounded-lg flex items-center justify-between text-xs font-bold border ${isPerfect ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : rem < 0 ? 'bg-red-100 text-red-800 border-red-200' : 'bg-amber-100 text-amber-800 border-amber-200'}`}>
+                                                                <div className={`mt-3 p-2 rounded-lg flex items-center justify-between text-xs font-bold border ${isPerfect ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : rem < 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
                                                                     <span>{isPerfect ? t('finance.split_perfect', { defaultValue: 'Aufteilung stimmt!' }) : rem > 0 ? t('finance.split_remaining', { defaultValue: 'Noch zu verteilen:' }) : t('finance.split_too_much', { defaultValue: 'Zu viel verteilt:' })}</span>
                                                                     <span className="flex items-center gap-1">{isPerfect && <CheckCircle2 className="w-4 h-4" />}{Math.abs(rem).toFixed(2)} {editCurrency}</span>
                                                                 </div>
@@ -368,6 +369,23 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                             <span>{new Date(exp.timestamp).toLocaleDateString(currentLang === 'de' ? 'de-DE' : 'en-US')}</span>
                                             <span>•</span>
                                             <span>{t('finance.paid_by_label', { defaultValue: 'Gezahlt von' })} <strong className="text-emerald-700">{exp.paidBy}</strong></span>
+                                            
+                                            {/* GPS Link (exactly as in Diary) */}
+                                            {exp.location && (
+                                                <>
+                                                    <span>•</span>
+                                                    <a 
+                                                        href={`https://www.google.com/maps/search/?api=1&query=${exp.location.lat},${exp.location.lng}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex items-center gap-0.5 text-blue-500 hover:underline"
+                                                        title={t('sights.open_map', { defaultValue: 'Auf Karte öffnen' })}
+                                                        onClick={e => e.stopPropagation()}
+                                                    >
+                                                        <MapPin size={10} /> GPS
+                                                    </a>
+                                                </>
+                                            )}
                                         </div>
                                         {exp.splitExact && Object.keys(exp.splitExact).length > 0 ? (
                                             <div className="text-[10px] text-blue-500 mt-1 bg-blue-50 px-2 py-0.5 rounded inline-block">{t('finance.split_exact_label', { defaultValue: 'Aufteilung: Exakt' })}</div>
@@ -387,4 +405,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </div>
   );
 };
-// --- END OF FILE 357 Zeilen ---
+// --- END OF FILE 365 Zeilen ---

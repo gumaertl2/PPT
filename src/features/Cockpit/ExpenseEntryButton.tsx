@@ -1,9 +1,9 @@
+// 21.02.2026 17:30 - FEAT: Added GPS location tagging to expenses (matching Diary/Notes logic) and added I18N for GPS actions.
 // 21.02.2026 16:30 - UX: Upgraded to a centered, screen-blocking Modal (using the optimal Edit-Mode design) and added full I18N support.
-// 21.02.2026 16:10 - UX: Reverted currency input to a select dropdown and added label for Standalone title input.
 // src/features/Cockpit/ExpenseEntryButton.tsx
 
 import React, { useState } from 'react';
-import { Banknote, X, Users, CheckCircle2, Save } from 'lucide-react';
+import { Banknote, X, Users, CheckCircle2, Save, MapPin } from 'lucide-react';
 import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
@@ -42,11 +42,37 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
     const [splitExact, setSplitExact] = useState<Record<string, string>>({});
     const [showSplit, setShowSplit] = useState(false);
 
+    // GPS State
+    const [location, setLocation] = useState<{lat: number, lng: number} | null>(null);
+    const [isFetchingGPS, setIsFetchingGPS] = useState(false);
+
     const expenses = Object.values(project.data.expenses || {}).filter((e: Expense) => 
         (placeId && e.placeId === placeId) || (!placeId && e.title === defaultTitle)
     ) as Expense[];
     
     const totalSpent = expenses.reduce((sum: number, e: Expense) => sum + e.amount, 0);
+
+    const handleFetchGPS = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsFetchingGPS(true);
+        if (!navigator.geolocation) {
+            alert(t('finance.error_no_gps', { defaultValue: 'Dein Browser unterstützt kein GPS.' }));
+            setIsFetchingGPS(false);
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                setIsFetchingGPS(false);
+            },
+            (err) => {
+                console.error(err);
+                alert(t('finance.error_gps_failed', { defaultValue: 'GPS konnte nicht abgerufen werden.' }));
+                setIsFetchingGPS(false);
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    };
 
     const calculateRemaining = () => {
         const total = parseFloat(amount.replace(',', '.')) || 0;
@@ -70,6 +96,8 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
             setSplitAmong(names); 
             setSplitExact({}); 
             setShowSplit(false); 
+            setLocation(null);
+            setIsFetchingGPS(false);
         }
         setIsOpen(!isOpen);
     };
@@ -105,7 +133,8 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
             paidBy, 
             splitAmong: splitAmong.length > 0 ? splitAmong : names, 
             splitExact: finalSplitExact, 
-            timestamp: Date.now() 
+            timestamp: Date.now(),
+            location: location || undefined
         });
         setIsOpen(false);
     };
@@ -150,7 +179,6 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={e => { e.stopPropagation(); setIsOpen(false); }}>
                     <div className="bg-emerald-50 w-full max-w-sm max-h-[90dvh] rounded-2xl shadow-2xl border border-emerald-300 flex flex-col overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                         
-                        {/* HEADER */}
                         <div className="flex justify-between items-center p-4 border-b border-emerald-100/50 bg-emerald-100/30 shrink-0">
                             <span className="text-sm font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
                                 <Banknote className="w-4 h-4"/>
@@ -159,7 +187,6 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                             <button onClick={(e) => { e.stopPropagation(); setIsOpen(false); }} className="text-emerald-600 hover:text-emerald-900 hover:bg-emerald-200 p-1.5 rounded-full transition-colors"><X className="w-4 h-4"/></button>
                         </div>
 
-                        {/* SCROLLABLE CONTENT (Styled exactly like Edit Mode) */}
                         <div className="p-4 overflow-y-auto space-y-4">
                             
                             {mode === 'standalone' && (
@@ -179,6 +206,16 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                     <option value="COP">COP</option>
                                     <option value="SEK">SEK</option>
                                 </select>
+                            </div>
+
+                            <div>
+                                <button 
+                                    onClick={handleFetchGPS} 
+                                    className={`w-full flex items-center justify-center gap-2 text-xs font-bold py-2.5 rounded-xl transition-all border shadow-sm ${location ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                                >
+                                    <MapPin size={16} className={isFetchingGPS ? 'animate-bounce text-emerald-500' : ''} /> 
+                                    {isFetchingGPS ? t('finance.gps_fetching', { defaultValue: 'Ortung läuft...' }) : location ? t('finance.gps_saved', { defaultValue: 'Standort gespeichert ✓' }) : t('finance.gps_tag', { defaultValue: 'Aktuellen Standort (GPS) taggen' })}
+                                </button>
                             </div>
 
                             {names.length === 0 ? (
@@ -213,7 +250,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                                     <div className="flex flex-wrap gap-1.5">
                                                         {names.map(n => {
                                                             const active = splitAmong.includes(n);
-                                                            return <button key={n} onClick={(e) => { e.stopPropagation(); if(active) setSplitAmong(prev => prev.filter(x => x !== n)); else setSplitAmong(prev => [...prev, n]); }} className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${active ? 'bg-emerald-500 text-white border-emerald-600 shadow-sm' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'}`}>{n} {active && '✓'}</button>;
+                                                            return <button key={n} onClick={(e) => { e.stopPropagation(); if(active) setSplitAmong(prev => prev.filter(x => x !== n)); else setSplitAmong(prev => [...prev, n]); }} className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${active ? 'bg-emerald-500 text-white border-blue-600 shadow-sm' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'}`}>{n} {active && '✓'}</button>;
                                                         })}
                                                     </div>
                                                 ) : (
@@ -246,7 +283,6 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                             )}
                         </div>
 
-                        {/* FOOTER */}
                         <div className="p-4 bg-emerald-100/50 border-t border-emerald-200/50 shrink-0">
                              <button onClick={handleSave} disabled={(!amount && mode !== 'standalone') || (mode === 'standalone' && !customTitle.trim()) || isNaN(parseFloat(amount)) || !paidBy || (splitMode==='equal' && splitAmong.length === 0)} className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2">
                                 <Save className="w-4 h-4"/> {t('finance.save', { defaultValue: 'Speichern' })}
@@ -259,4 +295,4 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         </div>
     );
 };
-// --- END OF FILE 264 Zeilen ---
+// --- END OF FILE 276 Zeilen ---
