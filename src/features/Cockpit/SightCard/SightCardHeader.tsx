@@ -1,11 +1,15 @@
+// 21.02.2026 14:55 - REFACTOR: Merged custom check-in logic with centralized ExpenseEntryButton.
 // 20.02.2026 19:15 - UX: Dimmed title color if the place is marked as a reserve item.
 // 20.02.2026 13:10 - LAYOUT: Moved Check-In and Note buttons to the Header.
 // src/features/Cockpit/SightCard/SightCardHeader.tsx
 
 import React from 'react';
 import { BedDouble, CheckCircle2, MapPin, PenLine } from 'lucide-react';
+import { useTripStore } from '../../../store/useTripStore';
+import { ExpenseEntryButton } from '../ExpenseEntryButton';
 
 interface SightCardHeaderProps {
+  placeId?: string; 
   name: string;
   isHotel: boolean;
   isSelected: boolean;
@@ -18,10 +22,11 @@ interface SightCardHeaderProps {
   showNoteInput?: boolean;
   hasNote?: boolean;
   onToggleNote?: (e: React.MouseEvent) => void;
-  isReserve?: boolean; // NEW: Flag for visual dimming
+  isReserve?: boolean; 
 }
 
 export const SightCardHeader: React.FC<SightCardHeaderProps> = ({
+  placeId,
   name,
   isHotel,
   isSelected,
@@ -36,6 +41,8 @@ export const SightCardHeader: React.FC<SightCardHeaderProps> = ({
   onToggleNote,
   isReserve
 }) => {
+  const { project } = useTripStore();
+  const travelerNames = project.userInputs.travelers.travelerNames || '';
 
   const renderVisitedBadge = () => {
     if (!onToggleVisited) return null;
@@ -88,8 +95,7 @@ export const SightCardHeader: React.FC<SightCardHeaderProps> = ({
   };
 
   return (
-    <div className="flex justify-between items-start mb-1 gap-2">
-      {/* NEW: Title turns slate-400 if it's a reserve item */}
+    <div className="flex justify-between items-start mb-1 gap-2 relative">
       <h3 className={`font-bold text-base leading-tight flex items-center flex-wrap gap-2 min-w-0 ${isReserve ? 'text-slate-400' : 'text-gray-900'}`}>
         {isHotel && <BedDouble className={`w-4 h-4 shrink-0 ${isReserve ? 'text-slate-400' : 'text-emerald-600'}`} />}
         <span className="break-words">{highlightText(name)}</span>
@@ -105,10 +111,11 @@ export const SightCardHeader: React.FC<SightCardHeaderProps> = ({
       
       <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
           {renderVisitedBadge()}
+          <ExpenseEntryButton placeId={placeId} defaultTitle={name} travelers={travelerNames} mode="sight" />
           {renderNoteButton()}
           {renderViewControls()}
       </div>
     </div>
   );
 };
-// --- END OF FILE 101 Zeilen ---
+// --- END OF FILE 108 Zeilen ---

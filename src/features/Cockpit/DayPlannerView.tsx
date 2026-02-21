@@ -1,11 +1,11 @@
-// 19.02.2026 23:45 - FIX: Added Filter Logic so selecting 'Tag 1' hides other days.
-// 19.02.2026 17:45 - FEAT: Added rendering for 'break', 'check-in', and 'distance_km' in transfers.
+// 21.02.2026 14:45 - REFACTOR: Replaced custom PlannerExpenseButton with reusable ExpenseEntryButton.
 // src/features/Cockpit/DayPlannerView.tsx
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTripStore } from '../../store/useTripStore';
 import { SightCard } from './SightCard';
+import { ExpenseEntryButton } from './ExpenseEntryButton';
 import type { Place, DetailLevel, LanguageCode } from '../../core/types';
 import { Utensils, Luggage } from 'lucide-react';
 
@@ -15,43 +15,27 @@ interface DayPlannerViewProps {
   overrideDetailLevel?: DetailLevel;
 }
 
-const formatTimelineDate = (dateStr: string, lang: LanguageCode): string => {
+const formatTimelineDate = (dateStr: string, lang: LanguageCode): string => { 
     if (!dateStr || !dateStr.includes('-')) return dateStr;
     const dateObj = new Date(dateStr);
     if (isNaN(dateObj.getTime())) return dateStr;
-
-    if (lang === 'de') {
-        return new Intl.DateTimeFormat('de-DE', { 
-            weekday: 'long', 
-            day: 'numeric', 
-            month: 'long' 
-        }).format(dateObj);
-    } else {
-        const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(dateObj);
-        const month = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(dateObj);
-        const day = dateObj.getDate();
-        let suffix = 'th';
-        if (day === 1 || day === 21 || day === 31) suffix = 'st';
-        else if (day === 2 || day === 22) suffix = 'nd';
-        else if (day === 3 || day === 23) suffix = 'rd';
-        return `${weekday}, ${month} ${day}${suffix}`;
-    }
+    if (lang === 'de') return new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: 'numeric', month: 'long' }).format(dateObj);
+    const w = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(dateObj);
+    const m = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(dateObj);
+    const d = dateObj.getDate();
+    let s = 'th'; if (d===1||d===21||d===31) s='st'; else if (d===2||d===22) s='nd'; else if (d===3||d===23) s='rd';
+    return `${w}, ${m} ${d}${s}`;
 };
 
-export const DayPlannerView: React.FC<DayPlannerViewProps> = ({ 
-  places, 
-  showPlanningMode, 
-  overrideDetailLevel 
-}) => {
+export const DayPlannerView: React.FC<DayPlannerViewProps> = ({ places, showPlanningMode, overrideDetailLevel }) => {
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
   
-  // FIX: Access uiState to apply Day Filters
   const { project, uiState } = useTripStore();
-  
   const { userInputs } = project;
   const days = project.itinerary?.days || [];
-  const activeFilters = uiState.categoryFilter || []; // NEW: Get Active Filters
+  const activeFilters = uiState.categoryFilter || []; 
+  const travelerNames = userInputs.travelers.travelerNames || '';
   
   const isStationary = userInputs.logistics.mode === 'stationaer';
   const hotelName = isStationary ? (userInputs.logistics.stationary?.hotel || 'Hotel') : 'Unterkunft';
@@ -60,13 +44,10 @@ export const DayPlannerView: React.FC<DayPlannerViewProps> = ({
   const renderedDays = days.map((day: any, i: number) => {
       const baseTitle = `${t('sights.day', {defaultValue: 'Tag'})} ${i + 1}`;
       
-      // NEW: Filter Logic for the List View
       if (activeFilters.length > 0) {
           const labelDe = `Tag ${i + 1}`;
           const labelEn = `Day ${i + 1}`;
-          if (!activeFilters.includes(baseTitle) && !activeFilters.includes(labelDe) && !activeFilters.includes(labelEn)) {
-              return null; // Skip if this day is not in the filter
-          }
+          if (!activeFilters.includes(baseTitle) && !activeFilters.includes(labelDe) && !activeFilters.includes(labelEn)) return null; 
       }
 
       const title = day.title ? `${baseTitle}: ${day.title}` : baseTitle;
@@ -77,108 +58,74 @@ export const DayPlannerView: React.FC<DayPlannerViewProps> = ({
       const formattedDate = day.date ? formatTimelineDate(day.date, currentLang) : null;
 
       return (
-        <div key={`day-${i}`} className="mb-8 last:mb-0 print:break-inside-avoid bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm print:border-none print:shadow-none">
+        <div key={`day-${i}`} className="mb-8 last:mb-0 print:break-inside-avoid bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
           
-          <div className="bg-slate-50 border-b border-slate-100 flex flex-col print:bg-transparent print:border-b-2 print:border-slate-300">
+          <div className="bg-slate-50 border-b border-slate-100 flex flex-col">
               <div className="px-4 py-3 flex justify-between items-center">
-                  <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                      <span className="text-lg print:hidden">📅</span> {title}
-                  </h3>
-                  {formattedDate && (
-                      <span className="text-xs font-bold text-slate-500 bg-white px-2 py-1 rounded shadow-sm border border-slate-200 print:border-none print:shadow-none print:p-0">
-                        {formattedDate}
-                      </span>
-                  )}
+                  <h3 className="font-bold text-slate-800 flex items-center gap-2"><span className="text-lg">📅</span> {title}</h3>
+                  {formattedDate && <span className="text-xs font-bold text-slate-500 bg-white px-2 py-1 rounded shadow-sm border border-slate-200">{formattedDate}</span>}
               </div>
               <div className="px-4 pb-3 pt-0 text-xs font-medium text-slate-500 flex items-center gap-1.5">
                   <span className="text-sm">🏨</span> {t('sights.overnight', {defaultValue: 'Übernachtung'})}: {hotelName}{destinationStr}
+                  <ExpenseEntryButton defaultTitle="Übernachtung" placeId={`hotel-${i}`} travelers={travelerNames} mode="planner" />
               </div>
           </div>
 
-          <div className="p-4 space-y-3 print:p-0 print:pt-3">
+          <div className="p-4 space-y-3">
               {activities.map((act: any, actIdx: number) => {
-                  
-                  // 1. TRANSFER BLOCK
                   if (act.type === 'transfer') {
                       let desc = act.description || '';
-                      if (desc.includes('Zentraler Startpunkt') || desc.includes('Central Starting Point')) {
-                          desc = desc.replace(/Zentraler Startpunkt|Central Starting Point/gi, hotelName);
-                      }
-
+                      if (desc.includes('Zentraler Startpunkt')) desc = desc.replace(/Zentraler Startpunkt/gi, hotelName);
                       return (
                           <div key={`transfer-${i}-${actIdx}`} className="relative pl-7 ml-7 py-1">
                               <div className="absolute -left-[1px] top-0 bottom-0 w-0.5 bg-slate-100"></div>
-                              
-                              <div className="flex flex-col gap-1 px-3 py-2 bg-blue-50/50 border border-blue-100 rounded-lg text-sm text-slate-600 print:bg-transparent print:border-none print:px-0">
-                                 <div className="flex items-center gap-2">
-                                     <span className="text-base">{act.mode === 'walk' ? '🚶' : '🚗'}</span>
-                                     <span className="font-bold">
-                                         {act.time && `${act.time} Uhr: `}
-                                         {act.duration} Min. {act.mode === 'walk' ? (currentLang === 'de' ? 'Fußweg' : 'Walk') : (currentLang === 'de' ? 'Fahrt' : 'Drive')}
-                                         {act.distance_km && ` (${act.distance_km} km)`}
-                                     </span>
+                              <div className="flex items-center justify-between gap-1 px-3 py-2 bg-blue-50/50 border border-blue-100 rounded-lg text-sm text-slate-600">
+                                 <div>
+                                     <div className="flex items-center gap-2">
+                                         <span className="text-base">{act.mode === 'walk' ? '🚶' : '🚗'}</span>
+                                         <span className="font-bold">{act.time && `${act.time} Uhr: `}{act.duration} Min. {act.mode === 'walk' ? 'Fußweg' : 'Fahrt'}{act.distance_km && ` (${act.distance_km} km)`}</span>
+                                     </div>
+                                     {desc && <span className="text-xs text-slate-500 italic ml-6">({desc})</span>}
                                  </div>
-                                 {desc && <span className="text-xs text-slate-500 italic ml-6">({desc})</span>}
+                                 <ExpenseEntryButton defaultTitle="Transfer / Ticket" travelers={travelerNames} mode="planner" />
                               </div>
                           </div>
                       );
                   } 
-                  
-                  // 2. BREAK BLOCK
                   else if (act.type === 'break') {
                       return (
                           <div key={`break-${i}-${actIdx}`} className="relative pl-7 ml-7 py-1">
                               <div className="absolute -left-[1px] top-0 bottom-0 w-0.5 bg-slate-100"></div>
-                              <div className="flex items-center gap-3 px-3 py-2 bg-amber-50/50 border border-amber-100 rounded-lg text-sm text-amber-800 print:bg-transparent print:border-none print:px-0">
-                                  <Utensils className="w-4 h-4" />
-                                  <span className="font-bold">
-                                      {act.time && `${act.time} Uhr: `}
-                                      {act.description || 'Pause'} ({act.duration} Min.)
-                                  </span>
+                              <div className="flex items-center justify-between gap-3 px-3 py-2 bg-amber-50/50 border border-amber-100 rounded-lg text-sm text-amber-800">
+                                  <div className="flex items-center gap-3">
+                                      <Utensils className="w-4 h-4" />
+                                      <span className="font-bold">{act.time && `${act.time} Uhr: `}{act.description || 'Pause'} ({act.duration} Min.)</span>
+                                  </div>
+                                  <ExpenseEntryButton defaultTitle={act.description || 'Essen/Pause'} travelers={travelerNames} mode="planner" />
                               </div>
                           </div>
                       );
                   }
-
-                  // 3. CHECK-IN BLOCK
                   else if (act.type === 'check-in') {
                       return (
                           <div key={`check-in-${i}-${actIdx}`} className="relative pl-7 ml-7 py-1">
                               <div className="absolute -left-[1px] top-0 bottom-0 w-0.5 bg-slate-100"></div>
-                              <div className="flex items-center gap-3 px-3 py-2 bg-emerald-50/50 border border-emerald-100 rounded-lg text-sm text-emerald-800 print:bg-transparent print:border-none print:px-0">
+                              <div className="flex items-center gap-3 px-3 py-2 bg-emerald-50/50 border border-emerald-100 rounded-lg text-sm text-emerald-800">
                                   <Luggage className="w-4 h-4" />
-                                  <span className="font-bold">
-                                      {act.time && `${act.time} Uhr: `}
-                                      Check-in: {act.location || hotelName} ({act.duration} Min.)
-                                  </span>
+                                  <span className="font-bold">{act.time && `${act.time} Uhr: `}Check-in: {act.location || hotelName} ({act.duration} Min.)</span>
                               </div>
                           </div>
                       );
                   }
-                  
-                  // 4. SIGHT BLOCK
                   else if (act.type === 'sight' || act.original_sight_id) {
                       const placeId = act.id || act.original_sight_id;
                       const place = places.find((p: Place) => p.id === placeId);
                       if (!place) return null; 
-                      
                       return (
-                          <div key={place.id} id={`card-${place.id}`} className="relative pl-7 border-l-2 border-blue-200 ml-7 py-2 print:border-l-2 print:border-slate-300">
-                              <div className="absolute -left-[9px] top-5 w-4 h-4 rounded-full bg-blue-500 ring-4 ring-white print:ring-transparent"></div>
-                              
-                              {act.time && (
-                                  <div className="text-xs font-black text-blue-600 mb-2 -mt-1 uppercase tracking-wider">
-                                      {act.time} {currentLang === 'de' ? 'Uhr' : ''}
-                                  </div>
-                              )}
-                              
-                              <SightCard 
-                                 id={place.id} 
-                                 data={place} 
-                                 mode="selection" 
-                                 showPriorityControls={showPlanningMode}
-                                 detailLevel={overrideDetailLevel}
-                              />
+                          <div key={place.id} className="relative pl-7 border-l-2 border-blue-200 ml-7 py-2">
+                              <div className="absolute -left-[9px] top-5 w-4 h-4 rounded-full bg-blue-500 ring-4 ring-white"></div>
+                              {act.time && <div className="text-xs font-black text-blue-600 mb-2 -mt-1 uppercase tracking-wider">{act.time} Uhr</div>}
+                              <SightCard id={place.id} data={place} mode="selection" showPriorityControls={showPlanningMode} detailLevel={overrideDetailLevel} />
                           </div>
                       );
                   }
@@ -191,4 +138,4 @@ export const DayPlannerView: React.FC<DayPlannerViewProps> = ({
 
   return <>{renderedDays}</>;
 };
-// --- END OF FILE 176 Zeilen ---
+// --- END OF FILE 137 Zeilen ---

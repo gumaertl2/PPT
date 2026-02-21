@@ -1,6 +1,6 @@
+// 21.02.2026 13:30 - FEAT: Added state and integration for the new TripFinanceModal.
 // 21.02.2026 01:00 - FIX: Smart Search Routing. Prevents forcing the user into 'sights' view when searching while inside the 'info' view.
 // 20.02.2026 23:50 - FIX: Restored the "Double-Tap" Filter shortcut on the Guide button.
-// 20.02.2026 23:45 - FIX: Made Help button context-sensitive.
 // src/features/Cockpit/Layout/CockpitHeader.tsx
 
 import React, { useState, useRef } from 'react';
@@ -24,6 +24,7 @@ import PrintModal from '../PrintModal';
 import { AdHocFoodModal } from '../AdHocFoodModal'; 
 import { SafeExitModal } from '../SafeExitModal'; 
 import { ActionsMenu } from './ActionsMenu'; 
+import { TripFinanceModal } from '../TripFinanceModal'; // NEW
 import type { CockpitViewMode, PrintConfig } from '../../../core/types'; 
 import { useTripGeneration } from '../../../hooks/useTripGeneration';
 import { InfoModal } from '../../Welcome/InfoModal'; 
@@ -67,6 +68,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
   const [isAdHocModalOpen, setIsAdHocModalOpen] = useState(false); 
   const [showExitModal, setShowExitModal] = useState(false); 
   const [showManualModal, setShowManualModal] = useState(false); 
+  const [isFinanceModalOpen, setIsFinanceModalOpen] = useState(false); // NEW
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isFilterActive = uiState.searchTerm || uiState.categoryFilter.length > 0;
@@ -260,7 +262,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                   type="text" 
                   value={uiState.searchTerm || ''}
                   onChange={(e) => {
-                      // FIX: Allow searching within the info view without forcing a jump to sights.
                       if (viewMode !== 'sights' && viewMode !== 'info') {
                           setViewMode('sights');
                       }
@@ -309,6 +310,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                 onOpenPrint={() => setIsPrintModalOpen(true)}
                 onOpenAdHoc={() => setIsAdHocModalOpen(true)}
                 onOpenSettings={() => setShowSettingsModal(true)}
+                onOpenFinance={() => setIsFinanceModalOpen(true)} // NEW
               />
 
           </div>
@@ -320,6 +322,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
       <PrintModal isOpen={isPrintModalOpen} onClose={() => setIsPrintModalOpen(false)} onConfirm={handlePrintConfirm} />
       <AdHocFoodModal isOpen={isAdHocModalOpen} onClose={() => setIsAdHocModalOpen(false)} />
       <SafeExitModal isOpen={showExitModal} onCancel={() => setShowExitModal(false)} onDiscard={handleExitDiscard} onSave={handleExitSave} />
+      <TripFinanceModal isOpen={isFinanceModalOpen} onClose={() => setIsFinanceModalOpen(false)} /> 
       
       <InfoModal 
         isOpen={showManualModal} 
@@ -330,4 +333,4 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     </>
   );
 };
-// --- END OF FILE 344 Zeilen ---
+// --- END OF FILE 348 Zeilen ---

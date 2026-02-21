@@ -1,5 +1,6 @@
-// src/features/Cockpit/Layout/ActionsMenu.tsx
+// 21.02.2026 13:20 - FEAT: Added 'Trip Finance' (Reisekasse) Button to Actions Menu.
 // 17.02.2026 14:55 - REFACTOR: Moved Auto/Manual Toggle into ActionsMenu.
+// src/features/Cockpit/Layout/ActionsMenu.tsx
 
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -15,7 +16,8 @@ import {
   Save, 
   Upload, 
   FileText, 
-  Terminal 
+  Terminal,
+  Wallet // NEW ICON FOR FINANCE
 } from 'lucide-react';
 
 import { useTripStore } from '../../../store/useTripStore';
@@ -30,7 +32,8 @@ interface ActionsMenuProps {
   onOpenExport: () => void;
   onOpenPrint: () => void;
   onOpenAdHoc: () => void;
-  onOpenSettings: () => void; // NEW: Callback for Settings
+  onOpenSettings: () => void;
+  onOpenFinance?: () => void; // NEW: Callback for Trip Finance Dashboard
 }
 
 export const ActionsMenu: React.FC<ActionsMenuProps> = ({
@@ -41,7 +44,8 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
   onOpenExport,
   onOpenPrint,
   onOpenAdHoc,
-  onOpenSettings
+  onOpenSettings,
+  onOpenFinance
 }) => {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
@@ -53,8 +57,8 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
     downloadFlightRecorder, 
     setWorkflowModalOpen,
     uiState,
-    apiKey,      // NEW
-    usageStats   // NEW
+    apiKey,
+    usageStats
   } = useTripStore();
 
   const hasAnalysisResult = !!project.analysis.chefPlaner;
@@ -156,7 +160,6 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
       {isOpen && (
         <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2">
           
-          {/* NEW: Auto/Manual Toggle as first item */}
           <button 
             onClick={() => { setIsOpen(false); onOpenSettings(); }}
             className={`w-full text-left px-4 py-2 hover:bg-blue-50 flex items-center justify-between gap-3 text-sm font-medium border-b border-slate-100 ${apiKey ? 'text-blue-600' : 'text-slate-500'}`}
@@ -171,6 +174,15 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
                      {usageStats.tokens > 1000 ? `${(usageStats.tokens/1000).toFixed(1)}k` : usageStats.tokens}
                  </span>
              )}
+          </button>
+
+          {/* --- NEW: TRIP FINANCE DASHBOARD BUTTON --- */}
+          <button 
+            onClick={() => { setIsOpen(false); if (onOpenFinance) onOpenFinance(); }}
+            className="w-full text-left px-4 py-2 hover:bg-emerald-50 text-emerald-700 flex items-center gap-3 text-sm font-bold border-b border-slate-100"
+            title="Abrechnung & Ausgaben anzeigen"
+          >
+            <Wallet className="w-4 h-4" /> Reisekasse
           </button>
 
           <button 
@@ -277,4 +289,4 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
     </div>
   );
 };
-// --- END OF FILE 225 Lines ---
+// --- END OF FILE 236 Lines ---
