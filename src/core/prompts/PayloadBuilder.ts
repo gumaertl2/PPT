@@ -1,14 +1,10 @@
+// 21.02.2026 12:20 - FIX: TS6133 removed unused CONFIG import.
 // 21.02.2026 11:30 - FIX: Aligned chunk limits by replacing local flawed getTaskChunkLimit with LimitManager SSOT. Prevents the 15 vs 10 cutoff bug.
 // 19.02.2026 13:30 - FIX: Removed unused 'LocalizedContent' import to resolve Vercel TS6196 error.
 // 19.02.2026 12:30 - REFACTOR: Removed V30 Legacy Code (transferPlanner chunk logic & buildChefPlanerPayload), extracted helpers.
-// 17.02.2026 18:55 - WIRING: Connected V40 Tagesplaner Pipeline (Preparer -> Template).
-// 10.02.2026 21:00 - FIX: Removed Syntax Error ("\n") in buildChefPlanerPayload.
-// 05.02.2026 22:30 - FIX: Implemented Selective Run & Updated Call Signature for Chefredakteur.
-// 05.02.2026 17:30 - FIX: REMOVE LEGACY KEYS & SPELLING.
 // src/core/prompts/PayloadBuilder.ts
 
 import { useTripStore } from '../../store/useTripStore';
-import { CONFIG } from '../../data/config';
 import { LimitManager } from '../utils/LimitManager';
 
 // --- TEMPLATES ---
@@ -320,4 +316,4 @@ export const PayloadBuilder = {
     return generatedPrompt;
   }
 };
-// --- END OF FILE 317 Zeilen ---
+// --- END OF FILE 316 Zeilen ---
