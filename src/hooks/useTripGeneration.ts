@@ -1,3 +1,4 @@
+// 21.02.2026 12:15 - FIX: Added chunk loop logic to submitManualResult to allow multi-chunk tasks (like Anreicherer) to finish completely in manual mode.
 // 20.02.2026 20:15 - FIX: Added Hard Kill-Switch (Abort Guard) to effectively cancel background tasks and dismiss loading modal immediately.
 // 20.02.2026 14:15 - FIX: Switched to functional state updates for queue slicing.
 // src/hooks/useTripGeneration.ts
@@ -325,11 +326,29 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
         processResult(manualStepId as TaskKey, parsedData);
         setManualMode(null, null);
         
-        const freshQueue = useTripStore.getState().workflow.queue;
-        if (freshQueue.length > 0) { 
-             setWorkflowState({ queue: freshQueue.slice(1), status: 'generating' }); 
+        // FIX: Manual Chunking Loop check
+        const liveState = useTripStore.getState().chunkingState;
+        
+        if (liveState.isActive && liveState.currentChunk < liveState.totalChunks) {
+            // We have more chunks to process for this specific task
+            const nextChunk = liveState.currentChunk + 1;
+            useTripStore.getState().setChunkingState({ currentChunk: nextChunk });
+            
+            // Build the prompt for the next chunk immediately
+            const nextPrompt = PayloadBuilder.buildPrompt(manualStepId as TaskKey);
+            setManualMode(nextPrompt, manualStepId);
+            setWorkflowState({ status: 'waiting_for_user' });
+            
         } else {
-             setWorkflowState({ status: 'success' });
+            // Task completely finished (all chunks done, or no chunking active)
+            useTripStore.getState().resetChunking();
+            const freshQueue = useTripStore.getState().workflow.queue;
+            
+            if (freshQueue.length > 0) { 
+                 setWorkflowState({ queue: freshQueue.slice(1), status: 'generating' }); 
+            } else {
+                 setWorkflowState({ status: 'success', currentStep: null });
+            }
         }
     } catch (e) { setWorkflowState({ status: 'error' }); }
   }, [manualStepId, processResult, setManualMode, setWorkflowState]);
@@ -365,6 +384,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
       try {
           const apiKey = useTripStore.getState().apiKey;
+          
           if (!apiKey) { 
               const prompt = PayloadBuilder.buildPrompt(task, feedback);
               dismissNotification(loadingId);
@@ -383,7 +403,10 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
           if (activeNotificationId.current === loadingId) activeNotificationId.current = null;
           
           processResult(task, result);
+          
+          useTripStore.getState().resetChunking();
           setWorkflowState({ status: 'success', currentStep: null });
+          
       } catch (err) { 
           // --- ABORT GUARD FOR ERRORS ---
           if (useTripStore.getState().workflow.status !== 'generating') return;
@@ -406,4 +429,4 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
   return { status, currentStep, queue, error, progress, manualPrompt, submitManualResult, startWorkflow, resumeWorkflow, cancelWorkflow, startSingleTask };
 };
-// --- END OF FILE 402 Zeilen ---
+// --- END OF FILE 423 Zeilen ---

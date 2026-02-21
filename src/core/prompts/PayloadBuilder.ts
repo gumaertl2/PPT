@@ -1,3 +1,4 @@
+// 21.02.2026 11:30 - FIX: Aligned chunk limits by replacing local flawed getTaskChunkLimit with LimitManager SSOT. Prevents the 15 vs 10 cutoff bug.
 // 19.02.2026 13:30 - FIX: Removed unused 'LocalizedContent' import to resolve Vercel TS6196 error.
 // 19.02.2026 12:30 - REFACTOR: Removed V30 Legacy Code (transferPlanner chunk logic & buildChefPlanerPayload), extracted helpers.
 // 17.02.2026 18:55 - WIRING: Connected V40 Tagesplaner Pipeline (Preparer -> Template).
@@ -8,6 +9,7 @@
 
 import { useTripStore } from '../../store/useTripStore';
 import { CONFIG } from '../../data/config';
+import { LimitManager } from '../utils/LimitManager';
 
 // --- TEMPLATES ---
 import { buildChefPlanerPrompt } from './templates/chefPlaner';
@@ -38,7 +40,7 @@ import { prepareFoodScoutPayload } from './preparers/prepareFoodScoutPayload';
 import { prepareFoodEnricherPayload } from './preparers/prepareFoodEnricherPayload';
 import { prepareHotelScoutPayload } from './preparers/prepareHotelScoutPayload';
 import { prepareGeoExpanderPayload } from './preparers/prepareGeoExpanderPayload';
-import { prepareTagesplanerPayload } from './preparers/prepareTagesplanerPayload'; // NEW
+import { prepareTagesplanerPayload } from './preparers/prepareTagesplanerPayload'; 
 
 import type { TaskKey, ChunkingState, TripProject, FoodSearchMode } from '../types';
 import { filterByRadius } from '../utils/geo';
@@ -47,12 +49,8 @@ import type { GeoPoint } from '../utils/geo';
 // --- HELPER FUNCTIONS ---
 const getTaskChunkLimit = (taskKey: TaskKey): number => {
     const state = useTripStore.getState();
-    const mode = state.apiKey ? 'auto' : 'manual';
-    const taskOverride = state.aiSettings.chunkOverrides?.[taskKey]?.[mode];
-    if (taskOverride) return taskOverride;
-    const globalLimit = state.aiSettings.chunkLimits?.[mode];
-    if (globalLimit) return globalLimit;
-    return CONFIG.taskRouting.chunkDefaults?.[taskKey]?.[mode] || 10;
+    // FIX: Nutze die Single Source of Truth, damit Orchestrator und PayloadBuilder exakt dieselbe Zahl verwenden!
+    return LimitManager.getTaskLimit(taskKey, !state.apiKey);
 };
 
 const sliceData = (items: any[], taskKey: TaskKey, options?: { chunkIndex?: number, limit?: number }) => {
@@ -293,8 +291,6 @@ export const PayloadBuilder = {
 
       case 'dayplan':
       case 'initialTagesplaner': {
-        // V40 UPGRADE: Use Preparer -> Template Pipeline for strict logistics
-        // Chunking is now handled logically by the Preparer if needed, but for the skeleton prompt we pass the full view.
         const payload = prepareTagesplanerPayload(project);
         generatedPrompt = buildInitialTagesplanerPrompt(payload);
         break;
@@ -302,8 +298,6 @@ export const PayloadBuilder = {
 
       case 'transfers':
       case 'transferPlanner': {
-        // FIX: Removed legacy V30 chunking dependency `getLastChunkEndLocation`.
-        // Uses optional candidate string or defaults to empty.
         const fallbackLoc = options?.candidates?.[0] || '';
         generatedPrompt = buildTransferPlannerPrompt(project, fallbackLoc);
         break;
@@ -326,4 +320,4 @@ export const PayloadBuilder = {
     return generatedPrompt;
   }
 };
-// --- END OF FILE 320 Zeilen ---
+// --- END OF FILE 317 Zeilen ---
