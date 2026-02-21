@@ -1,17 +1,15 @@
-// 21.02.2026 15:20 - FIX: Removed unused 'Plus' import to fix TS6133.
-// 21.02.2026 14:45 - REFACTOR: Replaced duplicate expense logic with reusable ExpenseEntryButton.
+// 21.02.2026 18:05 - REFACTOR: Restored RouteBlock for roundtrips but kept info/analysis blocks removed. Focused on Navigation + Diary.
 // src/features/Cockpit/PlanView.tsx
 
 import React, { useMemo, useState } from 'react';
 import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
 import { 
-  Users, CheckCircle, CheckCircle2, Lightbulb, Map as MapIcon, ExternalLink, 
-  Layout as LayoutIcon, Navigation, Quote, Clock, ArrowRight, PenLine, X, 
-  MapPin, Trash2 // FIX: Removed Plus
+  CheckCircle, CheckCircle2, Map as MapIcon, ExternalLink, 
+  PenLine, X, MapPin, Trash2, Clock, Navigation, Quote, ArrowRight
 } from 'lucide-react';
 import type { LanguageCode, Place } from '../../core/types';
-import { STRATEGY_OPTIONS, VIBE_OPTIONS, BUDGET_OPTIONS, PACE_OPTIONS, INTEREST_DATA } from '../../data/staticData';
+import { INTEREST_DATA } from '../../data/staticData';
 import { generateGoogleMapsRouteUrl } from './utils';
 import { ExpenseEntryButton } from './ExpenseEntryButton';
 
@@ -21,8 +19,7 @@ export const PlanView: React.FC = () => {
   
   const { project, updatePlace, togglePlaceVisited, setProject } = useTripStore();
   const { userInputs, analysis, data } = project;
-  const { logistics, travelers, dates, selectedInterests, pace, budget, vibe, strategyId } = userInputs;
-  const chefPlaner = analysis.chefPlaner;
+  const { logistics, travelers } = userInputs;
   const routeAnalysis = analysis.routeArchitect;
   const travelerNames = travelers.travelerNames || '';
 
@@ -39,75 +36,6 @@ export const PlanView: React.FC = () => {
     if (!item || !item.label) return '';
     if (typeof item.label === 'string') return item.label;
     return (item.label as any)[currentLang] || (item.label as any)['de'] || '';
-  };
-
-  const InfoRow = ({ label, value, sub }: { label: string, value: React.ReactNode, sub?: string }) => (
-    <div className="text-sm">
-      <span className="block text-xs font-bold text-slate-400 uppercase mb-0.5">{label}</span>
-      <div className="font-medium text-slate-800">{value}</div>
-      {sub && <div className="text-xs text-slate-500">{sub}</div>}
-    </div>
-  );
-
-  const renderReviewBlocks = () => {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm relative overflow-hidden group hover:border-blue-400 hover:shadow-md transition-all h-full">
-            <div className="flex justify-between items-center mb-4 border-b border-slate-50 pb-2">
-                <h3 className="text-sm font-bold text-slate-600 uppercase flex items-center gap-2"><LayoutIcon className="w-4 h-4 text-blue-500" /> 1. Cockpit</h3>
-            </div>
-            <div className="space-y-4">
-                <InfoRow label={t('review.label_logistics')} value={!isRoundtripContext ? t('logistics.stationary') : t('logistics.roadtrip')} sub={!isRoundtripContext ? `${logistics.stationary.region || '-'} ${logistics.stationary.destination ? `(${logistics.stationary.destination})` : ''}` : `${logistics.roundtrip.region || '-'} (${logistics.roundtrip.stops.length} ${t('cockpit.stops_label')})`} />
-                <div className="h-px bg-slate-50 my-2"></div>
-                <InfoRow label={t('review.label_dates')} value={dates.flexible ? t('review.value_flexible') : t('review.value_fix')} sub={dates.flexible ? `${t('cockpit.duration_label')}: ~${dates.duration}` : `${dates.start || '?'} - ${dates.end || '?'}`} />
-                {(dates.arrival.type || dates.arrival.time) && (
-                    <div className="flex gap-4 pt-1">
-                        <div className="flex-1"><InfoRow label={t('review.label_arrival')} value={dates.arrival.time || '-'} /></div>
-                        <div className="flex-1"><InfoRow label={t('review.label_departure')} value={dates.departure?.time || '-'} /></div>
-                    </div>
-                )}
-            </div>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm relative overflow-hidden group hover:border-blue-400 hover:shadow-md transition-all h-full">
-            <div className="flex justify-between items-center mb-4 border-b border-slate-50 pb-2">
-                <h3 className="text-sm font-bold text-slate-600 uppercase flex items-center gap-2"><Users className="w-4 h-4 text-blue-500" /> 2. Wer & Wie</h3>
-            </div>
-            <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                    <InfoRow label={t('review.label_travelers')} value={`${travelers.adults} ${t('profile.adults')} / ${travelers.children} ${t('profile.children')}`} sub={travelers.children > 0 ? `${t('profile.age_children')}: ${travelers.ages || '-'}` : undefined} />
-                    <InfoRow label={t('review.label_origin')} value={travelers.origin || '-'} sub={travelers.nationality || '-'} />
-                </div>
-                <div className="h-px bg-slate-50 my-2"></div>
-                <InfoRow label={t('review.label_strategy')} value={<span className="text-blue-600">{resolveLabel(STRATEGY_OPTIONS[strategyId]) || strategyId}</span>} />
-                <div className="grid grid-cols-3 gap-2">
-                    <InfoRow label={t('profile.options_pace')} value={resolveLabel(PACE_OPTIONS[pace]) || pace} />
-                    <InfoRow label={t('profile.options_budget')} value={resolveLabel(BUDGET_OPTIONS[budget]) || budget} />
-                    <InfoRow label={t('profile.options_vibe')} value={resolveLabel(VIBE_OPTIONS[vibe]) || vibe} />
-                </div>
-                <div className="h-px bg-slate-50 my-2"></div>
-                <InfoRow label={t('review.label_interests')} value={selectedInterests.length > 0 ? (<div className="flex flex-wrap gap-1.5 mt-1">{selectedInterests.map(id => (<span key={id} className="px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded-md border border-slate-200">{INTEREST_DATA[id] ? resolveLabel(INTEREST_DATA[id]) : id}</span>))}</div>) : (<span className="text-slate-400 italic">{t('review.value_no_interests')}</span>)} />
-            </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderAnalysisBlock = () => {
-    if (!chefPlaner) return null;
-    return (
-      <div className="p-5 bg-white border border-gray-200 rounded-lg shadow-sm mb-8">
-        <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2 text-sm uppercase tracking-wide"><CheckCircle className="w-4 h-4 text-blue-500" />{t('analysis.plausibility')}</h3>
-        <p className="text-sm text-gray-700 leading-relaxed mb-4">{chefPlaner.plausibility_check || t('analysis.noCheck')}</p>
-        {chefPlaner.strategic_briefing && (
-          <div className="pt-4 border-t border-gray-100">
-             <h4 className="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-2"><Lightbulb className="w-3 h-3" />{t('analysis.briefing')}</h4>
-             <p className="text-sm text-gray-600 italic mb-2">"{chefPlaner.strategic_briefing?.sammler_briefing}"</p>
-            <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded inline-block"><strong>{t('analysis.radius')}:</strong> {chefPlaner.strategic_briefing?.search_radius_instruction}</div>
-          </div>
-        )}
-      </div>
-    );
   };
 
   const matchedRoute = useMemo(() => {
@@ -209,14 +137,12 @@ export const PlanView: React.FC = () => {
                     <div><h2 className="text-xl font-bold text-slate-900">Live-Reisetagebuch</h2><p className="text-sm text-slate-500">Deine besuchten Orte.</p></div>
                 </div>
                 
-                {/* --- DESKTOP ACTION BUTTONS --- */}
                 <div className="hidden sm:flex items-center gap-2">
                     <ExpenseEntryButton travelers={travelerNames} mode="standalone" />
                     <button onClick={() => setIsAddingCustom(!isAddingCustom)} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white rounded-lg text-xs font-bold transition-colors shadow-sm"><PenLine size={14} /> Eigener Eintrag</button>
                 </div>
             </div>
 
-            {/* --- MOBILE ACTION BUTTONS --- */}
             <div className="flex sm:hidden gap-2 mb-4">
                 <ExpenseEntryButton travelers={travelerNames} mode="standalone" isMobile={true} />
                 <button onClick={() => setIsAddingCustom(!isAddingCustom)} className="flex-1 flex justify-center items-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-bold shadow-sm"><PenLine size={16} /> Notiz</button>
@@ -254,11 +180,8 @@ export const PlanView: React.FC = () => {
                                     
                                     <div className="flex items-center gap-1.5 shrink-0">
                                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${isCustomEntry ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}`}><Clock size={10} /> {dateStr}, {timeStr}</span>
-                                        
                                         <ExpenseEntryButton placeId={place.id} defaultTitle={place.name} travelers={travelerNames} mode="diary" />
-
                                         <button onClick={() => setEditingNoteId(editingNoteId === place.id ? null : place.id)} className={`p-1.5 rounded transition-colors shadow-sm border ${editingNoteId === place.id ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-white text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border-slate-200'}`} title="Notiz bearbeiten"><PenLine size={12} /></button>
-                                        
                                         {isCustomEntry ? (
                                             <button onClick={() => handleDeleteCustom(place.id)} className="p-1.5 rounded bg-white text-slate-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors shadow-sm border border-slate-200" title="Eintrag löschen"><Trash2 size={12} /></button>
                                         ) : (
@@ -269,7 +192,7 @@ export const PlanView: React.FC = () => {
                                 
                                 <div className="text-xs text-slate-500 flex gap-1 items-center font-medium mb-1.5">
                                     {isCustomEntry ? <PenLine size={10} className="text-indigo-400" /> : <MapIcon size={10} className="text-emerald-400" />} {categoryLabel}
-                                    {place.location?.lat && (<a href={`https://www.google.com/maps/dir/?api=1&origin=${place.location.lat},${place.location.lng}`} target="_blank" rel="noopener noreferrer" className="ml-2 flex items-center gap-0.5 text-blue-500 hover:underline" title="Auf Karte anzeigen"><MapPin size={10}/> GPS</a>)}
+                                    {place.location?.lat && (<a href={`https://www.google.com/maps/search/?api=1&query=${place.location.lat},${place.location.lng}`} target="_blank" rel="noopener noreferrer" className="ml-2 flex items-center gap-0.5 text-blue-500 hover:underline" title="Auf Karte anzeigen"><MapPin size={10}/> GPS</a>)}
                                 </div>
 
                                 {editingNoteId === place.id ? (
@@ -291,11 +214,9 @@ export const PlanView: React.FC = () => {
 
   return (
     <div className="pb-24 animate-in fade-in duration-500">
-       {renderReviewBlocks()}
-       {renderAnalysisBlock()}
        {renderRouteBlock()}
        {renderVisitedDiary()} 
     </div>
   );
 };
-// --- END OF FILE 294 Zeilen ---
+// --- END OF FILE 210 Zeilen ---
