@@ -1,3 +1,4 @@
+// 21.02.2026 12:00 - UX: Removed opacity dimming from the entire card for reserve items. Only the title will be dimmed via Header.
 // 20.02.2026 19:15 - UX: Passed 'isReserve' flag to card styles to visually dim reserve items within their natural group.
 // 20.02.2026 13:10 - LAYOUT: Cleaned up action controls, wired Check-In & Note to Header.
 // src/features/Cockpit/SightCard/index.tsx
@@ -21,7 +22,7 @@ interface SightCardProps {
   mode?: 'selection' | 'view'; 
   showPriorityControls?: boolean;
   detailLevel?: ViewLevel;
-  isReserve?: boolean; // NEW
+  isReserve?: boolean; 
 }
 
 export const SightCard: React.FC<SightCardProps> = ({ 
@@ -222,7 +223,7 @@ export const SightCard: React.FC<SightCardProps> = ({
       borderClass = 'border-green-500 border-l-4';
   } else if (priority === 2) {
       borderClass = 'border-blue-400 border-l-4';
-  } else if (isReserve || priority === -1) { // FIX: Applies visual dimming for ALL reserve items
+  } else if (priority === -1) { // FIX: Only entirely dim cards that are explicitly set to 'Ignore'
       borderClass = 'border-slate-200 opacity-60';
       bgClass = 'bg-slate-50/50';
   }
