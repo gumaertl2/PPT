@@ -1,9 +1,10 @@
+// 22.02.2026 15:15 - FEAT: Added 'Radar' feature (Find Nearest Sight via GPS) with auto-scroll navigation.
 // 20.02.2026 20:25 - FIX: Removed unused 'Filter' import from lucide-react (TS6133).
 // 20.02.2026 19:40 - UX: Integrated Reserve items into their natural groups (Categories/Tours) and pushed them to the bottom.
 // 19.02.2026 23:45 - FIX: Fixed empty Map in Day Mode & added Smart Map Filtering (Selected Day + Unassigned).
 // src/features/Cockpit/SightsView.tsx
 
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { useTripStore } from '../../store/useTripStore';
 import { SightCard } from './SightCard';
 import { SightFilterModal } from './SightFilterModal'; 
@@ -17,7 +18,8 @@ import { DayPlannerView } from './DayPlannerView';
 import { 
   FileText,
   Briefcase, 
-  Layout
+  Layout,
+  Navigation
 } from 'lucide-react';
 
 const TRAVEL_PACE_CONFIG: Record<string, { startHour: number; endHour: number; breakMinutes: number; bufferMinutes: number }> = {
@@ -31,6 +33,18 @@ interface SightsViewProps {
   overrideDetailLevel?: DetailLevel; 
 }
 
+// Helper: Haversine distance in km
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; 
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+};
+
 export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overrideDetailLevel }) => {
   const { t, i18n } = useTranslation(); 
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
@@ -43,6 +57,8 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
     toggleSightFilter 
   } = useTripStore();
   
+  const [isLocating, setIsLocating] = useState(false);
+
   const { userInputs, data, analysis } = project; 
   const places = Object.values(data.places || {}) as Place[];
 
@@ -60,9 +76,12 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
       setTimeout(() => {
         const element = document.getElementById(`card-${uiState.selectedPlaceId}`);
         if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          element.classList.add('ring-2', 'ring-blue-500', 'ring-offset-2', 'duration-1000');
-          setTimeout(() => element.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2'), 3000);
+          // Add a small offset so the element isn't hidden under the sticky header
+          const y = element.getBoundingClientRect().top + window.scrollY - 100;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+          
+          element.classList.add('ring-4', 'ring-indigo-500', 'ring-offset-4', 'transition-all', 'duration-500');
+          setTimeout(() => element.classList.remove('ring-4', 'ring-indigo-500', 'ring-offset-4'), 3000);
         }
       }, 150);
     }
@@ -75,6 +94,54 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
         return (def.label as any)[currentLang] || (def.label as any)['de'] || catId;
     }
     return catId.charAt(0).toUpperCase() + catId.slice(1).replace(/_/g, ' ');
+  };
+
+  // --- RADAR: LOCATE NEAREST SIGHT ---
+  const handleLocateNearestSight = () => {
+      setIsLocating(true);
+      if (!navigator.geolocation) {
+          alert(t('finance.error_no_gps', { defaultValue: 'Dein Browser unterstützt kein GPS.' }));
+          setIsLocating(false);
+          return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+          (pos) => {
+              const myLat = pos.coords.latitude;
+              const myLng = pos.coords.longitude;
+              
+              let nearestPlaceId: string | null = null;
+              let shortestDist = Infinity;
+
+              // Iterate over all available places in current view (we check all, regardless of filter)
+              places.forEach(p => {
+                  if (p.location && p.location.lat && p.location.lng) {
+                      const dist = calculateDistance(myLat, myLng, p.location.lat, p.location.lng);
+                      if (dist < shortestDist) {
+                          shortestDist = dist;
+                          nearestPlaceId = p.id;
+                      }
+                  }
+              });
+
+              if (nearestPlaceId) {
+                  // Switch to list view if not already there, reset filter to show all, and select the place
+                  setUIState({ 
+                      viewMode: 'list', 
+                      selectedPlaceId: nearestPlaceId 
+                  });
+              } else {
+                  alert(t('sights.no_places', { defaultValue: 'Keine Orte gefunden.' }));
+              }
+              setIsLocating(false);
+          },
+          (err) => {
+              console.error(err);
+              alert(t('finance.error_gps_failed', { defaultValue: 'GPS konnte nicht abgerufen werden.' }));
+              setIsLocating(false);
+          },
+          { enableHighAccuracy: true, timeout: 10000 }
+      );
   };
 
   // --- 1. BUDGET LOGIC ---
@@ -403,10 +470,24 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
         <>
             {/* LIST 1: CANDIDATES & RESERVE */}
             <div className="bg-white rounded-xl border-2 border-blue-600 shadow-sm p-4 md:p-6 mb-8 relative mx-4 print:border-none print:shadow-none print:p-0 print:mx-0 print:mb-4">
-                <div className="absolute -top-3 left-6 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1 print:hidden">
+                <div className="absolute -top-3 left-6 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1 print:hidden z-10">
                     {showPlanningMode ? <Briefcase className="w-3 h-3" /> : <FileText className="w-3 h-3" />}
                     {t('sights.candidates', { defaultValue: 'ORTE & KANDIDATEN' })} ({filteredLists.main.length})
                 </div>
+
+                {/* NEW: RADAR ACTION BUTTON */}
+                {!overrideSortMode && (
+                    <div className="flex justify-end mb-4 print:hidden pt-2">
+                        <button 
+                            onClick={handleLocateNearestSight}
+                            disabled={isLocating}
+                            className={`flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm border ${isLocating ? 'bg-indigo-50 text-indigo-400 border-indigo-100 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white border-transparent hover:shadow-md'}`}
+                        >
+                            <Navigation className={`w-4 h-4 ${isLocating ? 'animate-pulse' : ''}`} />
+                            {isLocating ? 'Ortung läuft...' : 'Radar: Was ist in meiner Nähe?'}
+                        </button>
+                    </div>
+                )}
                 
                 <div className="mt-2">{renderGroupedList(filteredLists.main)}</div>
 
@@ -455,4 +536,4 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
     </div>
   );
 };
-// --- END OF FILE 381 Zeilen ---
+// --- END OF FILE 436 Zeilen ---
