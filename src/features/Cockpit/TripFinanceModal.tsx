@@ -1,3 +1,4 @@
+// 22.02.2026 17:45 - FEAT: Added transparent CSV Export functionality to verify all calculations in Excel/Google Sheets.
 // 22.02.2026 17:15 - UX: Added safety confirmation prompt before deleting an expense.
 // 22.02.2026 13:40 - FIX: Adjusted Mobile Layout in TripFinanceModal Header so action buttons remain visible.
 // 22.02.2026 11:45 - FEAT: Integrated Smart-Currency. Auto-converts foreign expenses to base currency in settlement and added config button.
@@ -6,7 +7,7 @@
 import React, { useState, useMemo } from 'react';
 import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
-import { X, Wallet, ListFilter, Trash2, ArrowRightLeft, Banknote, Edit3, Save, CheckCircle2, Users, MapPin, Landmark } from 'lucide-react'; 
+import { X, Wallet, ListFilter, Trash2, ArrowRightLeft, Banknote, Edit3, Save, CheckCircle2, Users, MapPin, Landmark, Download } from 'lucide-react'; 
 import type { Expense, LanguageCode, CurrencyConfig } from '../../core/types/shared';
 import { ExpenseEntryButton } from './ExpenseEntryButton'; 
 import { CurrencyConfigModal } from './CurrencyConfigModal';
@@ -195,6 +196,96 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
       return { balances, paidTotals, transfers, totalsByCurrency };
   }, [expenses, allNames, currencyConfig, baseCurrency]);
 
+  // FEAT: CSV Export Logic for maximum transparency
+  const handleExportCSV = () => {
+      const getRate = (currency: string) => {
+          if (currency === baseCurrency) return 1;
+          const rateObj = currencyConfig?.rates.find(r => r.currency === currency);
+          return rateObj?.rate || 1;
+      };
+
+      const lines: string[] = [];
+      const sep = ";"; // Semicolon is standard for German Excel
+      const fmtNum = (num: number) => num.toFixed(2).replace('.', ','); // Comma as decimal separator
+      
+      // Header
+      const header = [
+          t('finance.csv_date', { defaultValue: 'Datum' }),
+          t('finance.csv_purpose', { defaultValue: 'Zweck' }),
+          t('finance.csv_amount', { defaultValue: 'Betrag' }),
+          t('finance.csv_currency', { defaultValue: 'Währung' }),
+          t('finance.csv_rate', { defaultValue: 'Kurs' }),
+          `${t('finance.csv_amount_base', { defaultValue: 'Betrag in' })} ${baseCurrency}`,
+          t('finance.csv_paid_by', { defaultValue: 'Bezahlt von' }),
+          ...allNames
+      ];
+      lines.push(header.join(sep));
+
+      let totalBase = 0;
+      const personTotals: Record<string, number> = {};
+      allNames.forEach(n => personTotals[n] = 0);
+
+      sortedFeed.forEach(exp => {
+          const date = new Date(exp.timestamp).toLocaleDateString(currentLang === 'de' ? 'de-DE' : 'en-US');
+          const rate = getRate(exp.currency || 'EUR');
+          const amountBase = exp.amount / rate;
+          totalBase += amountBase;
+
+          const shares: Record<string, number> = {};
+          allNames.forEach(n => shares[n] = 0);
+
+          if (exp.splitExact && Object.keys(exp.splitExact).length > 0) {
+              Object.entries(exp.splitExact).forEach(([person, amt]) => {
+                  const exactAmtBase = amt / rate;
+                  shares[person] = exactAmtBase;
+                  personTotals[person] += exactAmtBase;
+              });
+          } else if (exp.splitAmong && exp.splitAmong.length > 0) {
+              const splitAmtBase = amountBase / exp.splitAmong.length;
+              exp.splitAmong.forEach(person => {
+                  shares[person] = splitAmtBase;
+                  personTotals[person] += splitAmtBase;
+              });
+          }
+
+          const cleanTitle = `"${exp.title.replace(/"/g, '""')}"`; // Escape quotes for CSV
+          
+          const row = [
+              date,
+              cleanTitle,
+              fmtNum(exp.amount),
+              exp.currency || 'EUR',
+              rate.toFixed(4).replace('.', ','),
+              fmtNum(amountBase),
+              exp.paidBy,
+              ...allNames.map(n => fmtNum(shares[n]))
+          ];
+          lines.push(row.join(sep));
+      });
+
+      lines.push(""); // Empty line before summary
+      
+      const sumRow = ["", t('finance.csv_total', { defaultValue: 'GESAMTKOSTEN (Anteil)' }), "", "", "", fmtNum(totalBase), "", ...allNames.map(n => fmtNum(personTotals[n]))];
+      lines.push(sumRow.join(sep));
+
+      const paidRow = ["", t('finance.csv_paid', { defaultValue: 'BEZAHLT VON' }), "", "", "", "", "", ...allNames.map(n => fmtNum(settlement.paidTotals[n] || 0))];
+      lines.push(paidRow.join(sep));
+
+      const balanceRow = ["", t('finance.csv_balance', { defaultValue: 'BILANZ (+ Gutschrift / - Schuld)' }), "", "", "", "", "", ...allNames.map(n => fmtNum(settlement.balances[n] || 0))];
+      lines.push(balanceRow.join(sep));
+
+      // UTF-8 BOM helps Excel recognize the encoding properly
+      const csvContent = "\uFEFF" + lines.join("\n"); 
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Reisekasse_${project.meta.name.replace(/\s+/g, '_')}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -215,6 +306,10 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
             {/* By passing isMobile={true}, the button won't hide itself on small screens */}
             <ExpenseEntryButton travelers={rawNames} mode="standalone" isMobile={true} />
             
+            <button onClick={handleExportCSV} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100 shrink-0" title={t('finance.export_csv', { defaultValue: 'Als CSV exportieren' })}>
+                <Download className="w-5 h-5" />
+            </button>
+
             <button onClick={() => setIsCurrencyModalOpen(true)} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100 shrink-0" title={t('finance.currency_config_title', { defaultValue: 'Währungen konfigurieren' })}>
                 <Landmark className="w-5 h-5" />
             </button>
@@ -459,4 +554,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 402 Zeilen ---
+// --- END OF FILE 474 Zeilen ---
