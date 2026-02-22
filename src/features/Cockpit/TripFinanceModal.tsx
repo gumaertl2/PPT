@@ -1,3 +1,4 @@
+// 22.02.2026 17:15 - UX: Added safety confirmation prompt before deleting an expense.
 // 22.02.2026 13:40 - FIX: Adjusted Mobile Layout in TripFinanceModal Header so action buttons remain visible.
 // 22.02.2026 11:45 - FEAT: Integrated Smart-Currency. Auto-converts foreign expenses to base currency in settlement and added config button.
 // src/features/Cockpit/TripFinanceModal.tsx
@@ -201,7 +202,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
       <div className="bg-slate-50 w-full max-w-xl max-h-[90dvh] h-full sm:h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
         
-        {/* MODAL HEADER - ADJUSTED FOR MOBILE (Zeile 203) */}
+        {/* MODAL HEADER - ADJUSTED FOR MOBILE */}
         <div className="relative z-50 bg-white border-b border-slate-200 px-3 sm:px-5 py-3 sm:py-4 flex justify-between items-center shrink-0">
           <div className="flex items-center gap-2 text-slate-800 truncate mr-2">
             <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600 shrink-0"><Wallet className="w-5 h-5" /></div>
@@ -209,7 +210,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
             <h2 className="hidden xs:block text-base sm:text-lg font-bold truncate">{t('finance.title', { defaultValue: 'Reisekasse' })}</h2>
           </div>
           
-          {/* ACTION BUTTONS (Zeile 210) */}
+          {/* ACTION BUTTONS */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {/* By passing isMobile={true}, the button won't hide itself on small screens */}
             <ExpenseEntryButton travelers={rawNames} mode="standalone" isMobile={true} />
@@ -428,7 +429,19 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                             <div className="text-[10px] text-slate-400 mt-1 truncate">{t('finance.for', { defaultValue: 'Für:' })} {exp.splitAmong.join(', ')}</div>
                                         ) : null}
                                     </div>
-                                    <button onClick={(e) => { e.stopPropagation(); deleteExpense(exp.id); }} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0" title={t('actions.delete', { defaultValue: 'Löschen' })}><Trash2 className="w-4 h-4" /></button>
+                                    {/* FIX: Added window.confirm to delete button */}
+                                    <button 
+                                        onClick={(e) => { 
+                                            e.stopPropagation(); 
+                                            if(window.confirm(t('finance.delete_confirm', { defaultValue: 'Diese Ausgabe wirklich löschen?' }))) {
+                                                deleteExpense(exp.id); 
+                                            }
+                                        }} 
+                                        className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0" 
+                                        title={t('actions.delete', { defaultValue: 'Löschen' })}
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
                                 </div>
                             )}
                         </div>
@@ -446,4 +459,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 397 Zeilen ---
+// --- END OF FILE 402 Zeilen ---
