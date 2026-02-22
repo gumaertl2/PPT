@@ -1,3 +1,4 @@
+// 22.02.2026 16:35 - FIX: Appended Trip Region and Country to Google Search query to prevent ambiguous results.
 // 22.02.2026 16:30 - FIX: Prevented 'Restaurant' from being appended to Google Search queries for non-food sights.
 // 21.02.2026 00:30 - UX: Cleaned up Meta Bar. Removed Live-Check and Price to avoid redundancy, as they are now elegantly displayed in SightCardBody.
 // 09.02.2026 18:05 - FEAT: Traffic Light UI for Live Check.
@@ -7,6 +8,7 @@
 import React from 'react';
 import { Sun, CloudRain, ExternalLink, Check, BookOpen, Globe, Search, Map as MapIcon, Sparkles } from 'lucide-react';
 import { VALID_POI_CATEGORIES, INTEREST_DATA } from '../../../data/interests';
+import { useTripStore } from '../../../store/useTripStore';
 
 interface SightCardMetaProps {
   data: any;
@@ -46,20 +48,31 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
   ensureAbsoluteUrl,
   t
 }) => {
+  const { project } = useTripStore();
 
   const isFood = (customCategory && ['food', 'restaurant'].includes(customCategory.toLowerCase())) || 
                  (data.category && ['food', 'restaurant'].includes(data.category.toLowerCase()));
 
-  // FIX: Smart Search Query now includes Awards context only if relevant, and appends 'Restaurant' only for food.
+  // FIX: Smart Search Query now includes Region & Country context to avoid global ambiguities.
   const getGoogleSearchQuery = () => {
     const name = data.name || data.official_name || data.name_official || '';
     const city = data.city || (data.address ? data.address.split(',').pop()?.trim() : '') || '';
+    
+    // Fetch Trip Context
+    const { logistics } = project.userInputs;
+    const tripRegion = logistics.mode === 'stationaer' ? logistics.stationary.region : logistics.roundtrip.region;
+    const tripCountry = logistics.target_countries?.[0] || '';
+    
+    // Only append region/country if they are not already part of the city string
+    const regionStr = tripRegion && !city.includes(tripRegion) ? tripRegion : '';
+    const countryStr = tripCountry && !city.includes(tripCountry) ? tripCountry : '';
     
     // Check for Awards (e.g. "Michelin", "Gault&Millau")
     const awardContext = data.awards && data.awards.length > 0 ? data.awards[0] : '';
     const context = awardContext || (isFood ? 'Restaurant' : '');
 
-    return `${name} ${city} ${context}`.trim();
+    // Build the final string, replacing multiple spaces with a single space
+    return `${name} ${city} ${regionStr} ${countryStr} ${context}`.replace(/\s+/g, ' ').trim();
   };
 
   // FIX: Smart Guide Link Fallback
@@ -151,4 +164,4 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
     </div>
   );
 };
-// --- END OF FILE 120 Zeilen ---
+// --- END OF FILE 131 Zeilen ---
