@@ -1,3 +1,4 @@
+// 22.02.2026 14:00 - DOCS: Added 'post_planning' help text for Trip Finance, Smart Currency, and Live Diary.
 // 20.02.2026 23:35 - DOCS: Injected the [CATALOG_BUTTON] magic tag into the Interests Step to trigger the new parser.
 // src/data/help.ts
 /**
@@ -48,6 +49,13 @@ export const HELP_TEXTS: Record<string, { title: LocalizedContent; body: Localiz
       de: "**Was ist hier zu tun?**\nDies ist Ihr letzter Checkpoint vor dem Start der sogenannten 'Magic Chain' (unserer KI-Workflow-Engine).\n\n**1. Die finale Kontrolle:**\nÜberprüfen Sie alle angezeigten Kacheln. Grüne Häkchen bestätigen, dass das System alle benötigten Daten hat. Rote Warnungen zeigen an, wo noch zwingend Informationen (wie z.B. das Reiseziel) fehlen.\n\n**2. Letzte Anpassungen:**\nFällt Ihnen noch ein Fehler auf? Kein Problem. Klicken Sie einfach auf den 'Bearbeiten'-Pfeil in einer Kachel, um blitzschnell zu diesem Schritt zurückzuspringen.\n\n**3. Der Startschuss:**\nWenn alle Ampeln auf Grün stehen, klicken Sie auf **'Reise generieren'**. \nLehnen Sie sich zurück. Im Hintergrund startet nun ein ganzes Team von digitalen Experten (Strategen, Orts-Sammler, Fakten-Prüfer und Texter), die nacheinander Ihre Daten verarbeiten. Dieser Prozess kann – je nach Länge der Reise – ein bis zwei Minuten dauern.",
       en: "**What to do here?**\nThis is your final checkpoint before launching the 'Magic Chain' (our AI workflow engine).\n\n**1. Final Review:**\nCheck all displayed tiles. Green checkmarks confirm the system has everything it needs. Red warnings indicate where critical info (like the destination) is still missing.\n\n**2. Last Adjustments:**\nSpotted an error? No problem. Just click the 'Edit' arrow on any tile to instantly jump back to that step.\n\n**3. Launch:**\nWhen all lights are green, click **'Generate Trip'**. \nLean back. In the background, a whole team of digital experts (strategists, place scouts, fact-checkers, and writers) will now sequentially process your data. Depending on the trip's length, this magical process can take a minute or two."
     }
+  },
+  'post_planning': {
+    title: { de: "Nach der Planung: Live on Tour", en: "After Planning: Live on Tour" },
+    body: {
+      de: "**Ihre Reise ist geplant. Wie geht es jetzt weiter?**\nPapatours begleitet Sie auch vor Ort mit smarten Funktionen.\n\n**1. Reisekasse & Smart Currency:**\nFinden Sie im Aktions-Menü. Erfassen Sie Ausgaben und teilen Sie diese auf die Reisenden auf. Klicken Sie auf das 'Währungs-Icon', um tagesaktuelle Bankenkurse abzurufen. Papatours rechnet am Ende der Reise alle Ausgaben in verschiedenen Währungen automatisch in Ihre Hauptwährung um, sodass Sie genau wissen, wer wem wie viel schuldet.\n\n**2. Live-Reisetagebuch & GPS:**\nIm Bereich 'Plan' finden Sie Ihr Reisetagebuch. Checken Sie bei besuchten Sehenswürdigkeiten ein oder erstellen Sie 'Eigene Einträge'. Mit einem Klick auf das GPS-Symbol speichert das System exakt Ihren aktuellen Standort, damit Sie später wissen, wo dieses tolle kleine Café war.\n\n**3. Die Transfer-Brücke:**\nTagebuch und Reisekasse sind verbunden! Wenn Sie einen Tagebucheintrag schreiben, können Sie mit einem Klick auf 'Speichern & Kosten erfassen' direkt den Preis für diesen Ort hinterlegen – oder umgekehrt.",
+      en: "**Your trip is planned. What's next?**\nPapatours accompanies you on your journey with smart features.\n\n**1. Trip Finance & Smart Currency:**\nFound in the Actions Menu. Record expenses and split them among travelers. Click the 'Currency icon' to fetch live bank rates. At the end of the trip, Papatours automatically converts all foreign expenses into your base currency to settle balances perfectly.\n\n**2. Live Travel Diary & GPS:**\nIn the 'Plan' view, you'll find your diary. Check in at visited sights or add 'Custom Entries'. Click the GPS icon to save your exact current location, so you'll never forget where that amazing little cafe was.\n\n**3. The Transfer Bridge:**\nDiary and Finance are connected! When writing a diary note, you can click 'Save & record costs' to instantly log the price for this place – or vice versa."
+    }
   }
 };
 
@@ -77,4 +85,4 @@ export const ACCESSIBILITY_OPTIONS = {
     ]
   }
 };
-// --- END OF FILE 109 Zeilen ---
+// --- END OF FILE 137 Zeilen ---

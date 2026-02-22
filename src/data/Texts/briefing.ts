@@ -1,3 +1,4 @@
+// 22.02.2026 14:40 - RESTRUCTURE: Integrated Smart-Currency, Trip Finance and the Diary Bridge into core architecture sections.
 // 20.02.2026 21:00 - DOCS: Updated Architecture (Smart Autosave, Live-Tagebuch, Reserve-Logik, Background Worker, Multi-City Chunking).
 // 10.02.2026 12:00 - DOCS: Added LiveUpdate Service & Safety Protocols.
 // 01.02.2026 15:00 - DOCS: Updated Architecture (SightCard Split, SSOT Logistics, Path Fixes).
@@ -113,6 +114,8 @@ interface TripProject {
       places: Record<string, Place>;  // IMMER mit ID (UUID v4).
                                       // Inkl. visited, visitedAt, userNote, liveStatus
       routes: Record<string, Route>;
+      expenses?: Record<string, Expense>; // NEU: Reisekasse
+      currencyConfig?: CurrencyConfig;   // NEU: Währungs-Settings
       
       // 2. INFO VIEW (Reines Wissen & Texte)
       // Hier landen: Reiseinfos, Budget, Anreise, Stadtinfos, Ignored Places.
@@ -232,6 +235,18 @@ Das System agiert als aktiver Reisebegleiter:
 * **Notizen:** Jeder Ort hat ein interaktives Feld für persönliche Erlebnisse (\`userNote\`).
 * **Custom Entries (\`custom_diary\`):** Der User kann völlig freie, neue Einträge anlegen, die nicht von der KI kommen. Diese Einträge können direkt mit dem HTML5 GPS des Smartphones getaggt werden.
 
+**G. Smart-Currency & Trip Finance**
+* **Datenmodell:** \`TripProject.data\` speichert \`expenses\` und \`currencyConfig\`.
+* **CurrencyConfig Engine:** Speichert eine Hauptwährung und Fremdwährungen inkl. Wechselkurs. Kurse können per freier API (open.er-api.com) abgerufen werden, inkl. 1.75% Banken-Spread.
+* **Settlement Engine:** Im \`TripFinanceModal\` werden alle Ausgaben zur Laufzeit in die \`baseCurrency\` umgerechnet. Die finale Bilanz ("Wer schuldet wem") basiert ausschließlich auf der Hauptwährung.
+* **Stacking Contexts:** Modale für Währungen und Ausgaben nutzen zwingend \`createPortal(..., document.body)\`, um Z-Index-Fallen zu entgehen.
+
+**H. The Transfer Bridge (Tagebuch <-> Kasse)**
+Es gibt eine strikte Verknüpfung zwischen Notizen (\`category: 'custom_diary'\` in \`places\`) und der Reisekasse (\`expenses\`).
+* "Speichern & Notiz anlegen" (Ausgabe -> Tagebuch)
+* "Speichern & Kosten erfassen" (Tagebuch -> Ausgabe)
+Titel und GPS-Daten werden nahtlos übergeben, ohne den User durch doppelte Eingaben zu belasten.
+
 ---
 
 ### 8. Workflow Inventory & Prompt Architecture
@@ -324,7 +339,15 @@ Infrastruktur für typ-sichere KI-Interaktion.
 | \`infoAutor.ts\` | Wiki | Schreibt allgemeine Kapitel (Kultur, Tipps). |
 | \`ideenScout.ts\` | Joker | Liefert Schlechtwetter-Alternativen. |
 
-### D. Data & Config (The Knowledge)
+### D. UI & Feature Components (Cockpit)
+| Datei | Beschreibung |
+| :--- | :--- |
+| \`TripFinanceModal.tsx\` | Das Haupt-Dashboard der Reisekasse (Abrechnungs-Engine, Bilanzen, Historie). |
+| \`ExpenseEntryButton.tsx\` | Universeller Button (React Portal) zur Erfassung von Ausgaben. |
+| \`CurrencyConfigModal.tsx\` | Modal für die Smart-Currency Logik inkl. Live-API-Abruf. |
+| \`PlanView.tsx\` | Zeigt Reiseroute und das Live-Reisetagebuch. |
+
+### E. Data & Config (The Knowledge)
 | Datei | Beschreibung |
 | :--- | :--- |
 | \`src/data/Texts/prompt_architecture.ts\` | **DOCS SSOT.** Beschreibt die Logik aller Agenten (Inverted Search Pipeline). |
@@ -409,4 +432,4 @@ Merk dir, dass ich für das Papatours Projekt immer unter dem Strict Code Integr
 `
   }
 };
-// --- END OF FILE 846 Zeilen ---
+// --- END OF FILE 871 Zeilen ---
