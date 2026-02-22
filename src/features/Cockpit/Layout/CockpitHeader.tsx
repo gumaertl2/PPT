@@ -1,3 +1,4 @@
+// 22.02.2026 17:35 - FIX: Made the global search input visible and responsive on mobile portrait screens.
 // 21.02.2026 13:30 - FEAT: Added state and integration for the new TripFinanceModal.
 // 21.02.2026 01:00 - FIX: Smart Search Routing. Prevents forcing the user into 'sights' view when searching while inside the 'info' view.
 // 20.02.2026 23:50 - FIX: Restored the "Double-Tap" Filter shortcut on the Guide button.
@@ -157,23 +158,23 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
       <div className="h-16 w-full shrink-0 bg-transparent no-print"></div>
 
       <header className="bg-white border-b border-slate-200 fixed top-0 left-0 w-full h-16 z-[999] shadow-sm transform-none">
-        <div className="max-w-4xl mx-auto px-4 h-full flex items-center justify-between gap-2 sm:gap-4">
+        <div className="max-w-4xl mx-auto px-2 sm:px-4 h-full flex items-center justify-between gap-1 sm:gap-4">
           
           {/* LEFT GROUP */}
-          <div className="flex items-center gap-1 md:gap-2 flex-1 min-w-0">
+          <div className="flex items-center gap-0.5 sm:gap-2 flex-1 min-w-0">
             
             <button 
               onClick={handleHomeClick} 
-              className="p-2 text-slate-700 hover:bg-slate-100 hover:text-blue-600 rounded-lg transition-colors mr-1 shrink-0"
+              className="p-1.5 sm:p-2 text-slate-700 hover:bg-slate-100 hover:text-blue-600 rounded-lg transition-colors shrink-0"
               title={t('tooltips.home')}
             >
-              <Home className="w-6 h-6" />
+              <Home className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
             
-            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar mask-gradient pr-2 shrink min-w-0">
+            <div className="flex items-center gap-0.5 sm:gap-1 overflow-x-auto no-scrollbar mask-gradient pr-1 shrink min-w-0">
                  <button 
                     onClick={() => setViewMode('plan')} 
-                    className={`flex flex-col items-center px-2 py-1 rounded transition-colors shrink-0 ${
+                    className={`flex flex-col items-center px-1.5 sm:px-2 py-1 rounded transition-colors shrink-0 ${
                        viewMode === 'plan' 
                          ? 'text-blue-600 bg-blue-50' 
                          : 'text-slate-500 hover:bg-slate-100'
@@ -199,7 +200,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                        window.scrollTo({ top: 0, behavior: 'smooth' });
                      }
                    }} 
-                   className={`flex flex-col items-center px-2 py-1 rounded transition-colors shrink-0 ${
+                   className={`flex flex-col items-center px-1.5 sm:px-2 py-1 rounded transition-colors shrink-0 ${
                      viewMode === 'sights' && uiState.viewMode !== 'map' 
                        ? 'text-blue-600 bg-blue-50' 
                        : 'text-slate-500 hover:bg-slate-100'
@@ -212,7 +213,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
 
                  <button 
                    onClick={() => setViewMode('info')}
-                   className={`flex flex-col items-center px-2 py-1 rounded transition-colors shrink-0 ${
+                   className={`flex flex-col items-center px-1.5 sm:px-2 py-1 rounded transition-colors shrink-0 ${
                      viewMode === 'info' 
                        ? 'text-blue-600 bg-blue-50' 
                        : 'text-slate-500 hover:bg-slate-100'
@@ -228,7 +229,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                      setViewMode('sights');
                      setUIState({ viewMode: 'map', selectedPlaceId: null });
                    }}
-                   className={`flex flex-col items-center px-2 py-1 rounded transition-colors shrink-0 ${
+                   className={`flex flex-col items-center px-1.5 sm:px-2 py-1 rounded transition-colors shrink-0 ${
                      viewMode === 'sights' && uiState.viewMode === 'map'
                        ? 'text-blue-600 bg-blue-50' 
                        : 'text-slate-500 hover:bg-slate-100'
@@ -244,7 +245,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                      if (viewMode !== 'sights') setViewMode('sights');
                      toggleSightFilter();
                    }}
-                   className={`flex flex-col items-center px-2 py-1 rounded transition-colors shrink-0 ${
+                   className={`flex flex-col items-center px-1.5 sm:px-2 py-1 rounded transition-colors shrink-0 ${
                      isSightFilterOpen && viewMode === 'sights'
                        ? 'text-blue-600 bg-blue-50'
                        : isFilterActive ? 'text-amber-500 hover:bg-amber-50' : 'text-slate-500 hover:bg-slate-100'
@@ -256,8 +257,9 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                  </button>
             </div>
 
-             <div className="relative flex items-center ml-1 group shrink-0 hidden sm:flex">
-                <Search className="absolute left-2 w-3 h-3 text-slate-400 pointer-events-none" />
+             {/* FIX: Removed 'hidden sm:flex' to make search input visible on mobile. Adjusted widths for small screens. */}
+             <div className="relative flex items-center ml-0.5 sm:ml-1 group shrink-0">
+                <Search className="absolute left-1.5 sm:left-2 w-3 h-3 text-slate-400 pointer-events-none" />
                 <input 
                   type="text" 
                   value={uiState.searchTerm || ''}
@@ -268,12 +270,12 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                       setUIState({ searchTerm: e.target.value });
                   }}
                   placeholder={t('sights.search_placeholder', { defaultValue: 'Suchen...' })}
-                  className="pl-7 pr-6 py-1.5 text-xs border border-slate-200 rounded-full bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:bg-white w-24 sm:focus:w-36 transition-all duration-300 placeholder:text-slate-400"
+                  className="pl-6 sm:pl-7 pr-5 sm:pr-6 py-1.5 text-[10px] sm:text-xs border border-slate-200 rounded-full bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:bg-white w-20 focus:w-28 sm:w-24 sm:focus:w-36 transition-all duration-300 placeholder:text-slate-400"
                 />
                 {uiState.searchTerm && (
                   <button 
                     onClick={() => setUIState({ searchTerm: '' })}
-                    className="absolute right-1.5 p-0.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200"
+                    className="absolute right-1 sm:right-1.5 p-0.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -282,7 +284,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
           </div>
           
           {/* RIGHT GROUP */}
-          <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+          <div className="flex items-center gap-0.5 sm:gap-2 flex-shrink-0">
 
               <button 
                 onClick={() => {
@@ -292,14 +294,14 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                     setShowManualModal(true); 
                   }
                 }}
-                className="flex flex-col items-center px-2 py-1 text-slate-500 hover:bg-slate-100 rounded transition-colors shrink-0"
+                className="flex flex-col items-center px-1.5 sm:px-2 py-1 text-slate-500 hover:bg-slate-100 rounded transition-colors shrink-0"
                 title={t('tooltips.help')}
               >
                 <HelpCircle className="w-4 h-4 lg:w-5 lg:h-5 mb-0.5" />
                 <span className="text-[10px] font-bold uppercase tracking-wide hidden xl:inline">{t('wizard.toolbar.help')}</span>
               </button>
               
-              <div className="w-px h-8 bg-slate-200 mx-1 hidden sm:block"></div>
+              <div className="w-px h-6 sm:h-8 bg-slate-200 mx-0.5 sm:mx-1"></div>
 
               <ActionsMenu 
                 viewMode={viewMode}

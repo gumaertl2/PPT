@@ -1,3 +1,4 @@
+// 22.02.2026 17:30 - FEAT: Added search filtering and yellow highlighting for the search term.
 // 22.02.2026 16:05 - FIX: Removed 'print:break-inside-avoid' from info cards to prevent PDF text cutoff on long texts. Added 'print:break-after-avoid' to header instead.
 // 06.02.2026 17:10 - FIX: Corrected File Path Header & Print Optimization.
 // 29.01.2026 12:30 - FIX: InfoView Layout Optimization. Always full text, Smart Titles, Reduced Spacing, Removed Main Header.
@@ -20,9 +21,27 @@ const INFO_PLACE_CATEGORIES = [
     'travel_info', 'city_info', 'arrival', 'budget', 'hotel', 'ignored_places'
 ];
 
+// Helper: Text-Highlighting
+const highlightText = (text: string, term: string) => {
+    if (!term || typeof text !== 'string') return text;
+    const parts = text.split(new RegExp(`(${term})`, 'gi'));
+    return (
+        <>
+            {parts.map((part, i) => 
+                part.toLowerCase() === term.toLowerCase() 
+                ? <mark key={i} className="bg-yellow-200 text-slate-900 font-medium rounded-sm px-0.5">{part}</mark> 
+                : part
+            )}
+        </>
+    );
+};
+
 export const InfoView: React.FC = () => {
   const { t } = useTranslation();
-  const { project } = useTripStore();
+  const { project, uiState } = useTripStore();
+  
+  // Lese Suchbegriff aus dem Store
+  const searchTerm = (uiState.searchTerm || '').toLowerCase();
   
   const [debugItem, setDebugItem] = useState<any | null>(null);
   
@@ -36,16 +55,13 @@ export const InfoView: React.FC = () => {
       if (Array.isArray(contentInfos)) {
           contentInfos.forEach((item: any) => {
               if (!seenIds.has(item.id)) {
-                  // TITEL-EXTRAKTION: Versuche, "## Titel" aus dem Content zu holen
                   let smartTitle = item.title;
                   const rawContent = item.content || item.description || '';
                   
-                  // Regex sucht nach "## Text" am Anfang oder nach Newlines
                   const titleMatch = rawContent.match(/^##\s+(.*?)(?:\\n|\n|$)/);
                   if (titleMatch && titleMatch[1]) {
                       smartTitle = titleMatch[1].trim();
                   } else if (item.title && item.title.startsWith('city info')) {
-                      // Fallback, falls kein Markdown Header gefunden wurde aber der technische Titel hässlich ist
                       smartTitle = 'Stadt-Information';
                   }
 
@@ -103,7 +119,16 @@ export const InfoView: React.FC = () => {
       return items;
   }, [project.data.content, project.data.places, project.analysis]);
 
-  // 2. HELPER: MARKDOWN PARSER (Compact Spacing)
+  // Such-Filter anwenden
+  const filteredInfoItems = useMemo(() => {
+      if (!searchTerm) return infoItems;
+      return infoItems.filter(item => {
+          const searchable = [item.displayTitle, item.title, item.content, item.category].filter(Boolean).join(' ').toLowerCase();
+          return searchable.includes(searchTerm);
+      });
+  }, [infoItems, searchTerm]);
+
+  // 2. HELPER: MARKDOWN PARSER (Compact Spacing & Highlighting)
   const renderMarkdown = (text: string | undefined) => {
     if (!text) return <span className="text-gray-400 italic">Kein Inhalt verfügbar.</span>;
 
@@ -121,8 +146,7 @@ export const InfoView: React.FC = () => {
       // HEADERS (### or **)
       if (trimmed.startsWith('###') || trimmed.startsWith('##')) {
          const content = trimmed.replace(/^#+\s*/, '');
-         // mt-3 statt mt-4 für kompakteres Layout
-         return <h4 key={index} className="font-bold text-slate-800 mt-3 mb-1 text-base border-b border-slate-100 pb-1">{content}</h4>;
+         return <h4 key={index} className="font-bold text-slate-800 mt-3 mb-1 text-base border-b border-slate-100 pb-1">{highlightText(content, searchTerm)}</h4>;
       }
 
       // LIST ITEMS
@@ -134,8 +158,8 @@ export const InfoView: React.FC = () => {
               <p className="flex-1">
                 {parts.map((part, i) => 
                     part.startsWith('**') && part.endsWith('**') 
-                    ? <strong key={i} className="font-semibold text-slate-900">{part.slice(2, -2)}</strong>
-                    : part
+                    ? <strong key={i} className="font-semibold text-slate-900">{highlightText(part.slice(2, -2), searchTerm)}</strong>
+                    : highlightText(part, searchTerm)
                 )}
               </p>
            </div>
@@ -146,12 +170,11 @@ export const InfoView: React.FC = () => {
       if (trimmed.startsWith('**') && trimmed.includes('**')) {
           const parts = trimmed.split(/(\*\*.*?\*\*)/g);
           return (
-            // mt-2 sorgt für Abstand zum vorherigen Block, aber nicht zu viel
             <p key={index} className="mb-1 text-sm text-slate-600 leading-relaxed mt-2">
                {parts.map((part, i) => 
                   part.startsWith('**') && part.endsWith('**') 
-                  ? <strong key={i} className="font-bold text-slate-800 block mb-0.5">{part.slice(2, -2)}</strong>
-                  : part
+                  ? <strong key={i} className="font-bold text-slate-800 block mb-0.5">{highlightText(part.slice(2, -2), searchTerm)}</strong>
+                  : highlightText(part, searchTerm)
                )}
             </p>
           );
@@ -160,7 +183,7 @@ export const InfoView: React.FC = () => {
       // NORMAL TEXT
       return (
         <p key={index} className="mb-2 text-sm text-slate-600 leading-relaxed">
-           {trimmed}
+           {highlightText(trimmed, searchTerm)}
         </p>
       );
     });
@@ -198,33 +221,34 @@ export const InfoView: React.FC = () => {
   };
 
   return (
-    // FIX: Added 'info-view-root' class for print control
-    // FIX: Added print modifiers to enable proper printing
     <div className="h-full flex flex-col bg-slate-50/50 overflow-y-auto p-4 pb-24 info-view-root print:h-auto print:overflow-visible print:bg-white print:p-0 print:pb-0">
       
       {/* CONTENT LIST */}
-      {infoItems.length === 0 ? (
+      {filteredInfoItems.length === 0 ? (
          <div className="flex flex-col items-center justify-center h-64 text-slate-400 border-2 border-dashed border-slate-200 rounded-xl bg-white print:border-none">
             <FileText className="w-12 h-12 mb-2 opacity-20" />
-            <p>Keine Informationen gefunden.</p>
-            <p className="text-xs mt-2 text-slate-400 print:hidden">Prüfen Sie, ob der Workflow "Infos A-Z" ausgeführt wurde.</p>
+            <p>
+                {searchTerm 
+                    ? `Keine Ergebnisse für "${searchTerm}" gefunden.` 
+                    : 'Keine Informationen gefunden.'}
+            </p>
+            {!searchTerm && <p className="text-xs mt-2 text-slate-400 print:hidden">Prüfen Sie, ob der Workflow "Infos A-Z" ausgeführt wurde.</p>}
          </div>
       ) : (
          <div className="space-y-6 print:space-y-8">
-            {infoItems.map((item: any, idx: number) => {
+            {filteredInfoItems.map((item: any, idx: number) => {
                 const itemId = item.id || `info_${idx}`;
                 const rawContent = item.content || item.description || '';
 
                 return (
-                  // FIX: Removed print:break-inside-avoid so long texts can flow over multiple pages without being cut off
                   <div key={itemId} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow print:shadow-none print:border-b print:border-t-0 print:border-x-0 print:rounded-none print:mb-4">
                       
-                      {/* CARD HEADER - Added print:break-after-avoid so title sticks to text */}
+                      {/* CARD HEADER */}
                       <div className="bg-slate-50/50 p-3 border-b border-slate-100 flex justify-between items-start print:bg-white print:pl-0 print:break-after-avoid">
                           <div className="flex flex-col">
                               <h3 className="font-bold text-slate-800 flex items-center gap-2 text-lg">
                                   {item.isPlace ? <MapPin className="w-5 h-5 text-indigo-500" /> : <span className="text-indigo-500 text-xl">ℹ️</span>}
-                                  {item.displayTitle || item.title || "Information"}
+                                  {highlightText(item.displayTitle || item.title || "Information", searchTerm)}
                               </h3>
                               {item.category && (
                                   <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mt-0.5 ml-8">
@@ -255,7 +279,7 @@ export const InfoView: React.FC = () => {
                           </div>
                       </div>
 
-                      {/* CARD BODY - ALWAYS FULLY EXPANDED */}
+                      {/* CARD BODY */}
                       <div className="p-5 pt-2 print:px-0">
                           <div className="text-sm text-slate-600 print:text-black">
                               {renderMarkdown(rawContent)}
@@ -267,7 +291,7 @@ export const InfoView: React.FC = () => {
          </div>
       )}
 
-      {/* DEBUG MODAL - Hidden in Print via global CSS, but redundant check is safe */}
+      {/* DEBUG MODAL */}
       {debugItem && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in print:hidden">
            <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col">
@@ -287,4 +311,4 @@ export const InfoView: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 229 Zeilen ---
+// --- END OF FILE 256 Zeilen ---
