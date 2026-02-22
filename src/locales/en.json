@@ -345,7 +345,7 @@
     "group_sort": "Group & Sort by",
     "category": "Category",
     "alphabetical": "Alphabetical",
-    "day": "Day (Dayplan)",
+    "day": "Day",
     "tour": "Tour (Route Plan)",
     "categories": "Categories",
     "reset_filter": "Show All",
@@ -368,7 +368,9 @@
     "planning_mode": "Planning Mode",
     "planning_mode_desc": "Activate this to show budget, priorities, and reserve list.",
     "planning_active": "Planning Mode Active",
-    "open_map": "Open on map"
+    "open_map": "Open on map",
+    "radar_button": "Radar: What is near me?",
+    "radar_locating": "Locating..."
   },
   "route": {
     "no_results": "No route suggestions available.",

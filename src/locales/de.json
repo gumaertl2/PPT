@@ -326,7 +326,7 @@
     "stationary": "Stationär",
     "roadtrip": "Rundreise"
   },
-  "sights": {
+ "sights": {
     "budget": "Budget",
     "select": "Wählen",
     "selected": "Ausgewählt",
@@ -345,7 +345,7 @@
     "group_sort": "Gruppieren & Sortieren nach",
     "category": "Kategorie",
     "alphabetical": "Alphabetisch",
-    "day": "Day (Tagesplan)",
+    "day": "Tag",
     "tour": "Tour (Routenplan)",
     "categories": "Kategorien",
     "reset_filter": "Alle anzeigen",
@@ -368,7 +368,9 @@
     "planning_mode": "Planungsmodus",
     "planning_mode_desc": "Aktivieren Sie dies, um Budget, Prioritäten und die Reserve-Liste anzuzeigen.",
     "planning_active": "Planungsmodus aktiv",
-    "open_map": "Auf Karte öffnen"
+    "open_map": "Auf Karte öffnen",
+    "radar_button": "Radar: Was ist in meiner Nähe?",
+    "radar_locating": "Ortung läuft..."
   },
   "route": {
     "no_results": "Keine Routenvorschläge verfügbar.",

@@ -1,7 +1,6 @@
+// 22.02.2026 15:20 - FIX: Applied i18n to the new Radar Button texts.
 // 22.02.2026 15:15 - FEAT: Added 'Radar' feature (Find Nearest Sight via GPS) with auto-scroll navigation.
 // 20.02.2026 20:25 - FIX: Removed unused 'Filter' import from lucide-react (TS6133).
-// 20.02.2026 19:40 - UX: Integrated Reserve items into their natural groups (Categories/Tours) and pushed them to the bottom.
-// 19.02.2026 23:45 - FIX: Fixed empty Map in Day Mode & added Smart Map Filtering (Selected Day + Unassigned).
 // src/features/Cockpit/SightsView.tsx
 
 import React, { useMemo, useEffect, useState } from 'react';
@@ -484,7 +483,7 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
                             className={`flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm border ${isLocating ? 'bg-indigo-50 text-indigo-400 border-indigo-100 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white border-transparent hover:shadow-md'}`}
                         >
                             <Navigation className={`w-4 h-4 ${isLocating ? 'animate-pulse' : ''}`} />
-                            {isLocating ? 'Ortung läuft...' : 'Radar: Was ist in meiner Nähe?'}
+                            {isLocating ? t('sights.radar_locating', { defaultValue: 'Ortung läuft...' }) : t('sights.radar_button', { defaultValue: 'Radar: Was ist in meiner Nähe?' })}
                         </button>
                     </div>
                 )}
