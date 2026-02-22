@@ -1,3 +1,4 @@
+// 22.02.2026 16:45 - UX: Added confirmation prompt before undoing a check-in and implemented 5-star Emotion Rating per diary entry.
 // 22.02.2026 12:30 - I18N: Replaced all hardcoded German texts in Route and Diary sections with translation keys.
 // 21.02.2026 18:30 - FEAT: Added "Save & Expense" bridge to the Diary form. Automatically triggers the expense modal.
 // src/features/Cockpit/PlanView.tsx
@@ -7,7 +8,7 @@ import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
 import { 
   CheckCircle, CheckCircle2, Map as MapIcon, ExternalLink, 
-  PenLine, X, MapPin, Trash2, Clock, Navigation, Quote, ArrowRight, Banknote
+  PenLine, X, MapPin, Trash2, Clock, Navigation, Quote, ArrowRight, Banknote, Star
 } from 'lucide-react';
 import type { LanguageCode, Place } from '../../core/types';
 import { INTEREST_DATA } from '../../data/staticData';
@@ -137,6 +138,13 @@ export const PlanView: React.FC = () => {
       }
   };
 
+  // FIX: Safety prompt for normal check-ins
+  const handleUndoCheckin = (id: string) => {
+      if (confirm(t('diary.undo_confirm', { defaultValue: 'Willst du diesen Check-in wirklich rückgängig machen?' }))) {
+          togglePlaceVisited(id);
+      }
+  };
+
   const renderVisitedDiary = () => {
     const visitedPlaces = Object.values(data?.places || {})
         .filter((p: any) => p.visited && p.visitedAt)
@@ -203,6 +211,8 @@ export const PlanView: React.FC = () => {
                     const timeStr = new Intl.DateTimeFormat(currentLang === 'de' ? 'de-DE' : 'en-US', { hour: '2-digit', minute: '2-digit' }).format(dateObj);
                     const isCustomEntry = place.category === 'custom_diary';
                     const categoryLabel = isCustomEntry ? t('diary.custom_entry_label', { defaultValue: 'Eigener Eintrag' }) : (INTEREST_DATA[place.category] ? resolveLabel(INTEREST_DATA[place.category]) : place.category);
+                    
+                    const rating = place.userRating || 0;
 
                     return (
                         <div key={place.id} className="relative pl-6 ml-3 py-2 border-l-2 border-emerald-200">
@@ -219,14 +229,28 @@ export const PlanView: React.FC = () => {
                                         {isCustomEntry ? (
                                             <button onClick={() => handleDeleteCustom(place.id)} className="p-1.5 rounded bg-white text-slate-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors shadow-sm border border-slate-200" title={t('diary.delete_entry', { defaultValue: 'Eintrag löschen' })}><Trash2 size={12} /></button>
                                         ) : (
-                                            <button onClick={() => togglePlaceVisited(place.id)} className="p-1.5 rounded bg-white text-emerald-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors shadow-sm border border-slate-200 group" title={t('diary.undo_checkin', { defaultValue: 'Check-in rückgängig machen' })}><CheckCircle2 size={12} className="group-hover:hidden" /><X size={12} className="hidden group-hover:block" /></button>
+                                            <button onClick={() => handleUndoCheckin(place.id)} className="p-1.5 rounded bg-white text-emerald-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors shadow-sm border border-slate-200 group" title={t('diary.undo_checkin', { defaultValue: 'Check-in rückgängig machen' })}><CheckCircle2 size={12} className="group-hover:hidden" /><X size={12} className="hidden group-hover:block" /></button>
                                         )}
                                     </div>
                                 </div>
                                 
-                                <div className="text-xs text-slate-500 flex gap-1 items-center font-medium mb-1.5">
+                                <div className="text-xs text-slate-500 flex gap-1 items-center font-medium mb-2">
                                     {isCustomEntry ? <PenLine size={10} className="text-indigo-400" /> : <MapIcon size={10} className="text-emerald-400" />} {categoryLabel}
                                     {place.location?.lat && (<a href={`https://www.google.com/maps/search/?api=1&query=${place.location.lat},${place.location.lng}`} target="_blank" rel="noopener noreferrer" className="ml-2 flex items-center gap-0.5 text-blue-500 hover:underline" title={t('sights.open_map', { defaultValue: 'Auf Karte öffnen' })}><MapPin size={10}/> GPS</a>)}
+                                </div>
+
+                                {/* FEAT: 5-Star Emotion Rating */}
+                                <div className="flex items-center gap-1 mb-2">
+                                    {[1, 2, 3, 4, 5].map(star => (
+                                        <button 
+                                            key={star} 
+                                            onClick={(e) => { e.stopPropagation(); updatePlace(place.id, { userRating: star === rating ? 0 : star }); }}
+                                            className={`transition-transform hover:scale-110 p-0.5 ${star <= rating ? 'text-amber-400' : 'text-slate-200 hover:text-amber-200'}`}
+                                            title={`${star} Stern${star > 1 ? 'e' : ''}`}
+                                        >
+                                            <Star size={14} className={star <= rating ? "fill-current" : ""} />
+                                        </button>
+                                    ))}
                                 </div>
 
                                 {editingNoteId === place.id ? (
@@ -253,4 +277,4 @@ export const PlanView: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 259 Zeilen ---
+// --- END OF FILE 279 Zeilen ---

@@ -1,6 +1,6 @@
+// 22.02.2026 16:45 - FEAT: Added 'userRating' to Place interface for Diary Emotion Rating.
 // 22.02.2026 13:00 - FIX: Added 'currencyConfig' to TripProject data and added import.
 // 21.02.2026 15:20 - FIX: Added 'travelerNames' to TripUserProfile and 'expenses' to TripProject data for Trip Finance feature.
-// 20.02.2026 17:30 - FEAT: Added 'diary' to PrintConfig for exporting the Personal Travel Diary.
 // src/core/types/models.ts
 
 import type { LanguageCode, Expense, CurrencyConfig } from './shared';
@@ -294,6 +294,7 @@ export interface Place {
   visited?: boolean;
   visitedAt?: string; 
   userNote?: string;
+  userRating?: number; // FEAT: Added Emotion Rating (1-5) for the Diary
   googlePlaceId?: string; 
   
   // Enriched Links
@@ -348,10 +349,10 @@ export interface TripProject {
     content: Record<string, any>; 
     routes: Record<string, any>;
     expenses?: Record<string, Expense>; 
-    currencyConfig?: CurrencyConfig; // FIX: Added to fix Vercel Type Errors
+    currencyConfig?: CurrencyConfig; 
   };
   itinerary: {
     days: any[];
   };
 }
-// --- END OF FILE 331 Zeilen ---
+// --- END OF FILE 332 Zeilen ---
