@@ -1,3 +1,4 @@
+// 22.02.2026 15:00 - FIX: Bridge UX Improvements. Fixed initialization on forceOpen and added interactive Note-Step modal.
 // 22.02.2026 13:40 - FIX: Prevented standalone button from completely hiding on mobile when used in headers.
 // 22.02.2026 13:00 - FIX: Corrected import path for 'Place' to fix Vercel build error.
 // src/features/Cockpit/ExpenseEntryButton.tsx
@@ -64,13 +65,26 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
     const [location, setLocation] = useState<{lat: number, lng: number} | null>(defaultLocation);
     const [isFetchingGPS, setIsFetchingGPS] = useState(false);
 
+    // NEU: States für den 2. Schritt (Notiz)
+    const [isNoteStep, setIsNoteStep] = useState(false);
+    const [noteText, setNoteText] = useState('');
+
+    // BUGFIX 1: Initiale Belegung, wenn von der Tagebuch-Brücke aufgerufen
     useEffect(() => {
         if (forceOpen) {
             setIsOpen(true);
             if (defaultLocation) setLocation(defaultLocation);
             if (!availableCurrencies.includes(currency)) setCurrency(availableCurrencies[0]);
+            
+            const currentNames = (travelers || '').split(',').map(n => n.trim()).filter(Boolean);
+            if (currentNames.length > 0) {
+                setPaidBy(prev => prev || currentNames[0]);
+                setSplitMode('equal');
+                setSplitAmong(prev => prev.length > 0 ? prev : currentNames);
+            }
         }
-    }, [forceOpen, defaultLocation, availableCurrencies, currency]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [forceOpen]);
 
     const expenses = Object.values(project.data.expenses || {}).filter((e: Expense) => 
         (placeId && e.placeId === placeId) || (!placeId && e.title === defaultTitle)
@@ -124,13 +138,15 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
             setShowSplit(false); 
             setLocation(defaultLocation);
             setIsFetchingGPS(false);
+            setIsNoteStep(false);
+            setNoteText('');
         } else {
             if (onClose) onClose();
         }
         setIsOpen(!isOpen);
     };
 
-    const handleSave = (e: React.MouseEvent, alsoToDiary: boolean = false) => {
+    const handleSave = (e: React.MouseEvent, promptForNote: boolean = false) => {
         e.stopPropagation();
         const numAmount = parseFloat(amount.replace(',', '.'));
         const finalTitle = mode === 'standalone' ? (customTitle.trim() || defaultTitle) : defaultTitle;
@@ -165,20 +181,37 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
             location: location || undefined
         });
 
-        if (alsoToDiary) {
-            const newId = `custom_${uuidv4()}`;
-            const newPlace: Place = {
-                id: newId, 
-                name: finalTitle, 
-                category: 'custom_diary',
-                visited: true, 
-                visitedAt: new Date().toISOString(), 
-                userNote: `${t('finance.expense', { defaultValue: 'Ausgabe' })}: ${numAmount} ${currency}`,
-                location: location || undefined
-            };
-            setProject({ ...project, data: { ...project.data, places: { ...project.data.places, [newId]: newPlace } } });
+        // BUGFIX 2: Wechsel in den "Notiz"-Schritt anstatt sofort zu schließen
+        if (promptForNote) {
+            setIsNoteStep(true);
+        } else {
+            setIsOpen(false);
+            if (onClose) onClose();
         }
+    };
 
+    // NEU: Speichern der Notiz (Schritt 2)
+    const handleSaveNote = () => {
+        const newId = `custom_${uuidv4()}`;
+        const finalTitle = mode === 'standalone' ? (customTitle.trim() || defaultTitle) : defaultTitle;
+        const numAmount = parseFloat(amount.replace(',', '.'));
+        const autoText = `${t('finance.expense', { defaultValue: 'Ausgabe' })}: ${numAmount} ${currency}`;
+        
+        const finalNote = noteText.trim() ? `${noteText}\n\n(${autoText})` : autoText;
+
+        const newPlace: Place = {
+            id: newId, 
+            name: finalTitle, 
+            category: 'custom_diary',
+            visited: true, 
+            visitedAt: new Date().toISOString(), 
+            userNote: finalNote,
+            location: location || undefined
+        };
+        setProject({ ...project, data: { ...project.data, places: { ...project.data.places, [newId]: newPlace } } });
+        
+        setIsNoteStep(false);
+        setNoteText('');
         setIsOpen(false);
         if (onClose) onClose();
     };
@@ -187,7 +220,6 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         if (forceOpen) return null; 
         
         if (mode === 'standalone') {
-            // FIX: Ensure button is visible when isMobile is explicitly requested
             const btnClass = isMobile 
                 ? "flex justify-center items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold shadow-sm transition-colors" 
                 : "flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors";
@@ -219,8 +251,14 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         );
     };
 
+    // BUGFIX 1: Disabled Logik repariert, damit defaultTitle ausreicht.
+    const isSaveDisabled = (!amount && mode !== 'standalone') || 
+                           (mode === 'standalone' && !(customTitle.trim() || defaultTitle)) || 
+                           isNaN(parseFloat(amount)) || 
+                           !paidBy || 
+                           (splitMode === 'equal' && splitAmong.length === 0);
+
     return (
-        // FIX: Removed 'hidden sm:block' if mode is standalone AND isMobile is true
         <div className={`relative ${mode === 'standalone' && isMobile ? 'shrink-0' : mode === 'standalone' ? 'hidden sm:block' : 'shrink-0'} no-print`}>
             {renderTriggerButton()}
 
@@ -230,113 +268,142 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                         
                         <div className="flex justify-between items-center p-4 border-b border-emerald-100/50 bg-emerald-100/30 shrink-0">
                             <span className="text-sm font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
-                                <Banknote className="w-4 h-4"/>
-                                {mode === 'standalone' ? t('finance.add_expense', { defaultValue: 'Kosten erfassen' }) : (defaultTitle || t('finance.new_expense', { defaultValue: 'Neue Ausgabe' }))}
+                                {isNoteStep ? (
+                                    <><PenLine className="w-4 h-4"/> {t('diary.add_note', { defaultValue: 'Notiz hinzufügen' })}</>
+                                ) : (
+                                    <><Banknote className="w-4 h-4"/> {mode === 'standalone' ? t('finance.add_expense', { defaultValue: 'Kosten erfassen' }) : (defaultTitle || t('finance.new_expense', { defaultValue: 'Neue Ausgabe' }))}</>
+                                )}
                             </span>
                             <button onClick={() => handleToggle()} className="text-emerald-600 hover:text-emerald-900 hover:bg-emerald-200 p-1.5 rounded-full transition-colors"><X className="w-4 h-4"/></button>
                         </div>
 
-                        <div className="p-4 overflow-y-auto space-y-4">
-                            
-                            {(mode === 'standalone' || forceOpen) && (
-                                <div>
-                                    <label className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">{t('finance.purpose', { defaultValue: 'Verwendungszweck' })}</label>
-                                    <input type="text" placeholder={t('finance.purpose_placeholder', { defaultValue: 'z.B. Supermarkt, Taxi...' })} value={customTitle || defaultTitle} onChange={e => setCustomTitle(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 shadow-sm" />
+                        {isNoteStep ? (
+                            <>
+                                <div className="p-4 overflow-y-auto space-y-4">
+                                    <div className="bg-white border border-indigo-100 p-4 rounded-xl shadow-sm">
+                                        <p className="text-xs text-emerald-600 font-bold mb-3 flex items-center gap-1.5"><CheckCircle2 size={16}/> {t('finance.expense_saved', { defaultValue: 'Ausgabe gespeichert!' })}</p>
+                                        <textarea 
+                                            value={noteText}
+                                            onChange={e => setNoteText(e.target.value)}
+                                            placeholder={t('diary.note_placeholder', { defaultValue: 'Deine Erlebnisse oder Notizen...' })}
+                                            className="w-full text-sm p-3 border border-indigo-200 rounded-lg focus:ring-indigo-500 bg-indigo-50/30 min-h-[120px] resize-y"
+                                            autoFocus
+                                        />
+                                    </div>
                                 </div>
-                            )}
-
-                            <div className="flex gap-2">
-                                <input type="number" step="0.01" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} className="flex-1 text-lg font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 shadow-sm" />
-                                <select value={currency} onChange={e => setCurrency(e.target.value)} className="w-24 text-sm font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 cursor-pointer shadow-sm">
-                                    {availableCurrencies.map(c => (
-                                        <option key={c} value={c}>{c}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <button 
-                                    onClick={handleFetchGPS} 
-                                    className={`w-full flex items-center justify-center gap-2 text-xs font-bold py-2.5 rounded-xl transition-all border shadow-sm ${location ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
-                                >
-                                    <MapPin size={16} className={isFetchingGPS ? 'animate-bounce text-emerald-500' : ''} /> 
-                                    {isFetchingGPS ? t('finance.gps_fetching', { defaultValue: 'Ortung läuft...' }) : location ? t('finance.gps_saved', { defaultValue: 'Standort gespeichert ✓' }) : t('finance.gps_tag', { defaultValue: 'Aktuellen Standort (GPS) taggen' })}
-                                </button>
-                            </div>
-
-                            {names.length === 0 ? (
-                                <div className="text-[10px] text-amber-700 bg-amber-50 p-3 rounded-xl border border-amber-200 leading-relaxed shadow-inner">
-                                    {t('finance.error_no_names', { defaultValue: 'Bitte hinterlege im Planer (Schritt: "Wer & Wie") zuerst die Namen der Reisenden.' })}
+                                <div className="p-4 bg-emerald-100/50 border-t border-emerald-200/50 flex gap-2 shrink-0">
+                                    <button onClick={() => { setIsNoteStep(false); setIsOpen(false); if(onClose) onClose(); }} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold rounded-xl hover:bg-slate-50 transition-colors shadow-sm">{t('actions.skip', { defaultValue: 'Überspringen' })}</button>
+                                    <button onClick={handleSaveNote} className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl transition-all shadow-md flex justify-center items-center gap-2"><Save className="w-4 h-4"/> {t('actions.save', { defaultValue: 'Speichern' })}</button>
                                 </div>
-                            ) : (
-                                <>
-                                    <div>
-                                        <span className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">{t('finance.paid_by', { defaultValue: 'Wer hat bezahlt?' })}</span>
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {names.map(n => (
-                                                <button key={n} onClick={(e) => { e.stopPropagation(); setPaidBy(n); }} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${paidBy === n ? 'bg-emerald-600 text-white' : 'bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50'}`}>{n}</button>
-                                            ))}
+                            </>
+                        ) : (
+                            <>
+                                <div className="p-4 overflow-y-auto space-y-4">
+                                    
+                                    {(mode === 'standalone' || forceOpen) && (
+                                        <div>
+                                            <label className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">{t('finance.purpose', { defaultValue: 'Verwendungszweck' })}</label>
+                                            <input type="text" placeholder={t('finance.purpose_placeholder', { defaultValue: 'z.B. Supermarkt, Taxi...' })} value={customTitle || defaultTitle} onChange={e => setCustomTitle(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 shadow-sm" />
                                         </div>
+                                    )}
+
+                                    <div className="flex gap-2">
+                                        <input type="number" step="0.01" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} className="flex-1 text-lg font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 shadow-sm" />
+                                        <select value={currency} onChange={e => setCurrency(e.target.value)} className="w-24 text-sm font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 cursor-pointer shadow-sm">
+                                            {availableCurrencies.map(c => (
+                                                <option key={c} value={c}>{c}</option>
+                                            ))}
+                                        </select>
                                     </div>
 
                                     <div>
-                                        <button onClick={(e) => { e.stopPropagation(); setShowSplit(!showSplit); }} className="text-xs font-bold text-emerald-800 flex items-center gap-1.5 bg-emerald-100/50 px-3 py-2 rounded-lg border border-emerald-200/50 hover:bg-emerald-100 transition-colors w-full">
-                                            <Users className="w-3.5 h-3.5" /> 
-                                            {t('finance.split_among', { defaultValue: 'Aufgeteilt auf:' })} {splitMode === 'exact' ? t('finance.exact', { defaultValue: 'Exakt' }) : (splitAmong.length === names.length ? t('finance.everyone', { defaultValue: 'Alle' }) : `${splitAmong.length} ${t('finance.persons', { defaultValue: 'Personen' })}`)} ✎
+                                        <button 
+                                            onClick={handleFetchGPS} 
+                                            className={`w-full flex items-center justify-center gap-2 text-xs font-bold py-2.5 rounded-xl transition-all border shadow-sm ${location ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                                        >
+                                            <MapPin size={16} className={isFetchingGPS ? 'animate-bounce text-emerald-500' : ''} /> 
+                                            {isFetchingGPS ? t('finance.gps_fetching', { defaultValue: 'Ortung läuft...' }) : location ? t('finance.gps_saved', { defaultValue: 'Standort gespeichert ✓' }) : t('finance.gps_tag', { defaultValue: 'Aktuellen Standort (GPS) taggen' })}
                                         </button>
-                                        
-                                        {showSplit && (
-                                            <div className="mt-2 p-3 bg-white rounded-xl border border-emerald-200 shadow-sm animate-in fade-in slide-in-from-top-1">
-                                                <div className="flex bg-emerald-50 border border-emerald-100 rounded-lg mb-3 p-1">
-                                                    <button onClick={(e) => { e.stopPropagation(); setSplitMode('equal'); }} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${splitMode === 'equal' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.equal', { defaultValue: 'Gleichmäßig' })}</button>
-                                                    <button onClick={(e) => { e.stopPropagation(); setSplitMode('exact'); }} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${splitMode === 'exact' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.exact', { defaultValue: 'Exakter Betrag' })}</button>
-                                                </div>
+                                    </div>
 
-                                                {splitMode === 'equal' ? (
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                        {names.map(n => {
-                                                            const active = splitAmong.includes(n);
-                                                            return <button key={n} onClick={(e) => { e.stopPropagation(); if(active) setSplitAmong(prev => prev.filter(x => x !== n)); else setSplitAmong(prev => [...prev, n]); }} className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${active ? 'bg-emerald-500 text-white border-blue-600 shadow-sm' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'}`}>{n} {active && '✓'}</button>;
-                                                        })}
-                                                    </div>
-                                                ) : (
-                                                    <div className="space-y-2">
-                                                        {names.map(n => (
-                                                            <div key={n} className="flex justify-between items-center bg-slate-50 p-1.5 rounded-lg border border-slate-100">
-                                                                <span className="text-xs font-bold text-slate-700 ml-1">{n}</span>
-                                                                <div className="relative w-24">
-                                                                    <input type="number" step="0.01" value={splitExact[n] || ''} onChange={e => setSplitExact(prev => ({...prev, [n]: e.target.value}))} className="w-full text-right text-sm pr-8 pl-2 py-1.5 border border-emerald-200 rounded-md focus:ring-emerald-500 bg-white" onClick={e => e.stopPropagation()}/>
-                                                                    <span className="absolute right-2 top-2 text-slate-400 text-[10px] font-bold">{currency}</span>
-                                                                </div>
+                                    {names.length === 0 ? (
+                                        <div className="text-[10px] text-amber-700 bg-amber-50 p-3 rounded-xl border border-amber-200 leading-relaxed shadow-inner">
+                                            {t('finance.error_no_names', { defaultValue: 'Bitte hinterlege im Planer (Schritt: "Wer & Wie") zuerst die Namen der Reisenden.' })}
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div>
+                                                <span className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">{t('finance.paid_by', { defaultValue: 'Wer hat bezahlt?' })}</span>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {names.map(n => (
+                                                        <button key={n} onClick={(e) => { e.stopPropagation(); setPaidBy(n); }} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${paidBy === n ? 'bg-emerald-600 text-white' : 'bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50'}`}>{n}</button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <button onClick={(e) => { e.stopPropagation(); setShowSplit(!showSplit); }} className="text-xs font-bold text-emerald-800 flex items-center gap-1.5 bg-emerald-100/50 px-3 py-2 rounded-lg border border-emerald-200/50 hover:bg-emerald-100 transition-colors w-full">
+                                                    <Users className="w-3.5 h-3.5" /> 
+                                                    {t('finance.split_among', { defaultValue: 'Aufgeteilt auf:' })} {splitMode === 'exact' ? t('finance.exact', { defaultValue: 'Exakt' }) : (splitAmong.length === names.length ? t('finance.everyone', { defaultValue: 'Alle' }) : `${splitAmong.length} ${t('finance.persons', { defaultValue: 'Personen' })}`)} ✎
+                                                </button>
+                                                
+                                                {showSplit && (
+                                                    <div className="mt-2 p-3 bg-white rounded-xl border border-emerald-200 shadow-sm animate-in fade-in slide-in-from-top-1">
+                                                        <div className="flex bg-emerald-50 border border-emerald-100 rounded-lg mb-3 p-1">
+                                                            <button onClick={(e) => { e.stopPropagation(); setSplitMode('equal'); }} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${splitMode === 'equal' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.equal', { defaultValue: 'Gleichmäßig' })}</button>
+                                                            <button onClick={(e) => { e.stopPropagation(); setSplitMode('exact'); }} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${splitMode === 'exact' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.exact', { defaultValue: 'Exakter Betrag' })}</button>
+                                                        </div>
+
+                                                        {splitMode === 'equal' ? (
+                                                            <div className="flex flex-wrap gap-1.5">
+                                                                {names.map(n => {
+                                                                    const active = splitAmong.includes(n);
+                                                                    return <button key={n} onClick={(e) => { e.stopPropagation(); if(active) setSplitAmong(prev => prev.filter(x => x !== n)); else setSplitAmong(prev => [...prev, n]); }} className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${active ? 'bg-emerald-500 text-white border-blue-600 shadow-sm' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'}`}>{n} {active && '✓'}</button>;
+                                                                })}
                                                             </div>
-                                                        ))}
-                                                        {(() => {
-                                                            const rem = calculateRemaining();
-                                                            const isPerfect = Math.abs(rem) < 0.01;
-                                                            return (
-                                                                <div className={`mt-3 p-2 rounded-lg flex items-center justify-between text-xs font-bold border ${isPerfect ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : rem < 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
-                                                                    <span>{isPerfect ? t('finance.split_perfect', { defaultValue: 'Aufteilung stimmt!' }) : rem > 0 ? t('finance.split_remaining', { defaultValue: 'Noch zu verteilen:' }) : t('finance.split_too_much', { defaultValue: 'Zu viel verteilt:' })}</span>
-                                                                    <span className="flex items-center gap-1">{isPerfect && <CheckCircle2 className="w-4 h-4" />}{Math.abs(rem).toFixed(2)}</span>
-                                                                </div>
-                                                            );
-                                                        })()}
+                                                        ) : (
+                                                            <div className="space-y-2">
+                                                                {names.map(n => (
+                                                                    <div key={n} className="flex justify-between items-center bg-slate-50 p-1.5 rounded-lg border border-slate-100">
+                                                                        <span className="text-xs font-bold text-slate-700 ml-1">{n}</span>
+                                                                        <div className="relative w-24">
+                                                                            <input type="number" step="0.01" value={splitExact[n] || ''} onChange={e => setSplitExact(prev => ({...prev, [n]: e.target.value}))} className="w-full text-right text-sm pr-8 pl-2 py-1.5 border border-emerald-200 rounded-md focus:ring-emerald-500 bg-white" onClick={e => e.stopPropagation()}/>
+                                                                            <span className="absolute right-2 top-2 text-slate-400 text-[10px] font-bold">{currency}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                                {(() => {
+                                                                    const rem = calculateRemaining();
+                                                                    const isPerfect = Math.abs(rem) < 0.01;
+                                                                    return (
+                                                                        <div className={`mt-3 p-2 rounded-lg flex items-center justify-between text-xs font-bold border ${isPerfect ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : rem < 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                                            <span>{isPerfect ? t('finance.split_perfect', { defaultValue: 'Aufteilung stimmt!' }) : rem > 0 ? t('finance.split_remaining', { defaultValue: 'Noch zu verteilen:' }) : t('finance.split_too_much', { defaultValue: 'Zu viel verteilt:' })}</span>
+                                                                            <span className="flex items-center gap-1">{isPerfect && <CheckCircle2 className="w-4 h-4" />}{Math.abs(rem).toFixed(2)}</span>
+                                                                        </div>
+                                                                    );
+                                                                })()}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>
-                                        )}
-                                    </div>
-                                </>
-                            )}
-                        </div>
+                                        </>
+                                    )}
+                                </div>
 
-                        <div className="p-4 bg-emerald-100/50 border-t border-emerald-200/50 flex flex-col gap-2 shrink-0">
-                             <button onClick={(e) => handleSave(e, true)} className="w-full py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold rounded-lg hover:bg-indigo-100 transition-all flex justify-center items-center gap-2">
-                                <PenLine className="w-3.5 h-3.5"/> {t('finance.save_and_diary', { defaultValue: 'Speichern & Notiz anlegen' })}
-                             </button>
-                             <button onClick={(e) => handleSave(e, false)} disabled={(!amount && mode !== 'standalone') || (mode === 'standalone' && !customTitle.trim()) || isNaN(parseFloat(amount)) || !paidBy || (splitMode==='equal' && splitAmong.length === 0)} className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2">
-                                <Save className="w-4 h-4"/> {t('finance.save', { defaultValue: 'Speichern' })}
-                             </button>
-                        </div>
+                                <div className="p-4 bg-emerald-100/50 border-t border-emerald-200/50 flex flex-col gap-2 shrink-0">
+                                     {/* BUGFIX 1: Wenn forceOpen (also Aufruf aus Tagebuch) aktiv ist, zeigen wir den "Und Notiz anlegen" Button NICHT an, um Endlosschleifen zu verhindern. */}
+                                     {!forceOpen && (
+                                         <button onClick={(e) => handleSave(e, true)} disabled={isSaveDisabled} className="w-full py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold rounded-lg hover:bg-indigo-100 transition-all flex justify-center items-center gap-2">
+                                            <PenLine className="w-3.5 h-3.5"/> {t('finance.save_and_diary', { defaultValue: 'Speichern & Notiz anlegen' })}
+                                         </button>
+                                     )}
+                                     <button onClick={(e) => handleSave(e, false)} disabled={isSaveDisabled} className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2">
+                                        <Save className="w-4 h-4"/> {t('finance.save', { defaultValue: 'Speichern' })}
+                                     </button>
+                                </div>
+                            </>
+                        )}
 
                     </div>
                 </div>,
@@ -345,4 +412,4 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         </div>
     );
 };
-// --- END OF FILE 348 Zeilen ---
+// --- END OF FILE 392 Zeilen ---
