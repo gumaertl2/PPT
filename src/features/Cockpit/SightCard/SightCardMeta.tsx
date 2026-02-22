@@ -1,3 +1,4 @@
+// 22.02.2026 16:30 - FIX: Prevented 'Restaurant' from being appended to Google Search queries for non-food sights.
 // 21.02.2026 00:30 - UX: Cleaned up Meta Bar. Removed Live-Check and Price to avoid redundancy, as they are now elegantly displayed in SightCardBody.
 // 09.02.2026 18:05 - FEAT: Traffic Light UI for Live Check.
 // 11.02.2026 19:15 - FIX: Smart Links (Search & Guide) with Award Context.
@@ -46,14 +47,17 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
   t
 }) => {
 
-  // FIX: Smart Search Query now includes Awards context
+  const isFood = (customCategory && ['food', 'restaurant'].includes(customCategory.toLowerCase())) || 
+                 (data.category && ['food', 'restaurant'].includes(data.category.toLowerCase()));
+
+  // FIX: Smart Search Query now includes Awards context only if relevant, and appends 'Restaurant' only for food.
   const getGoogleSearchQuery = () => {
     const name = data.name || data.official_name || data.name_official || '';
     const city = data.city || (data.address ? data.address.split(',').pop()?.trim() : '') || '';
     
     // Check for Awards (e.g. "Michelin", "Gault&Millau")
     const awardContext = data.awards && data.awards.length > 0 ? data.awards[0] : '';
-    const context = awardContext || 'Restaurant';
+    const context = awardContext || (isFood ? 'Restaurant' : '');
 
     return `${name} ${city} ${context}`.trim();
   };
@@ -83,9 +87,6 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
       }
       return <div className="flex items-center gap-1 font-bold text-blue-600"><CloudRain className="w-3.5 h-3.5" /><span>Regentag</span></div>;
   };
-
-  const isFood = (customCategory && ['food', 'restaurant'].includes(customCategory.toLowerCase())) || 
-                 (data.category && ['food', 'restaurant'].includes(data.category.toLowerCase()));
 
   const renderCategory = () => {
       if (isSpecial) return renderSpecialBadge();
@@ -150,4 +151,4 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
     </div>
   );
 };
-// --- END OF FILE 119 Zeilen ---
+// --- END OF FILE 120 Zeilen ---
