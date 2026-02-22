@@ -1,14 +1,15 @@
+// 22.02.2026 11:45 - FEAT: Integrated Smart-Currency. Auto-converts foreign expenses to base currency in settlement and added config button.
 // 21.02.2026 17:40 - FEAT: Added GPS location icon and Google Maps link to expense history items (matching Diary style).
 // 21.02.2026 16:55 - FIX: Corrected state setters (setEditAmount, setEditSplitExact), removed obsolete 'align' props, typed 'prev'.
-// 21.02.2026 16:45 - FIX: Added missing 'currentLang' variable to fix Runtime ReferenceError in Feed tab.
 // src/features/Cockpit/TripFinanceModal.tsx
 
 import React, { useState, useMemo } from 'react';
 import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
-import { X, Wallet, ListFilter, Trash2, ArrowRightLeft, Banknote, Edit3, Save, CheckCircle2, Users, MapPin } from 'lucide-react'; 
-import type { Expense, LanguageCode } from '../../core/types/shared';
+import { X, Wallet, ListFilter, Trash2, ArrowRightLeft, Banknote, Edit3, Save, CheckCircle2, Users, MapPin, Landmark } from 'lucide-react'; 
+import type { Expense, LanguageCode, CurrencyConfig } from '../../core/types/shared';
 import { ExpenseEntryButton } from './ExpenseEntryButton'; 
+import { CurrencyConfigModal } from './CurrencyConfigModal';
 
 interface TripFinanceModalProps {
   isOpen: boolean;
@@ -19,7 +20,9 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
   const { project, deleteExpense, updateExpense } = useTripStore();
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
+  
   const [activeTab, setActiveTab] = useState<'feed' | 'settlement'>('settlement');
+  const [isCurrencyModalOpen, setIsCurrencyModalOpen] = useState(false);
   
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -37,11 +40,24 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
   const rawNames = project.userInputs.travelers.travelerNames || '';
   const allNames = rawNames.split(',').map((n: string) => n.trim()).filter(Boolean);
 
+  // Dynamic Currencies from Config
+  const currencyConfig = project.data.currencyConfig as CurrencyConfig | undefined;
+  const baseCurrency = currencyConfig?.baseCurrency || 'EUR';
+  
+  const availableCurrencies = useMemo(() => {
+      if (!currencyConfig) return ['EUR'];
+      const curs = [currencyConfig.baseCurrency];
+      currencyConfig.rates.forEach(r => {
+          if (r.currency && !curs.includes(r.currency)) curs.push(r.currency);
+      });
+      return curs;
+  }, [currencyConfig]);
+
   const startEdit = (exp: Expense) => {
       setEditingId(exp.id);
       setEditTitle(exp.title);
       setEditAmount(exp.amount.toString());
-      setEditCurrency(exp.currency || 'EUR');
+      setEditCurrency(availableCurrencies.includes(exp.currency) ? exp.currency : availableCurrencies[0]);
       setEditPaidBy(exp.paidBy);
       setShowSplit(false);
       
@@ -116,27 +132,39 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
           paidTotals[n] = 0;
       });
 
+      const getRate = (currency: string) => {
+          if (currency === baseCurrency) return 1;
+          const rateObj = currencyConfig?.rates.find(r => r.currency === currency);
+          return rateObj?.rate || 1; // Fallback 1:1 falls Kurs unerwartet fehlt
+      };
+
       expenses.forEach(exp => {
           const cur = exp.currency || 'EUR';
+          const rate = getRate(cur);
+          const amountInBase = exp.amount / rate;
+
+          // 1. Original-Währungen für die Anzeige sammeln (Was wurde insgesamt in USD etc. gezahlt?)
           if (!totalsByCurrency[cur]) totalsByCurrency[cur] = 0;
           totalsByCurrency[cur] += exp.amount;
 
+          // 2. Alle Bilanzen ("Wer schuldet wem") erfolgen strikt in der Hauptwährung!
           if (!paidTotals[exp.paidBy]) paidTotals[exp.paidBy] = 0;
-          paidTotals[exp.paidBy] += exp.amount;
+          paidTotals[exp.paidBy] += amountInBase;
 
           if (!balances[exp.paidBy]) balances[exp.paidBy] = 0;
-          balances[exp.paidBy] += exp.amount;
+          balances[exp.paidBy] += amountInBase;
 
           if (exp.splitExact && Object.keys(exp.splitExact).length > 0) {
               Object.entries(exp.splitExact).forEach(([person, amt]) => {
+                  const exactAmtInBase = amt / rate;
                   if (!balances[person]) balances[person] = 0;
-                  balances[person] -= amt;
+                  balances[person] -= exactAmtInBase;
               });
           } else if (exp.splitAmong && exp.splitAmong.length > 0) {
-              const splitAmount = exp.amount / exp.splitAmong.length;
+              const splitAmountInBase = amountInBase / exp.splitAmong.length;
               exp.splitAmong.forEach(person => {
                   if (!balances[person]) balances[person] = 0;
-                  balances[person] -= splitAmount;
+                  balances[person] -= splitAmountInBase;
               });
           }
       });
@@ -165,11 +193,12 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
       }
 
       return { balances, paidTotals, transfers, totalsByCurrency };
-  }, [expenses, allNames]);
+  }, [expenses, allNames, currencyConfig, baseCurrency]);
 
   if (!isOpen) return null;
 
   return (
+    <>
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
       <div className="bg-slate-50 w-full max-w-xl max-h-[90dvh] h-full sm:h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
         
@@ -181,6 +210,9 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
           
           <div className="flex items-center gap-2">
             <ExpenseEntryButton travelers={rawNames} mode="standalone" />
+            <button onClick={() => setIsCurrencyModalOpen(true)} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100" title={t('finance.currency_config_title', { defaultValue: 'Währungen konfigurieren' })}>
+                <Landmark className="w-5 h-5" />
+            </button>
             <div className="w-px h-6 bg-slate-200 mx-1 hidden sm:block"></div>
             <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors" title={t('actions.close', { defaultValue: 'Schließen' })}><X className="w-5 h-5" /></button>
           </div>
@@ -224,9 +256,14 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                     </div>
                                 ))}
                             </div>
+                            {Object.keys(settlement.totalsByCurrency).length > 1 && (
+                                <div className="mt-3 text-[10px] text-slate-400 font-medium bg-slate-50 p-2 rounded border border-slate-100">
+                                    {t('finance.settlement_base_info', { defaultValue: 'Alle Abrechnungen unten erfolgen in der Hauptwährung:' })} <strong>{baseCurrency}</strong>
+                                </div>
+                            )}
                         </div>
                         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                             <h3 className="text-[10px] font-bold text-slate-400 uppercase mb-2">{t('finance.paid_by_summary', { defaultValue: 'Wer hat gezahlt?' })}</h3>
+                             <h3 className="text-[10px] font-bold text-slate-400 uppercase mb-2">{t('finance.paid_by_summary', { defaultValue: 'Wer hat gezahlt?' })} ({baseCurrency})</h3>
                              <div className="space-y-1.5">
                                  {Object.entries(settlement.paidTotals).sort((a,b) => b[1]-a[1]).map(([name, total]) => (
                                      <div key={name} className="flex justify-between items-center text-xs">
@@ -244,15 +281,15 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                             <div className="text-sm text-slate-500 text-center py-4 bg-slate-50 rounded-lg">{t('finance.perfectly_balanced', { defaultValue: 'Die Kasse ist perfekt ausgeglichen! 🎉' })}</div>
                         ) : (
                             <div className="space-y-3">
-                                {settlement.transfers.map((t, idx) => (
+                                {settlement.transfers.map((tr, idx) => (
                                     <div key={idx} className="flex items-center justify-between p-3 bg-amber-50/50 border border-amber-100 rounded-lg">
                                         <div className="flex items-center gap-3">
-                                            <span className="font-bold text-slate-800">{t.from}</span>
+                                            <span className="font-bold text-slate-800">{tr.from}</span>
                                             <ArrowRightLeft className="w-4 h-4 text-amber-400" />
-                                            <span className="font-bold text-slate-800">{t.to}</span>
+                                            <span className="font-bold text-slate-800">{tr.to}</span>
                                         </div>
                                         <div className="font-black text-amber-700">
-                                            {t.amount.toFixed(2)}
+                                            {tr.amount.toFixed(2)} <span className="text-xs font-bold text-amber-600/70">{baseCurrency}</span>
                                         </div>
                                     </div>
                                 ))}
@@ -261,7 +298,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                     </div>
 
                     <div>
-                        <h3 className="text-xs font-bold text-slate-400 uppercase mb-2 ml-1">{t('finance.balances', { defaultValue: 'Stand (Bilanzen)' })}</h3>
+                        <h3 className="text-xs font-bold text-slate-400 uppercase mb-2 ml-1">{t('finance.balances', { defaultValue: 'Stand (Bilanzen)' })} ({baseCurrency})</h3>
                         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                             {Object.entries(settlement.balances).map(([name, bal], idx) => (
                                 <div key={name} className={`flex justify-between items-center p-3 text-sm ${idx !== 0 ? 'border-t border-slate-100' : ''}`}>
@@ -291,12 +328,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                     <div className="flex gap-2 mb-4">
                                         <input type="number" step="0.01" value={editAmount} onChange={e => setEditAmount(e.target.value)} className="flex-1 text-lg font-bold border-emerald-200 rounded-lg p-2.5 focus:ring-emerald-500 bg-white shadow-sm" />
                                         <select value={editCurrency} onChange={e => setEditCurrency(e.target.value)} className="w-24 text-sm font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 cursor-pointer shadow-sm">
-                                            <option value="EUR">EUR</option>
-                                            <option value="USD">USD</option>
-                                            <option value="CHF">CHF</option>
-                                            <option value="GBP">GBP</option>
-                                            <option value="COP">COP</option>
-                                            <option value="SEK">SEK</option>
+                                            {availableCurrencies.map(c => <option key={c} value={c}>{c}</option>)}
                                         </select>
                                     </div>
                                     
@@ -370,7 +402,6 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                             <span>•</span>
                                             <span>{t('finance.paid_by_label', { defaultValue: 'Gezahlt von' })} <strong className="text-emerald-700">{exp.paidBy}</strong></span>
                                             
-                                            {/* GPS Link (exactly as in Diary) */}
                                             {exp.location && (
                                                 <>
                                                     <span>•</span>
@@ -403,6 +434,12 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
         </div>
       </div>
     </div>
+    
+    <CurrencyConfigModal 
+        isOpen={isCurrencyModalOpen} 
+        onClose={() => setIsCurrencyModalOpen(false)} 
+    />
+    </>
   );
 };
-// --- END OF FILE 365 Zeilen ---
+// --- END OF FILE 395 Zeilen ---

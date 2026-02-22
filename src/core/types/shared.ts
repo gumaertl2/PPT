@@ -1,3 +1,4 @@
+// 22.02.2026 10:55 - FEAT: Added 'CurrencyConfig' and 'CurrencyRate' interfaces for Smart-Currency feature.
 // 21.02.2026 17:15 - FIX: Renamed 'geo' to 'location' in Expense interface for consistency with Diary entries.
 // 21.02.2026 14:00 - FEAT: Added 'splitExact' to Expense interface for advanced custom splits.
 // 21.02.2026 13:00 - FEAT: Added 'Expense' interface for the new Trip Finance / Reisekasse feature.
@@ -86,6 +87,17 @@ export interface Expense {
   splitAmong: string[]; 
   splitExact?: Record<string, number>; 
   timestamp: number;
-  location?: { lat: number; lng: number }; // FIXED: Renamed to 'location' to match Diary/Notes logic
+  location?: { lat: number; lng: number }; 
 }
-// --- END OF FILE 85 Zeilen ---
+
+export interface CurrencyRate {
+  currency: string;
+  rate: number; // Wechselkurs zur Hauptwährung (z.B. 1 Hauptwährung = 1.08 dieser Währung)
+}
+
+export interface CurrencyConfig {
+  baseCurrency: string; // Zeile 1: Die Hauptwährung für die Abrechnung
+  rates: CurrencyRate[]; // Zeilen 2-5: Die Nebenwährungen
+  lastUpdated?: string; // Zeitstempel des letzten Abrufs (z.B. ISO-String)
+}
+// --- END OF FILE 98 Zeilen ---

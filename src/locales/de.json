@@ -21,7 +21,8 @@
     "analyzing": "Analysiere...",
     "regenerate": "Neu generieren",
     "generate": "Generieren",
-    "apply": "Übernehmen"
+    "apply": "Übernehmen",
+    "none": "Keine"
   },
   "unit": {
     "hours": "Std.",
@@ -146,7 +147,8 @@
       "new": "Neu",
       "log": "Flugschreiber",
       "db_extend": "DB Erweitern",
-      "merge": "Zusammenführen"
+      "merge": "Zusammenführen",
+      "finance": "Reisekasse"
     },
     "errors": {
       "missing_places": "Bitte führen Sie zuerst die Fundamentalanalyse durch, um Orte zu generieren.",
@@ -198,7 +200,7 @@
   "dates": {
     "warning_flexible_title": "Kein fester Reisezeitraum gewählt.",
     "warning_flexible_text": "Sie haben 'KI-Vorschlag' gewählt. Daher können Sie hier aktuell keine konkreten Datumsangaben machen.",
-    "table_activity": "Aktivität (Titel)",
+    "table_activity": "Activity (Titel)",
     "table_date": "Datum",
     "table_time": "Zeit",
     "table_duration": "Dauer",
@@ -394,7 +396,28 @@
     "regenerate_title": "Anpassen & Neu Generieren",
     "regenerate_hint": "Markieren Sie oben \"Behalten\", um Favoriten zu sichern.",
     "confirm_continue": "Route übernehmen & weiter",
-    "route_adopted": "Route übernommen. Wählen Sie nun die nächsten Schritte."
+    "route_adopted": "Route übernommen. Wählen Sie nun die nächsten Schritte.",
+    "route_planning": "Routen-Planung",
+    "itinerary_stops": "Reiseverlauf & Aufenthalte"
+  },
+  "diary": {
+    "title": "Live-Reisetagebuch",
+    "subtitle": "Deine besuchten Orte.",
+    "add_custom": "Eigener Eintrag",
+    "add_note": "Notiz",
+    "what_discovered": "Was hast du entdeckt?",
+    "title_placeholder": "Titel (z.B. Ein kleines Café am Eck)",
+    "note_placeholder": "Deine Erlebnisse oder Notizen...",
+    "save_entry": "Ins Tagebuch eintragen",
+    "empty_state": "Noch keine Einträge. Checke bei Orten ein oder erstelle einen eigenen Eintrag!",
+    "custom_entry_label": "Eigener Eintrag",
+    "edit_note": "Notiz bearbeiten",
+    "delete_entry": "Eintrag löschen",
+    "undo_checkin": "Check-in rückgängig machen",
+    "personal_note_placeholder": "Meine persönliche Notiz...",
+    "click_to_edit": "Klicken zum Bearbeiten",
+    "delete_confirm": "Diesen Tagebucheintrag wirklich löschen?",
+    "default_title": "Mein Erlebnis"
   },
   "itinerary": {
     "remaining_nights_open": "Es sind noch {{count}} Nächte offen.",
@@ -504,7 +527,8 @@
       "save": "Projekt als Datei speichern",
       "load": "Projekt aus Datei laden",
       "new": "Neues Projekt starten (Reset)",
-      "log": "System Logbuch (Debug)"
+      "log": "System-Logbuch (Debug)",
+      "finance": "Reisekasse"
     }
   },
   "finance": {
@@ -544,6 +568,18 @@
     "gps_fetching": "Ortung läuft...",
     "gps_saved": "Standort gespeichert ✓",
     "error_no_gps": "Dein Browser unterstützt kein GPS.",
-    "error_gps_failed": "GPS konnte nicht abgerufen werden."
+    "error_gps_failed": "GPS konnte nicht abgerufen werden.",
+    "save_and_diary": "Speichern & Notiz anlegen",
+    "save_and_expense": "Speichern & Kosten erfassen",
+    "currency_config_title": "Währungen konfigurieren",
+    "currency_info": "Zeile 1 ist Ihre Hauptwährung für die Abrechnung. Die Zeilen 2-5 stehen als Zahlungs-Währungen bei Ausgaben zur Verfügung. Beim automatischen Abruf rechnen wir einen typischen Banken-/Kreditkarten-Aufschlag von 1,75% mit ein.",
+    "row_1_label": "Zeile 1: Hauptwährung (Basis)",
+    "row_target_label": "Zeilen 2-5: Fremdwährungen & Kurse",
+    "fetch_rates": "Aktuelle Bankenkurse abrufen",
+    "fetching_rates": "Hole Bankenkurse...",
+    "last_updated": "Zuletzt aktualisiert",
+    "save_currencies": "Währungen speichern",
+    "error_fetch_rates": "Die Kurse konnten nicht abgerufen werden. Bitte prüfen Sie Ihre Internetverbindung.",
+    "settlement_base_info": "Alle Abrechnungen unten erfolgen in der Hauptwährung:"
   }
 }

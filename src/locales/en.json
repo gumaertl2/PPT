@@ -21,7 +21,8 @@
     "analyzing": "Analyzing...",
     "regenerate": "Regenerate",
     "generate": "Generate",
-    "apply": "Apply"
+    "apply": "Apply",
+    "none": "None"
   },
   "unit": {
     "hours": "h",
@@ -146,7 +147,8 @@
       "new": "New",
       "log": "Flight Recorder",
       "db_extend": "Extend DB",
-      "merge": "Merge"
+      "merge": "Merge",
+      "finance": "Trip Finance"
     },
     "errors": {
       "missing_places": "Please run the Fundamental Analysis first to generate places.",
@@ -365,7 +367,8 @@
     "no_places": "No places found.",
     "planning_mode": "Planning Mode",
     "planning_mode_desc": "Activate this to show budget, priorities, and reserve list.",
-    "planning_active": "Planning Mode Active"
+    "planning_active": "Planning Mode Active",
+    "open_map": "Open on map"
   },
   "route": {
     "no_results": "No route suggestions available.",
@@ -393,7 +396,28 @@
     "regenerate_title": "Adjust & Regenerate",
     "regenerate_hint": "Mark \"Keep\" above to save favorites.",
     "confirm_continue": "Adopt Route & Continue",
-    "route_adopted": "Route adopted. Choose next steps."
+    "route_adopted": "Route adopted. Choose next steps.",
+    "route_planning": "Route Planning",
+    "itinerary_stops": "Itinerary & Stops"
+  },
+  "diary": {
+    "title": "Live Travel Diary",
+    "subtitle": "Your visited places.",
+    "add_custom": "Custom Entry",
+    "add_note": "Note",
+    "what_discovered": "What did you discover?",
+    "title_placeholder": "Title (e.g. A little cafe around the corner)",
+    "note_placeholder": "Your experiences or notes...",
+    "save_entry": "Add to diary",
+    "empty_state": "No entries yet. Check in at places or create a custom entry!",
+    "custom_entry_label": "Custom Entry",
+    "edit_note": "Edit note",
+    "delete_entry": "Delete entry",
+    "undo_checkin": "Undo check-in",
+    "personal_note_placeholder": "My personal note...",
+    "click_to_edit": "Click to edit",
+    "delete_confirm": "Do you really want to delete this diary entry?",
+    "default_title": "My Experience"
   },
   "itinerary": {
     "remaining_nights_open": "There are {{count}} nights open.",
@@ -503,7 +527,8 @@
       "save": "Save Project to File",
       "load": "Load Project from File",
       "new": "Start New Project (Reset)",
-      "log": "System Log (Debug)"
+      "log": "System Log (Debug)",
+      "finance": "Trip Finance"
     }
   },
   "finance": {
@@ -543,6 +568,18 @@
     "gps_fetching": "Locating...",
     "gps_saved": "Location saved ✓",
     "error_no_gps": "Your browser does not support GPS.",
-    "error_gps_failed": "Could not retrieve GPS location."
+    "error_gps_failed": "Could not retrieve GPS location.",
+    "save_and_diary": "Save & add note",
+    "save_and_expense": "Save & record costs",
+    "currency_config_title": "Configure Currencies",
+    "currency_info": "Row 1 is your base currency for settlements. Rows 2-5 are available as payment currencies for expenses. Auto-fetch includes a typical 1.75% bank/credit card markup.",
+    "row_1_label": "Row 1: Base Currency",
+    "row_target_label": "Rows 2-5: Foreign Currencies & Rates",
+    "fetch_rates": "Fetch current bank rates",
+    "fetching_rates": "Fetching bank rates...",
+    "last_updated": "Last updated",
+    "save_currencies": "Save currencies",
+    "error_fetch_rates": "Could not fetch rates. Please check your internet connection.",
+    "settlement_base_info": "All settlements below are calculated in the base currency:"
   }
 }
