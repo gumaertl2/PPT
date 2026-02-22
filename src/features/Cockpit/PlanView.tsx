@@ -1,6 +1,6 @@
+// 22.02.2026 17:00 - UX: Moved 5-Star Emotion Rating to the first line next to the title.
 // 22.02.2026 16:45 - UX: Added confirmation prompt before undoing a check-in and implemented 5-star Emotion Rating per diary entry.
 // 22.02.2026 12:30 - I18N: Replaced all hardcoded German texts in Route and Diary sections with translation keys.
-// 21.02.2026 18:30 - FEAT: Added "Save & Expense" bridge to the Diary form. Automatically triggers the expense modal.
 // src/features/Cockpit/PlanView.tsx
 
 import React, { useMemo, useState } from 'react';
@@ -138,7 +138,6 @@ export const PlanView: React.FC = () => {
       }
   };
 
-  // FIX: Safety prompt for normal check-ins
   const handleUndoCheckin = (id: string) => {
       if (confirm(t('diary.undo_confirm', { defaultValue: 'Willst du diesen Check-in wirklich rückgängig machen?' }))) {
           togglePlaceVisited(id);
@@ -220,7 +219,22 @@ export const PlanView: React.FC = () => {
                             <div className={`border rounded-xl p-3 hover:shadow-md transition-all ${isCustomEntry ? 'bg-indigo-50/30 border-indigo-100' : 'bg-emerald-50/30 border-emerald-100 hover:bg-emerald-50'}`}>
                                 
                                 <div className="flex justify-between items-start mb-1 gap-2">
-                                    <h4 className={`font-bold text-sm leading-tight ${isCustomEntry ? 'text-indigo-900' : 'text-slate-800'}`}>{place.name}</h4>
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                        <h4 className={`font-bold text-sm leading-tight ${isCustomEntry ? 'text-indigo-900' : 'text-slate-800'}`}>{place.name}</h4>
+                                        {/* FEAT: 5-Star Emotion Rating moved next to the title */}
+                                        <div className="flex items-center">
+                                            {[1, 2, 3, 4, 5].map(star => (
+                                                <button 
+                                                    key={star} 
+                                                    onClick={(e) => { e.stopPropagation(); updatePlace(place.id, { userRating: star === rating ? 0 : star }); }}
+                                                    className={`transition-transform hover:scale-110 p-0.5 ${star <= rating ? 'text-amber-400' : 'text-slate-200 hover:text-amber-200'}`}
+                                                    title={`${star} Stern${star > 1 ? 'e' : ''}`}
+                                                >
+                                                    <Star size={14} className={star <= rating ? "fill-current" : ""} />
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
                                     
                                     <div className="flex items-center gap-1.5 shrink-0">
                                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${isCustomEntry ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}`}><Clock size={10} /> {dateStr}, {timeStr}</span>
@@ -237,20 +251,6 @@ export const PlanView: React.FC = () => {
                                 <div className="text-xs text-slate-500 flex gap-1 items-center font-medium mb-2">
                                     {isCustomEntry ? <PenLine size={10} className="text-indigo-400" /> : <MapIcon size={10} className="text-emerald-400" />} {categoryLabel}
                                     {place.location?.lat && (<a href={`https://www.google.com/maps/search/?api=1&query=${place.location.lat},${place.location.lng}`} target="_blank" rel="noopener noreferrer" className="ml-2 flex items-center gap-0.5 text-blue-500 hover:underline" title={t('sights.open_map', { defaultValue: 'Auf Karte öffnen' })}><MapPin size={10}/> GPS</a>)}
-                                </div>
-
-                                {/* FEAT: 5-Star Emotion Rating */}
-                                <div className="flex items-center gap-1 mb-2">
-                                    {[1, 2, 3, 4, 5].map(star => (
-                                        <button 
-                                            key={star} 
-                                            onClick={(e) => { e.stopPropagation(); updatePlace(place.id, { userRating: star === rating ? 0 : star }); }}
-                                            className={`transition-transform hover:scale-110 p-0.5 ${star <= rating ? 'text-amber-400' : 'text-slate-200 hover:text-amber-200'}`}
-                                            title={`${star} Stern${star > 1 ? 'e' : ''}`}
-                                        >
-                                            <Star size={14} className={star <= rating ? "fill-current" : ""} />
-                                        </button>
-                                    ))}
                                 </div>
 
                                 {editingNoteId === place.id ? (
@@ -277,4 +277,4 @@ export const PlanView: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 279 Zeilen ---
+// --- END OF FILE 268 Zeilen ---

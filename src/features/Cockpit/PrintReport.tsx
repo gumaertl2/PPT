@@ -1,6 +1,5 @@
+// 22.02.2026 17:00 - FEAT: Added Emotion Rating (Stars) to Diary printout.
 // 22.02.2026 16:05 - FIX: Removed 'print:break-inside-avoid' from Diary cards and Route to prevent long items from being truncated in PDF.
-// 20.02.2026 17:30 - FEAT: Added 'DiaryPrintView' to render the personal travel diary chronologically.
-// 20.02.2026 10:25 - FIX: Restored missing comments and applied exact I18N keys.
 // src/features/Cockpit/PrintReport.tsx
 
 import React from 'react';
@@ -12,6 +11,7 @@ import { SightsView } from './SightsView';
 import { InfoView } from '../info/InfoView';
 import type { PrintConfig } from '../../core/types';
 import { useTranslation } from 'react-i18next';
+import { Star } from 'lucide-react'; // IMPORT STAR ICON
 
 interface PrintReportProps {
   config: PrintConfig;
@@ -54,12 +54,24 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
                   }).format(dateObj);
 
                   const isCustomEntry = place.category === 'custom_diary';
+                  const rating = place.userRating || 0; // GET RATING
                   
                   return (
-                      // FIX: Removed print:break-inside-avoid so long diary entries won't be truncated.
                       <div key={place.id} className="border-l-4 border-emerald-500 pl-4 py-1">
                           <div className="flex justify-between items-start mb-1 print:break-after-avoid">
-                              <h4 className="font-bold text-slate-900 text-lg leading-tight">{place.name}</h4>
+                              <div className="flex items-center gap-3">
+                                  <h4 className="font-bold text-slate-900 text-lg leading-tight">{place.name}</h4>
+                                  
+                                  {/* RENDER RATING STARS IN PDF */}
+                                  {rating > 0 && (
+                                      <div className="flex items-center">
+                                          {[...Array(rating)].map((_, i) => (
+                                              <Star key={i} size={14} className="text-amber-400 fill-current" />
+                                          ))}
+                                      </div>
+                                  )}
+                              </div>
+
                               <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded shrink-0 ml-4">
                                   {dateStr}, {timeStr}
                               </span>
@@ -206,4 +218,4 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
     </div>
   );
 };
-// --- END OF FILE 207 Zeilen ---
+// --- END OF FILE 215 Zeilen ---
