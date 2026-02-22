@@ -1,3 +1,4 @@
+// 22.02.2026 16:05 - FIX: Removed 'print:break-inside-avoid' from info cards to prevent PDF text cutoff on long texts. Added 'print:break-after-avoid' to header instead.
 // 06.02.2026 17:10 - FIX: Corrected File Path Header & Print Optimization.
 // 29.01.2026 12:30 - FIX: InfoView Layout Optimization. Always full text, Smart Titles, Reduced Spacing, Removed Main Header.
 // src/features/info/InfoView.tsx
@@ -201,8 +202,6 @@ export const InfoView: React.FC = () => {
     // FIX: Added print modifiers to enable proper printing
     <div className="h-full flex flex-col bg-slate-50/50 overflow-y-auto p-4 pb-24 info-view-root print:h-auto print:overflow-visible print:bg-white print:p-0 print:pb-0">
       
-      {/* HEADER ENTFERNT - Direkt zur Liste */}
-
       {/* CONTENT LIST */}
       {infoItems.length === 0 ? (
          <div className="flex flex-col items-center justify-center h-64 text-slate-400 border-2 border-dashed border-slate-200 rounded-xl bg-white print:border-none">
@@ -217,11 +216,11 @@ export const InfoView: React.FC = () => {
                 const rawContent = item.content || item.description || '';
 
                 return (
-                  // FIX: Print-specific styling for cards
-                  <div key={itemId} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow print:shadow-none print:border-b print:border-t-0 print:border-x-0 print:rounded-none print:mb-4 print:break-inside-avoid">
+                  // FIX: Removed print:break-inside-avoid so long texts can flow over multiple pages without being cut off
+                  <div key={itemId} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow print:shadow-none print:border-b print:border-t-0 print:border-x-0 print:rounded-none print:mb-4">
                       
-                      {/* CARD HEADER */}
-                      <div className="bg-slate-50/50 p-3 border-b border-slate-100 flex justify-between items-start print:bg-white print:pl-0">
+                      {/* CARD HEADER - Added print:break-after-avoid so title sticks to text */}
+                      <div className="bg-slate-50/50 p-3 border-b border-slate-100 flex justify-between items-start print:bg-white print:pl-0 print:break-after-avoid">
                           <div className="flex flex-col">
                               <h3 className="font-bold text-slate-800 flex items-center gap-2 text-lg">
                                   {item.isPlace ? <MapPin className="w-5 h-5 text-indigo-500" /> : <span className="text-indigo-500 text-xl">ℹ️</span>}
@@ -257,7 +256,7 @@ export const InfoView: React.FC = () => {
                       </div>
 
                       {/* CARD BODY - ALWAYS FULLY EXPANDED */}
-                      <div className="p-5 pt-2 print:px-0"> {/* pt-2 reduziert den Abstand zur Überschrift */}
+                      <div className="p-5 pt-2 print:px-0">
                           <div className="text-sm text-slate-600 print:text-black">
                               {renderMarkdown(rawContent)}
                           </div>

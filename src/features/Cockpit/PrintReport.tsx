@@ -1,3 +1,4 @@
+// 22.02.2026 16:05 - FIX: Removed 'print:break-inside-avoid' from Diary cards and Route to prevent long items from being truncated in PDF.
 // 20.02.2026 17:30 - FEAT: Added 'DiaryPrintView' to render the personal travel diary chronologically.
 // 20.02.2026 10:25 - FIX: Restored missing comments and applied exact I18N keys.
 // src/features/Cockpit/PrintReport.tsx
@@ -55,8 +56,9 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
                   const isCustomEntry = place.category === 'custom_diary';
                   
                   return (
-                      <div key={place.id} className="border-l-4 border-emerald-500 pl-4 py-1 print:break-inside-avoid">
-                          <div className="flex justify-between items-start mb-1">
+                      // FIX: Removed print:break-inside-avoid so long diary entries won't be truncated.
+                      <div key={place.id} className="border-l-4 border-emerald-500 pl-4 py-1">
+                          <div className="flex justify-between items-start mb-1 print:break-after-avoid">
                               <h4 className="font-bold text-slate-900 text-lg leading-tight">{place.name}</h4>
                               <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded shrink-0 ml-4">
                                   {dateStr}, {timeStr}
@@ -120,8 +122,8 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
              
              {/* Rundreise-Route (falls vorhanden) */}
              {logistics.mode === 'roundtrip' && (
-                <div className="mt-8 pt-8 border-t border-slate-200 break-inside-avoid">
-                   <h3 className="text-xl font-bold mb-4 uppercase">Routen-Verlauf</h3>
+                <div className="mt-8 pt-8 border-t border-slate-200">
+                   <h3 className="text-xl font-bold mb-4 uppercase print:break-after-avoid">Routen-Verlauf</h3>
                    <RouteReviewView />
                 </div>
              )}
