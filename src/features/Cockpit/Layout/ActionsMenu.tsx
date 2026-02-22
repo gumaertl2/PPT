@@ -1,3 +1,4 @@
+// 22.02.2026 12:45 - I18N: Applied translation keys to the Trip Finance button.
 // 21.02.2026 13:20 - FEAT: Added 'Trip Finance' (Reisekasse) Button to Actions Menu.
 // 17.02.2026 14:55 - REFACTOR: Moved Auto/Manual Toggle into ActionsMenu.
 // src/features/Cockpit/Layout/ActionsMenu.tsx
@@ -180,9 +181,9 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
           <button 
             onClick={() => { setIsOpen(false); if (onOpenFinance) onOpenFinance(); }}
             className="w-full text-left px-4 py-2 hover:bg-emerald-50 text-emerald-700 flex items-center gap-3 text-sm font-bold border-b border-slate-100"
-            title="Abrechnung & Ausgaben anzeigen"
+            title={t('tooltips.menu_items.finance', { defaultValue: 'Reisekasse' })}
           >
-            <Wallet className="w-4 h-4" /> Reisekasse
+            <Wallet className="w-4 h-4" /> {t('wizard.actions_menu.finance', { defaultValue: 'Reisekasse' })}
           </button>
 
           <button 
@@ -289,4 +290,4 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
     </div>
   );
 };
-// --- END OF FILE 236 Lines ---
+// --- END OF FILE 237 Lines ---

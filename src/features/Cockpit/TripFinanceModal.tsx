@@ -1,6 +1,5 @@
+// 22.02.2026 13:40 - FIX: Adjusted Mobile Layout in TripFinanceModal Header so action buttons remain visible.
 // 22.02.2026 11:45 - FEAT: Integrated Smart-Currency. Auto-converts foreign expenses to base currency in settlement and added config button.
-// 21.02.2026 17:40 - FEAT: Added GPS location icon and Google Maps link to expense history items (matching Diary style).
-// 21.02.2026 16:55 - FIX: Corrected state setters (setEditAmount, setEditSplitExact), removed obsolete 'align' props, typed 'prev'.
 // src/features/Cockpit/TripFinanceModal.tsx
 
 import React, { useState, useMemo } from 'react';
@@ -143,11 +142,11 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
           const rate = getRate(cur);
           const amountInBase = exp.amount / rate;
 
-          // 1. Original-Währungen für die Anzeige sammeln (Was wurde insgesamt in USD etc. gezahlt?)
+          // 1. Original-Währungen für die Anzeige sammeln
           if (!totalsByCurrency[cur]) totalsByCurrency[cur] = 0;
           totalsByCurrency[cur] += exp.amount;
 
-          // 2. Alle Bilanzen ("Wer schuldet wem") erfolgen strikt in der Hauptwährung!
+          // 2. Bilanzen in Hauptwährung
           if (!paidTotals[exp.paidBy]) paidTotals[exp.paidBy] = 0;
           paidTotals[exp.paidBy] += amountInBase;
 
@@ -202,19 +201,24 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
       <div className="bg-slate-50 w-full max-w-xl max-h-[90dvh] h-full sm:h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
         
-        <div className="relative z-50 bg-white border-b border-slate-200 px-4 sm:px-5 py-3 sm:py-4 flex justify-between items-center shrink-0">
-          <div className="flex items-center gap-2 text-slate-800">
-            <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600"><Wallet className="w-5 h-5" /></div>
-            <h2 className="text-lg font-bold">{t('finance.title', { defaultValue: 'Reisekasse' })}</h2>
+        {/* MODAL HEADER - ADJUSTED FOR MOBILE (Zeile 203) */}
+        <div className="relative z-50 bg-white border-b border-slate-200 px-3 sm:px-5 py-3 sm:py-4 flex justify-between items-center shrink-0">
+          <div className="flex items-center gap-2 text-slate-800 truncate mr-2">
+            <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600 shrink-0"><Wallet className="w-5 h-5" /></div>
+            {/* The title is hidden on very small screens to make room for buttons */}
+            <h2 className="hidden xs:block text-base sm:text-lg font-bold truncate">{t('finance.title', { defaultValue: 'Reisekasse' })}</h2>
           </div>
           
-          <div className="flex items-center gap-2">
-            <ExpenseEntryButton travelers={rawNames} mode="standalone" />
-            <button onClick={() => setIsCurrencyModalOpen(true)} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100" title={t('finance.currency_config_title', { defaultValue: 'Währungen konfigurieren' })}>
+          {/* ACTION BUTTONS (Zeile 210) */}
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {/* By passing isMobile={true}, the button won't hide itself on small screens */}
+            <ExpenseEntryButton travelers={rawNames} mode="standalone" isMobile={true} />
+            
+            <button onClick={() => setIsCurrencyModalOpen(true)} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100 shrink-0" title={t('finance.currency_config_title', { defaultValue: 'Währungen konfigurieren' })}>
                 <Landmark className="w-5 h-5" />
             </button>
             <div className="w-px h-6 bg-slate-200 mx-1 hidden sm:block"></div>
-            <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors" title={t('actions.close', { defaultValue: 'Schließen' })}><X className="w-5 h-5" /></button>
+            <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors shrink-0" title={t('actions.close', { defaultValue: 'Schließen' })}><X className="w-5 h-5" /></button>
           </div>
         </div>
 
@@ -223,13 +227,13 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                 onClick={() => setActiveTab('settlement')} 
                 className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors flex justify-center items-center gap-2 ${activeTab === 'settlement' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
             >
-                <ArrowRightLeft className="w-4 h-4" /> {t('finance.tab_settlement', { defaultValue: 'Abrechnung' })}
+                <ArrowRightLeft className="w-4 h-4" /> <span className="hidden xs:inline">{t('finance.tab_settlement', { defaultValue: 'Abrechnung' })}</span>
             </button>
             <button 
                 onClick={() => setActiveTab('feed')} 
                 className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors flex justify-center items-center gap-2 ${activeTab === 'feed' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
             >
-                <ListFilter className="w-4 h-4" /> {t('finance.tab_feed', { defaultValue: 'Historie' })} ({expenses.length})
+                <ListFilter className="w-4 h-4" /> <span className="hidden xs:inline">{t('finance.tab_feed', { defaultValue: 'Historie' })}</span> ({expenses.length})
             </button>
         </div>
 
@@ -238,7 +242,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
             {expenses.length === 0 ? (
                 <div className="text-center py-12 text-slate-400 flex flex-col items-center">
                     <Wallet className="w-12 h-12 mb-4 opacity-20" />
-                    <p className="mb-4">{t('finance.empty_state', { defaultValue: 'Noch keine Ausgaben erfasst.' })}</p>
+                    <p className="mb-4 px-4">{t('finance.empty_state', { defaultValue: 'Noch keine Ausgaben erfasst.' })}</p>
                     <div className="w-full max-w-[200px]">
                         <ExpenseEntryButton travelers={rawNames} mode="standalone" isMobile={true} />
                     </div>
@@ -246,7 +250,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
             ) : activeTab === 'settlement' ? (
                 <div className="space-y-6 animate-in fade-in">
                     
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 xs:grid-cols-2 gap-4">
                         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                             <h3 className="text-xs font-bold text-slate-400 uppercase mb-3">{t('finance.total_costs', { defaultValue: 'Gesamtkosten' })}</h3>
                             <div className="flex flex-wrap gap-3">
@@ -257,7 +261,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                 ))}
                             </div>
                             {Object.keys(settlement.totalsByCurrency).length > 1 && (
-                                <div className="mt-3 text-[10px] text-slate-400 font-medium bg-slate-50 p-2 rounded border border-slate-100">
+                                <div className="mt-3 text-[10px] text-slate-400 font-medium bg-slate-50 p-2 rounded border border-slate-100 leading-tight">
                                     {t('finance.settlement_base_info', { defaultValue: 'Alle Abrechnungen unten erfolgen in der Hauptwährung:' })} <strong>{baseCurrency}</strong>
                                 </div>
                             )}
@@ -267,8 +271,8 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                              <div className="space-y-1.5">
                                  {Object.entries(settlement.paidTotals).sort((a,b) => b[1]-a[1]).map(([name, total]) => (
                                      <div key={name} className="flex justify-between items-center text-xs">
-                                         <span className="font-bold text-slate-600">{name}</span>
-                                         <span className="font-bold text-slate-800">{total > 0 ? total.toFixed(2) : '-'}</span>
+                                         <span className="font-bold text-slate-600 truncate mr-2">{name}</span>
+                                         <span className="font-bold text-slate-800 shrink-0">{total > 0 ? total.toFixed(2) : '-'}</span>
                                      </div>
                                  ))}
                              </div>
@@ -282,13 +286,13 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                         ) : (
                             <div className="space-y-3">
                                 {settlement.transfers.map((tr, idx) => (
-                                    <div key={idx} className="flex items-center justify-between p-3 bg-amber-50/50 border border-amber-100 rounded-lg">
-                                        <div className="flex items-center gap-3">
+                                    <div key={idx} className="flex flex-col xs:flex-row xs:items-center justify-between p-3 bg-amber-50/50 border border-amber-100 rounded-lg gap-2">
+                                        <div className="flex items-center gap-3 text-sm">
                                             <span className="font-bold text-slate-800">{tr.from}</span>
-                                            <ArrowRightLeft className="w-4 h-4 text-amber-400" />
+                                            <ArrowRightLeft className="w-4 h-4 text-amber-400 shrink-0" />
                                             <span className="font-bold text-slate-800">{tr.to}</span>
                                         </div>
-                                        <div className="font-black text-amber-700">
+                                        <div className="font-black text-amber-700 text-right">
                                             {tr.amount.toFixed(2)} <span className="text-xs font-bold text-amber-600/70">{baseCurrency}</span>
                                         </div>
                                     </div>
@@ -302,8 +306,8 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                             {Object.entries(settlement.balances).map(([name, bal], idx) => (
                                 <div key={name} className={`flex justify-between items-center p-3 text-sm ${idx !== 0 ? 'border-t border-slate-100' : ''}`}>
-                                    <span className="font-bold text-slate-700">{name}</span>
-                                    <span className={`font-bold ${bal > 0.01 ? 'text-emerald-600' : bal < -0.01 ? 'text-red-500' : 'text-slate-400'}`}>
+                                    <span className="font-bold text-slate-700 truncate mr-2">{name}</span>
+                                    <span className={`font-bold shrink-0 ${bal > 0.01 ? 'text-emerald-600' : bal < -0.01 ? 'text-red-500' : 'text-slate-400'}`}>
                                         {bal > 0 ? '+' : ''}{bal.toFixed(2)}
                                     </span>
                                 </div>
@@ -442,4 +446,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 395 Zeilen ---
+// --- END OF FILE 397 Zeilen ---

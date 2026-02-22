@@ -1,8 +1,9 @@
+// 22.02.2026 13:00 - FIX: Added 'currencyConfig' to TripProject data and added import.
 // 21.02.2026 15:20 - FIX: Added 'travelerNames' to TripUserProfile and 'expenses' to TripProject data for Trip Finance feature.
 // 20.02.2026 17:30 - FEAT: Added 'diary' to PrintConfig for exporting the Personal Travel Diary.
 // src/core/types/models.ts
 
-import type { LanguageCode, Expense } from './shared';
+import type { LanguageCode, Expense, CurrencyConfig } from './shared';
 
 // --- SUB-TYPES ---
 export interface RouteStop {
@@ -317,7 +318,7 @@ export interface PrintConfig {
     tours: boolean;
     categories: boolean;
     infos: boolean;
-    diary: boolean; // NEW: Reisetagebuch
+    diary: boolean; 
   };
   layout: 'standard' | 'compact';
   showImages: boolean;
@@ -346,10 +347,11 @@ export interface TripProject {
     places: Record<string, Place>; 
     content: Record<string, any>; 
     routes: Record<string, any>;
-    expenses?: Record<string, Expense>; // FIX: Added expenses to the root data model
+    expenses?: Record<string, Expense>; 
+    currencyConfig?: CurrencyConfig; // FIX: Added to fix Vercel Type Errors
   };
   itinerary: {
     days: any[];
   };
 }
-// --- END OF FILE 330 Zeilen ---
+// --- END OF FILE 331 Zeilen ---

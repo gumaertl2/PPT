@@ -1,6 +1,5 @@
-// 22.02.2026 12:00 - FIX: Used React Portal for the modal to escape parent stacking contexts (z-index traps).
-// 22.02.2026 11:30 - FEAT: Replaced hardcoded currency dropdown with dynamic options from CurrencyConfig.
-// 22.02.2026 10:35 - FIX: Unified wording to 'expense' instead of 'costs' and enabled green highlight/sum display for 'sight' mode.
+// 22.02.2026 13:40 - FIX: Prevented standalone button from completely hiding on mobile when used in headers.
+// 22.02.2026 13:00 - FIX: Corrected import path for 'Place' to fix Vercel build error.
 // src/features/Cockpit/ExpenseEntryButton.tsx
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -9,7 +8,8 @@ import { Banknote, X, Users, CheckCircle2, Save, MapPin, PenLine } from 'lucide-
 import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
-import type { Expense, Place, CurrencyConfig } from '../../core/types/shared';
+import type { Expense, CurrencyConfig } from '../../core/types/shared';
+import type { Place } from '../../core/types';
 
 export type ExpenseButtonMode = 'sight' | 'planner' | 'diary' | 'standalone';
 
@@ -38,7 +38,6 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
     const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(forceOpen);
     
-    // Dynamic Currencies from Config
     const currencyConfig = project.data.currencyConfig as CurrencyConfig | undefined;
     const availableCurrencies = useMemo(() => {
         if (!currencyConfig) return ['EUR'];
@@ -65,7 +64,6 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
     const [location, setLocation] = useState<{lat: number, lng: number} | null>(defaultLocation);
     const [isFetchingGPS, setIsFetchingGPS] = useState(false);
 
-    // Sync from bridge
     useEffect(() => {
         if (forceOpen) {
             setIsOpen(true);
@@ -189,13 +187,15 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         if (forceOpen) return null; 
         
         if (mode === 'standalone') {
+            // FIX: Ensure button is visible when isMobile is explicitly requested
             const btnClass = isMobile 
-                ? "w-full flex justify-center items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold shadow-sm transition-colors" 
+                ? "flex justify-center items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold shadow-sm transition-colors" 
                 : "flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors";
             
             return (
                 <button onClick={handleToggle} className={`${btnClass} ${isOpen ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white'}`}>
-                    <Banknote size={isMobile ? 16 : 14} /> {t('finance.expense', { defaultValue: 'Ausgabe' })}
+                    <Banknote size={isMobile ? 16 : 14} /> 
+                    <span className={isMobile ? "hidden xs:inline" : ""}>{t('finance.expense', { defaultValue: 'Ausgabe' })}</span>
                 </button>
             );
         }
@@ -220,7 +220,8 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
     };
 
     return (
-        <div className={`relative ${mode === 'standalone' && isMobile ? 'flex-1' : mode === 'standalone' ? 'hidden sm:block' : 'shrink-0'} no-print`}>
+        // FIX: Removed 'hidden sm:block' if mode is standalone AND isMobile is true
+        <div className={`relative ${mode === 'standalone' && isMobile ? 'shrink-0' : mode === 'standalone' ? 'hidden sm:block' : 'shrink-0'} no-print`}>
             {renderTriggerButton()}
 
             {isOpen && typeof document !== 'undefined' && createPortal(
@@ -344,4 +345,4 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         </div>
     );
 };
-// --- END OF FILE 347 Zeilen ---
+// --- END OF FILE 348 Zeilen ---
