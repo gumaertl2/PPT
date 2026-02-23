@@ -133,6 +133,14 @@
       "review": "6. Start",
       "routeArchitect": "0b. Routen-Architekt"
     },
+   "merge_modal": {
+      "title": "Achtung: Reise bereits aktiv",
+      "description": "Sie haben aktuell eine Reise geladen. Möchten Sie die Orte aus der neuen Datei in diese Reise importieren (Duplikate werden automatisch gefiltert), oder möchten Sie die aktuelle Reise komplett überschreiben?",
+      "btn_merge": "Orte importieren (Merge)",
+      "desc_merge": "Daten, Reisedaten und Logistik der aktuellen Reise bleiben erhalten.",
+      "btn_overwrite": "Komplett überschreiben",
+      "desc_overwrite": "Die aktuelle Reise wird gelöscht und vollständig durch die neue Datei ersetzt."
+    },
     "toolbar": {
       "plan": "Plan",
       "guide": "Guide",

@@ -133,6 +133,14 @@
       "review": "6. Start",
       "routeArchitect": "0b. Route Architect"
     },
+   "merge_modal": {
+      "title": "Warning: Trip already active",
+      "description": "You currently have a trip loaded. Do you want to import the places from the new file into this trip (duplicates are filtered automatically), or do you want to completely overwrite the current trip?",
+      "btn_merge": "Import places (Merge)",
+      "desc_merge": "Dates, logistics, and settings of the current trip will be preserved.",
+      "btn_overwrite": "Completely overwrite",
+      "desc_overwrite": "The current trip will be deleted and completely replaced by the new file."
+    },
     "toolbar": {
       "plan": "Plan",
       "guide": "Guide",
