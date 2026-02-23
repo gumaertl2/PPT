@@ -1,7 +1,8 @@
+// 23.02.2026 19:45 - FIX: Added 'Hotel-Shield' to updatePlace to prevent AI (Anreicherer) from overwriting the 'hotel' category.
 // 19.02.2026 14:15 - FEAT: Added 'showPlanningMode' to UIState (Lifting State Up).
 // 06.02.2026 15:10 - FEAT: Added 'currentFileName' to UIState.
 // 29.01.2026 12:45 - FIX: Added 'selectedCategory' and 'selectedPrio' to UIState to resolve Vercel TS2339 build error.
-// 23.01.2026 18:45 - FIX: Moved print states to UIState for setUIState compatibility (192 lines).
+// 23.01.2026 18:45 - FIX: Moved print states to UIState for setUIState compatibility.
 // src/store/slices/createUISlice.ts
 
 import type { StateCreator } from 'zustand';
@@ -29,18 +30,16 @@ export interface AppNotification {
 export interface UIState {
   searchTerm: string;
   categoryFilter: string[];
-  // FIX: Added missing fields for filtering (29.01.2026)
   selectedCategory: string;
   selectedPrio: number | null;
   detailLevel: 'kompakt' | 'standard' | 'details';
   viewMode: 'list' | 'map';
   sortMode: 'category' | 'tour' | 'alphabetical';
   selectedPlaceId: string | null;
-  // FIX: Moved here for setUIState compatibility (resolves TS2353)
   isPrintMode: boolean;
   printConfig: PrintConfig | null;
-  currentFileName: string | null; // <-- NEU
-  showPlanningMode: boolean; // <-- NEU: Lifting State Up
+  currentFileName: string | null; 
+  showPlanningMode: boolean; 
 }
 
 export type AppView = 'welcome' | 'wizard' | 'results' | 'analysis_review';
@@ -53,35 +52,27 @@ export interface UISlice {
   isWorkflowModalOpen: boolean;
   setWorkflowModalOpen: (isOpen: boolean) => void;
 
-  // NEW: Info View Modal State
   isInfoViewOpen: boolean;
   setInfoViewOpen: (isOpen: boolean) => void;
 
-  // REMOVED: Top-level print fields to avoid redundancy and type errors
-
-  // --- MANUAL MODE STATE (Neu) ---
   manualPrompt: string | null;
   manualStepId: string | null;
   setManualMode: (prompt: string | null, stepId: string | null) => void;
 
-  // Global Error & Loading
   blockingError: AppError | null;
   setBlockingError: (error: AppError | null) => void;
   isLoading: boolean;
   setIsLoading: (isLoading: boolean) => void;
 
-  // Anreicherer / Sights View State & Logic
   uiState: UIState;
   setUIState: (updates: Partial<UIState>) => void;
   resetUIFilter: () => void;
   updatePlace: (id: string, data: Partial<any>) => void;
   deletePlace: (id: string) => void; 
 
-  // NEW: Controls visibility of the filter panel in SightsView
   isSightFilterOpen: boolean;
   toggleSightFilter: () => void;
 
-  // Notifications
   notifications: AppNotification[];
   addNotification: (notification: Omit<AppNotification, 'id'> & { id?: string }) => string;
   dismissNotification: (id: string) => void;
@@ -92,7 +83,6 @@ export interface UISlice {
 const initialUIState: UIState = {
   searchTerm: '',
   categoryFilter: [],
-  // FIX: Initialized new fields (29.01.2026)
   selectedCategory: 'all',
   selectedPrio: null,
   detailLevel: 'standard',
@@ -101,8 +91,8 @@ const initialUIState: UIState = {
   selectedPlaceId: null,
   isPrintMode: false,
   printConfig: null,
-  currentFileName: null, // <-- NEU
-  showPlanningMode: false // <-- NEU
+  currentFileName: null, 
+  showPlanningMode: false 
 };
 
 export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => ({
@@ -112,13 +102,9 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
   isWorkflowModalOpen: false,
   setWorkflowModalOpen: (isOpen) => set({ isWorkflowModalOpen: isOpen }),
 
-  // NEW: Info View Modal Implementation
   isInfoViewOpen: false,
   setInfoViewOpen: (isOpen) => set({ isInfoViewOpen: isOpen }),
 
-  // IMPLEMENTATION: Print states are now part of initialUIState
-
-  // --- MANUAL MODE IMPL (Neu) ---
   manualPrompt: null,
   manualStepId: null,
   setManualMode: (prompt, stepId) => set({ manualPrompt: prompt, manualStepId: stepId }),
@@ -128,8 +114,6 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
   
   isLoading: false,
   setIsLoading: (isLoading) => set({ isLoading }),
-
-  // --- ANREICHERER ---
 
   uiState: initialUIState,
   
@@ -151,7 +135,16 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
     if (!newPlaces[id]) {
       newPlaces[id] = { id, ...data };
     } else {
+      // ROOT FIX: HOTEL-SHIELD
+      // Verhindert, dass KI-Agenten (wie der Anreicherer) die mühsam gesetzte Hotel-Kategorie 
+      // durch 'architecture' oder ähnliches überschreiben.
+      const isHotel = newPlaces[id].category === 'hotel';
+      
       newPlaces[id] = { ...newPlaces[id], ...data };
+      
+      if (isHotel) {
+         newPlaces[id].category = 'hotel'; // Schutzschild aktiviert!
+      }
     }
     return {
       project: {
@@ -176,8 +169,6 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
 
   isSightFilterOpen: false,
   toggleSightFilter: () => set((state: any) => ({ isSightFilterOpen: !state.isSightFilterOpen })),
-
-  // --- NOTIFICATIONS ---
 
   notifications: [],
 
@@ -208,4 +199,4 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
     notifications: state.notifications.map((n: AppNotification) => n.id === id ? { ...n, ...updates } : n)
   }))
 });
-// --- END OF FILE 200 Zeilen ---
+// --- END OF FILE 208 Zeilen ---
