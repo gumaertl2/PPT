@@ -22,7 +22,6 @@ import { buildTourGuidePrompt } from './templates/tourGuide';
 import { buildChefredakteurPrompt } from './templates/chefredakteur';
 import { buildInfoAutorPrompt } from './templates/infoAutor';
 import { buildIdeenScoutPrompt } from './templates/ideenScout';
-import { buildGeoExpanderPrompt } from './templates/geoExpander';
 
 // --- PREPARERS ---
 import { prepareBasisPayload } from './preparers/prepareBasisPayload';
@@ -35,7 +34,6 @@ import { prepareIdeenScoutPayload } from './preparers/prepareIdeenScoutPayload';
 import { prepareFoodScoutPayload } from './preparers/prepareFoodScoutPayload';
 import { prepareFoodEnricherPayload } from './preparers/prepareFoodEnricherPayload';
 import { prepareHotelScoutPayload } from './preparers/prepareHotelScoutPayload';
-import { prepareGeoExpanderPayload } from './preparers/prepareGeoExpanderPayload';
 import { prepareTagesplanerPayload } from './preparers/prepareTagesplanerPayload'; 
 
 import type { TaskKey, ChunkingState, TripProject, FoodSearchMode } from '../types';
@@ -214,12 +212,6 @@ export const PayloadBuilder = {
           generatedPrompt = buildFoodScoutPrompt(project, payload.context);
           break;
       }
-      
-      case 'geoExpander': {
-          const payload = prepareGeoExpanderPayload(project, feedback);
-          generatedPrompt = buildGeoExpanderPrompt(project, payload.context);
-          break;
-      }
         
       case 'foodEnricher': {
           let candidates = options?.candidates || [];
@@ -316,4 +308,4 @@ export const PayloadBuilder = {
     return generatedPrompt;
   }
 };
-// --- END OF FILE 316 Zeilen ---
+// --- END OF FILE 307 Zeilen ---

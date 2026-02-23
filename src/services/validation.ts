@@ -1,5 +1,5 @@
 // 10.02.2026 22:15 - FIX: Simplified Validation.
-// 11.02.2026 20:00 - FIX: Added geoExpanderSchema (candidates array).
+// 11.02.2026 20:00 - FIX: Removed geoExpanderSchema.
 // src/services/validation.ts
 
 import { z } from 'zod';
@@ -90,15 +90,9 @@ export const hotelSchema = z.object({ candidates: z.array(z.any()).optional() })
 export const dayPlanSchema = z.object({ days: z.array(z.object({ day: z.union([z.number(), z.string()]), date: z.string().optional(), morning: z.array(z.any()).optional(), afternoon: z.array(z.any()).optional(), evening: z.array(z.any()).optional(), logistics_note: z.string().optional(), daily_summary: z.string().optional(), activities: z.array(z.any()).optional() }).passthrough()).optional() }).passthrough();
 export const geoAnalystSchema = z.object({ strategy: z.string().optional(), recommended_hubs: z.array(z.any()).optional() }).passthrough();
 
-// FIX: Added GeoExpander Schema here to centralize validation
-export const geoExpanderSchema = z.object({
-    _thought_process: z.string().optional(),
-    candidates: z.array(z.string())
-});
-
 export const ideenScoutSchema = z.object({ sunny_day_ideas: z.array(z.any()).optional(), rainy_day_ideas: z.array(z.any()).optional() }).passthrough();
 export const chefredakteurSchema = z.union([z.array(z.any()), z.object({ sights: z.array(z.any()).optional() }).passthrough()]);
 export const infoAutorSchema = z.union([z.array(z.any()), z.object({ chapters: z.array(z.any()).optional() }).passthrough()]);
 export const tourGuideSchema = z.object({ guide: z.object({ tours: z.array(z.any()).optional() }).passthrough().optional() }).passthrough();
 export const transferPlannerSchema = z.object({ transfers: z.array(z.any()).optional() }).passthrough();
-// --- END OF FILE 175 Zeilen ---
+// --- END OF FILE 169 Zeilen ---

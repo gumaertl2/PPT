@@ -20,19 +20,13 @@ import {
 } from './validation';
 import type { TaskKey } from '../core/types';
 
-const geoExpanderSchema = z.object({
-    _thought_process: z.string().optional(),
-    candidates: z.array(z.string())
-});
-
 const SCHEMA_MAP: Partial<Record<TaskKey, z.ZodType<any>>> = {
   dayplan: dayPlanSchema, initialTagesplaner: dayPlanSchema, geoAnalyst: geoAnalystSchema,
   chefPlaner: chefPlanerSchema, routeArchitect: routeArchitectSchema, routenArchitekt: routeArchitectSchema,
   food: foodSchema, foodScout: foodSchema, foodEnricher: foodSchema,
   accommodation: hotelSchema, hotelScout: hotelSchema, ideenScout: ideenScoutSchema, 
   chefredakteur: chefredakteurSchema, infoAutor: infoAutorSchema, infos: infoAutorSchema, 
-  details: chefredakteurSchema, tourGuide: tourGuideSchema, transferPlanner: transferPlannerSchema,
-  geoExpander: geoExpanderSchema 
+  details: chefredakteurSchema, tourGuide: tourGuideSchema, transferPlanner: transferPlannerSchema
 };
 
 const safetyDelay = async (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -113,10 +107,6 @@ export const TripOrchestrator = {
          }
 
          const payloadOptions: any = { candidates: processedInput, ...additionalContext };
-         
-         if (task === 'geoExpander' && Array.isArray(processedInput) && processedInput.length > 0) {
-             payloadOptions.location_name = processedInput[0];
-         }
 
          const prompt = PayloadBuilder.buildPrompt(task, feedback, payloadOptions);
          const modelId = ModelSelector.resolve(task);
@@ -239,4 +229,4 @@ export const TripOrchestrator = {
     return this._executeSingleStep(task, feedback, false, inputData, false);
   }
 };
-// --- END OF FILE 365 Lines ---
+// --- END OF FILE 355 Lines ---

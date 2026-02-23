@@ -50,16 +50,15 @@ export const FoodWorkflow = {
             // 2. GET GUIDES 
             const existingGuides = getGuidesForCountry(targetCountry);
             
-            // 3. BUILD TOWN LIST (Dynamic Chunking)
+           // 3. BUILD TOWN LIST (Dynamic Chunking)
             let townList: string[] = [];
             const locMatch = feedback?.match(/LOC:([^|]+)/);
             const manualLocation = locMatch ? locMatch[1] : undefined;
-            const geoInput = manualLocation ? [manualLocation] : undefined;
 
-            // Optional: Start with GeoExpander baseline
-            const geoResult = await runStep('geoExpander', feedback, true, geoInput);
-            if (geoResult && Array.isArray(geoResult.candidates)) townList = geoResult.candidates;
-            else if (Array.isArray(geoResult)) townList = geoResult;
+            // GeoExpander API-Call entfernt. Ad-Hoc-Orte direkt übernehmen:
+            if (manualLocation) {
+                townList.push(manualLocation);
+            }
 
             // SMART SCANNER: Add all actually visited hubs and cities to the list!
             const logistics = store.project.userInputs.logistics;
