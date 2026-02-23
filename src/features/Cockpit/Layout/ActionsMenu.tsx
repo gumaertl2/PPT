@@ -1,13 +1,13 @@
+// 23.02.2026 16:30 - REFACTOR: Moved Smart Loader Modal to dedicated component.
+// 23.02.2026 16:05 - FEAT: Added 'Smart Loader' modal to offer Merge vs. Overwrite when loading projects.
 // 22.02.2026 12:45 - I18N: Applied translation keys to the Trip Finance button.
-// 21.02.2026 13:20 - FEAT: Added 'Trip Finance' (Reisekasse) Button to Actions Menu.
-// 17.02.2026 14:55 - REFACTOR: Moved Auto/Manual Toggle into ActionsMenu.
 // src/features/Cockpit/Layout/ActionsMenu.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   Menu, 
-  FileInput, 
+  FileInput as FileInputIcon, 
   Layout, 
   Map as MapIcon, 
   Sparkles, 
@@ -18,29 +18,30 @@ import {
   Upload, 
   FileText, 
   Terminal,
-  Wallet // NEW ICON FOR FINANCE
+  Wallet
 } from 'lucide-react';
 
 import { useTripStore } from '../../../store/useTripStore';
 import { ExportService } from '../../../services/ExportService';
 import type { CockpitViewMode } from '../../../core/types';
+import { MergeProjectModal } from './MergeProjectModal';
 
 interface ActionsMenuProps {
   viewMode: CockpitViewMode;
   setViewMode: (mode: CockpitViewMode) => void;
-  onLoadClick: () => void;
+  onLoadClick: () => void; 
   onReset: () => void;
   onOpenExport: () => void;
   onOpenPrint: () => void;
   onOpenAdHoc: () => void;
   onOpenSettings: () => void;
-  onOpenFinance?: () => void; // NEW: Callback for Trip Finance Dashboard
+  onOpenFinance?: () => void; 
 }
 
 export const ActionsMenu: React.FC<ActionsMenuProps> = ({
   viewMode,
   setViewMode,
-  onLoadClick,
+  onLoadClick, 
   onReset,
   onOpenExport,
   onOpenPrint,
@@ -50,10 +51,17 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
 }) => {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
+  
+  // --- SMART LOADER STATE ---
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingLoadData, setPendingLoadData] = useState<any | null>(null);
+  const [showMergeModal, setShowMergeModal] = useState(false);
 
   const { 
     project, 
     saveProject, 
+    loadProject,
+    mergeProject, 
     resetProject, 
     downloadFlightRecorder, 
     setWorkflowModalOpen,
@@ -147,8 +155,57 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
     if (success) onOpenExport();
   };
 
+  // --- SMART LOADER LOGIC ---
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+          try {
+              const text = event.target?.result as string;
+              const data = JSON.parse(text);
+              
+              const currentPlacesCount = Object.keys(project.data.places || {}).length;
+              
+              if (currentPlacesCount > 0) {
+                  setPendingLoadData({ file, data });
+                  setShowMergeModal(true);
+              } else {
+                  await loadProject(file);
+              }
+          } catch (error) {
+              console.error("Error reading file:", error);
+              alert("Ungültige Projektdatei.");
+          }
+          if (fileInputRef.current) fileInputRef.current.value = '';
+      };
+      reader.readAsText(file);
+  };
+
+  const executeMerge = () => {
+      if (pendingLoadData?.data) mergeProject(pendingLoadData.data);
+      setShowMergeModal(false);
+      setPendingLoadData(null);
+  };
+
+  const executeOverwrite = async () => {
+      if (pendingLoadData?.file) await loadProject(pendingLoadData.file);
+      setShowMergeModal(false);
+      setPendingLoadData(null);
+  };
+
   return (
     <div className="relative">
+      
+      <input 
+        type="file" 
+        accept=".json" 
+        style={{ display: 'none' }} 
+        ref={fileInputRef}
+        onChange={handleFileChange}
+      />
+
       <button 
         onClick={() => setIsOpen(!isOpen)}
         className="flex flex-col items-center px-3 py-1 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200"
@@ -177,7 +234,6 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
              )}
           </button>
 
-          {/* --- NEW: TRIP FINANCE DASHBOARD BUTTON --- */}
           <button 
             onClick={() => { setIsOpen(false); if (onOpenFinance) onOpenFinance(); }}
             className="w-full text-left px-4 py-2 hover:bg-emerald-50 text-emerald-700 flex items-center gap-3 text-sm font-bold border-b border-slate-100"
@@ -191,7 +247,7 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
             className={`w-full text-left px-4 py-2 hover:bg-blue-50 flex items-center gap-3 text-sm font-medium ${viewMode === 'wizard' ? 'text-blue-600 bg-blue-50' : 'text-slate-700'}`}
             title={t('tooltips.menu_items.data')}
           >
-            <FileInput className="w-4 h-4" /> {t('wizard.actions_menu.data')}
+            <FileInputIcon className="w-4 h-4" /> {t('wizard.actions_menu.data')}
           </button>
           
           <button 
@@ -260,13 +316,15 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
           >
             <Save className="w-4 h-4 text-blue-500" /> {t('wizard.actions_menu.save')}
           </button>
+          
           <button 
-            onClick={() => { setIsOpen(false); onLoadClick(); }} 
+            onClick={() => { setIsOpen(false); fileInputRef.current?.click(); }} 
             className="w-full text-left px-4 py-2 hover:bg-blue-50 text-slate-700 flex items-center gap-3 text-sm font-medium"
             title={t('tooltips.menu_items.load')}
           >
             <Upload className="w-4 h-4 text-green-500" /> {t('wizard.actions_menu.load')}
           </button>
+
           <button 
             onClick={handleResetClick} 
             className="w-full text-left px-4 py-2 hover:bg-red-50 text-red-600 flex items-center gap-3 text-sm font-medium"
@@ -284,10 +342,19 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
           </button>
         </div>
       )}
+      
       {isOpen && (
         <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsOpen(false)} />
       )}
+
+      <MergeProjectModal 
+        isOpen={showMergeModal} 
+        onClose={() => { setShowMergeModal(false); setPendingLoadData(null); }} 
+        onMerge={executeMerge} 
+        onOverwrite={executeOverwrite} 
+      />
+
     </div>
   );
 };
-// --- END OF FILE 237 Lines ---
+// --- END OF FILE 330 Lines ---

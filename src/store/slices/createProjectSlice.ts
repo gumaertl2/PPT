@@ -1,4 +1,5 @@
-// 23.02.2026 13:25 - FIX: Added missing 'updateSearchSettings' and 'updateUserInputs' actions to sync UI changes to the store.
+// 23.02.2026 15:45 - FEAT: Added 'mergeProject' to integrate donor projects safely.
+// 23.02.2026 13:25 - FIX: Added missing 'updateSearchSettings' and 'updateUserInputs'.
 // 21.02.2026 15:20 - FIX: Ensured 'travelerNames' and 'expenses' map smoothly to TripProject definition.
 // src/store/slices/createProjectSlice.ts
 
@@ -6,6 +7,7 @@ import type { StateCreator } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import type { TripProject, LanguageCode, UserInputs } from '../../core/types';
 import type { Expense } from '../../core/types/shared';
+import { mergeProjects } from '../../core/utils/projectMerger';
 import {
   DEFAULT_SIGHTS_COUNT,
   DEFAULT_MIN_RATING,
@@ -22,6 +24,7 @@ export interface ProjectSlice {
   resetProject: () => void;
   setLanguage: (lang: LanguageCode) => void;
   togglePlaceVisited: (placeId: string) => void; 
+  mergeProject: (donorData: any) => { addedCount: number; skippedCount: number } | void;
   
   // Settings Sync
   updateSearchSettings: (settings: Partial<UserInputs['searchSettings']>) => void;
@@ -163,6 +166,21 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
         get().addNotification({ type: 'error', message: 'Fehler beim Laden.' });
       }
     }
+  },
+
+  mergeProject: (donorData) => {
+    const state = get();
+    const { updatedProject, stats } = mergeProjects(state.project, donorData);
+    
+    set({ project: updatedProject });
+    
+    if (state.addNotification && stats.addedCount > 0) {
+      state.addNotification({ type: 'success', message: `${stats.addedCount} neue Orte hinzugefügt (${stats.skippedCount} Duplikate).` });
+    } else if (state.addNotification && stats.addedCount === 0) {
+      state.addNotification({ type: 'info', message: `Keine neuen Orte gefunden (${stats.skippedCount} Duplikate).` });
+    }
+    
+    return stats;
   },
 
   saveProject: (customFileName?: string) => {
@@ -311,4 +329,4 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     };
   }),
 });
-// --- END OF FILE 295 Zeilen ---
+// --- END OF FILE 313 Zeilen ---
