@@ -1,3 +1,4 @@
+// 23.02.2026 15:15 - FIX: Added 'official_name' to Place interface to resolve TS2339/TS2353.
 // 22.02.2026 16:45 - FEAT: Added 'userRating' to Place interface for Diary Emotion Rating.
 // 22.02.2026 13:00 - FIX: Added 'currencyConfig' to TripProject data and added import.
 // 21.02.2026 15:20 - FIX: Added 'travelerNames' to TripUserProfile and 'expenses' to TripProject data for Trip Finance feature.
@@ -230,6 +231,7 @@ export interface LiveStatus {
 export interface Place {
   id: string;
   name: string;
+  official_name?: string;
   category: PlaceCategory;
   
   // Geo
@@ -355,4 +357,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 332 Zeilen ---
+// --- END OF FILE 334 Zeilen ---

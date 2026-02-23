@@ -1,3 +1,4 @@
+// 23.02.2026 15:15 - FIX: Added 'UserInputs' alias to TripUserProfile to resolve TS2305.
 // 06.02.2026 21:40 - FIX: Removed duplicate PrintConfig to use definition from models.ts.
 // 06.02.2026 19:30 - FEAT: Added 'plan' to CockpitViewMode.
 // src/core/types.ts
@@ -17,6 +18,8 @@ export type AppError = {
 
 // --- DOMAIN MODELS ---
 export * from './types/models';
+import type { TripUserProfile } from './types/models';
+export type UserInputs = TripUserProfile;
 
 // --- WORKFLOW TYPES ---
 export * from './types/workflow';
@@ -35,4 +38,4 @@ export interface ProjectState {
   isLoading: boolean;
   error: AppError | null;
 }
-// --- END OF FILE 33 Zeilen ---
+// --- END OF FILE 36 Zeilen ---
