@@ -1,3 +1,4 @@
+// 23.02.2026 20:00 - FIX: CORE HOTEL-SHIELD. Prevents Anreicherer from overwriting 'hotel' category.
 // 09.02.2026 10:30 - FIX: CONTENT GUARD & STRICT ID. Prevents overwriting with empty data.
 // 09.02.2026 10:15 - FIX: DISABLED FUZZY MATCHING FOR CHEFREDAKTEUR. STRICT ID ONLY.
 // 08.02.2026 23:00 - FIX: FORCE ID MATCHING. Disable Fuzzy Match if ID is present.
@@ -60,10 +61,14 @@ export const PlaceProcessor = {
                 }
 
                 if (targetId) {
+                   // ROOT FIX: CORE HOTEL-SHIELD
+                   // Wenn der Ort im Store bereits ein Hotel ist, wird die Kategorie eingefroren!
+                   const isHotel = existingPlaces[targetId]?.category === 'hotel';
+
                    updatePlace(targetId, {
                       ...item,
                       id: targetId,
-                      category: item.category || 'Sight',
+                      category: isHotel ? 'hotel' : (item.category || 'Sight'),
                       address: item.address,
                       location: item.location,
                       description: item.description,
@@ -133,4 +138,4 @@ export const PlaceProcessor = {
         }
     }
 };
-// --- END OF FILE 130 Zeilen ---
+// --- END OF FILE 136 Zeilen ---

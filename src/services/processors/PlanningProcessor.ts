@@ -1,3 +1,5 @@
+// 23.02.2026 20:15 - FIX: Separated Logistics and Places state updates in chefPlaner to prevent Zustand collision (which caused empty Cockpit hotel fields).
+// 23.02.2026 19:40 - FIX: Optimized Hotel-POV logic. Now uses resolvePlaceId to update existing entries instead of creating duplicates.
 // 23.02.2026 19:15 - FEAT: Hotels are now automatically added to 'data.places' with category 'hotel' to show their descriptions in UI.
 // 23.02.2026 18:55 - FIX: Resolved mode mismatch ('mobil' vs 'roundtrip') to restore Hotel write-back to Cockpit.
 // 23.02.2026 18:45 - FIX: Implemented intermediate cache sync in processIdeenScout to prevent duplicate creation.
@@ -41,37 +43,38 @@ export const PlanningProcessor = {
                 const corrections = data.corrections || {};
                 const validatedHotels = data.validated_hotels || [];
 
+                // --- HELPER: Fuzzy Matching ---
+                const calculateSimilarity = (str1: string, str2: string): number => {
+                    if (!str1 || !str2) return 0;
+                    if (str1.toLowerCase() === str2.toLowerCase()) return 1;
+                    const getBigrams = (s: string) => {
+                        const bg = [];
+                        const str = s.toLowerCase().replace(/\s+/g, '');
+                        for (let i = 0; i < str.length - 1; i++) bg.push(str.substring(i, i + 2));
+                        return bg;
+                    };
+                    const bg1 = getBigrams(str1);
+                    const bg2 = getBigrams(str2);
+                    if (bg1.length === 0 || bg2.length === 0) return 0;
+                    let intersection = 0;
+                    const bg2Copy = [...bg2];
+                    for (const bg of bg1) {
+                        const idx = bg2Copy.indexOf(bg);
+                        if (idx !== -1) { intersection++; bg2Copy.splice(idx, 1); }
+                    }
+                    return (2.0 * intersection) / (bg1.length + bg2.length);
+                };
+
+                const isTypo = (original: string, corrected: string) => {
+                    if (!original || !corrected) return false;
+                    if (original === corrected) return false;
+                    return calculateSimilarity(original, corrected) > 0.70; // 70% threshold
+                };
+
+                // PART 1: UPDATE LOGISTICS (COCKPIT)
                 useTripStore.setState((state) => {
                     const logistics = JSON.parse(JSON.stringify(state.project.userInputs.logistics)); 
                     let stateChanged = false;
-
-                    // --- HELPER: Fuzzy Matching ---
-                    const calculateSimilarity = (str1: string, str2: string): number => {
-                        if (!str1 || !str2) return 0;
-                        if (str1.toLowerCase() === str2.toLowerCase()) return 1;
-                        const getBigrams = (s: string) => {
-                            const bg = [];
-                            const str = s.toLowerCase().replace(/\s+/g, '');
-                            for (let i = 0; i < str.length - 1; i++) bg.push(str.substring(i, i + 2));
-                            return bg;
-                        };
-                        const bg1 = getBigrams(str1);
-                        const bg2 = getBigrams(str2);
-                        if (bg1.length === 0 || bg2.length === 0) return 0;
-                        let intersection = 0;
-                        const bg2Copy = [...bg2];
-                        for (const bg of bg1) {
-                            const idx = bg2Copy.indexOf(bg);
-                            if (idx !== -1) { intersection++; bg2Copy.splice(idx, 1); }
-                        }
-                        return (2.0 * intersection) / (bg1.length + bg2.length);
-                    };
-
-                    const isTypo = (original: string, corrected: string) => {
-                        if (!original || !corrected) return false;
-                        if (original === corrected) return false;
-                        return calculateSimilarity(original, corrected) > 0.70; // 70% threshold
-                    };
 
                     // 1. Inferred Country
                     if (corrections.inferred_country) {
@@ -114,7 +117,7 @@ export const PlanningProcessor = {
                         }
                     }
 
-                    // 3. Hotel Validation (Write-back official names AND create Place Entry)
+                    // 3. Hotel Validation (Write-back official names to Cockpit)
                     if (validatedHotels.length > 0 && (logistics.mode === 'mobil' || logistics.mode === 'roundtrip') && logistics.roundtrip.stops) {
                         logistics.roundtrip.stops.forEach((stop: any) => {
                             const match = validatedHotels.find((vh: any) => 
@@ -122,25 +125,11 @@ export const PlanningProcessor = {
                             );
                             
                             if (match && match.official_name) {
-                                // A. Update Cockpit (Logistics)
                                 if (stop.hotel !== match.official_name) {
-                                    console.log(`[PlanningProcessor] Hotel Fix: ${stop.hotel || 'Empty'} -> ${match.official_name}`);
+                                    console.log(`[PlanningProcessor] Hotel Fix (Cockpit): ${stop.hotel || 'Empty'} -> ${match.official_name}`);
                                     stop.hotel = match.official_name;
                                     stateChanged = true;
                                 }
-
-                                // B. Ensure Place Entry exists to hold description/details
-                                const hotelId = `hotel-${match.official_name.replace(/[^a-z0-9]/gi, '-').toLowerCase()}`;
-                                updatePlace(hotelId, {
-                                    id: hotelId,
-                                    name: match.official_name,
-                                    official_name: match.official_name,
-                                    category: 'hotel', // Unified Hotel Category
-                                    address: match.address,
-                                    city: match.station,
-                                    valid: true,
-                                    userPriority: 1 // Hotels are naturally high priority
-                                });
                             }
                         });
                     }
@@ -158,6 +147,39 @@ export const PlanningProcessor = {
                     }
                     return state; 
                 });
+
+                // PART 2: UPDATE PLACES (Guide View)
+                // This MUST be done outside the setState callback to prevent Zustand state-merging collisions!
+                if (validatedHotels.length > 0) {
+                    const currentState = useTripStore.getState();
+                    const currentLogistics = currentState.project.userInputs.logistics;
+                    
+                    if ((currentLogistics.mode === 'mobil' || currentLogistics.mode === 'roundtrip') && currentLogistics.roundtrip.stops) {
+                        currentLogistics.roundtrip.stops.forEach((stop: any) => {
+                            const match = validatedHotels.find((vh: any) => 
+                                vh.station === stop.location || isTypo(stop.location, vh.station)
+                            );
+                            
+                            if (match && match.official_name) {
+                                const currentPlaces = useTripStore.getState().project.data.places || {};
+                                const existingHotelId = resolvePlaceId({ name: match.official_name }, currentPlaces, false);
+                                
+                                const hotelId = existingHotelId || `hotel-${match.official_name.replace(/[^a-z0-9]/gi, '-').toLowerCase()}`;
+                                
+                                updatePlace(hotelId, {
+                                    id: hotelId,
+                                    name: match.official_name,
+                                    official_name: match.official_name,
+                                    category: 'hotel',
+                                    address: match.address,
+                                    city: match.station,
+                                    valid: true,
+                                    userPriority: 1
+                                });
+                            }
+                        });
+                    }
+                }
             }
         }
     },
@@ -283,4 +305,4 @@ export const PlanningProcessor = {
         }
     }
 };
-// --- END OF FILE 285 Zeilen ---
+// --- END OF FILE 295 Zeilen ---
