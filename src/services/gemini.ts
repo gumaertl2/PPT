@@ -1,3 +1,4 @@
+// 23.02.2026 17:35 - FEAT: Added Free Tier Traffic Shaper (Queue) & Model Downgrade.
 // 12.02.2026 17:35 - FIX: Implemented hard Thinking-Budget switching (Speed vs. Quality).
 // 09.02.2026 19:10 - FIX: Removed 'responseMimeType: application/json' when Google Search Tool is active (API constraint).
 // 09.02.2026 17:00 - FEAT: Added Google Search Grounding support via 'tools'.
@@ -142,8 +143,11 @@ const RateLimiter = {
 
 // --- SERVICE ---
 
+// NEW: Global Queue state for Traffic Shaping
+let lastRequestTime = 0;
+let queuePromise = Promise.resolve();
+
 export const GeminiService = {
-  // NEW: Request Deduplication Map to prevent double calls from Frontend
   _activeRequests: new Map<string, Promise<any>>(),
 
   determineModel(taskKey: TaskKey | null): ModelType {
@@ -171,11 +175,12 @@ export const GeminiService = {
     modelIdOverride?: string, 
     onRetryDelay?: (delay: number, msg: string) => void,
     signal?: AbortSignal,
-    enableGoogleSearch: boolean = false // NEW: Flag for Search Grounding
+    enableGoogleSearch: boolean = false 
   ): Promise<T> {
     
     const store = useTripStore.getState();
     const isDebug = store.aiSettings.debug;
+    const isFreeTier = store.aiSettings.isFreeTierKey; // Get Free Tier Flag
     const taskName = taskKey || 'unknown';
     const currentStrategy = store.aiSettings.strategy;
 
@@ -192,6 +197,25 @@ export const GeminiService = {
       throw new NoRetryError("Kein API-Key gefunden. Bitte Key in den Einstellungen speichern.", 401);
     }
 
+    // --- TRAFFIC SHAPING (FREE TIER ONLY) ---
+    // Enforce strict 4.5s delay between requests for Free Tier users
+    if (isFreeTier) {
+        queuePromise = queuePromise.then(async () => {
+            const now = Date.now();
+            const timeSinceLast = now - lastRequestTime;
+            const requiredDelay = 4500; // 4.5 seconds
+            
+            if (timeSinceLast < requiredDelay) {
+                const delay = requiredDelay - timeSinceLast;
+                if (isDebug) console.log(`[Traffic Shaper] Delaying request by ${delay}ms to protect Free Tier limits.`);
+                if (onRetryDelay) onRetryDelay(delay, "Limit-Schutz (Free Tier) aktiv...");
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+            lastRequestTime = Date.now();
+        });
+        await queuePromise;
+    }
+
     let selectedModelKey: ModelType = 'pro'; 
     let modelEndpoint = '';
     let generationConfig: any = { 
@@ -199,8 +223,14 @@ export const GeminiService = {
         responseMimeType: 'application/json' 
     };
 
-    // --- REFACTORED MODEL RESOLUTION (Interceptor) ---
-    const targetModelId = modelIdOverride || 'gemini-2.5-pro:generateContent';
+    // --- REFACTORED MODEL RESOLUTION & DOWNGRADE ---
+    let targetModelId = modelIdOverride || 'gemini-2.5-pro:generateContent';
+
+    // FREE TIER DOWNGRADE: Prevent Pro model calls
+    if (isFreeTier && targetModelId === 'gemini-2.5-pro:generateContent') {
+        if (isDebug) console.log(`[GeminiService] Free Tier Active: Downgrading Pro to Flash-Thinking for ${taskName}`);
+        targetModelId = 'gemini-2.5-flash-thinking';
+    }
 
     if (targetModelId === 'gemini-2.5-pro:generateContent') {
         modelEndpoint = targetModelId;
@@ -212,7 +242,7 @@ export const GeminiService = {
         selectedModelKey = 'thinking';
         generationConfig.thinkingConfig = {
             includeThoughts: true,
-            thinkingBudget: -1 // Dynamic reasoning enabled
+            thinkingBudget: -1 
         };
     }
     else {
@@ -221,11 +251,10 @@ export const GeminiService = {
         selectedModelKey = 'flash';
         generationConfig.thinkingConfig = {
             includeThoughts: true,
-            thinkingBudget: 0 // NO THINKING (Speed)
+            thinkingBudget: 0 
         };
     }
 
-    // FIX: Google Search Grounding does NOT support JSON Mode.
     if (enableGoogleSearch) {
         delete generationConfig.responseMimeType;
     }
@@ -255,7 +284,6 @@ export const GeminiService = {
           console.log(`>>> API CALL [${selectedModelKey}] -> ${modelEndpoint}`, { apiUrl, enableGoogleSearch });
         }
 
-        // NEW: Construct Tools Payload
         const toolsPayload = enableGoogleSearch ? [{ googleSearch: {} }] : undefined;
 
         for (let attempt = 0; attempt <= INTERNAL_RETRIES; attempt++) {
@@ -269,7 +297,7 @@ export const GeminiService = {
                 contents: [{ parts: [{ text: finalPrompt }] }],
                 safetySettings: CONFIG.api.safetySettings,
                 generationConfig: generationConfig,
-                tools: toolsPayload // Inject Tools if needed
+                tools: toolsPayload 
               }),
               signal: signal
             });
@@ -305,7 +333,6 @@ export const GeminiService = {
               const tokens = data.usageMetadata?.totalTokenCount || 0;
               (store as any).addUsageStats(tokens, selectedModelKey);
 
-              // CHECK GROUNDING METADATA (Optional Debug Info)
               const groundingMetadata = data.candidates[0].groundingMetadata;
               if (isDebug && groundingMetadata) {
                   console.log("[GeminiService] Grounding Metadata:", groundingMetadata);

@@ -1,4 +1,4 @@
-// src/store/slices/createSystemSlice.ts
+// 23.02.2026 17:05 - FEAT: Added 'isFreeTierKey' to AiSettings for Traffic Shaping & Flash-Thinking routing.
 // 17.02.2026 10:55 - FEAT: Added Global Workflow State (Persistence) to fix View-Switch loss.
 // 14.01.2026 15:45 - FIX: Re-applying Phase 1 (Model Overrides) strictly on verified upload.
 // 16.01.2026 05:50 - FINAL FIX: Consolidated TaskKey import from core/types to resolve TS2459.
@@ -83,6 +83,7 @@ export interface SystemSlice {
 const initialAiSettings: AiSettings = {
   strategy: 'optimal',
   debug: false,
+  isFreeTierKey: true, // NEW: Defaults to true for safety
   modelOverrides: {}, 
   chunkLimits: {
       auto: 10,     // Konservativer Startwert
@@ -303,4 +304,4 @@ export const createSystemSlice: StateCreator<any, [], [], SystemSlice> = (set, g
      get().downloadFlightRecorder();
   }
 });
-// --- END OF FILE 295 Zeilen ---
+// --- END OF FILE 297 Zeilen ---

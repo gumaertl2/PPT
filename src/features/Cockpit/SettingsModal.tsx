@@ -1,3 +1,4 @@
+// 23.02.2026 17:25 - FEAT: Added 'Free Tier Mode' toggle to settings.
 // 23.02.2026 10:45 - FIX: i18n completely integrated and Manual Chunk Limit added back to Matrix.
 // 12.02.2026 17:15 - UI: Implemented 3-Model-Strategy (Pro/Flash/Thinking) in Matrix.
 // src/features/Cockpit/SettingsModal.tsx
@@ -20,7 +21,8 @@ import {
   Sliders, 
   Layers,
   Brain,
-  Sparkles 
+  Sparkles,
+  ShieldCheck // NEW ICON
 } from 'lucide-react';
 import { useTripStore } from '../../store/useTripStore';
 import type { AiStrategy } from '../../store/useTripStore';
@@ -161,7 +163,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 )}
               </label>
               
-              <div className="relative group">
+              <div className="relative group mb-3">
                 <input
                   type="password"
                   value={keyInput}
@@ -184,7 +186,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 )}
               </div>
 
-              <div className="mt-2 flex justify-between items-center">
+              {/* NEW: FREE TIER TOGGLE */}
+              {apiKey && (
+                  <div 
+                      onClick={() => setAiSettings({ isFreeTierKey: !aiSettings.isFreeTierKey })}
+                      className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${aiSettings.isFreeTierKey ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}
+                  >
+                      <div className={`mt-0.5 p-1 rounded ${aiSettings.isFreeTierKey ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
+                          {aiSettings.isFreeTierKey ? <Check className="w-3 h-3" /> : <div className="w-3 h-3" />}
+                      </div>
+                      <div>
+                          <div className={`text-sm font-bold flex items-center gap-1.5 ${aiSettings.isFreeTierKey ? 'text-emerald-800' : 'text-slate-700'}`}>
+                              <ShieldCheck className="w-4 h-4" /> {t('settings.free_tier_title', 'Ich nutze einen kostenlosen API-Key')}
+                          </div>
+                          <div className={`text-xs mt-0.5 leading-snug ${aiSettings.isFreeTierKey ? 'text-emerald-600' : 'text-slate-500'}`}>
+                              {t('settings.free_tier_desc', 'Aktiviert Limit-Schutz (Pausen zwischen API-Aufrufen) & tauscht "Pro" automatisch gegen das schnellere "Thinking"-Modell aus.')}
+                          </div>
+                      </div>
+                  </div>
+              )}
+
+              <div className="mt-3 flex justify-between items-center">
                 <button 
                   onClick={openHelpModal}
                   className="text-xs text-blue-600 hover:underline flex items-center gap-1"
@@ -439,4 +461,4 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     </>
   );
 };
-// --- END OF FILE 515 Zeilen ---
+// --- END OF FILE 543 Zeilen ---

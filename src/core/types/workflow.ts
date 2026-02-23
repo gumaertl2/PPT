@@ -1,39 +1,36 @@
+// 23.02.2026 17:05 - FEAT: Added 'isFreeTierKey' to AiSettings.
 // 05.02.2026 17:30 - REFACTOR: WORKFLOW TYPES.
-// Cleaned up V30 legacy keys & fixed imports.
 // src/core/types/workflow.ts
 
 import type { LocalizedContent } from './shared';
 
 // --- WORKFLOW / MAGIC CHAIN ---
 export type WorkflowStepId = 
-  // --- V40 Primary Keys (Agent Based) ---
-  | 'chefPlaner'           // Fundamentalanalyse
-  | 'routeArchitect'       // Routenplaner
-  | 'basis'                // Sight Collector (Merged)
-  | 'anreicherer'          // Data Enricher
-  | 'initialTagesplaner'   // Day Planner
-  | 'transferPlanner'      // Logistics
-  | 'hotelScout'           // Accommodation
-  | 'geoAnalyst'           // Location Analysis
-  | 'geoExpander'          // Geo Expansion (New V40.5)
-  | 'foodScout'            // Food Collector
-  | 'foodEnricher'         // Food Auditor
-  | 'chefredakteur'        // Content Details
-  | 'infoAutor'            // A-Z Infos
-  | 'countryScout'         // Country Info
-  | 'ideenScout'           // Wildcards / Special Days
-  | 'tourGuide'            // Tours
-
-  // --- UI / Legacy Aliases (Supported for backward compatibility) ---
-  | 'dayplan'        // Alias: initialTagesplaner
-  | 'guide'          // Alias: tourGuide
-  | 'details'        // Alias: chefredakteur
-  | 'infos'          // Alias: infoAutor
-  | 'food'           // Alias: foodScout
-  | 'accommodation'  // Alias: hotelScout
-  | 'sondertage'     // Alias: ideenScout
-  | 'transfers'      // Alias: transferPlanner
-  | 'routenArchitekt'; // Alias: routeArchitect
+  | 'chefPlaner'           
+  | 'routeArchitect'       
+  | 'basis'                
+  | 'anreicherer'          
+  | 'initialTagesplaner'   
+  | 'transferPlanner'      
+  | 'hotelScout'           
+  | 'geoAnalyst'           
+  | 'geoExpander'          
+  | 'foodScout'            
+  | 'foodEnricher'         
+  | 'chefredakteur'        
+  | 'infoAutor'            
+  | 'countryScout'         
+  | 'ideenScout'           
+  | 'tourGuide'            
+  | 'dayplan'        
+  | 'guide'          
+  | 'details'        
+  | 'infos'          
+  | 'food'           
+  | 'accommodation'  
+  | 'sondertage'     
+  | 'transfers'      
+  | 'routenArchitekt'; 
 
 export type TaskKey = WorkflowStepId;
 
@@ -42,14 +39,13 @@ export interface WorkflowStepDef {
   isMandatory: boolean;       
   requiresUserInteraction?: boolean; 
   requires?: WorkflowStepId[]; 
-  // Used LocalizedContent here to fix unused import and improve typing
   label: LocalizedContent;
   description: LocalizedContent;
 }
 
 // --- AI SETTINGS ---
 export type AiStrategy = 'optimal' | 'pro' | 'fast';
-export type ModelType = 'pro' | 'flash' | string;
+export type ModelType = 'pro' | 'flash' | 'thinking' | string;
 
 export interface ChunkLimits {
     auto: number;   
@@ -59,6 +55,7 @@ export interface ChunkLimits {
 export interface AiSettings {
   strategy: AiStrategy;
   debug: boolean;
+  isFreeTierKey: boolean; // NEW: Flag for Traffic Shaping
   modelOverrides: Partial<Record<TaskKey, ModelType>>;
   chunkLimits: ChunkLimits;
   chunkOverrides: Partial<Record<TaskKey, Partial<ChunkLimits>>>;
@@ -87,4 +84,4 @@ export interface FoodSearchPayload {
   };
   userInputs?: any;
 }
-// --- END OF FILE 80 Zeilen ---
+// --- END OF FILE 84 Zeilen ---
