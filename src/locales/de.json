@@ -93,7 +93,9 @@
     "matrix_default": "(Default)",
     "strategy_optimal_desc": "Gemini 2.5 Flash + Reasoning (Auto)",
     "strategy_pro_desc": "Gemini 2.5 Pro (Deep Analysis)",
-    "strategy_fast_desc": "High Speed (1.5k RPM)"
+    "strategy_fast_desc": "High Speed (1.5k RPM)",
+    "free_tier_title": "Ich nutze einen kostenlosen API-Key",
+    "free_tier_desc": "Aktiviert Limit-Schutz (Pausen zwischen API-Aufrufen) & tauscht \"Pro\" automatisch gegen das schnellere \"Thinking\"-Modell aus."
   },
   "modal": {
     "manual_title": "KI-Anfrage manuell ausführen",

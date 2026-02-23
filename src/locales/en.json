@@ -93,7 +93,9 @@
     "matrix_default": "(Default)",
     "strategy_optimal_desc": "Gemini 2.5 Flash + Reasoning (Auto)",
     "strategy_pro_desc": "Gemini 2.5 Pro (Deep Analysis)",
-    "strategy_fast_desc": "High Speed (1.5k RPM)"
+    "strategy_fast_desc": "High Speed (1.5k RPM)",
+    "free_tier_title": "I am using a free API Key",
+    "free_tier_desc": "Enables limit protection (pauses between API calls) & automatically swaps \"Pro\" for the faster \"Thinking\" model."
   },
   "modal": {
     "manual_title": "Execute AI Request Manually",

@@ -1,3 +1,4 @@
+// 23.02.2026 18:45 - FIX: Implemented intermediate cache sync in processIdeenScout to prevent duplicate creation.
 // 23.02.2026 18:00 - FEAT: Added Write-Back logic for ChefPlaner Typo-Corrections & Hotel-Validation to userInputs.
 // 19.02.2026 15:10 - FIX: Mapped initialTagesplaner data to SSOT (project.itinerary.days).
 // 05.02.2026 16:30 - REFACTOR: PLANNING PROCESSOR.
@@ -153,17 +154,20 @@ export const PlanningProcessor = {
         if (data) setAnalysisResult('ideenScout', data);
         
         if (data && data.results && Array.isArray(data.results)) {
-             const existingPlaces = project.data?.places || {};
+             // ROOT FIX: Wir nutzen einen lokalen Cache (runningPlaces), der innerhalb der Schleife aktualisiert wird!
+             let runningPlaces = { ...(project.data?.places || {}) };
              let addedCount = 0;
+
              data.results.forEach((group: any) => {
                  const groupLocation = group.location || "Unbekannte Region";
                  const processList = (list: any[], subType: string) => {
                      if (!Array.isArray(list)) return;
                      list.forEach((item: any) => {
-                         const targetId = resolvePlaceId(item, existingPlaces, debug);
+                         // Wir prüfen gegen runningPlaces, damit Dubletten im gleichen Batch erkannt werden
+                         const targetId = resolvePlaceId(item, runningPlaces, debug);
                          const id = targetId || uuidv4();
                          
-                         updatePlace(id, {
+                         const placeData = {
                              id,
                              name: item.name,
                              category: 'special', // Unified category
@@ -178,7 +182,12 @@ export const PlanningProcessor = {
                                  website: item.website_url,
                                  source: 'ideenScout'
                              }
-                         });
+                         };
+
+                         updatePlace(id, placeData);
+                         
+                         // Sofortige Synchronisation für den nächsten Eintrag im Batch
+                         runningPlaces[id] = { ...runningPlaces[id], ...placeData };
                          addedCount++;
                      });
                  };
@@ -186,7 +195,7 @@ export const PlanningProcessor = {
                  processList(group.rainy_day_ideas, 'rainy');
                  processList(group.wildcard_ideas, 'wildcard');
              });
-             console.log(`[IdeenScout] Added ${addedCount} special places.`);
+             console.log(`[IdeenScout] Added ${addedCount} special places with intermediate sync.`);
         }
     },
 

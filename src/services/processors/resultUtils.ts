@@ -1,5 +1,5 @@
+// 23.02.2026 18:45 - HARDENING: Enhanced resolvePlaceId with exact-name fallback to prevent duplicate creation in batches.
 // 05.02.2026 16:45 - FIX: REMOVE UNUSED IMPORTS.
-// - Cleaned up uuidv4 and countryGuideConfig imports.
 // src/services/processors/resultUtils.ts
 
 import { type GuideDef } from '../../data/countries';
@@ -35,7 +35,7 @@ export const getSimilarity = (s1: string, s2: string): number => {
 
 // --- HELPER: SMART ID FINDER ---
 export const resolvePlaceId = (item: any, existingPlaces: Record<string, any>, debug: boolean, incomingCategory?: string): string | undefined => {
-    // 1. Direct ID Match
+    // 1. Direct ID Match (Strongest)
     if (item.id && existingPlaces[item.id]) {
         if (incomingCategory === 'Restaurant') {
              const p = existingPlaces[item.id];
@@ -52,10 +52,20 @@ export const resolvePlaceId = (item: any, existingPlaces: Record<string, any>, d
     const nameToCheck = item.name || item.original_name || item.name_official;
     if (nameToCheck) {
         const searchName = nameToCheck.trim().toLowerCase();
+        
+        // ROOT FIX A: Schneller Exakt-Match Check gegen alle bereits im Cache/Store befindlichen Namen.
+        // Verhindert, dass die KI im gleichen Paket zwei identische Orte mit unterschiedlichen IDs anlegt.
+        const allEntries = Object.values(existingPlaces);
+        const exactMatch = allEntries.find((p: any) => p.name?.trim().toLowerCase() === searchName);
+        if (exactMatch) {
+            if (debug) console.log(`[ResultProcessor] 🎯 Exact Name Match found: "${searchName}" -> reusing ID ${exactMatch.id}`);
+            return exactMatch.id;
+        }
+
         let bestMatchId: string | undefined = undefined;
         let bestScore = 0;
 
-        Object.values(existingPlaces).forEach((p: any) => {
+        allEntries.forEach((p: any) => {
             if (!p.name) return;
             if (incomingCategory === 'Restaurant') {
                 const isExistingSight = ['Sight', 'Attraktion', 'Landmark', 'Sehenswürdigkeit'].includes(p.category);
@@ -121,7 +131,6 @@ export const extractItems = (data: any, allowStrings: boolean = true): any[] => 
     }
 
     if (typeof data !== 'object') return [];
-    if (data.context || data.input || data.candidates_list || data.original_input) {}
 
     const isPlace = (data.name || data.id || data.original_name) 
         && !data.candidates && !data.enriched_places && !data.places && !data.results && !data.recommended_hubs
@@ -219,4 +228,4 @@ export function getGuidesForCountry(countryName: string | undefined): GuideDef[]
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 };
-// --- END OF FILE 194 Zeilen ---
+// --- END OF FILE 201 Zeilen ---

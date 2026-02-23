@@ -1,3 +1,4 @@
+// 23.02.2026 18:45 - DEFENSIVE: Added UI-level ID deduplication to prevent React Key crashes even if backend fails.
 // 23.02.2026 10:45 - FIX: i18n fully applied to grouping headers and banners.
 // 22.02.2026 15:20 - FIX: Applied i18n to the new Radar Button texts.
 // 22.02.2026 15:15 - FEAT: Added 'Radar' feature (Find Nearest Sight via GPS) with auto-scroll navigation.
@@ -258,6 +259,15 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
     const minRating = userInputs.searchSettings?.minRating || 0;
     const minDuration = userInputs.searchSettings?.minDuration || 0;
 
+    // ROOT FIX B: Wir stellen sicher, dass wir NIEMALS Dubletten an React schicken.
+    // Falls durch Batch-Läufe identische IDs entstanden sind, wird hier die Dublette entfernt.
+    const seenIds = new Set<string>();
+    const uniquePlaces = places.filter(p => {
+        if (!p.id || seenIds.has(p.id)) return false;
+        seenIds.add(p.id);
+        return true;
+    });
+
     let selectedDayPlaceIds = new Set<string>();
     let otherDayPlaceIds = new Set<string>();
 
@@ -280,7 +290,7 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
         });
     }
 
-    places.forEach((p: any) => {
+    uniquePlaces.forEach((p: any) => {
       const cat = p.category || 'Sonstiges';
       if (ignoreList.includes(cat)) return;
 
@@ -531,4 +541,4 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
     </div>
   );
 };
-// --- END OF FILE 442 Zeilen ---
+// --- END OF FILE 451 Zeilen ---

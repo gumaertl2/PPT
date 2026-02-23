@@ -1,6 +1,6 @@
+// 23.02.2026 18:15 - FIX: 'basis' step status now ignores pre-populated hotels to accurately reflect completion.
 // 23.02.2026 11:45 - FIX: Prevents auto-selection of 'hotelScout' if a manual hotel is already present.
 // 19.02.2026 13:45 - FIX: Added tourGuide, chefredakteur & hotelScout to initial selection fallback.
-// 19.02.2026 11:50 - FIX: Removed unused 'canRunGuideDependent' (TS6133).
 // src/hooks/useWorkflowSelection.ts
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -33,6 +33,13 @@ export const useWorkflowSelection = (isOpen: boolean) => {
         const validPlaces = Object.values(places).filter((p: any) => p.id !== 'dummy-example-id');
         const hasPlaces = validPlaces.length > 0;
         
+        // FIX: For basis, we only count places that are NOT hotels or restaurants (which might come from other scouts)
+        // This prevents the bug where pre-filled hotels make the system think 'basis' is already done.
+        const hasBaseSights = validPlaces.some((p: any) => {
+            const cat = (p.category || '').toLowerCase();
+            return cat !== 'hotel' && cat !== 'restaurant' && cat !== 'special';
+        });
+
         const canRunPlaceDependent = hasPlaces || isSelected('basis');
 
         switch (stepId) {
@@ -40,7 +47,9 @@ export const useWorkflowSelection = (isOpen: boolean) => {
             case 'routeArchitect': 
                 if (isStationary) return 'locked';
                 return project.analysis.routeArchitect ? 'done' : 'available';
-            case 'basis': return hasPlaces ? 'done' : 'available';
+            case 'basis': 
+                // Return 'done' ONLY if actual sights have been collected, not just hotels.
+                return hasBaseSights ? 'done' : 'available';
             
             case 'anreicherer':
                 if (!canRunPlaceDependent) return 'locked';
@@ -73,7 +82,6 @@ export const useWorkflowSelection = (isOpen: boolean) => {
                 return hasRestaurants ? 'done' : 'available';
 
             case 'hotelScout': 
-                // FIX: Check for existing manual hotel BEFORE checking place dependencies!
                 const manualHotel = project.userInputs.logistics?.stationary?.hotel;
                 const hasValidatedHotels = (project.analysis.chefPlaner?.validated_hotels?.length || 0) > 0;
                 if (manualHotel || hasValidatedHotels) return 'done';
@@ -121,16 +129,19 @@ export const useWorkflowSelection = (isOpen: boolean) => {
         if (isOpen && !hasInitializedRef.current) {
             const defaults: WorkflowStepId[] = [];
             const places = project.data.places || {};
-            const hasPlaces = Object.keys(places).length > 0;
+            // For initial defaults, we use the same strict logic: only count real sights
+            const validPlaces = Object.values(places).filter((p: any) => p.id !== 'dummy-example-id');
+            const hasBaseSights = validPlaces.some((p: any) => {
+                const cat = (p.category || '').toLowerCase();
+                return cat !== 'hotel' && cat !== 'restaurant' && cat !== 'special';
+            });
 
             WORKFLOW_STEPS.forEach(step => {
                 const status = getStepStatus(step.id);
                 
-                // FIX: Rule 1 - If a step is already 'done' (e.g. manual hotel), NEVER auto-select it.
                 if (status === 'done') return;
                 
-                if (!hasPlaces) {
-                    // Start-Array for a completely new trip
+                if (!hasBaseSights) {
                     if (['basis', 'anreicherer', 'tourGuide', 'chefredakteur', 'foodScout', 'hotelScout', 'ideenScout', 'infoAutor'].includes(step.id)) {
                          defaults.push(step.id);
                     }
@@ -185,4 +196,4 @@ export const useWorkflowSelection = (isOpen: boolean) => {
         validateStepStart 
     };
 };
-// --- END OF FILE 216 Zeilen ---
+// --- END OF FILE 222 Zeilen ---
