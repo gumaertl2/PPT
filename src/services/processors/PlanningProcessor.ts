@@ -1,3 +1,4 @@
+// 23.02.2026 18:00 - FEAT: Added Write-Back logic for ChefPlaner Typo-Corrections & Hotel-Validation to userInputs.
 // 19.02.2026 15:10 - FIX: Mapped initialTagesplaner data to SSOT (project.itinerary.days).
 // 05.02.2026 16:30 - REFACTOR: PLANNING PROCESSOR.
 // 06.02.2026 18:10 - FIX: TS2345 Solved. Direct State Update for 'target_countries'.
@@ -34,30 +35,114 @@ export const PlanningProcessor = {
                 console.log(`[PlanningProcessor] Mapped itinerary to project.itinerary SSOT.`);
             }
 
-            // FIX: Apply Geography Correction from ChefPlaner to Store
-            if (step === 'chefPlaner' && data.corrections?.inferred_country) {
-                const inferredCountry = data.corrections.inferred_country;
-                const currentCountries = store.project.userInputs.logistics.target_countries || [];
-                
-                // If we don't have a structured country yet, use the inferred one
-                if (currentCountries.length === 0 || (currentCountries.length === 1 && !currentCountries[0])) {
-                    console.log(`[PlanningProcessor] applying inferred country: ${inferredCountry}`);
-                    
-                    // FIX: updateLogistics type is too strict ('roundtrip'|'stationary'). 
-                    // We use direct state manipulation for root fields.
-                    useTripStore.setState((state) => ({
-                        project: {
-                            ...state.project,
-                            userInputs: {
-                                ...state.project.userInputs,
-                                logistics: {
-                                    ...state.project.userInputs.logistics,
-                                    target_countries: [inferredCountry]
-                                }
+            // FIX: Apply Geography Correction & Typo Fixes from ChefPlaner to Store
+            if (step === 'chefPlaner') {
+                const corrections = data.corrections || {};
+                const validatedHotels = data.validated_hotels || [];
+
+                useTripStore.setState((state) => {
+                    const logistics = JSON.parse(JSON.stringify(state.project.userInputs.logistics)); 
+                    let stateChanged = false;
+
+                    // --- HELPER: Fuzzy Matching ---
+                    const calculateSimilarity = (str1: string, str2: string): number => {
+                        if (!str1 || !str2) return 0;
+                        if (str1.toLowerCase() === str2.toLowerCase()) return 1;
+                        const getBigrams = (s: string) => {
+                            const bg = [];
+                            const str = s.toLowerCase().replace(/\s+/g, '');
+                            for (let i = 0; i < str.length - 1; i++) bg.push(str.substring(i, i + 2));
+                            return bg;
+                        };
+                        const bg1 = getBigrams(str1);
+                        const bg2 = getBigrams(str2);
+                        if (bg1.length === 0 || bg2.length === 0) return 0;
+                        let intersection = 0;
+                        const bg2Copy = [...bg2];
+                        for (const bg of bg1) {
+                            const idx = bg2Copy.indexOf(bg);
+                            if (idx !== -1) { intersection++; bg2Copy.splice(idx, 1); }
+                        }
+                        return (2.0 * intersection) / (bg1.length + bg2.length);
+                    };
+
+                    const isTypo = (original: string, corrected: string) => {
+                        if (!original || !corrected) return false;
+                        if (original === corrected) return false;
+                        return calculateSimilarity(original, corrected) > 0.70; // 70% threshold
+                    };
+
+                    // 1. Inferred Country
+                    if (corrections.inferred_country) {
+                        const currentCountries = logistics.target_countries || [];
+                        if (currentCountries.length === 0 || (currentCountries.length === 1 && !currentCountries[0])) {
+                            console.log(`[PlanningProcessor] Applying inferred country: ${corrections.inferred_country}`);
+                            logistics.target_countries = [corrections.inferred_country];
+                            stateChanged = true;
+                        }
+                    }
+
+                    // 2. Destination Typos
+                    if (corrections.destination_typo_found && corrections.corrected_destination) {
+                        const correctDest = corrections.corrected_destination;
+                        
+                        if (logistics.mode === 'stationaer' && isTypo(logistics.stationary.destination, correctDest)) {
+                            console.log(`[PlanningProcessor] Typo Fix (Stationary): ${logistics.stationary.destination} -> ${correctDest}`);
+                            logistics.stationary.destination = correctDest;
+                            stateChanged = true;
+                        } else if (logistics.mode === 'mobil') {
+                            if (isTypo(logistics.roundtrip.startLocation, correctDest)) {
+                                console.log(`[PlanningProcessor] Typo Fix (Start): ${logistics.roundtrip.startLocation} -> ${correctDest}`);
+                                logistics.roundtrip.startLocation = correctDest;
+                                stateChanged = true;
+                            }
+                            if (isTypo(logistics.roundtrip.endLocation, correctDest)) {
+                                console.log(`[PlanningProcessor] Typo Fix (End): ${logistics.roundtrip.endLocation} -> ${correctDest}`);
+                                logistics.roundtrip.endLocation = correctDest;
+                                stateChanged = true;
+                            }
+                            if (logistics.roundtrip.stops) {
+                                logistics.roundtrip.stops.forEach((stop: any) => {
+                                    if (isTypo(stop.location, correctDest)) {
+                                        console.log(`[PlanningProcessor] Typo Fix (Stop): ${stop.location} -> ${correctDest}`);
+                                        stop.location = correctDest;
+                                        stateChanged = true;
+                                    }
+                                });
                             }
                         }
-                    }));
-                }
+                    }
+
+                    // 3. Hotel Validation (Write-back official names)
+                    if (validatedHotels.length > 0 && logistics.mode === 'mobil' && logistics.roundtrip.stops) {
+                        logistics.roundtrip.stops.forEach((stop: any) => {
+                            if (stop.hotel) {
+                                const match = validatedHotels.find((vh: any) => 
+                                    vh.station === stop.location || isTypo(stop.location, vh.station)
+                                );
+                                
+                                if (match && match.official_name && stop.hotel !== match.official_name) {
+                                    console.log(`[PlanningProcessor] Hotel Fix: ${stop.hotel} -> ${match.official_name}`);
+                                    stop.hotel = match.official_name;
+                                    stateChanged = true;
+                                }
+                            }
+                        });
+                    }
+
+                    if (stateChanged) {
+                        return {
+                            project: {
+                                ...state.project,
+                                userInputs: {
+                                    ...state.project.userInputs,
+                                    logistics
+                                }
+                            }
+                        };
+                    }
+                    return state; 
+                });
             }
         }
     },
@@ -179,4 +264,4 @@ export const PlanningProcessor = {
         }
     }
 };
-// --- END OF FILE 178 Zeilen ---
+// --- END OF FILE 270 Zeilen ---
