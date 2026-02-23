@@ -1,5 +1,5 @@
+// 23.02.2026 14:40 - PROMPT HARDENING: Forced 'validated_hotels' population to bridge the data gap for map visibility.
 // 06.02.2026 21:20 - FEATURE: Added Geography Correction (City -> Country inference).
-// 01.02.2026 17:20 - REFACTOR: Merged "Smart Brain" Logic with Legacy Features.
 // src/core/prompts/templates/chefPlaner.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -30,7 +30,7 @@ You must strictly adhere to the 'logistics_briefing':
 1. **ERROR SCAN**: Check for typos in destination names.
 2. **GEOGRAPHY FIX**: Check if the user entered a **City** (e.g. "Kopenhagen", "Munich") but the system expects a **Country**.
    - IF destination is a City, identify the correct Country (e.g. "Dänemark") and fill 'inferred_country'.
-3. **VALIDATION**: Research official names for user-provided hotels or fixed appointments.
+3. **HOTEL-VALIDATION**: Look at 'hotels_to_validate' in the context. For each hotel, find the official name and precise address. You **MUST** populate the structured array 'validated_hotels' with these results. Do not just describe them in text.
 4. **STRATEGY**: Write specific instructions (field 'strategic_briefing') for the "Collector" agent.
 
 # LANGUAGE
@@ -84,4 +84,4 @@ Generate ALL user-facing text in **${meta.targetLanguageName}**.`;
     .withSelfCheck(['basic', 'planning'])
     .build();
 };
-// --- END OF FILE 105 Zeilen ---
+// --- END OF FILE 106 Zeilen ---

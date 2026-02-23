@@ -1,5 +1,5 @@
+// 23.02.2026 13:40 - FIX: Added logic to identify and display manual stationary hotels and hubs on the map.
 // 20.02.2026 18:35 - FEAT: Added GPS "Locate Me" Button and pulsing Blue Dot for current user location.
-// 20.02.2026 09:55 - FIX: Resolved TS build errors.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -121,7 +121,6 @@ const MapStyles = () => (
       animation: pulse-black 1.5s infinite;
       z-index: 9999 !important;
     }
-    /* NEW: Blue pulse for GPS Location */
     @keyframes pulse-blue {
       0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); transform: scale(1); }
       70% { box-shadow: 0 0 0 15px rgba(59, 130, 246, 0); transform: scale(1.1); }
@@ -171,7 +170,6 @@ const MapLogic: React.FC<{ places: Place[] }> = ({ places }) => {
   return null;
 };
 
-// Map Resizer to fix Grey-Tile Bug when toggling modes
 const MapResizer: React.FC<{ isFullscreen: boolean }> = ({ isFullscreen }) => {
     const map = useMap();
     useEffect(() => {
@@ -182,7 +180,6 @@ const MapResizer: React.FC<{ isFullscreen: boolean }> = ({ isFullscreen }) => {
     return null;
 };
 
-// NEW: User Location Marker Component (Blue Dot)
 const UserLocationMarker: React.FC<{ location: [number, number] | null }> = ({ location }) => {
     const map = useMap();
     
@@ -263,10 +260,7 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
   const [isCheckingLive, setIsCheckingLive] = useState(false);
   const [liveCheckProgress, setLiveCheckProgress] = useState({ current: 0, total: 0 });
   
-  // Fullscreen State
   const [isFullscreen, setIsFullscreen] = useState(false);
-
-  // NEW: GPS Location State
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [isLocating, setIsLocating] = useState(false);
 
@@ -288,16 +282,26 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
       return map;
   }, [project.itinerary]);
 
-  const hotelIds = useMemo(() => {
+  // FIX: Identify Hotel by both ID and Name to support manual inputs
+  const hotelInfo = useMemo(() => {
+      const names = new Set<string>();
       const ids = new Set<string>();
+      
       if (project.userInputs.logistics.mode === 'stationaer') {
-          if (project.userInputs.logistics.stationary.hotel) ids.add(project.userInputs.logistics.stationary.hotel);
+          const h = project.userInputs.logistics.stationary.hotel;
+          if (h) {
+              if (h.length > 20) ids.add(h); // Likely a UUID
+              else names.add(h.toLowerCase()); // Likely a name
+          }
       } else {
           project.userInputs.logistics.roundtrip.stops?.forEach((s: any) => {
-              if (s.hotel) ids.add(s.hotel);
+              if (s.hotel) {
+                  if (s.hotel.length > 20) ids.add(s.hotel);
+                  else names.add(s.hotel.toLowerCase());
+              }
           });
       }
-      return ids;
+      return { ids, names };
   }, [project.userInputs.logistics]);
 
   useEffect(() => {
@@ -364,7 +368,6 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
     }
   }, [uiState.selectedPlaceId]);
 
-  // NEW: HTML5 GPS Handler
   const handleLocateUser = () => {
       if (!navigator.geolocation) {
           alert("Dein Browser oder Gerät unterstützt leider kein GPS.");
@@ -395,7 +398,6 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
   return (
     <div className={containerClasses}>
       
-      {/* 1. Geocoding Indicator */}
       {isUpdatingCoords && (
           <div className={`absolute top-4 right-20 z-[1000] bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-md border border-slate-200 flex items-center gap-3 text-xs font-medium text-slate-600 animate-in slide-in-from-top-2`}>
               <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-500" />
@@ -403,7 +405,6 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
           </div>
       )}
 
-      {/* 2. Live Check Indicator */}
       {isCheckingLive && (
           <div className={`absolute right-20 z-[1000] bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-md border border-slate-200 flex items-center gap-3 text-xs font-medium text-slate-600 animate-in slide-in-from-top-2 ${isUpdatingCoords ? 'top-16' : 'top-4'}`}>
               <Zap className="w-3.5 h-3.5 animate-pulse text-amber-500 fill-current" />
@@ -411,7 +412,6 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
           </div>
       )}
 
-      {/* 3. FULLSCREEN/THEATER TOGGLE BUTTON */}
       <button 
           onClick={() => setIsFullscreen(!isFullscreen)}
           className={`absolute top-4 right-4 z-[1000] bg-white text-slate-700 p-2.5 rounded-xl shadow-lg border border-slate-200 hover:text-blue-600 hover:bg-blue-50 transition-all focus:outline-none`}
@@ -420,7 +420,6 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
           {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
       </button>
 
-      {/* 4. GPS LOCATE ME BUTTON (Neu) */}
       <button 
           onClick={handleLocateUser}
           className={`absolute top-[68px] right-4 z-[1000] bg-white text-blue-600 p-2.5 rounded-xl shadow-lg border border-slate-200 hover:bg-blue-50 transition-all focus:outline-none ${isLocating ? 'animate-pulse opacity-70' : ''}`}
@@ -440,12 +439,18 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
         <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <MapLogic places={places} />
         
-        {/* NEW: Renders the Blue Dot if GPS location is known */}
         <UserLocationMarker location={userLocation} />
 
         {validPlaces.map((place) => {
           const isSelected = uiState.selectedPlaceId === place.id;
-          const isHotel = hotelIds.has(place.id);
+          
+          // FIX: Dynamic Hotel Identification
+          const isHotel = hotelInfo.ids.has(place.id) || 
+                          hotelInfo.names.has(place.name?.toLowerCase() || '') || 
+                          hotelInfo.names.has(place.official_name?.toLowerCase() || '') ||
+                          place.category?.toLowerCase().includes('hotel') ||
+                          place.category?.toLowerCase().includes('accommodation');
+
           const dayNumber = scheduledPlaces.get(place.id);
           const markerColor = getCategoryColor(place.category, place);
           
@@ -516,4 +521,4 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
     </div>
   );
 };
-// --- END OF FILE 528 Zeilen ---
+// --- END OF FILE 543 Zeilen ---

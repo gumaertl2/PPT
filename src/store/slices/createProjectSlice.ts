@@ -1,10 +1,10 @@
+// 23.02.2026 13:25 - FIX: Added missing 'updateSearchSettings' and 'updateUserInputs' actions to sync UI changes to the store.
 // 21.02.2026 15:20 - FIX: Ensured 'travelerNames' and 'expenses' map smoothly to TripProject definition.
-// 21.02.2026 13:00 - FEAT: Added expenses structure and CRUD actions for Trip Finance. Replaced 'pets' with 'travelerNames'.
 // src/store/slices/createProjectSlice.ts
 
 import type { StateCreator } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import type { TripProject, LanguageCode } from '../../core/types';
+import type { TripProject, LanguageCode, UserInputs } from '../../core/types';
 import type { Expense } from '../../core/types/shared';
 import {
   DEFAULT_SIGHTS_COUNT,
@@ -22,6 +22,10 @@ export interface ProjectSlice {
   resetProject: () => void;
   setLanguage: (lang: LanguageCode) => void;
   togglePlaceVisited: (placeId: string) => void; 
+  
+  // Settings Sync
+  updateSearchSettings: (settings: Partial<UserInputs['searchSettings']>) => void;
+  updateUserInputs: (inputs: Partial<UserInputs>) => void;
   
   // Trip Finance
   addExpense: (expense: Expense) => void;
@@ -51,8 +55,8 @@ const createInitialProject = (): TripProject => ({
       origin: '',
       nationality: '',
       groupType: 'couple',
-      pets: false, // Legacy fallback for strict typing
-      travelerNames: '' // NEW 
+      pets: false,
+      travelerNames: ''
     },
     dates: {
       start: '',
@@ -96,7 +100,7 @@ const createInitialProject = (): TripProject => ({
       places: {}, 
       content: {}, 
       routes: {}, 
-      expenses: {} // NEW
+      expenses: {}
   }, 
   itinerary: { days: [] }
 });
@@ -217,6 +221,29 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     project: { ...state.project, meta: { ...state.project.meta, language: lang } }
   })),
 
+  updateSearchSettings: (settings) => set((state: any) => ({
+    project: {
+        ...state.project,
+        userInputs: {
+            ...state.project.userInputs,
+            searchSettings: {
+                ...state.project.userInputs.searchSettings,
+                ...settings
+            }
+        }
+    }
+  })),
+
+  updateUserInputs: (inputs) => set((state: any) => ({
+    project: {
+        ...state.project,
+        userInputs: {
+            ...state.project.userInputs,
+            ...inputs
+        }
+    }
+  })),
+
   togglePlaceVisited: (placeId) => set((state: any) => {
     const place = state.project.data.places[placeId];
     if (!place) return state;
@@ -284,4 +311,4 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     };
   }),
 });
-// --- END OF FILE 264 Zeilen ---
+// --- END OF FILE 295 Zeilen ---

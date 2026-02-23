@@ -1,6 +1,6 @@
+// 23.02.2026 13:10 - MERGE: Full Multi-City Logic & Repair Loop combined with Workflow Kill-Switch.
 // 23.02.2026 11:35 - UX/FEAT: Added Dynamic Storytelling (Live UI-Updates for City Chunking & Repair Loop).
 // 20.02.2026 16:30 - FEAT: Implemented true Multi-City Chunking. Scans all hubs/districts and runs sequential foodScout loop.
-// 16.02.2026 21:40 - FIX: UNUSED VARIABLE (Vercel Build Error).
 // 13.02.2026 12:00 - FEAT: "Quality Doorman" Logic (Loop-on-Failure).
 // src/core/Workflow/FoodWorkflow.ts
 
@@ -51,17 +51,15 @@ export const FoodWorkflow = {
             // 2. GET GUIDES 
             const existingGuides = getGuidesForCountry(targetCountry);
             
-            // 3. BUILD TOWN LIST (Dynamic Chunking)
+            // 3. BUILD TOWN LIST
             let townList: string[] = [];
             const locMatch = feedback?.match(/LOC:([^|]+)/);
             const manualLocation = locMatch ? locMatch[1] : undefined;
 
-            // GeoExpander API-Call entfernt. Ad-Hoc-Orte direkt übernehmen:
             if (manualLocation) {
                 townList.push(manualLocation);
             }
 
-            // SMART SCANNER: Add all actually visited hubs and cities to the list!
             const logistics = store.project.userInputs.logistics;
             if (logistics.mode === 'stationaer' && logistics.stationary?.destination) {
                 townList.push(logistics.stationary.destination);
@@ -79,7 +77,6 @@ export const FoodWorkflow = {
                 }
             });
 
-            // Clean up and deduplicate the townList
             townList = Array.from(new Set(townList.map(t => cleanTownName(t)))).filter(t => t && t.length > 2);
             if (townList.length === 0) townList = ["Region"];
 
@@ -87,15 +84,15 @@ export const FoodWorkflow = {
             
             // 4. SCOUTING LOOP (Flash per City)
             let allScoutCandidates: any[] = [];
-            const totalSteps = townList.length + 1; // +1 for Enricher Phase
+            const totalSteps = townList.length + 1; 
             
             for (let i = 0; i < townList.length; i++) {
+                // --- KILL-SWITCH CHECK ---
+                if (useTripStore.getState().workflow.status !== 'generating') return null;
+
                 const town = townList[i];
-                
                 store.setChunkingState({ isActive: true, currentChunk: i + 1, totalChunks: totalSteps });
-                console.log(`[FoodWorkflow] Scanning Town ${i+1}/${townList.length}: ${town}`);
                 
-                // --- UX STORYTELLING ---
                 const loadingNotif = store.notifications.find((n: any) => n.type === 'loading');
                 if (loadingNotif) {
                     const isDe = store.project.meta?.language === 'de';
@@ -104,25 +101,16 @@ export const FoodWorkflow = {
                         : `🍔 Scouting restaurants in ${town} (${i + 1} of ${totalSteps})...`;
                     store.updateNotification(loadingNotif.id, { message: msg });
                 }
-                // -----------------------
                 
                 try {
-                    const stepResult = await runStep(
-                        'foodScout', 
-                        feedback, 
-                        true, // skipSave
-                        [town], // Pass single town!
-                        true, // enableSearch
-                        { guides: existingGuides } 
-                    );
+                    const stepResult = await runStep('foodScout', feedback, true, [town], true, { guides: existingGuides });
                     
                     if (stepResult && Array.isArray(stepResult.candidates)) {
-                        const tagged = stepResult.candidates.map((c: any) => ({
+                        allScoutCandidates.push(...stepResult.candidates.map((c: any) => ({
                             ...c,
-                            city: town, // Tag it with the searched city
+                            city: town,
                             id: c.id || uuidv4()
-                        }));
-                        allScoutCandidates.push(...tagged);
+                        })));
                     }
                     await safetyDelay(500); 
                 } catch (e) {
@@ -131,15 +119,13 @@ export const FoodWorkflow = {
             }
 
             // 5. THE QUALITY DOORMAN (Repair Loop)
-            console.log(`[FoodWorkflow] Quality Check for ${allScoutCandidates.length} candidates...`);
-            
             for (const candidate of allScoutCandidates) {
+                // --- KILL-SWITCH CHECK ---
+                if (useTripStore.getState().workflow.status !== 'generating') return null;
+
                 const isAddressMissing = !candidate.address || candidate.address.length < 5 || candidate.address.toLowerCase().includes("unknown");
                 
                 if (isAddressMissing) {
-                    console.log(`[FoodWorkflow] REPAIRING: ${candidate.name} in ${candidate.city}`);
-                    
-                    // --- UX STORYTELLING ---
                     const loadingNotif = store.notifications.find((n: any) => n.type === 'loading');
                     if (loadingNotif) {
                         const isDe = store.project.meta?.language === 'de';
@@ -148,20 +134,12 @@ export const FoodWorkflow = {
                             : `🔧 Repairing address: ${candidate.name}...`;
                         store.updateNotification(loadingNotif.id, { message: msg });
                     }
-                    // -----------------------
                     
                     try {
                         const repairFeedback = `REPAIR_MODE|NAME:${candidate.name}|CITY:${candidate.city}|MISSING:Address`;
-                        const repairResult = await runStep(
-                            'foodScout', 
-                            repairFeedback, 
-                            true, 
-                            [`${candidate.name} ${candidate.city} address`], 
-                            true,
-                            { guides: [] } 
-                        );
+                        const repairResult = await runStep('foodScout', repairFeedback, true, [`${candidate.name} ${candidate.city} address`], true, { guides: [] });
 
-                        if (repairResult && repairResult.candidates && repairResult.candidates.length > 0) {
+                        if (repairResult?.candidates?.[0]) {
                             const repaired = repairResult.candidates[0];
                             if (repaired.address && repaired.address.length > 5) {
                                 candidate.address = repaired.address;
@@ -169,9 +147,7 @@ export const FoodWorkflow = {
                                 if (repaired.website) candidate.website = repaired.website;
                             }
                         }
-                    } catch (err) {
-                        console.warn(`[FoodWorkflow] Repair failed for ${candidate.name}`, err);
-                    }
+                    } catch (err) {}
                     await safetyDelay(300);
                 }
             }
@@ -179,9 +155,11 @@ export const FoodWorkflow = {
             if (allScoutCandidates.length === 0) return;
 
             // 6. ENRICHMENT PHASE (Thinking/Quality)
+            // --- KILL-SWITCH CHECK ---
+            if (useTripStore.getState().workflow.status !== 'generating') return null;
+
             store.setChunkingState({ isActive: true, currentChunk: totalSteps, totalChunks: totalSteps });
             
-            // --- UX STORYTELLING ---
             const finalNotif = store.notifications.find((n: any) => n.type === 'loading');
             if (finalNotif) {
                 const isDe = store.project.meta?.language === 'de';
@@ -190,7 +168,6 @@ export const FoodWorkflow = {
                     : `👨‍🍳 Verifying restaurant data (${totalSteps} of ${totalSteps})...`;
                 store.updateNotification(finalNotif.id, { message: msg });
             }
-            // -----------------------
             
             let enricherFeedback = feedback || "";
             if (existingGuides) {
@@ -219,4 +196,4 @@ export const FoodWorkflow = {
         }
     }
 };
-// --- END OF FILE 207 Zeilen ---
+// --- END OF FILE 209 Zeilen ---

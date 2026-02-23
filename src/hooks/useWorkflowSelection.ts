@@ -1,3 +1,4 @@
+// 23.02.2026 11:45 - FIX: Prevents auto-selection of 'hotelScout' if a manual hotel is already present.
 // 19.02.2026 13:45 - FIX: Added tourGuide, chefredakteur & hotelScout to initial selection fallback.
 // 19.02.2026 11:50 - FIX: Removed unused 'canRunGuideDependent' (TS6133).
 // src/hooks/useWorkflowSelection.ts
@@ -72,10 +73,13 @@ export const useWorkflowSelection = (isOpen: boolean) => {
                 return hasRestaurants ? 'done' : 'available';
 
             case 'hotelScout': 
-                if (!canRunPlaceDependent) return 'locked';
+                // FIX: Check for existing manual hotel BEFORE checking place dependencies!
                 const manualHotel = project.userInputs.logistics?.stationary?.hotel;
                 const hasValidatedHotels = (project.analysis.chefPlaner?.validated_hotels?.length || 0) > 0;
-                return (manualHotel || hasValidatedHotels) ? 'done' : 'available';
+                if (manualHotel || hasValidatedHotels) return 'done';
+                
+                if (!canRunPlaceDependent) return 'locked';
+                return 'available';
             
             case 'ideenScout': 
                 if (!canRunPlaceDependent) return 'locked';
@@ -120,15 +124,18 @@ export const useWorkflowSelection = (isOpen: boolean) => {
             const hasPlaces = Object.keys(places).length > 0;
 
             WORKFLOW_STEPS.forEach(step => {
+                const status = getStepStatus(step.id);
+                
+                // FIX: Rule 1 - If a step is already 'done' (e.g. manual hotel), NEVER auto-select it.
+                if (status === 'done') return;
+                
                 if (!hasPlaces) {
-                    // FIX: Erweitertes Array für den allerersten Start
+                    // Start-Array for a completely new trip
                     if (['basis', 'anreicherer', 'tourGuide', 'chefredakteur', 'foodScout', 'hotelScout', 'ideenScout', 'infoAutor'].includes(step.id)) {
                          defaults.push(step.id);
-                         return;
                     }
+                    return;
                 }
-                const status = getStepStatus(step.id);
-                if (status === 'done') return;
                 
                 if (status === 'available') {
                     if (step.id === 'initialTagesplaner') return;
@@ -178,4 +185,4 @@ export const useWorkflowSelection = (isOpen: boolean) => {
         validateStepStart 
     };
 };
-// --- END OF FILE 215 Zeilen ---
+// --- END OF FILE 216 Zeilen ---

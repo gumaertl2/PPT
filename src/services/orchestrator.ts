@@ -1,5 +1,6 @@
+// 23.02.2026 13:05 - MERGE: Combined UX Storytelling with Kill-Switch Protection.
+// 23.02.2026 12:30 - FIX: Added Kill-Switch Check to Chunk-Loop to stop background tasks immediately on cancel.
 // 23.02.2026 11:30 - UX/FEAT: Added Storytelling & Chunk-Feedback (`updateStory`) for live UI notifications.
-// 17.02.2026 22:30 - FIX: Removed 'initialTagesplaner' from Chunking (Skeleton Approach). Added Flight Recorder Logs.
 // src/services/orchestrator.ts
 
 import { z } from 'zod';
@@ -91,6 +92,12 @@ export const TripOrchestrator = {
 
      try {
          for (let i = 1; i <= totalChunks; i++) {
+             // --- KILL-SWITCH CHECK ---
+             if (useTripStore.getState().workflow.status !== 'generating') {
+                 console.log(`[Orchestrator] Loop for ${task} ABORTED by user.`);
+                 return null; 
+             }
+
              console.log(`[Orchestrator] Processing Chunk ${i}/${totalChunks}...`);
              store.setChunkingState({ isActive: true, currentChunk: i, totalChunks: totalChunks, results: collectedResults });
              
@@ -110,6 +117,10 @@ export const TripOrchestrator = {
              });
 
              const rawResult = await GeminiService.call(prompt, task, modelId);
+             
+             // Check again after long API call
+             if (useTripStore.getState().workflow.status !== 'generating') return null;
+
              let validatedData = rawResult;
              if (schema) {
                 const validation = schema.safeParse(rawResult);
@@ -147,6 +158,9 @@ export const TripOrchestrator = {
      }
 
      try {
+         // --- KILL-SWITCH CHECK ---
+         if (useTripStore.getState().workflow.status !== 'generating') return null;
+
          let processedInput = inputData;
          if (task === 'foodScout' && Array.isArray(inputData)) {
              processedInput = inputData.map(item => typeof item === 'string' ? cleanTownName(item) : item);
@@ -160,6 +174,10 @@ export const TripOrchestrator = {
          if (store.aiSettings.debug) console.log(`[Orchestrator] Single Step: ${task} -> Model: ${modelId === CONFIG.api.models.pro ? 'PRO' : 'FLASH'} ${skipSave ? '(NO SAVE)' : ''}`);
 
          const rawResult = await GeminiService.call(prompt, task, modelId, undefined, undefined, enableSearch);
+         
+         // Check again after API call
+         if (useTripStore.getState().workflow.status !== 'generating') return null;
+
          const schema = SCHEMA_MAP[task];
          let validatedData = rawResult;
          if (schema) {
@@ -273,4 +291,4 @@ export const TripOrchestrator = {
     return this._executeSingleStep(task, feedback, false, inputData, false);
   }
 };
-// --- END OF FILE 397 Lines ---
+// --- END OF FILE 412 Lines ---

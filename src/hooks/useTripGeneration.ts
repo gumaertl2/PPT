@@ -1,6 +1,6 @@
+// 23.02.2026 12:15 - FIX: Removed 'isMounted' closure trap that caused the workflow queue to halt after the first step.
 // 21.02.2026 12:15 - FIX: Added chunk loop logic to submitManualResult to allow multi-chunk tasks (like Anreicherer) to finish completely in manual mode.
 // 20.02.2026 20:15 - FIX: Added Hard Kill-Switch (Abort Guard) to effectively cancel background tasks and dismiss loading modal immediately.
-// 20.02.2026 14:15 - FIX: Switched to functional state updates for queue slicing.
 // src/hooks/useTripGeneration.ts
 
 import { useCallback, useEffect, useRef } from 'react';
@@ -137,8 +137,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
   // --- WORKFLOW ENGINE ---
   useEffect(() => {
-    let isMounted = true;
-
     const executeNextStep = async () => {
       if (globalIsExecutingLock) return;
       
@@ -217,7 +215,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
         );
         
         // --- ABORT GUARD ---
-        // Check if the user clicked cancel while we were waiting for the AI
         if (useTripStore.getState().workflow.status !== 'generating') {
             console.log(`[Workflow] Task ${nextStepId} finished, but workflow was cancelled. Dropping result.`);
             return; // Abort processing silently!
@@ -226,38 +223,35 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
         dismissNotification(loadingId);
         if (activeNotificationId.current === loadingId) activeNotificationId.current = null;
         
-        if (isMounted) {
-            processResult(nextStepId, result);
-            
-            await new Promise(r => setTimeout(r, 1000));
+        processResult(nextStepId, result);
+        
+        await new Promise(r => setTimeout(r, 1000));
 
-            setTimeout(() => {
-              if (!isMounted) return;
-              
-              if (isAutoMode) {
-                  resetChunking(); 
+        setTimeout(() => {
+            // Re-check abort guard just in case user cancelled during the 1000ms delay
+            if (useTripStore.getState().workflow.status !== 'generating') return;
+            
+            if (isAutoMode) {
+                resetChunking(); 
+                const currentGlobalQueue = useTripStore.getState().workflow.queue;
+                setWorkflowState({ queue: currentGlobalQueue.slice(1) });
+            } else {
+                const liveState = useTripStore.getState().chunkingState;
+                if (liveState.isActive && liveState.currentChunk < liveState.totalChunks) {
+                  setChunkingState({ currentChunk: liveState.currentChunk + 1 });
+                } else {
                   const currentGlobalQueue = useTripStore.getState().workflow.queue;
                   setWorkflowState({ queue: currentGlobalQueue.slice(1) });
-              } else {
-                  const liveState = useTripStore.getState().chunkingState;
-                  if (liveState.isActive && liveState.currentChunk < liveState.totalChunks) {
-                    setChunkingState({ currentChunk: liveState.currentChunk + 1 });
-                  } else {
-                    const currentGlobalQueue = useTripStore.getState().workflow.queue;
-                    setWorkflowState({ queue: currentGlobalQueue.slice(1) });
-                    resetChunking();
-                  }
-              }
-            }, 0);
-        }
+                  resetChunking();
+                }
+            }
+        }, 0);
       } catch (err) {
         // --- ABORT GUARD FOR ERRORS ---
         if (useTripStore.getState().workflow.status !== 'generating') return;
 
         dismissNotification(loadingId);
         if (activeNotificationId.current === loadingId) activeNotificationId.current = null;
-        
-        if (!isMounted) { globalIsExecutingLock = false; return; }
         
         const friendlyMsg = getFriendlyErrorMessage(err, lang);
         setWorkflowState({ error: friendlyMsg, status: 'error' });
@@ -289,7 +283,6 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
     
     executeNextStep();
     
-    return () => { isMounted = false; };
   }, [
     status, 
     queue.length, 
@@ -429,4 +422,4 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
   return { status, currentStep, queue, error, progress, manualPrompt, submitManualResult, startWorkflow, resumeWorkflow, cancelWorkflow, startSingleTask };
 };
-// --- END OF FILE 423 Zeilen ---
+// --- END OF FILE 398 Zeilen ---
