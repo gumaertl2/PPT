@@ -200,6 +200,8 @@ export const metadata = {
 export interface GuideDef {
     name: string;
     searchUrl: string;
+    googleQueries?: string[];
+    searchTerms?: string[];
 }
 
 // SINGLE SOURCE OF TRUTH - SORTED BY COUNTRY
