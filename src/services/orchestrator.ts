@@ -1,5 +1,5 @@
+// 23.02.2026 11:30 - UX/FEAT: Added Storytelling & Chunk-Feedback (`updateStory`) for live UI notifications.
 // 17.02.2026 22:30 - FIX: Removed 'initialTagesplaner' from Chunking (Skeleton Approach). Added Flight Recorder Logs.
-// 12.02.2026 18:40 - REFACTOR: Final Cleanup. Integrated ModelSelector, LimitManager, ResultMerger.
 // src/services/orchestrator.ts
 
 import { z } from 'zod';
@@ -38,6 +38,47 @@ const cleanTownName = (name: string): string => {
 
 export const TripOrchestrator = {
   
+  // UX STORYTELLING HELPER
+  updateStory(task: string, current: number, total: number, customText?: string) {
+      const state = useTripStore.getState();
+      const loadingNotif = state.notifications.find((n: any) => n.type === 'loading');
+      if (!loadingNotif) return;
+
+      const lang = state.project.meta?.language || 'de';
+      const isDe = lang === 'de';
+
+      let baseText = customText;
+      if (!baseText) {
+          const TASK_MAP: Record<string, {de: string, en: string}> = {
+            anreicherer: { de: "🔍 Recherchiere Details für Orte", en: "🔍 Researching place details" },
+            chefredakteur: { de: "✍️ Schreibe Reiseführer-Artikel", en: "✍️ Writing guide articles" },
+            details: { de: "✍️ Schreibe Reiseführer-Artikel", en: "✍️ Writing guide articles" },
+            foodEnricher: { de: "👨‍🍳 Verifiziere Restaurant-Daten", en: "👨‍🍳 Verifying restaurant data" },
+            foodScout: { de: "🍔 Suche kulinarische Highlights", en: "🍔 Scouting culinary highlights" },
+            food: { de: "🍔 Suche kulinarische Highlights", en: "🍔 Scouting culinary highlights" },
+            infos: { de: "ℹ️ Sammle praktische Reise-Infos", en: "ℹ️ Gathering practical infos" },
+            infoAutor: { de: "ℹ️ Verfasse Reise-Informationen", en: "ℹ️ Writing travel information" },
+            basis: { de: "🏗️ Erstelle Fundament", en: "🏗️ Building foundation" },
+            hotelScout: { de: "🏨 Suche passende Unterkünfte", en: "🏨 Scouting accommodations" },
+            accommodation: { de: "🏨 Suche passende Unterkünfte", en: "🏨 Scouting accommodations" },
+            ideenScout: { de: "💡 Sammle Sondertage & Ideen", en: "💡 Gathering special days & ideas" },
+            chefPlaner: { de: "🧠 Analysiere Logistik & Termine", en: "🧠 Analyzing logistics & dates" },
+            routeArchitect: { de: "🗺️ Berechne optimale Routen", en: "🗺️ Calculating optimal routes" },
+            routenArchitekt: { de: "🗺️ Berechne optimale Routen", en: "🗺️ Calculating optimal routes" },
+            tourGuide: { de: "🚶‍♂️ Plane sinnvolle Touren", en: "🚶‍♂️ Planning logical tours" },
+            dayplan: { de: "📅 Erstelle initialen Tagesplan", en: "📅 Creating initial day plan" },
+            initialTagesplaner: { de: "📅 Erstelle initialen Tagesplan", en: "📅 Creating initial day plan" },
+            geoAnalyst: { de: "📍 Analysiere geografische Lage", en: "📍 Analyzing geographic location" },
+            transferPlanner: { de: "🚗 Plane Transfers & Fahrzeiten", en: "🚗 Planning transfers & drive times" }
+          };
+          const mapped = TASK_MAP[task];
+          baseText = mapped ? (isDe ? mapped.de : mapped.en) : (isDe ? `Verarbeite ${task}` : `Processing ${task}`);
+      }
+
+      const msg = total > 1 ? `${baseText} (${current} ${isDe ? 'von' : 'of'} ${total})...` : `${baseText}...`;
+      state.updateNotification(loadingNotif.id, { message: msg });
+  },
+
  async executeInternalChunkLoop(task: TaskKey, totalItems: number, limit: number, inputData?: any): Promise<any> {
      const store = useTripStore.getState();
      const totalChunks = Math.ceil(totalItems / limit);
@@ -52,6 +93,9 @@ export const TripOrchestrator = {
          for (let i = 1; i <= totalChunks; i++) {
              console.log(`[Orchestrator] Processing Chunk ${i}/${totalChunks}...`);
              store.setChunkingState({ isActive: true, currentChunk: i, totalChunks: totalChunks, results: collectedResults });
+             
+             // UX UPDATE: Push Visual Storytelling to UI
+             this.updateStory(task, i, totalChunks);
 
              let chunkCandidates = inputData;
              if (Array.isArray(inputData) && inputData.length > 0 && ['chefredakteur', 'anreicherer', 'details'].includes(task)) {
@@ -98,6 +142,8 @@ export const TripOrchestrator = {
      // Set Loading State Manually if not chunking
      if (!store.chunkingState.isActive) {
          store.setChunkingState({ isActive: true, currentChunk: 1, totalChunks: 1, results: [] });
+         // UX UPDATE: Push Icon to single tasks too
+         this.updateStory(task, 1, 1);
      }
 
      try {
@@ -168,7 +214,6 @@ export const TripOrchestrator = {
     }
 
     // LIST OF CHUNKABLE TASKS
-    // FIX: Removed 'initialTagesplaner' / 'dayplan' from here. V40 Prompt creates the WHOLE skeleton at once.
     const chunkableTasks: TaskKey[] = [
         'anreicherer', 'chefredakteur', 'infoAutor', 'foodEnricher', 'chefPlaner',
         'infos', 'details', 'basis', 'hotelScout', 'ideenScout'
@@ -193,7 +238,6 @@ export const TripOrchestrator = {
         }
         else if (task === 'chefPlaner') totalItems = project.userInputs.dates.fixedEvents?.length || 0;
         else if (task === 'basis') totalItems = project.userInputs.selectedInterests.length;
-        // REMOVED DAYPLAN LOGIC FROM HERE
         else if (['infos', 'infoAutor'].includes(task)) {
             const appendixInterests = project.userInputs.selectedInterests.filter(id => APPENDIX_ONLY_INTERESTS.includes(id));
             totalItems = appendixInterests.length > 0 ? appendixInterests.length : 1;
@@ -229,4 +273,4 @@ export const TripOrchestrator = {
     return this._executeSingleStep(task, feedback, false, inputData, false);
   }
 };
-// --- END OF FILE 355 Lines ---
+// --- END OF FILE 397 Lines ---

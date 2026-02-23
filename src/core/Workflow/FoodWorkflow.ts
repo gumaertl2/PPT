@@ -1,3 +1,4 @@
+// 23.02.2026 11:35 - UX/FEAT: Added Dynamic Storytelling (Live UI-Updates for City Chunking & Repair Loop).
 // 20.02.2026 16:30 - FEAT: Implemented true Multi-City Chunking. Scans all hubs/districts and runs sequential foodScout loop.
 // 16.02.2026 21:40 - FIX: UNUSED VARIABLE (Vercel Build Error).
 // 13.02.2026 12:00 - FEAT: "Quality Doorman" Logic (Loop-on-Failure).
@@ -50,7 +51,7 @@ export const FoodWorkflow = {
             // 2. GET GUIDES 
             const existingGuides = getGuidesForCountry(targetCountry);
             
-           // 3. BUILD TOWN LIST (Dynamic Chunking)
+            // 3. BUILD TOWN LIST (Dynamic Chunking)
             let townList: string[] = [];
             const locMatch = feedback?.match(/LOC:([^|]+)/);
             const manualLocation = locMatch ? locMatch[1] : undefined;
@@ -94,6 +95,17 @@ export const FoodWorkflow = {
                 store.setChunkingState({ isActive: true, currentChunk: i + 1, totalChunks: totalSteps });
                 console.log(`[FoodWorkflow] Scanning Town ${i+1}/${townList.length}: ${town}`);
                 
+                // --- UX STORYTELLING ---
+                const loadingNotif = store.notifications.find((n: any) => n.type === 'loading');
+                if (loadingNotif) {
+                    const isDe = store.project.meta?.language === 'de';
+                    const msg = isDe 
+                        ? `🍔 Suche Restaurants in ${town} (${i + 1} von ${totalSteps})...` 
+                        : `🍔 Scouting restaurants in ${town} (${i + 1} of ${totalSteps})...`;
+                    store.updateNotification(loadingNotif.id, { message: msg });
+                }
+                // -----------------------
+                
                 try {
                     const stepResult = await runStep(
                         'foodScout', 
@@ -127,6 +139,17 @@ export const FoodWorkflow = {
                 if (isAddressMissing) {
                     console.log(`[FoodWorkflow] REPAIRING: ${candidate.name} in ${candidate.city}`);
                     
+                    // --- UX STORYTELLING ---
+                    const loadingNotif = store.notifications.find((n: any) => n.type === 'loading');
+                    if (loadingNotif) {
+                        const isDe = store.project.meta?.language === 'de';
+                        const msg = isDe 
+                            ? `🔧 Repariere Adresse: ${candidate.name}...` 
+                            : `🔧 Repairing address: ${candidate.name}...`;
+                        store.updateNotification(loadingNotif.id, { message: msg });
+                    }
+                    // -----------------------
+                    
                     try {
                         const repairFeedback = `REPAIR_MODE|NAME:${candidate.name}|CITY:${candidate.city}|MISSING:Address`;
                         const repairResult = await runStep(
@@ -158,6 +181,17 @@ export const FoodWorkflow = {
             // 6. ENRICHMENT PHASE (Thinking/Quality)
             store.setChunkingState({ isActive: true, currentChunk: totalSteps, totalChunks: totalSteps });
             
+            // --- UX STORYTELLING ---
+            const finalNotif = store.notifications.find((n: any) => n.type === 'loading');
+            if (finalNotif) {
+                const isDe = store.project.meta?.language === 'de';
+                const msg = isDe 
+                    ? `👨‍🍳 Verifiziere Restaurant-Daten (${totalSteps} von ${totalSteps})...` 
+                    : `👨‍🍳 Verifying restaurant data (${totalSteps} of ${totalSteps})...`;
+                store.updateNotification(finalNotif.id, { message: msg });
+            }
+            // -----------------------
+            
             let enricherFeedback = feedback || "";
             if (existingGuides) {
                 const guideNames = existingGuides.map(g => g.name).join(', ');
@@ -185,4 +219,4 @@ export const FoodWorkflow = {
         }
     }
 };
-// --- END OF FILE 178 Zeilen ---
+// --- END OF FILE 207 Zeilen ---

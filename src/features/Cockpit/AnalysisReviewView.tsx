@@ -1,3 +1,4 @@
+// 23.02.2026 11:15 - FIX: Swapped Priority in suggestionCount so User-Overrides survive component remounts.
 // 06.02.2026 18:25 - FIX: Made 'onNext' optional for PrintReport compatibility (TS2741).
 // 26.01.2026 10:45 - FIX: Sync Suggestion Count to SearchSettings.
 // src/features/Cockpit/AnalysisReviewView.tsx
@@ -26,7 +27,7 @@ interface AnalysisReviewViewProps {
 export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }) => {
   const { t } = useTranslation();
   
-  // Store Access - FIX: Added updateSearchSettings
+  // Store Access
   const { project, setWorkflowModalOpen, updateSearchSettings } = useTripStore();
   const { startSingleTask, status } = useTripGeneration(); 
   
@@ -37,13 +38,13 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
   
   // INTELLIGENTE INITIALISIERUNG DES COUNTS
   const [suggestionCount, setSuggestionCount] = useState<number>(() => {
-    // 1. Priority: Smart Recommendation from ChefPlaner
-    if (project.analysis.chefPlaner?.smart_limit_recommendation?.value) {
-      return project.analysis.chefPlaner.smart_limit_recommendation.value;
-    }
-    // 2. Priority: Already saved setting (if user navigates back and forth)
+    // 1. Priority: Bereits gespeichertes Setting (SSOT - User Änderung oder vorheriger Sync)
     if (project.userInputs?.searchSettings?.sightsCount) {
         return project.userInputs.searchSettings.sightsCount;
+    }
+    // 2. Priority: Smart Recommendation from ChefPlaner (Greift nur beim allerersten Laden)
+    if (project.analysis.chefPlaner?.smart_limit_recommendation?.value) {
+      return project.analysis.chefPlaner.smart_limit_recommendation.value;
     }
     // 3. Fallback: Default
     return 50;
