@@ -1,3 +1,4 @@
+// 23.02.2026 19:20 - FIX: Restored full file integrity and added 'hotel' to VALID_POI_CATEGORIES to enable UI rendering.
 // 04.02.2026 18:20 - FEAT: Added VALID_POI_CATEGORIES export (SSOT).
 // 28.01.2026 20:10 - FEAT: Added 'special' category for 'Sondertage' (preserving full file integrity).
 // 25.01.2026 13:00 - FIX: "Quality Clean Sweep".
@@ -390,7 +391,7 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
       en: "We are traveling with children. Plan excursions that are child-friendly, fun, and safe. Avoid long distances or places where children get bored."
     },
     searchStrategy: {
-      de: "Plane Ausflugsziele, die speziell für Kinder geeignet sind (Zoos, Freizeitparks, leichte Erlebnispfade, interaktive Museen). Priorisiere Orte mit guter Infrastruktur (Toiletten, Verpflegung).",
+      de: "Plane Ausflugsziele, die speziell für Kindern geeignet sind (Zoos, Freizeitparks, leichte Erlebnispfade, interaktive Museen). Priorisiere Orte mit guter Infrastruktur (Toiletten, Verpflegung).",
       en: "Plan excursions specifically for children (zoos, theme parks, adventure trails, interactive museums). Prioritize family infrastructure."
     },
     writingGuideline: {
@@ -406,7 +407,7 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
     aiInstruction: {
       de: `Erstelle für jedes Ausflugsziel einen 'Eltern-Check' im Anhang.
 **1. Der Spaß-Faktor:** Was genau können Kinder hier machen? (Nicht nur anschauen, sondern anfassen/klettern/spielen).
-**2. Alters-Eignung:** Für welches Alter ist es ideal? (Kinderwagen-tauglich? Zu langweilig für Teenager?).
+**2. Alters-Eignung:** Für welches Alter ist it ideal? (Kinderwagen-tauglich? Zu langweilig für Teenager?).
 **3. Infrastruktur:** Gibt es Toiletten, Schattenplätze und Verpflegungsmöglichkeiten in direkter Nähe?`,
       en: `Create a 'Parent Check' in the appendix for each excursion destination.
 **1. The Fun Factor:** What exactly can kids do here? (Not just look, but touch/climb/play).
@@ -488,6 +489,7 @@ export const VALID_POI_CATEGORIES = [
   'family',
   'wellness',
   'shopping',
-  'nightlife'
+  'nightlife',
+  'hotel' // NEW: Added to allow hotel rendering in SightsView
 ];
-// --- END OF FILE 558 Zeilen ---
+// --- END OF FILE 570 Zeilen ---

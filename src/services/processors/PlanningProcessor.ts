@@ -1,9 +1,9 @@
+// 23.02.2026 19:15 - FEAT: Hotels are now automatically added to 'data.places' with category 'hotel' to show their descriptions in UI.
+// 23.02.2026 18:55 - FIX: Resolved mode mismatch ('mobil' vs 'roundtrip') to restore Hotel write-back to Cockpit.
 // 23.02.2026 18:45 - FIX: Implemented intermediate cache sync in processIdeenScout to prevent duplicate creation.
 // 23.02.2026 18:00 - FEAT: Added Write-Back logic for ChefPlaner Typo-Corrections & Hotel-Validation to userInputs.
 // 19.02.2026 15:10 - FIX: Mapped initialTagesplaner data to SSOT (project.itinerary.days).
 // 05.02.2026 16:30 - REFACTOR: PLANNING PROCESSOR.
-// 06.02.2026 18:10 - FIX: TS2345 Solved. Direct State Update for 'target_countries'.
-// Handles Strategy, Routes, Special Days, Content and Tours.
 // src/services/processors/PlanningProcessor.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -16,7 +16,7 @@ export const PlanningProcessor = {
     // --- STRATEGY & ROUTES ---
     processAnalysis: (step: string, data: any) => {
         const store = useTripStore.getState();
-        const { setAnalysisResult } = store; 
+        const { setAnalysisResult, updatePlace } = store; 
         
         if (data) {
             setAnalysisResult(step as any, data);
@@ -91,7 +91,7 @@ export const PlanningProcessor = {
                             console.log(`[PlanningProcessor] Typo Fix (Stationary): ${logistics.stationary.destination} -> ${correctDest}`);
                             logistics.stationary.destination = correctDest;
                             stateChanged = true;
-                        } else if (logistics.mode === 'mobil') {
+                        } else if (logistics.mode === 'mobil' || logistics.mode === 'roundtrip') {
                             if (isTypo(logistics.roundtrip.startLocation, correctDest)) {
                                 console.log(`[PlanningProcessor] Typo Fix (Start): ${logistics.roundtrip.startLocation} -> ${correctDest}`);
                                 logistics.roundtrip.startLocation = correctDest;
@@ -114,19 +114,33 @@ export const PlanningProcessor = {
                         }
                     }
 
-                    // 3. Hotel Validation (Write-back official names)
-                    if (validatedHotels.length > 0 && logistics.mode === 'mobil' && logistics.roundtrip.stops) {
+                    // 3. Hotel Validation (Write-back official names AND create Place Entry)
+                    if (validatedHotels.length > 0 && (logistics.mode === 'mobil' || logistics.mode === 'roundtrip') && logistics.roundtrip.stops) {
                         logistics.roundtrip.stops.forEach((stop: any) => {
-                            if (stop.hotel) {
-                                const match = validatedHotels.find((vh: any) => 
-                                    vh.station === stop.location || isTypo(stop.location, vh.station)
-                                );
-                                
-                                if (match && match.official_name && stop.hotel !== match.official_name) {
-                                    console.log(`[PlanningProcessor] Hotel Fix: ${stop.hotel} -> ${match.official_name}`);
+                            const match = validatedHotels.find((vh: any) => 
+                                vh.station === stop.location || isTypo(stop.location, vh.station)
+                            );
+                            
+                            if (match && match.official_name) {
+                                // A. Update Cockpit (Logistics)
+                                if (stop.hotel !== match.official_name) {
+                                    console.log(`[PlanningProcessor] Hotel Fix: ${stop.hotel || 'Empty'} -> ${match.official_name}`);
                                     stop.hotel = match.official_name;
                                     stateChanged = true;
                                 }
+
+                                // B. Ensure Place Entry exists to hold description/details
+                                const hotelId = `hotel-${match.official_name.replace(/[^a-z0-9]/gi, '-').toLowerCase()}`;
+                                updatePlace(hotelId, {
+                                    id: hotelId,
+                                    name: match.official_name,
+                                    official_name: match.official_name,
+                                    category: 'hotel', // Unified Hotel Category
+                                    address: match.address,
+                                    city: match.station,
+                                    valid: true,
+                                    userPriority: 1 // Hotels are naturally high priority
+                                });
                             }
                         });
                     }
@@ -154,7 +168,6 @@ export const PlanningProcessor = {
         if (data) setAnalysisResult('ideenScout', data);
         
         if (data && data.results && Array.isArray(data.results)) {
-             // ROOT FIX: Wir nutzen einen lokalen Cache (runningPlaces), der innerhalb der Schleife aktualisiert wird!
              let runningPlaces = { ...(project.data?.places || {}) };
              let addedCount = 0;
 
@@ -163,14 +176,13 @@ export const PlanningProcessor = {
                  const processList = (list: any[], subType: string) => {
                      if (!Array.isArray(list)) return;
                      list.forEach((item: any) => {
-                         // Wir prüfen gegen runningPlaces, damit Dubletten im gleichen Batch erkannt werden
                          const targetId = resolvePlaceId(item, runningPlaces, debug);
                          const id = targetId || uuidv4();
                          
-                         const placeData = {
+                         const placeUpdate = {
                              id,
                              name: item.name,
-                             category: 'special', // Unified category
+                             category: 'special',
                              address: item.address,
                              description: item.description,
                              city: groupLocation, 
@@ -183,11 +195,9 @@ export const PlanningProcessor = {
                                  source: 'ideenScout'
                              }
                          };
-
-                         updatePlace(id, placeData);
                          
-                         // Sofortige Synchronisation für den nächsten Eintrag im Batch
-                         runningPlaces[id] = { ...runningPlaces[id], ...placeData };
+                         updatePlace(id, placeUpdate);
+                         runningPlaces[id] = { ...runningPlaces[id], ...placeUpdate };
                          addedCount++;
                      });
                  };
@@ -273,4 +283,4 @@ export const PlanningProcessor = {
         }
     }
 };
-// --- END OF FILE 270 Zeilen ---
+// --- END OF FILE 285 Zeilen ---

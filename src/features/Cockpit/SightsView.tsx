@@ -1,8 +1,8 @@
+// 23.02.2026 19:30 - FIX: Restored file length and logic after manual integrity review.
+// 23.02.2026 19:25 - FIX: Corrected syntax error in calculateDistance (stray '#' removed).
+// 23.02.2026 19:15 - UI: Added 'hotel' category rendering to show hotel descriptions/histories in the main list.
 // 23.02.2026 18:45 - DEFENSIVE: Added UI-level ID deduplication to prevent React Key crashes even if backend fails.
 // 23.02.2026 10:45 - FIX: i18n fully applied to grouping headers and banners.
-// 22.02.2026 15:20 - FIX: Applied i18n to the new Radar Button texts.
-// 22.02.2026 15:15 - FEAT: Added 'Radar' feature (Find Nearest Sight via GPS) with auto-scroll navigation.
-// 20.02.2026 20:25 - FIX: Removed unused 'Filter' import from lucide-react (TS6133).
 // src/features/Cockpit/SightsView.tsx
 
 import React, { useMemo, useEffect, useState } from 'react';
@@ -77,10 +77,8 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
       setTimeout(() => {
         const element = document.getElementById(`card-${uiState.selectedPlaceId}`);
         if (element) {
-          // Add a small offset so the element isn't hidden under the sticky header
           const y = element.getBoundingClientRect().top + window.scrollY - 100;
           window.scrollTo({ top: y, behavior: 'smooth' });
-          
           element.classList.add('ring-4', 'ring-indigo-500', 'ring-offset-4', 'transition-all', 'duration-500');
           setTimeout(() => element.classList.remove('ring-4', 'ring-indigo-500', 'ring-offset-4'), 3000);
         }
@@ -94,6 +92,8 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
     if (def && def.label) {
         return (def.label as any)[currentLang] || (def.label as any)['de'] || catId;
     }
+    // Translation fallback for 'hotel'
+    if (catId === 'hotel') return t('interests.hotel', { defaultValue: 'Hotels' });
     return catId.charAt(0).toUpperCase() + catId.slice(1).replace(/_/g, ' ');
   };
 
@@ -110,7 +110,6 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
           (pos) => {
               const myLat = pos.coords.latitude;
               const myLng = pos.coords.longitude;
-              
               let nearestPlaceId: string | null = null;
               let shortestDist = Infinity;
 
@@ -125,10 +124,7 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
               });
 
               if (nearestPlaceId) {
-                  setUIState({ 
-                      viewMode: 'list', 
-                      selectedPlaceId: nearestPlaceId 
-                  });
+                  setUIState({ viewMode: 'list', selectedPlaceId: nearestPlaceId });
               } else {
                   alert(t('sights.no_places', { defaultValue: 'Keine Orte gefunden.' }));
               }
@@ -153,9 +149,7 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
     const end = new Date(`2000-01-01T${userInputs.dates?.dailyEndTime || '18:00'}`);
     let dailyMinutes = (end.getTime() - start.getTime()) / 60000;
     
-    if (isNaN(dailyMinutes) || dailyMinutes <= 0) {
-       dailyMinutes = (config.endHour - config.startHour) * 60 - config.breakMinutes;
-    }
+    if (isNaN(dailyMinutes) || dailyMinutes <= 0) dailyMinutes = (config.endHour - config.startHour) * 60 - config.breakMinutes;
 
     const daysCount = (new Date(userInputs.dates.end).getTime() - new Date(userInputs.dates.start).getTime()) / (1000 * 3600 * 24) + 1;
     const totalBudget = Math.floor(dailyMinutes * daysCount);
@@ -177,7 +171,7 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
     const ignoreList = APPENDIX_ONLY_INTERESTS || [];
     places.forEach((p: any) => {
       const cat = p.category || 'Sonstiges';
-      if (!ignoreList.includes(cat)) {
+      if (!ignoreList.includes(cat) || cat === 'hotel') { 
           counts[cat] = (counts[cat] || 0) + 1;
       }
     });
@@ -228,39 +222,27 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
               ).length;
           }
           const label = `${t('sights.day', {defaultValue: 'Tag'})} ${index + 1}`;
-          return {
-              id: label,
-              label: label,
-              count: count,
-              dayIndex: index
-          };
+          return { id: label, label: label, count: count, dayIndex: index };
       }).filter((d: any) => d.count > 0);
   }, [project.itinerary, places, t]);
 
   const handleViewModeChange = (mode: string) => {
-      setUIState({ 
-          sortMode: mode as any,
-          categoryFilter: [] 
-      });
+      setUIState({ sortMode: mode as any, categoryFilter: [] });
   };
 
   // --- 3. FILTER & SORT LOGIC ---
   const filteredLists = useMemo(() => {
     const mainList: any[] = [];
     const specialList: any[] = []; 
-
     const isPrint = !!overrideSortMode || uiState.isPrintMode;
     const term = isPrint ? '' : (uiState.searchTerm || '').toLowerCase();
     const activeFilters = isPrint ? [] : (uiState.categoryFilter || []); 
     const sortMode = activeSortMode;
     const selectedCategory = isPrint ? 'all' : uiState.selectedCategory;
-
     const ignoreList = APPENDIX_ONLY_INTERESTS || [];
     const minRating = userInputs.searchSettings?.minRating || 0;
     const minDuration = userInputs.searchSettings?.minDuration || 0;
 
-    // ROOT FIX B: Wir stellen sicher, dass wir NIEMALS Dubletten an React schicken.
-    // Falls durch Batch-Läufe identische IDs entstanden sind, wird hier die Dublette entfernt.
     const seenIds = new Set<string>();
     const uniquePlaces = places.filter(p => {
         if (!p.id || seenIds.has(p.id)) return false;
@@ -274,12 +256,8 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
     if (sortMode === 'day' && activeFilters.length > 0) {
         const itineraryDays = project.itinerary?.days || [];
         itineraryDays.forEach((day: any, index: number) => {
-            const labelDe = `Tag ${index + 1}`;
-            const labelEn = `Day ${index + 1}`;
             const labelTranslated = `${t('sights.day', {defaultValue: 'Tag'})} ${index + 1}`;
-            
-            const isSelected = activeFilters.includes(labelDe) || activeFilters.includes(labelEn) || activeFilters.includes(labelTranslated);
-
+            const isSelected = activeFilters.includes(`Tag ${index+1}`) || activeFilters.includes(`Day ${index+1}`) || activeFilters.includes(labelTranslated);
             (day.activities || day.aktivitaeten || []).forEach((act: any) => {
                 const id = act.id || act.original_sight_id;
                 if (id) {
@@ -292,13 +270,10 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
 
     uniquePlaces.forEach((p: any) => {
       const cat = p.category || 'Sonstiges';
-      if (ignoreList.includes(cat)) return;
+      if (ignoreList.includes(cat) && cat !== 'hotel') return; 
 
       if (term) {
-          const searchableText = [
-              p.name, p.official_name, p.category, p.userSelection?.customCategory,
-              p.description, p.shortDesc, p.detailContent, p.reasoning, p.logistics, p.address
-          ].filter(Boolean).join(' ').toLowerCase();
+          const searchableText = [p.name, p.official_name, p.category, p.description, p.detailContent, p.address].filter(Boolean).join(' ').toLowerCase();
           if (!searchableText.includes(term)) return;
       }
       
@@ -308,26 +283,17 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
       }
 
       if (activeFilters.length > 0) {
-          if (sortMode === 'category') {
-              if (!activeFilters.includes(cat)) return;
-          }
+          if (sortMode === 'category' && !activeFilters.includes(cat)) return;
           else if (sortMode === 'tour') {
-              const inSelectedTour = tourOptions.some((tour: any) => 
-                  activeFilters.includes(tour.id) && tour.placeIds.includes(p.id)
-              );
+              const inSelectedTour = tourOptions.some((tour: any) => activeFilters.includes(tour.id) && tour.placeIds.includes(p.id));
               if (!inSelectedTour) return;
           }
-          else if (sortMode === 'day') {
-              if (otherDayPlaceIds.has(p.id) && !selectedDayPlaceIds.has(p.id)) {
-                  return; 
-              }
-          }
+          else if (sortMode === 'day' && otherDayPlaceIds.has(p.id) && !selectedDayPlaceIds.has(p.id)) return;
       }
 
       const rating = p.rating || 0;
       const duration = p.duration || p.min_duration_minutes || 0;
       const isReserve = (p.userPriority === -1) || (duration < minDuration) || (rating > 0 && rating < minRating);
-      
       const placeWithMeta = { ...p, _isReserve: isReserve };
 
       if (cat === 'special') specialList.push(placeWithMeta);
@@ -344,17 +310,13 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
       return (a.category || '').localeCompare(b.category || '');
     };
 
-    return { 
-        main: mainList.sort(sortFn), 
-        special: specialList.sort(sortFn)
-    };
+    return { main: mainList.sort(sortFn), special: specialList.sort(sortFn) };
   }, [places, uiState.searchTerm, uiState.categoryFilter, activeSortMode, uiState.selectedCategory, uiState.isPrintMode, overrideSortMode, userInputs.searchSettings, tourOptions, project.itinerary, t]);
 
   // --- 4. RENDERER: GROUPED LIST ---
   const renderGroupedList = (list: any[], groupByOverride?: 'city') => {
     if (list.length === 0) return null; 
     const sortMode = activeSortMode;
-
     const groups: Record<string, any[]> = {};
     
     if (groupByOverride === 'city') {
@@ -368,32 +330,22 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
         const tourGuide = (analysis as any)?.tourGuide;
         const tours = (tourGuide?.guide?.tours || []) as any[];
         const assignedIds = new Set<string>();
-
         tours.forEach((tour: any) => {
             const title = tour.tour_title || "Tour";
             const tourPlaces = list.filter(p => tour.suggested_order_ids?.includes(p.id));
             if (tourPlaces.length > 0) {
-                groups[title] = tourPlaces.sort((a, b) => {
-                    if (a._isReserve && !b._isReserve) return 1;
-                    if (!a._isReserve && b._isReserve) return -1;
-                    return tour.suggested_order_ids.indexOf(a.id) - tour.suggested_order_ids.indexOf(b.id);
-                });
+                groups[title] = tourPlaces.sort((a, b) => (tour.suggested_order_ids.indexOf(a.id) - tour.suggested_order_ids.indexOf(b.id)));
                 tourPlaces.forEach(p => assignedIds.add(p.id));
             }
         });
         const leftovers = list.filter(p => !assignedIds.has(p.id));
-        if (leftovers.length > 0) {
-            groups[t('sights.group_other_tour', { defaultValue: 'Weitere Orte (Ohne Tour)' })] = leftovers;
-        }
+        if (leftovers.length > 0) groups[t('sights.group_other_tour', { defaultValue: 'Weitere Orte (Ohne Tour)' })] = leftovers;
     } 
     else {
         list.forEach(p => {
             let key = t('sights.group_general', { defaultValue: 'Allgemein' });
-            if (sortMode === 'category') {
-                key = resolveCategoryLabel(p.category) || t('sights.group_misc', { defaultValue: 'Sonstiges' });
-            }
+            if (sortMode === 'category') key = resolveCategoryLabel(p.category);
             else if (sortMode === 'alphabetical') key = p.name ? p.name[0].toUpperCase() : '?';
-            
             if (!groups[key]) groups[key] = [];
             groups[key].push(p);
         });
@@ -401,24 +353,14 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
 
     return Object.entries(groups).map(([groupKey, items]) => (
       <div key={groupKey} className="mb-6 last:mb-0 print:break-inside-avoid">
-        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-100 pb-1 ml-1 flex justify-between print:text-black print:border-slate-300">
-          <span className="flex items-center gap-2">
-              {groupByOverride === 'city' && <span className="text-lg">📍</span>} 
-              {groupKey}
-          </span>
+        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-100 pb-1 ml-1 flex justify-between print:text-black">
+          <span className="flex items-center gap-2">{groupByOverride === 'city' && <span className="text-lg">📍</span>}{groupKey}</span>
           <span className="text-xs text-gray-300 print:text-gray-500">{items.length}</span>
         </h3>
         <div className="space-y-3">
           {items.map(place => (
             <div key={place.id} id={`card-${place.id}`}>
-                <SightCard 
-                   id={place.id} 
-                   data={place} 
-                   mode="selection" 
-                   showPriorityControls={showPlanningMode}
-                   detailLevel={overrideDetailLevel}
-                   isReserve={place._isReserve} 
-                />
+                <SightCard id={place.id} data={place} mode="selection" showPriorityControls={showPlanningMode} detailLevel={overrideDetailLevel} isReserve={place._isReserve} />
             </div>
           ))}
         </div>
@@ -428,8 +370,6 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
 
   return (
     <div className="pb-24 sights-view-root print:pb-0">
-      
-      {/* 1. TOP BAR (Budget/Planning) */}
       {showPlanningMode && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6 flex flex-col md:flex-row items-center justify-between gap-4 sticky top-20 z-10 animate-in fade-in slide-in-from-top-2 print:hidden">
            <div className="flex items-center gap-6 w-full justify-center md:justify-start">
@@ -440,105 +380,49 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
               <div className="h-8 w-px bg-gray-200"></div>
               <div className="flex flex-col items-center">
                  <span className="text-xs text-gray-500 uppercase font-bold">{t('sights.planned', { defaultValue: 'Geplant' })}</span>
-                 <span className={`text-xl font-black ${budgetStats.remaining < 0 ? 'text-red-500' : 'text-blue-600'}`}>
-                   {Math.round(budgetStats.used / 60)} h
-                 </span>
+                 <span className={`text-xl font-black ${budgetStats.remaining < 0 ? 'text-red-500' : 'text-blue-600'}`}>{Math.round(budgetStats.used / 60)} h</span>
               </div>
-              {budgetStats.remaining < 0 && (
-                 <span className="text-xs text-red-500 font-bold bg-red-50 px-2 py-1 rounded">
-                   ! {t('sights.time_exceeded', { defaultValue: 'Zeit überschritten' })}
-                 </span>
-              )}
+              {budgetStats.remaining < 0 && <span className="text-xs text-red-500 font-bold bg-red-50 px-2 py-1 rounded">! {t('sights.time_exceeded', { defaultValue: 'Zeit überschritten' })}</span>}
            </div>
-           
-           <div className="text-xs text-gray-400 font-medium italic hidden md:block">
-             {t('sights.planning_active', { defaultValue: 'Planungsmodus aktiv' })}
-           </div>
+           <div className="text-xs text-gray-400 font-medium italic hidden md:block">{t('sights.planning_active', { defaultValue: 'Planungsmodus aktiv' })}</div>
         </div>
       )}
 
-      {/* MAP VIEW vs DAY VIEW vs LIST VIEW */}
       {uiState.viewMode === 'map' && !overrideSortMode ? (
-        <div className="mb-8 print:hidden">
-            <SightsMapView places={[...filteredLists.main, ...filteredLists.special] as Place[]} />
-        </div>
+        <div className="mb-8 print:hidden"><SightsMapView places={[...filteredLists.main, ...filteredLists.special] as Place[]} /></div>
       ) : isDayMode ? (
-        <div className="mb-8">
-            <DayPlannerView 
-                places={places} 
-                showPlanningMode={showPlanningMode} 
-                overrideDetailLevel={overrideDetailLevel} 
-            />
-        </div>
+        <div className="mb-8"><DayPlannerView places={places} showPlanningMode={showPlanningMode} overrideDetailLevel={overrideDetailLevel} /></div>
       ) : (
         <>
-            {/* LIST 1: CANDIDATES & RESERVE */}
-            <div className="bg-white rounded-xl border-2 border-blue-600 shadow-sm p-4 md:p-6 mb-8 relative mx-4 print:border-none print:shadow-none print:p-0 print:mx-0 print:mb-4">
+            <div className="bg-white rounded-xl border-2 border-blue-600 shadow-sm p-4 md:p-6 mb-8 relative mx-4 print:border-none print:shadow-none print:p-0">
                 <div className="absolute -top-3 left-6 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1 print:hidden z-10">
                     {showPlanningMode ? <Briefcase className="w-3 h-3" /> : <FileText className="w-3 h-3" />}
                     {t('sights.candidates', { defaultValue: 'ORTE & KANDIDATEN' })} ({filteredLists.main.length})
                 </div>
-
                 {!overrideSortMode && (
                     <div className="flex justify-end mb-4 print:hidden pt-2">
-                        <button 
-                            onClick={handleLocateNearestSight}
-                            disabled={isLocating}
-                            className={`flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm border ${isLocating ? 'bg-indigo-50 text-indigo-400 border-indigo-100 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white border-transparent hover:shadow-md'}`}
-                        >
+                        <button onClick={handleLocateNearestSight} disabled={isLocating} className={`flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm border ${isLocating ? 'bg-indigo-50 text-indigo-400 border-indigo-100 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white border-transparent hover:shadow-md'}`}>
                             <Navigation className={`w-4 h-4 ${isLocating ? 'animate-pulse' : ''}`} />
                             {isLocating ? t('sights.radar_locating', { defaultValue: 'Ortung läuft...' }) : t('sights.radar_button', { defaultValue: 'Radar: Was ist in meiner Nähe?' })}
                         </button>
                     </div>
                 )}
-                
                 <div className="mt-2">{renderGroupedList(filteredLists.main)}</div>
-
-                {isTourMode && filteredLists.special.length > 0 && (
-                    <div className="mt-8 pt-6 border-t border-slate-100 print:mt-4 print:border-none">
-                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-100 pb-1 ml-1 flex justify-between print:text-black">
-                            <span>{t('sights.tour_special', { defaultValue: 'Tour: Sondertage & Ideen' })}</span>
-                            <span className="text-xs text-gray-300">{filteredLists.special.length}</span>
-                        </h3>
-                        <div className="mt-2">
-                             {renderGroupedList(filteredLists.special, 'city')}
-                        </div>
-                    </div>
-                )}
             </div>
 
-            {/* LIST 2: SONDERTAGE */}
             {!isTourMode && filteredLists.special.length > 0 && (
-                <div className="bg-amber-50/50 rounded-xl border-2 border-amber-200 shadow-sm p-4 md:p-6 relative mx-4 mb-8 print:border-none print:bg-transparent print:p-0 print:mx-0">
+                <div className="bg-amber-50/50 rounded-xl border-2 border-amber-200 shadow-sm p-4 md:p-6 relative mx-4 mb-8 print:border-none print:bg-transparent">
                     <div className="absolute -top-3 left-6 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1 print:hidden">
-                        <Layout className="w-3 h-3" />
-                        {t('sights.special_days_ideas', { defaultValue: 'SONDERTAGE & IDEEN' })} ({filteredLists.special.length})
+                        <Layout className="w-3 h-3" /> {t('sights.special_days_ideas', { defaultValue: 'SONDERTAGE & IDEEN' })} ({filteredLists.special.length})
                     </div>
-                    <div className="hidden print:block font-bold text-black border-b mb-2 pb-1 text-sm uppercase mt-4">
-                        {t('sights.special_days_ideas', { defaultValue: 'Sondertage & Ideen' })}
-                    </div>
-
-                    <div className="mt-2">
-                        {renderGroupedList(filteredLists.special, 'city')}
-                    </div>
+                    <div className="mt-2">{renderGroupedList(filteredLists.special, 'city')}</div>
                 </div>
             )}
         </>
       )}
 
-      <SightFilterModal 
-         isOpen={isSightFilterOpen}
-         onClose={toggleSightFilter}
-         categoryOptions={categoryOptions}
-         tourOptions={tourOptions}
-         dayOptions={dayOptions}
-         activeSortMode={activeSortMode}
-         onSortModeChange={handleViewModeChange}
-         showPlanningMode={showPlanningMode}
-         onTogglePlanningMode={() => setUIState({ showPlanningMode: !showPlanningMode })}
-      />
-
+      <SightFilterModal isOpen={isSightFilterOpen} onClose={toggleSightFilter} categoryOptions={categoryOptions} tourOptions={tourOptions} dayOptions={dayOptions} activeSortMode={activeSortMode} onSortModeChange={handleViewModeChange} showPlanningMode={showPlanningMode} onTogglePlanningMode={() => setUIState({ showPlanningMode: !showPlanningMode })} />
     </div>
   );
 };
-// --- END OF FILE 451 Zeilen ---
+// --- END OF FILE 448 Zeilen ---

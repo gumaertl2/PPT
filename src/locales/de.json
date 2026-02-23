@@ -135,7 +135,7 @@
       "review": "6. Start",
       "routeArchitect": "0b. Routen-Architekt"
     },
-   "merge_modal": {
+    "merge_modal": {
       "title": "Achtung: Reise bereits aktiv",
       "description": "Sie haben aktuell eine Reise geladen. Möchten Sie die Orte aus der neuen Datei in diese Reise importieren (Duplikate werden automatisch gefiltert), oder möchten Sie die aktuelle Reise komplett überschreiben?",
       "btn_merge": "Orte importieren (Merge)",
@@ -289,6 +289,7 @@
     "prompt_hint": "Ändern Sie diesen Text, wenn Sie eine feinere Nuance wünschen."
   },
   "interests": {
+    "hotel": "Hotels & Unterkünfte",
     "selected": "gewählt",
     "dayplan_activities": "Tagesplan-Aktivitäten",
     "appendix_infos": "Zusatz-Infos (Anhang)",
@@ -346,7 +347,7 @@
     "stationary": "Stationär",
     "roadtrip": "Rundreise"
   },
- "sights": {
+  "sights": {
     "budget": "Budget",
     "select": "Wählen",
     "selected": "Ausgewählt",
