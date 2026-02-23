@@ -1,3 +1,4 @@
+// 23.02.2026 16:40 - FIX: Removed unused 'onLoadClick' from destructuring to resolve TS6133.
 // 23.02.2026 16:30 - REFACTOR: Moved Smart Loader Modal to dedicated component.
 // 23.02.2026 16:05 - FEAT: Added 'Smart Loader' modal to offer Merge vs. Overwrite when loading projects.
 // 22.02.2026 12:45 - I18N: Applied translation keys to the Trip Finance button.
@@ -29,7 +30,7 @@ import { MergeProjectModal } from './MergeProjectModal';
 interface ActionsMenuProps {
   viewMode: CockpitViewMode;
   setViewMode: (mode: CockpitViewMode) => void;
-  onLoadClick: () => void; 
+  onLoadClick?: () => void; // Made optional to prevent parent component errors
   onReset: () => void;
   onOpenExport: () => void;
   onOpenPrint: () => void;
@@ -41,7 +42,7 @@ interface ActionsMenuProps {
 export const ActionsMenu: React.FC<ActionsMenuProps> = ({
   viewMode,
   setViewMode,
-  onLoadClick, 
+  // FIX: Removed onLoadClick from here since we handle it internally now!
   onReset,
   onOpenExport,
   onOpenPrint,
@@ -317,6 +318,7 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
             <Save className="w-4 h-4 text-blue-500" /> {t('wizard.actions_menu.save')}
           </button>
           
+          {/* SMART LOADER TRIGGER */}
           <button 
             onClick={() => { setIsOpen(false); fileInputRef.current?.click(); }} 
             className="w-full text-left px-4 py-2 hover:bg-blue-50 text-slate-700 flex items-center gap-3 text-sm font-medium"
@@ -357,4 +359,4 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
     </div>
   );
 };
-// --- END OF FILE 330 Lines ---
+// --- END OF FILE 329 Lines ---
