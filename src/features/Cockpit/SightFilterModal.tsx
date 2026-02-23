@@ -1,3 +1,4 @@
+// 23.02.2026 11:00 - FIX: Fully integrated i18n for view switcher buttons (Category, Day, Tour) and empty states.
 // 21.01.2026 02:45 - FIX: Restored 'Planning Mode' Toggle inside Filter Modal (was lost during refactor).
 // src/features/Cockpit/SightFilterModal.tsx
 // 21.01.2026 01:55 - FIX: Added missing 'Search' import to prevent ReferenceError.
@@ -17,7 +18,7 @@ import {
   Calendar, 
   ArrowDownAZ,
   Search,
-  Briefcase // FIX: Added for Planning Mode Toggle
+  Briefcase
 } from 'lucide-react';
 
 interface FilterOption {
@@ -29,13 +30,11 @@ interface FilterOption {
 interface SightFilterModalProps {
   isOpen: boolean;
   onClose: () => void;
-  // Options passed from parent to keep calculation centralized
   categoryOptions: FilterOption[];
   tourOptions: FilterOption[];
   dayOptions: FilterOption[];
   activeSortMode: string;
   onSortModeChange: (mode: string) => void;
-  // FIX: Planning Mode Props restored
   showPlanningMode: boolean;
   onTogglePlanningMode: () => void;
 }
@@ -48,8 +47,8 @@ export const SightFilterModal: React.FC<SightFilterModalProps> = ({
   dayOptions,
   activeSortMode,
   onSortModeChange,
-  showPlanningMode,       // FIX: Prop received
-  onTogglePlanningMode    // FIX: Prop received
+  showPlanningMode,
+  onTogglePlanningMode
 }) => {
   const { t } = useTranslation();
   const { uiState, setUIState } = useTripStore();
@@ -136,7 +135,7 @@ export const SightFilterModal: React.FC<SightFilterModalProps> = ({
                        }`}
                     >
                         <Tags className="w-4 h-4 mb-1" />
-                        <span>Kategorie</span>
+                        <span>{t('sights.category', { defaultValue: 'Kategorie' })}</span>
                     </button>
 
                     <button
@@ -147,7 +146,7 @@ export const SightFilterModal: React.FC<SightFilterModalProps> = ({
                        } ${!hasTours ? 'opacity-40 cursor-not-allowed' : ''}`}
                     >
                         <MapIcon className="w-4 h-4 mb-1" />
-                        <span>Tour ({tourOptions.length})</span>
+                        <span>{t('sights.tour_short', { defaultValue: 'Tour' })} ({tourOptions.length})</span>
                     </button>
 
                     <button
@@ -158,7 +157,7 @@ export const SightFilterModal: React.FC<SightFilterModalProps> = ({
                        } ${!hasDays ? 'opacity-40 cursor-not-allowed' : ''}`}
                     >
                         <Calendar className="w-4 h-4 mb-1" />
-                        <span>Tag ({dayOptions.length})</span>
+                        <span>{t('sights.day', { defaultValue: 'Tag' })} ({dayOptions.length})</span>
                     </button>
 
                     <button
@@ -168,7 +167,7 @@ export const SightFilterModal: React.FC<SightFilterModalProps> = ({
                        }`}
                     >
                         <ArrowDownAZ className="w-4 h-4 mb-1" />
-                        <span>A-Z</span>
+                        <span>{t('sights.alpha_short', { defaultValue: 'A-Z' })}</span>
                     </button>
                 </div>
              </div>
@@ -208,14 +207,16 @@ export const SightFilterModal: React.FC<SightFilterModalProps> = ({
                           );
                        })}
                        {activeFilterOptions.length === 0 && (
-                           <p className="text-xs text-gray-400 italic w-full text-center py-2">Keine Filter verfügbar.</p>
+                           <p className="text-xs text-gray-400 italic w-full text-center py-2">
+                             {t('sights.no_filters_available', { defaultValue: 'Keine Filter verfügbar.' })}
+                           </p>
                        )}
                     </div>
                 </div>
              )}
              {activeSortMode === 'alphabetical' && (
                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-center text-xs text-gray-500 italic">
-                     Sortiert alle Orte alphabetisch von A bis Z.
+                     {t('sights.sort_alpha_desc', { defaultValue: 'Sortiert alle Orte alphabetisch von A bis Z.' })}
                  </div>
              )}
 
@@ -267,4 +268,4 @@ export const SightFilterModal: React.FC<SightFilterModalProps> = ({
     </div>
   );
 };
-// --- END OF FILE 253 Zeilen ---
+// --- END OF FILE 258 Zeilen ---

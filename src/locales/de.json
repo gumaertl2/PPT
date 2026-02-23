@@ -83,7 +83,17 @@
     "debug_label": "Flugschreiber / Debug aktivieren",
     "btn_apply": "Einstellungen übernehmen",
     "manual_mode_active": "Manueller Modus aktiv",
-    "copy_paste_mode": "Copy & Paste Modus"
+    "copy_paste_mode": "Copy & Paste Modus",
+    "matrix_toggle": "Konfiguration anpassen (Matrix)",
+    "matrix_task": "Task / Workflow",
+    "matrix_model": "Modell-Strategie",
+    "matrix_batch": "Batch",
+    "matrix_reset_limits": "Limits zurücksetzen",
+    "matrix_reset_models": "Modelle zurücksetzen",
+    "matrix_default": "(Default)",
+    "strategy_optimal_desc": "Gemini 2.5 Flash + Reasoning (Auto)",
+    "strategy_pro_desc": "Gemini 2.5 Pro (Deep Analysis)",
+    "strategy_fast_desc": "High Speed (1.5k RPM)"
   },
   "modal": {
     "manual_title": "KI-Anfrage manuell ausführen",
@@ -370,7 +380,18 @@
     "planning_active": "Planungsmodus aktiv",
     "open_map": "Auf Karte öffnen",
     "radar_button": "Radar: Was ist in meiner Nähe?",
-    "radar_locating": "Ortung läuft..."
+    "radar_locating": "Ortung läuft...",
+    "group_general_regional": "Allgemein / Überregional",
+    "group_other_tour": "Weitere Orte (Ohne Tour)",
+    "group_general": "Allgemein",
+    "group_misc": "Sonstiges",
+    "tour_special": "Tour: Sondertage & Ideen",
+    "special_days_ideas": "SONDERTAGE & IDEEN",
+    "filter_selection": "Auswahl",
+    "no_filters_available": "Keine Filter verfügbar.",
+    "sort_alpha_desc": "Sortiert alle Orte alphabetisch von A bis Z.",
+    "tour_short": "Tour",
+    "alpha_short": "A-Z"
   },
   "route": {
     "no_results": "Keine Routenvorschläge verfügbar.",

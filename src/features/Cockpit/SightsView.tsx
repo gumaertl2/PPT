@@ -1,3 +1,4 @@
+// 23.02.2026 10:45 - FIX: i18n fully applied to grouping headers and banners.
 // 22.02.2026 15:20 - FIX: Applied i18n to the new Radar Button texts.
 // 22.02.2026 15:15 - FEAT: Added 'Radar' feature (Find Nearest Sight via GPS) with auto-scroll navigation.
 // 20.02.2026 20:25 - FIX: Removed unused 'Filter' import from lucide-react (TS6133).
@@ -112,7 +113,6 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
               let nearestPlaceId: string | null = null;
               let shortestDist = Infinity;
 
-              // Iterate over all available places in current view (we check all, regardless of filter)
               places.forEach(p => {
                   if (p.location && p.location.lat && p.location.lng) {
                       const dist = calculateDistance(myLat, myLng, p.location.lat, p.location.lng);
@@ -124,7 +124,6 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
               });
 
               if (nearestPlaceId) {
-                  // Switch to list view if not already there, reset filter to show all, and select the place
                   setUIState({ 
                       viewMode: 'list', 
                       selectedPlaceId: nearestPlaceId 
@@ -208,14 +207,14 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
       if (specialPlaces.length > 0) {
           mappedTours.push({
               id: 'tour_special', 
-              label: 'Tour: Sondertage & Ideen',
+              label: t('sights.tour_special', { defaultValue: 'Tour: Sondertage & Ideen' }),
               count: specialPlaces.length,
               placeIds: specialPlaces.map((p: any) => p.id)
           });
       }
 
       return mappedTours;
-  }, [analysis, places]);
+  }, [analysis, places, t]);
 
   const dayOptions = useMemo(() => {
       const itineraryDays = project.itinerary?.days || [];
@@ -259,7 +258,6 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
     const minRating = userInputs.searchSettings?.minRating || 0;
     const minDuration = userInputs.searchSettings?.minDuration || 0;
 
-    // --- FIX: Day Mode Smart Filtering for the Map ---
     let selectedDayPlaceIds = new Set<string>();
     let otherDayPlaceIds = new Set<string>();
 
@@ -310,8 +308,6 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
               if (!inSelectedTour) return;
           }
           else if (sortMode === 'day') {
-              // Smart Day Filter: Hide places that belong to OTHER days.
-              // Keep places of the SELECTED day AND Unassigned places!
               if (otherDayPlaceIds.has(p.id) && !selectedDayPlaceIds.has(p.id)) {
                   return; 
               }
@@ -329,16 +325,12 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
     });
 
     const sortFn = (a: any, b: any) => {
-      // 1. Force reserves to the bottom within their group
       if (a._isReserve && !b._isReserve) return 1;
       if (!a._isReserve && b._isReserve) return -1;
-
-      // 2. Regular priority sorting
       if (sortMode === 'alphabetical') return (a.name || '').localeCompare(b.name || '');
       const pA = a.userPriority ?? a.userSelection?.priority ?? 0;
       const pB = b.userPriority ?? b.userSelection?.priority ?? 0;
       if (pA !== pB) return pB - pA;
-      
       return (a.category || '').localeCompare(b.category || '');
     };
 
@@ -357,7 +349,7 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
     
     if (groupByOverride === 'city') {
         list.forEach(p => {
-            const key = p.city || "Allgemein / Überregional";
+            const key = p.city || t('sights.group_general_regional', { defaultValue: 'Allgemein / Überregional' });
             if (!groups[key]) groups[key] = [];
             groups[key].push(p);
         });
@@ -371,7 +363,6 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
             const title = tour.tour_title || "Tour";
             const tourPlaces = list.filter(p => tour.suggested_order_ids?.includes(p.id));
             if (tourPlaces.length > 0) {
-                // Keep the AI suggestion order for the tour, but push reserves to the end
                 groups[title] = tourPlaces.sort((a, b) => {
                     if (a._isReserve && !b._isReserve) return 1;
                     if (!a._isReserve && b._isReserve) return -1;
@@ -381,12 +372,16 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
             }
         });
         const leftovers = list.filter(p => !assignedIds.has(p.id));
-        if (leftovers.length > 0) groups['Weitere Orte (Ohne Tour)'] = leftovers;
+        if (leftovers.length > 0) {
+            groups[t('sights.group_other_tour', { defaultValue: 'Weitere Orte (Ohne Tour)' })] = leftovers;
+        }
     } 
     else {
         list.forEach(p => {
-            let key = 'Allgemein';
-            if (sortMode === 'category') key = resolveCategoryLabel(p.category) || 'Sonstiges';
+            let key = t('sights.group_general', { defaultValue: 'Allgemein' });
+            if (sortMode === 'category') {
+                key = resolveCategoryLabel(p.category) || t('sights.group_misc', { defaultValue: 'Sonstiges' });
+            }
             else if (sortMode === 'alphabetical') key = p.name ? p.name[0].toUpperCase() : '?';
             
             if (!groups[key]) groups[key] = [];
@@ -424,7 +419,7 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
   return (
     <div className="pb-24 sights-view-root print:pb-0">
       
-      {/* 1. TOP BAR (Budget/Planning) - HIDDEN IN PRINT */}
+      {/* 1. TOP BAR (Budget/Planning) */}
       {showPlanningMode && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6 flex flex-col md:flex-row items-center justify-between gap-4 sticky top-20 z-10 animate-in fade-in slide-in-from-top-2 print:hidden">
            <div className="flex items-center gap-6 w-full justify-center md:justify-start">
@@ -474,7 +469,6 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
                     {t('sights.candidates', { defaultValue: 'ORTE & KANDIDATEN' })} ({filteredLists.main.length})
                 </div>
 
-                {/* NEW: RADAR ACTION BUTTON */}
                 {!overrideSortMode && (
                     <div className="flex justify-end mb-4 print:hidden pt-2">
                         <button 
@@ -493,7 +487,7 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
                 {isTourMode && filteredLists.special.length > 0 && (
                     <div className="mt-8 pt-6 border-t border-slate-100 print:mt-4 print:border-none">
                         <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-100 pb-1 ml-1 flex justify-between print:text-black">
-                            <span>Tour: Sondertage & Ideen</span>
+                            <span>{t('sights.tour_special', { defaultValue: 'Tour: Sondertage & Ideen' })}</span>
                             <span className="text-xs text-gray-300">{filteredLists.special.length}</span>
                         </h3>
                         <div className="mt-2">
@@ -508,9 +502,11 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
                 <div className="bg-amber-50/50 rounded-xl border-2 border-amber-200 shadow-sm p-4 md:p-6 relative mx-4 mb-8 print:border-none print:bg-transparent print:p-0 print:mx-0">
                     <div className="absolute -top-3 left-6 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1 print:hidden">
                         <Layout className="w-3 h-3" />
-                        SONDERTAGE & IDEEN ({filteredLists.special.length})
+                        {t('sights.special_days_ideas', { defaultValue: 'SONDERTAGE & IDEEN' })} ({filteredLists.special.length})
                     </div>
-                    <div className="hidden print:block font-bold text-black border-b mb-2 pb-1 text-sm uppercase mt-4">Sondertage & Ideen</div>
+                    <div className="hidden print:block font-bold text-black border-b mb-2 pb-1 text-sm uppercase mt-4">
+                        {t('sights.special_days_ideas', { defaultValue: 'Sondertage & Ideen' })}
+                    </div>
 
                     <div className="mt-2">
                         {renderGroupedList(filteredLists.special, 'city')}
@@ -535,4 +531,4 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
     </div>
   );
 };
-// --- END OF FILE 436 Zeilen ---
+// --- END OF FILE 442 Zeilen ---

@@ -1,5 +1,5 @@
+// 23.02.2026 10:45 - FIX: i18n completely integrated and Manual Chunk Limit added back to Matrix.
 // 12.02.2026 17:15 - UI: Implemented 3-Model-Strategy (Pro/Flash/Thinking) in Matrix.
-// 31.01.2026 19:45 - FIX: Corrected Task Names & Removed DurationEstimator. Full UI Preserved.
 // src/features/Cockpit/SettingsModal.tsx
 
 import React, { useState, useEffect } from 'react';
@@ -82,30 +82,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const strategies: Array<{ id: AiStrategy; label: string; icon: any; desc: string; color: string }> = [
     { 
       id: 'optimal', 
-      label: 'Thinking (Adaptive)', 
+      label: t('settings.strategy_optimal', 'Thinking (Adaptive)'), 
       icon: Brain, 
-      desc: 'Gemini 2.5 Flash + Reasoning (Auto)', 
+      desc: t('settings.strategy_optimal_desc', 'Gemini 2.5 Flash + Reasoning (Auto)'), 
       color: 'text-blue-600 bg-blue-50 border-blue-200' 
     },
     { 
       id: 'pro', 
-      label: 'Pro 2.5', 
+      label: t('settings.strategy_pro', 'Pro 2.5'), 
       icon: Cpu, 
-      desc: 'Gemini 2.5 Pro (Deep Analysis)', 
+      desc: t('settings.strategy_pro_desc', 'Gemini 2.5 Pro (Deep Analysis)'), 
       color: 'text-purple-600 bg-purple-50 border-purple-200' 
     },
     { 
       id: 'fast', 
-      label: 'Flash 2.5', 
+      label: t('settings.strategy_fast', 'Flash 2.5'), 
       icon: Zap, 
-      desc: 'High Speed (1.5k RPM)', 
+      desc: t('settings.strategy_fast_desc', 'High Speed (1.5k RPM)'), 
       color: 'text-amber-600 bg-amber-50 border-amber-200' 
     }
   ];
 
   const modelStats = Object.entries(usageStats.byModel || {});
 
-  // UPDATE: Strict Names, Removed DurationEstimator
   const v40WorkflowTasks: TaskKey[] = [
     'chefPlaner',
     'routeArchitect',
@@ -277,7 +276,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         onClick={() => setShowMatrix(!showMatrix)}
                         className="w-full flex items-center justify-between px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors"
                     >
-                        <span className="flex items-center gap-2"><Sliders className="w-3 h-3" /> Konfiguration anpassen (Matrix)</span>
+                        <span className="flex items-center gap-2"><Sliders className="w-3 h-3" /> {t('settings.matrix_toggle', 'Konfiguration anpassen (Matrix)')}</span>
                         <span className={`transform transition-transform ${showMatrix ? 'rotate-180' : ''}`}>▼</span>
                     </button>
 
@@ -285,19 +284,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         <div className="mt-3 border border-slate-200 rounded-xl overflow-hidden animate-fade-in">
                             
                             <div className="bg-slate-100 px-4 py-2 text-[10px] uppercase font-bold text-slate-500 grid grid-cols-12 gap-2">
-                                <span className="col-span-4">Task / Workflow</span>
-                                <span className="col-span-5 text-center">Modell-Strategie</span>
-                                <span className="col-span-3 text-center flex items-center justify-center gap-1">
-                                   <Layers className="w-3 h-3" /> Batch
+                                <span className="col-span-4">{t('settings.matrix_task', 'Task / Workflow')}</span>
+                                <span className="col-span-4 text-center">{t('settings.matrix_model', 'Modell-Strategie')}</span>
+                                <span className="col-span-4 text-center flex items-center justify-center gap-1">
+                                   <Layers className="w-3 h-3" /> {t('settings.matrix_batch', 'Batch (Auto | Man)')}
                                 </span>
                             </div>
                             <div className="divide-y divide-slate-100">
                                 {v40WorkflowTasks.map(taskKey => {
-                                    // REFACTORED FOR 3-MODEL-STRATEGY
                                     const defaultModel = CONFIG.taskRouting.defaults[taskKey] || 'thinking';
                                     const currentOverride = aiSettings.modelOverrides?.[taskKey];
-                                    
-                                    // Effective Mode: Use override if exists, else default
                                     const effectiveMode = currentOverride || defaultModel;
 
                                     const isPro = effectiveMode === 'pro';
@@ -308,6 +304,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                     const chunkDefaults = CONFIG.taskRouting.chunkDefaults?.[taskKey] || { auto: 10, manual: 20 };
                                     const chunkOverrides = aiSettings.chunkOverrides?.[taskKey] || {};
                                     const activeAuto = chunkOverrides.auto;
+                                    const activeManual = chunkOverrides.manual;
                                     const label = taskKey.charAt(0).toUpperCase() + taskKey.slice(1);
 
                                     return (
@@ -319,16 +316,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                 </div>
                                                 {isDefault && (
                                                     <div className="text-[9px] text-slate-400 italic">
-                                                        (Default)
+                                                        {t('settings.matrix_default', '(Default)')}
                                                     </div>
                                                 )}
                                             </div>
 
-                                            {/* 3-BUTTON MODEL SWITCH (Smart Toggles) */}
-                                            <div className="col-span-5 flex justify-center">
+                                            {/* 3-BUTTON MODEL SWITCH */}
+                                            <div className="col-span-4 flex justify-center">
                                                 <div className="flex bg-slate-100 rounded-lg p-0.5 w-full justify-between gap-1">
-                                                    
-                                                    {/* PRO BUTTON */}
                                                     <button
                                                         onClick={() => setTaskModel(taskKey, defaultModel === 'pro' ? undefined as any : 'pro')}
                                                         className={`flex-1 flex items-center justify-center py-1 rounded-md text-[9px] font-bold transition-all ${
@@ -339,8 +334,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                     >
                                                         PRO
                                                     </button>
-
-                                                    {/* FLASH BUTTON (FAST) */}
                                                     <button
                                                         onClick={() => setTaskModel(taskKey, defaultModel === 'flash' ? undefined as any : 'flash')}
                                                         className={`flex-1 flex items-center justify-center py-1 rounded-md text-[9px] font-bold transition-all ${
@@ -351,8 +344,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                     >
                                                         FLASH
                                                     </button>
-
-                                                    {/* FLASH+ BUTTON (THINKING) */}
                                                     <button
                                                         onClick={() => setTaskModel(taskKey, defaultModel === 'thinking' ? undefined as any : 'thinking')}
                                                         className={`flex-1 flex items-center justify-center gap-0.5 py-1 rounded-md text-[9px] font-bold transition-all ${
@@ -364,12 +355,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                         <Sparkles className="w-2.5 h-2.5" />
                                                         PLUS
                                                     </button>
-
                                                 </div>
                                             </div>
 
-                                            {/* CHUNK LIMITS */}
-                                            <div className="col-span-3 flex gap-1 justify-end">
+                                            {/* CHUNK LIMITS: Auto & Manual Side-by-Side */}
+                                            <div className="col-span-4 flex gap-1 justify-end">
                                                 <input 
                                                     type="number" 
                                                     placeholder={chunkDefaults.auto.toString()}
@@ -378,10 +368,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                         const val = parseInt(e.target.value);
                                                         setTaskChunkLimit(taskKey, 'auto', isNaN(val) ? 0 : val);
                                                     }}
-                                                    className={`w-full text-[10px] p-1 border rounded text-center outline-none focus:ring-1 focus:ring-blue-500 ${
+                                                    className={`w-1/2 text-[10px] p-1 border rounded text-center outline-none focus:ring-1 focus:ring-blue-500 ${
                                                         activeAuto ? 'bg-blue-50 border-blue-200 font-bold text-blue-700' : 'bg-slate-50 border-slate-200 text-slate-500'
                                                     }`}
                                                     title={`API Auto Limit (Default: ${chunkDefaults.auto})`}
+                                                />
+                                                <input 
+                                                    type="number" 
+                                                    placeholder={chunkDefaults.manual.toString()}
+                                                    value={activeManual || ''}
+                                                    onChange={(e) => {
+                                                        const val = parseInt(e.target.value);
+                                                        setTaskChunkLimit(taskKey, 'manual', isNaN(val) ? 0 : val);
+                                                    }}
+                                                    className={`w-1/2 text-[10px] p-1 border rounded text-center outline-none focus:ring-1 focus:ring-amber-500 ${
+                                                        activeManual ? 'bg-amber-50 border-amber-200 font-bold text-amber-700' : 'bg-slate-50 border-slate-200 text-slate-500'
+                                                    }`}
+                                                    title={`Manual Copy&Paste Limit (Default: ${chunkDefaults.manual})`}
                                                 />
                                             </div>
                                         </div>
@@ -390,10 +393,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             </div>
                             <div className="bg-slate-50 px-4 py-2 flex justify-between items-center border-t border-slate-100">
                                 <button onClick={resetChunkOverrides} className="text-[10px] text-slate-400 hover:text-slate-600 hover:underline">
-                                    Limits zurücksetzen
+                                    {t('settings.matrix_reset_limits', 'Limits zurücksetzen')}
                                 </button>
                                 <button onClick={resetModelOverrides} className="text-[10px] text-red-400 hover:text-red-600 hover:underline">
-                                    Modelle zurücksetzen
+                                    {t('settings.matrix_reset_models', 'Modelle zurücksetzen')}
                                 </button>
                             </div>
                         </div>
@@ -436,4 +439,4 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     </>
   );
 };
-// --- END OF FILE 492 Zeilen ---
+// --- END OF FILE 515 Zeilen ---

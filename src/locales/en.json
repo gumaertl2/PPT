@@ -83,7 +83,17 @@
     "debug_label": "Enable Flight Recorder / Debug",
     "btn_apply": "Apply Settings",
     "manual_mode_active": "Manual Mode Active",
-    "copy_paste_mode": "Copy & Paste Mode"
+    "copy_paste_mode": "Copy & Paste Mode",
+    "matrix_toggle": "Adjust Configuration (Matrix)",
+    "matrix_task": "Task / Workflow",
+    "matrix_model": "Model Strategy",
+    "matrix_batch": "Batch",
+    "matrix_reset_limits": "Reset Limits",
+    "matrix_reset_models": "Reset Models",
+    "matrix_default": "(Default)",
+    "strategy_optimal_desc": "Gemini 2.5 Flash + Reasoning (Auto)",
+    "strategy_pro_desc": "Gemini 2.5 Pro (Deep Analysis)",
+    "strategy_fast_desc": "High Speed (1.5k RPM)"
   },
   "modal": {
     "manual_title": "Execute AI Request Manually",
@@ -370,7 +380,18 @@
     "planning_active": "Planning Mode Active",
     "open_map": "Open on map",
     "radar_button": "Radar: What is near me?",
-    "radar_locating": "Locating..."
+    "radar_locating": "Locating...",
+    "group_general_regional": "General / Regional",
+    "group_other_tour": "Other Places (No Tour)",
+    "group_general": "General",
+    "group_misc": "Miscellaneous",
+    "tour_special": "Tour: Special Days & Ideas",
+    "special_days_ideas": "SPECIAL DAYS & IDEAS",
+    "filter_selection": "Selection",
+    "no_filters_available": "No filters available.",
+    "sort_alpha_desc": "Sorts all places alphabetically from A to Z.",
+    "tour_short": "Tour",
+    "alpha_short": "A-Z"
   },
   "route": {
     "no_results": "No route suggestions available.",
