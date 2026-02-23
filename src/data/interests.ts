@@ -1,4 +1,4 @@
-// 23.02.2026 19:20 - FIX: Restored full file integrity and added 'hotel' to VALID_POI_CATEGORIES to enable UI rendering.
+// 23.02.2026 19:35 - FIX: Added 'hotel' to VALID_POI_CATEGORIES. Restored 1:1 file integrity (559 lines).
 // 04.02.2026 18:20 - FEAT: Added VALID_POI_CATEGORIES export (SSOT).
 // 28.01.2026 20:10 - FEAT: Added 'special' category for 'Sondertage' (preserving full file integrity).
 // 25.01.2026 13:00 - FIX: "Quality Clean Sweep".
@@ -207,11 +207,11 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
       en: "SEARCH STRATEGY: Search for oases of peace. Famous palace gardens or lesser-known charming urban green spaces."
     },
     writingGuideline: {
-      de: `Beschreibe jeden geplanten Park oder Garten im Anhang. Erkläre die Entstehungsgeschichte, den Stil (z.B. Barockgarten, Englischer Landschaftsgarten) und die besondere Atmosphäre des Ortes. Hebe besondere Merkmale wie Skulpturen, Wasserspiele oder seltene Pflanzen hervor. Gib einen Tipp, welcher Bereich des Parks besonders sehenswert ist.`,
+      de: `Beschreibe jeden geplanten Park oder Garten im Anhang. Erkläre die Entstehungsgeschichte, den Stil (z.B. Barockgarten, Englischer Landschaftsgarten) und die besondere Atmosphäre des Ortes. Hebe besondere Merkmale wie Skulpturen, Wasserspiele oder seltene Pflanzen hervor. Gib einen tipp, welcher Bereich des Parks besonders sehenswert ist.`,
       en: `Describe each planned park or garden in the appendix. Explain the history of its origin, the style (e.g. Baroque garden, English landscape garden), and the special atmosphere of the place. Highlight special features such as sculptures, water features, or rare plants. Give a tip on which area of the park is particularly worth seeing.`
     },
     aiInstruction: {
-      de: `Beschreibe jeden geplanten Park oder Garten im Anhang. Erkläre die Entstehungsgeschichte, den Stil (z.B. Barockgarten, Englischer Landschaftsgarten) und die besondere Atmosphäre des Ortes. Hebe besondere Merkmale wie Skulpturen, Wasserspiele oder seltene Pflanzen hervor. Gib einen Tipp, welcher Bereich des Parks besonders sehenswert ist.`,
+      de: `Beschreibe jeden geplanten Park oder Garten im Anhang. Erkläre die Entstehungsgeschichte, den Stil (z.B. Barockgarten, Englischer Landschaftsgarten) und die besondere Atmosphäre des Ortes. Hebe besondere Merkmale wie Skulpturen, Wasserspiele oder seltene Pflanzen hervor. Gib einen tipp, welcher Bereich des Parks besonders sehenswert ist.`,
       en: `Describe each planned park or garden in the appendix. Explain the history of its origin, the style (e.g. Baroque garden, English landscape garden), and the special atmosphere of the place. Highlight special features such as sculptures, water features, or rare plants. Give a tip on which area of the park is particularly worth seeing.`
     }
   },
@@ -391,7 +391,7 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
       en: "We are traveling with children. Plan excursions that are child-friendly, fun, and safe. Avoid long distances or places where children get bored."
     },
     searchStrategy: {
-      de: "Plane Ausflugsziele, die speziell für Kindern geeignet sind (Zoos, Freizeitparks, leichte Erlebnispfade, interaktive Museen). Priorisiere Orte mit guter Infrastruktur (Toiletten, Verpflegung).",
+      de: "Plane Ausflugsziele, die speziell für Kinder geeignet sind (Zoos, Freizeitparks, leichte Erlebnispfade, interaktive Museen). Priorisiere Orte mit guter Infrastruktur (Toiletten, Verpflegung).",
       en: "Plan excursions specifically for children (zoos, theme parks, adventure trails, interactive museums). Prioritize family infrastructure."
     },
     writingGuideline: {
@@ -407,7 +407,7 @@ export const INTEREST_DATA: Record<string, InterestCategory> = {
     aiInstruction: {
       de: `Erstelle für jedes Ausflugsziel einen 'Eltern-Check' im Anhang.
 **1. Der Spaß-Faktor:** Was genau können Kinder hier machen? (Nicht nur anschauen, sondern anfassen/klettern/spielen).
-**2. Alters-Eignung:** Für welches Alter ist it ideal? (Kinderwagen-tauglich? Zu langweilig für Teenager?).
+**2. Alters-Eignung:** Für welches Alter ist es ideal? (Kinderwagen-tauglich? Zu langweilig für Teenager?).
 **3. Infrastruktur:** Gibt es Toiletten, Schattenplätze und Verpflegungsmöglichkeiten in direkter Nähe?`,
       en: `Create a 'Parent Check' in the appendix for each excursion destination.
 **1. The Fun Factor:** What exactly can kids do here? (Not just look, but touch/climb/play).
@@ -490,6 +490,6 @@ export const VALID_POI_CATEGORIES = [
   'wellness',
   'shopping',
   'nightlife',
-  'hotel' // NEW: Added to allow hotel rendering in SightsView
+  'hotel'
 ];
 // --- END OF FILE 570 Zeilen ---
