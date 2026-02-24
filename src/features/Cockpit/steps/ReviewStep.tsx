@@ -1,3 +1,4 @@
+// 24.02.2026 13:00 - UX: Integrated 'Fundamentalanalyse' button and error handling directly into ReviewStep.
 // 06.02.2026 15:20 - FEAT: Display currentFileName in Review Step.
 // 20.01.2026 21:10 - FIX: Robust resolveLabel and Safety Checks for missing data.
 // src/features/Cockpit/steps/ReviewStep.tsx
@@ -14,6 +15,7 @@ import {
   CheckCircle2,
   AlertCircle,
   ArrowUpRight,
+  Sparkles
 } from 'lucide-react';
 import type { LanguageCode } from '../../../core/types';
 import { 
@@ -26,13 +28,16 @@ import {
 
 interface ReviewStepProps {
   onEdit?: (stepIndex: number) => void;
+  onAnalyze?: () => void; // NEW
+  status?: 'idle' | 'generating' | 'success' | 'error' | 'waiting_for_user' | 'paused'; // NEW
+  error?: string | null; // NEW
 }
 
-export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
+export const ReviewStep = ({ onEdit, onAnalyze, status, error }: ReviewStepProps) => {
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
   
-  const { project, uiState } = useTripStore(); // FIX: Added uiState access
+  const { project, uiState } = useTripStore(); 
   const { userInputs } = project;
   const { logistics, travelers, dates, selectedInterests, notes, customPreferences, pace, budget, vibe, strategyId, aiOutputLanguage } = userInputs;
 
@@ -97,7 +102,7 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
   );
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in pb-12">
       
       <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-800 flex items-start gap-2">
         <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5" />
@@ -194,7 +199,6 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {selectedInterests.map(id => (
                     <span key={id} className="px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded-md border border-slate-200">
-                      {/* FIX: Safety check for undefined INTEREST_DATA */}
                       {INTEREST_DATA[id] ? resolveLabel(INTEREST_DATA[id]) : id}
                     </span>
                   ))}
@@ -248,7 +252,6 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
             icon={FileText}
             isValid={true}
           >
-            {/* NEW: Show Filename if available */}
             {uiState.currentFileName && (
                 <div className="mb-4 pb-4 border-b border-slate-100">
                    <InfoRow 
@@ -276,9 +279,41 @@ export const ReviewStep = ({ onEdit }: ReviewStepProps) => {
             </div>
           </Section>
         </div>
+      </div>
 
+      {/* FINAL ACTION SECTION */}
+      <div className="mt-12 flex flex-col items-center gap-6 animate-in slide-in-from-bottom-4 duration-500">
+        <button 
+            onClick={onAnalyze}
+            disabled={status === 'generating'}
+            className="group px-10 py-5 rounded-2xl font-black flex items-center gap-4 shadow-xl transition-all bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 bg-[length:200%_auto] hover:bg-right text-white hover:shadow-2xl hover:-translate-y-1 disabled:opacity-70 disabled:cursor-wait text-xl uppercase tracking-wider"
+        >
+            {status === 'generating' ? (
+                <>
+                    <Sparkles className="w-6 h-6 animate-spin text-blue-200" />
+                    <span>{t('actions.analyzing', 'Analysiere...')}</span>
+                </>
+            ) : (
+                <>
+                    <Sparkles className="w-6 h-6 group-hover:scale-125 transition-transform" />
+                    <span>Fundamentalanalyse starten</span>
+                </>
+            )}
+        </button>
+
+        {status === 'error' && error && (
+          <div className="max-w-md bg-red-50 text-red-600 p-4 rounded-xl border border-red-200 flex items-center gap-3 animate-shake">
+            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <div className="flex-1 text-sm font-bold">
+                {error.includes("401") 
+                    ? "API Key ungültig oder fehlt. Bitte in den Einstellungen prüfen." 
+                    : error}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 };
-// --- END OF FILE 266 Zeilen ---
+
+// --- END OF FILE 312 Zeilen ---

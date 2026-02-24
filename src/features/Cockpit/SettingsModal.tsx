@@ -1,3 +1,4 @@
+// 24.02.2026 13:15 - FEAT: Added Language Switcher to Settings for better UX during planning and testing.
 // 23.02.2026 17:25 - FEAT: Added 'Free Tier Mode' toggle to settings.
 // 23.02.2026 10:45 - FIX: i18n completely integrated and Manual Chunk Limit added back to Matrix.
 // 12.02.2026 17:15 - UI: Implemented 3-Model-Strategy (Pro/Flash/Thinking) in Matrix.
@@ -22,7 +23,8 @@ import {
   Layers,
   Brain,
   Sparkles,
-  ShieldCheck // NEW ICON
+  ShieldCheck,
+  Globe // NEW ICON
 } from 'lucide-react';
 import { useTripStore } from '../../store/useTripStore';
 import type { AiStrategy } from '../../store/useTripStore';
@@ -47,7 +49,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     setTaskModel,
     resetModelOverrides,
     setTaskChunkLimit,
-    resetChunkOverrides
+    resetChunkOverrides,
+    project, // NEW
+    setLanguage // NEW
   } = useTripStore();
 
   const [keyInput, setKeyInput] = useState(apiKey || '');
@@ -77,6 +81,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const textData = getInfoText('help', currentLang as LanguageCode);
     setInfoContent(textData);
     setInfoModalOpen(true);
+  };
+
+  // NEW: Language Toggle Logic
+  const toggleLanguage = () => {
+    const current = project.meta.language;
+    const next: LanguageCode = current === 'de' ? 'en' : 'de';
+    
+    // 1. i18next (UI)
+    i18n.changeLanguage(next);
+    // 2. Store (Projekt-Daten)
+    setLanguage(next);
   };
 
   if (!isOpen) return null;
@@ -184,6 +199,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     <Trash2 className="w-4 h-4" />
                   </button>
                 )}
+              </div>
+
+              {/* NEW: LANGUAGE SWITCHER SECTION */}
+              <div className="mb-4 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                <label className="text-xs font-bold text-blue-500 uppercase mb-3 block flex items-center gap-2">
+                  <Globe className="w-4 h-4" /> {t('settings.language_section', 'Programm-Sprache / Language')}
+                </label>
+                
+                <button
+                  onClick={toggleLanguage}
+                  className="w-full flex items-center justify-between p-3 bg-white border border-blue-200 rounded-xl hover:bg-blue-50 hover:border-blue-300 transition-all shadow-sm group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs group-hover:scale-110 transition-transform">
+                      {project.meta.language.toUpperCase()}
+                    </div>
+                    <div className="text-left">
+                      <div className="text-sm font-bold text-slate-700">
+                        {project.meta.language === 'de' ? 'Deutsch' : 'English'}
+                      </div>
+                      <div className="text-[10px] text-slate-500">
+                        {t('settings.language_switch_hint', 'Klicken zum Wechseln')}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-1.5 bg-slate-50 rounded-lg text-slate-400 group-hover:text-blue-500 transition-colors">
+                    <Globe className="w-4 h-4" />
+                  </div>
+                </button>
               </div>
 
               {/* NEW: FREE TIER TOGGLE */}
@@ -461,4 +505,5 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     </>
   );
 };
-// --- END OF FILE 543 Zeilen ---
+
+// --- END OF FILE 582 Zeilen ---

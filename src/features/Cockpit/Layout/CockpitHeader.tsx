@@ -1,3 +1,4 @@
+// 24.02.2026 11:55 - FEAT: Added Quick Guide button and modal to CockpitHeader for direct access.
 // 22.02.2026 17:35 - FIX: Made the global search input visible and responsive on mobile portrait screens.
 // 21.02.2026 13:30 - FEAT: Added state and integration for the new TripFinanceModal.
 // 21.02.2026 01:00 - FIX: Smart Search Routing. Prevents forcing the user into 'sights' view when searching while inside the 'info' view.
@@ -15,7 +16,8 @@ import {
   Edit3,
   Home,
   Search, 
-  X
+  X,
+  Zap
 } from 'lucide-react';
 
 import { useTripStore } from '../../../store/useTripStore';
@@ -30,6 +32,7 @@ import type { CockpitViewMode, PrintConfig } from '../../../core/types';
 import { useTripGeneration } from '../../../hooks/useTripGeneration';
 import { InfoModal } from '../../Welcome/InfoModal'; 
 import { description } from '../../../data/Texts/description';
+import { quickGuide } from '../../../data/Texts/quickguide';
 
 interface CockpitHeaderProps {
   viewMode: CockpitViewMode;
@@ -70,12 +73,14 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
   const [showExitModal, setShowExitModal] = useState(false); 
   const [showManualModal, setShowManualModal] = useState(false); 
   const [isFinanceModalOpen, setIsFinanceModalOpen] = useState(false); // NEW
+  const [showQuickGuide, setShowQuickGuide] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isFilterActive = uiState.searchTerm || uiState.categoryFilter.length > 0;
 
   const currentLang = (i18n.language.substring(0, 2) === 'en' ? 'en' : 'de') as 'de' | 'en';
   const manualContent = description[currentLang] || description['de'];
+  const quickGuideContent = quickGuide[currentLang] || quickGuide['de'];
 
   // --- ACTIONS LOGIC ---
 
@@ -285,6 +290,15 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
           
           {/* RIGHT GROUP */}
           <div className="flex items-center gap-0.5 sm:gap-2 flex-shrink-0">
+              
+              <button 
+                onClick={() => setShowQuickGuide(true)}
+                className="flex flex-col items-center px-1.5 sm:px-2 py-1 text-slate-500 hover:bg-amber-50 hover:text-amber-600 rounded transition-colors shrink-0"
+                title={t('welcome.quick_guide_title', { defaultValue: 'Schnellstart-Guide' })}
+              >
+                <Zap className="w-4 h-4 lg:w-5 lg:h-5 mb-0.5" />
+                <span className="text-[10px] font-bold uppercase tracking-wide hidden xl:inline">{t('wizard.toolbar.help_quick', { defaultValue: 'Guide' })}</span>
+              </button>
 
               <button 
                 onClick={() => {
@@ -332,7 +346,15 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
         title={manualContent.title as string} 
         content={manualContent.content as string} 
       />
+
+      <InfoModal 
+        isOpen={showQuickGuide} 
+        onClose={() => setShowQuickGuide(false)} 
+        title={quickGuideContent.title as string} 
+        content={quickGuideContent.content as string} 
+      />
     </>
   );
 };
-// --- END OF FILE 348 Zeilen ---
+
+// --- END OF FILE 373 Zeilen ---

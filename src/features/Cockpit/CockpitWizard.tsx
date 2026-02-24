@@ -1,3 +1,4 @@
+// 24.02.2026 12:45 - UX: Removed CockpitFooter from data entry. Footer logic moved into ReviewStep.
 // 20.02.2026 23:55 - FIX: Imported and integrated CatalogModal into CockpitWizard to allow opening the catalog from the InfoModal.
 // 09.02.2026 19:20 - FIX: Disabled global background worker (useLiveStatusWorker removed).
 // 08.02.2026 21:00 - FIX: Pass 'options' (Smart Mode) to startWorkflow.
@@ -27,7 +28,7 @@ import { PrintReport } from './PrintReport';
 
 // Layout Components
 import { CockpitHeader } from './Layout/CockpitHeader'; 
-import { CockpitFooter } from './Layout/CockpitFooter';
+// import { CockpitFooter } from './Layout/CockpitFooter'; // REMOVED per UX request
 
 // Icons
 import { 
@@ -289,22 +290,14 @@ export const CockpitWizard = () => {
         ) : viewMode === 'plan' ? ( 
           <PlanView />
         ) : (
-          <CurrentComponent onEdit={jumpToStep} />
+          // UX FIX: Pass analysis props to ReviewStep directly
+          currentStep === 5 
+            ? <ReviewStep onEdit={jumpToStep} onAnalyze={handleAnalyze} status={status} error={error} />
+            : <CurrentComponent onEdit={jumpToStep} onNext={handleNext} />
         )}
       </main>
 
-      {viewMode === 'wizard' && (
-        <CockpitFooter 
-          status={status}
-          error={error}
-          onResetStatus={cancelWorkflow}
-          currentStep={currentStep}
-          totalSteps={STEPS.length}
-          onBack={handleBack}
-          onNext={handleNext}
-          onAnalyze={handleAnalyze}
-        />
-      )}
+      {/* FOOTER REMOVED PER UX REQUEST - Buttons are now inside the ReviewStep (Step 6) */}
 
       <InfoModal 
         isOpen={showHelp}
@@ -353,4 +346,4 @@ export const CockpitWizard = () => {
     </div>
   );
 };
-// --- END OF FILE 379 Zeilen ---
+// --- END OF FILE 369 Zeilen ---

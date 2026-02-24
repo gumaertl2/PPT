@@ -1,3 +1,4 @@
+// 24.02.2026 11:40 - FEAT: Integrated Quick Guide button and modal to WelcomeScreen.
 // 24.02.2026 10:05 - FIX: Corrected Zustand state access for Free Tier toggle (using aiSettings & setAiSettings).
 // 24.02.2026 09:50 - FEAT: Added Free Tier toggle directly to the WelcomeScreen.
 // 09.02.2026 10:45 - FIX: Delegate file loading to store to capture 'filename'.
@@ -6,13 +7,14 @@
 import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTripStore } from '../../store/useTripStore';
-import { Key, Upload, Plus, AlertCircle, Settings, FileText, HelpCircle, Book, Database, Globe, Check } from 'lucide-react';
+import { Key, Upload, Plus, AlertCircle, Settings, FileText, HelpCircle, Book, Database, Globe, Check, Zap } from 'lucide-react';
 import type { LanguageCode } from '../../core/types';
 import { InfoModal } from './InfoModal';
 
 // NEU: Import der dedizierten Modals
 import { CatalogModal } from './CatalogModal';
 import { SettingsModal } from '../Cockpit/SettingsModal';
+import { quickGuide } from '../../data/Texts/quickguide';
 
 import { getInfoText } from '../../data/Texts';
 // FIX: Corrected import path casing to Match 'Texts' folder
@@ -30,6 +32,7 @@ export const WelcomeScreen = () => {
   // --- INFO MODAL LOGIC (Briefing, Terms, etc.) ---
   const [infoModalOpen, setInfoModalOpen] = useState(false);
   const [infoContent, setInfoContent] = useState({ title: '', content: '' });
+  const [showQuickGuide, setShowQuickGuide] = useState(false);
 
   const openInfoModal = (category: InfoCategory) => {
     const currentLang = i18n.language.startsWith('en') ? 'en' : 'de';
@@ -82,6 +85,7 @@ export const WelcomeScreen = () => {
   };
 
   const currentLangLabel = (project.meta.language || i18n.language).substring(0, 2).toUpperCase();
+  const langKey = project.meta.language === 'en' ? 'en' : 'de';
 
   // Helper für den Toggle State
   const isFreeTier = aiSettings?.isFreeTierKey ?? true;
@@ -115,6 +119,13 @@ export const WelcomeScreen = () => {
         onClose={() => setInfoModalOpen(false)} 
         title={infoContent.title} 
         content={infoContent.content} 
+      />
+
+      <InfoModal 
+        isOpen={showQuickGuide} 
+        onClose={() => setShowQuickGuide(false)} 
+        title={quickGuide[langKey].title} 
+        content={quickGuide[langKey].content} 
       />
       
       <CatalogModal 
@@ -216,6 +227,15 @@ export const WelcomeScreen = () => {
           <span className="font-bold text-lg">{t('welcome.btn_load', 'Reise laden')}</span>
           <span className="text-slate-400 text-sm mt-1">{t('welcome.btn_load_sub', 'Aus .json Datei')}</span>
         </button>
+
+        <button 
+          onClick={() => setShowQuickGuide(true)}
+          className="flex flex-col items-center justify-center p-6 rounded-xl border-2 border-slate-200 bg-white text-slate-700 hover:border-amber-400 hover:bg-amber-50 transition-all shadow-sm group md:col-span-2"
+        >
+          <Zap className="w-8 h-8 mb-2 text-amber-500 group-hover:scale-110 transition-transform" />
+          <span className="font-bold text-lg">{t('welcome.quick_guide_title', 'Schnellstart-Guide')}</span>
+          <span className="text-slate-400 text-sm mt-1">{t('welcome.quick_guide_sub', 'Symbole & Funktionen erklärt')}</span>
+        </button>
         
         {/* Hidden File Input */}
         <input 
@@ -252,4 +272,5 @@ export const WelcomeScreen = () => {
     </div>
   );
 };
-// --- END OF FILE 178 Zeilen ---
+
+// --- END OF FILE 207 Zeilen ---
