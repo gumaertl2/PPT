@@ -1,6 +1,6 @@
+// 24.02.2026 16:30 - FIX: Prefixed unused 'oldVersion' with underscore to resolve TS6133.
 // 24.02.2026 15:55 - FEAT: Added Region Management and DB Version 2 for selective map deletion.
 // 24.02.2026 15:30 - FIX: Changed IDBPDatabase import to 'import type' to resolve runtime SyntaxError.
-// 24.02.2026 14:10 - FEAT: Initial Offline Map Service using IndexedDB for tile storage.
 // src/services/MapOfflineService.ts
 
 import { openDB } from 'idb';
@@ -25,7 +25,7 @@ export class MapOfflineService {
   private static getDB(): Promise<IDBPDatabase> {
     if (!this.db) {
       this.db = openDB(DB_NAME, VERSION, {
-        upgrade(db, oldVersion) {
+        upgrade(db, _oldVersion) {
           // Store für die eigentlichen Bilddaten
           if (!db.objectStoreNames.contains(TILES_STORE)) {
             db.createObjectStore(TILES_STORE);

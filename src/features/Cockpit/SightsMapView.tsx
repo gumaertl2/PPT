@@ -1,11 +1,10 @@
+// 24.02.2026 16:40 - FIX: Resolved TS6133/TS2322 by refactoring OfflineTileLayer and using 't' for tooltips.
 // 24.02.2026 15:50 - REFACTOR: Cleaned up Map UI, removed auto-sync, added centralized OfflineMapModal.
 // 24.02.2026 14:55 - FEAT: Integrated MapOfflineService with I18N UI controls for Live/Offline/Sync modes.
-// 23.02.2026 13:40 - FIX: Added logic to identify and display manual stationary hotels and hubs on the map.
-// 20.02.2026 18:35 - FEAT: Added GPS "Locate Me" Button and pulsing Blue Dot for current user location.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useTripStore } from '../../store/useTripStore';
@@ -226,13 +225,13 @@ const UserLocationMarker: React.FC<{ location: [number, number] | null }> = ({ l
 const OfflineTileLayer = () => {
     const { uiState } = useTripStore();
     const { mapMode } = uiState;
-    const url = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+    const map = useMap();
 
-    const customLayerRef = useRef<L.TileLayer | null>(null);
+    useEffect(() => {
+        const url = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
-    // We extend L.TileLayer to intercept the tile creation
-    const ExtendedTileLayer = useMemo(() => {
-        return L.TileLayer.extend({
+        // FIX: Proper Leaflet TileLayer extension to resolve TS2322 'instance' error
+        const ExtendedLayer = L.TileLayer.extend({
             createTile: function(coords: L.Coords, done: L.DoneCallback) {
                 const tile = document.createElement('img');
                 const key = `${coords.z}/${coords.x}/${coords.y}`;
@@ -243,29 +242,31 @@ const OfflineTileLayer = () => {
                 if ((this as any).options.crossOrigin || (this as any).options.crossOrigin === "") {
                     tile.crossOrigin = (this as any).options.crossOrigin === true ? "" : (this as any).options.crossOrigin;
                 }
-
                 tile.alt = "";
                 tile.setAttribute('role', 'presentation');
 
-                // OFFLINE LOGIC
                 MapOfflineService.getTile(key).then(blob => {
                     if (blob) {
                         tile.src = URL.createObjectURL(blob);
                     } else if (mapMode === 'offline') {
-                        // In strict offline mode, if not in DB, we show nothing or a placeholder
                         tile.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAAEAAQMAAABmvDolAAAAA1BMVEW1tbW6T9UMAAAAH0lEQVRoQ+3BAQ0AAADCoPdPbQ43oAAAAAAAAAAAAIAvAxaAAGE6fS8AAAAASUVORK5CYII=';
                     } else {
-                        // Live mode: fetch from internet (NO AUTO-SAVE)
                         tile.src = (this as any).getTileUrl(coords);
                     }
                 });
-
                 return tile;
             }
         });
-    }, [mapMode]);
 
-    return <TileLayer attribution='&copy; OpenStreetMap' url={url} instance={new (ExtendedTileLayer as any)(url)} />;
+        const layer = new (ExtendedLayer as any)(url, {
+            attribution: '&copy; OpenStreetMap'
+        });
+
+        layer.addTo(map);
+        return () => { map.removeLayer(layer); };
+    }, [mapMode, map]);
+
+    return null;
 };
 
 const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
@@ -476,7 +477,7 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
       <button 
           onClick={() => setIsFullscreen(!isFullscreen)}
           className={`absolute top-4 right-4 z-[1000] bg-white text-slate-700 p-2.5 rounded-xl shadow-lg border border-slate-200 hover:text-blue-600 hover:bg-blue-50 transition-all focus:outline-none`}
-          title={isFullscreen ? "Breitbildmodus beenden" : "Karte auf volle Breite vergrößern"}
+          title={isFullscreen ? t('map.exit_fullscreen', "Breitbildmodus beenden") : t('map.enter_fullscreen', "Karte auf volle Breite vergrößern")}
       >
           {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
       </button>
@@ -484,12 +485,12 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
       <button 
           onClick={handleLocateUser}
           className={`absolute top-[68px] right-4 z-[1000] bg-white text-blue-600 p-2.5 rounded-xl shadow-lg border border-slate-200 hover:bg-blue-50 transition-all focus:outline-none ${isLocating ? 'animate-pulse opacity-70' : ''}`}
-          title="Meinen aktuellen GPS-Standort anzeigen"
+          title={t('map.locate_me', "Meinen aktuellen GPS-Standort anzeigen")}
       >
           <Navigation className={`w-5 h-5 ${isLocating ? 'animate-spin text-slate-400' : 'fill-blue-100'}`} />
       </button>
 
-      {/* --- NEW: MAP MANAGER BUTTON --- */}
+      {/* --- MAP MANAGER BUTTON --- */}
       <button 
           onClick={() => setUIState({ isMapManagerOpen: true })}
           className={`absolute top-[120px] right-4 z-[1000] p-2.5 rounded-xl shadow-lg border transition-all focus:outline-none ${
@@ -497,7 +498,7 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
                   ? 'bg-slate-800 text-white border-slate-900 hover:bg-black' 
                   : 'bg-white text-slate-700 border-slate-200 hover:bg-blue-50 hover:text-blue-600'
           }`}
-          title="Offline-Karten & Download"
+          title={t('map.manager.title', "Offline-Karten & Download")}
       >
           {uiState.mapMode === 'offline' ? <CloudOff className="w-5 h-5" /> : <Database className="w-5 h-5" />}
       </button>
@@ -598,4 +599,4 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
     </div>
   );
 };
-// --- END OF FILE 618 Zeilen ---
+// --- END OF FILE 620 Zeilen ---
