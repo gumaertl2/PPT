@@ -1,10 +1,10 @@
+// 24.02.2026 19:05 - FIX: Removed unused 'Info' import to resolve TS6133 build error.
 // 24.02.2026 18:55 - FIX: Moved modal to md:right-20 to avoid collision with map controls, narrowed to 260px.
 // 24.02.2026 18:45 - FIX: Added shrink-0 and z-10 to modal header.
-// 24.02.2026 18:35 - FIX: Shifted optical center of blue frame to left/top.
 // src/features/Cockpit/OfflineMapModal.tsx
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Download, Trash2, CloudOff, Database, Loader2, Info, Map as MapIcon, Layers, Maximize2 } from 'lucide-react';
+import { X, Download, Trash2, CloudOff, Database, Loader2, Map as MapIcon, Layers, Maximize2 } from 'lucide-react';
 import { useTripStore } from '../../store/useTripStore';
 import { MapOfflineService } from '../../services/MapOfflineService';
 import type { MapRegion } from '../../services/MapOfflineService';
@@ -250,7 +250,6 @@ export const OfflineMapModal: React.FC = () => {
 
       {/* MAXIMIERTER MODUS: Das eigentliche Modal */}
       {!isMinimized && (
-        // FIX: Positionierung auf md:right-20 (80px vom Rand) und w-[260px]
         <div className="absolute md:top-4 md:right-20 bottom-0 left-0 right-0 md:left-auto z-[9999] pointer-events-none flex flex-col w-full md:w-[260px]">
           <div 
             className="bg-white/95 backdrop-blur-md md:rounded-2xl rounded-t-2xl shadow-2xl w-full flex flex-col border border-slate-200 pointer-events-auto animate-in slide-in-from-bottom-4 md:slide-in-from-right-4 max-h-[85vh] md:max-h-full"
