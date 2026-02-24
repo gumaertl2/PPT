@@ -17,7 +17,7 @@
     "edit": "Edit",
     "yes": "Yes",
     "no": "No",
-    "analyze_inputs": "Analyze Inputs",
+   "analyze_inputs": "Start Foundation Analysis",
     "analyzing": "Analyzing...",
     "regenerate": "Regenerate",
     "generate": "Generate",
@@ -135,14 +135,14 @@
       "review": "6. Start",
       "routeArchitect": "0b. Route Architect"
     },
-    "merge_modal": {
-      "title": "Warning: Trip already active",
-      "description": "You currently have a trip loaded. Would you like to import the places from the new file into this trip (duplicates will be filtered), or overwrite the current trip completely?",
-      "btn_merge": "Import Places (Merge)",
-      "desc_merge": "Data, trip dates, and logistics of the current trip will be preserved.",
-      "btn_overwrite": "Overwrite Completely",
-      "desc_overwrite": "The current trip will be deleted and replaced entirely by the new file."
-    },
+   "merge_modal": {
+   "title": "Trip already active",
+   "description": "A trip is already loaded. Would you like to integrate the places from the new file into your existing plan or end the current session and load the new file?",
+   "btn_merge": "Integrate places (Merge)",
+   "desc_merge": "New places will be added. Your logistics and travel dates will be preserved.",
+   "btn_overwrite": "Load new file",
+   "desc_overwrite": "The current project in memory will be discarded. Unsaved changes will be lost."
+},
     "toolbar": {
       "plan": "Plan",
       "guide": "Guide",

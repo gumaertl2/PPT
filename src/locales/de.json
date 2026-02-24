@@ -17,7 +17,7 @@
     "edit": "Bearbeiten",
     "yes": "Ja",
     "no": "Nein",
-    "analyze_inputs": "Eingaben analysieren",
+    "analyze_inputs": "Fundamentalanalyse starten",
     "analyzing": "Analysiere...",
     "regenerate": "Neu generieren",
     "generate": "Generieren",
@@ -135,14 +135,14 @@
       "review": "6. Start",
       "routeArchitect": "0b. Routen-Architekt"
     },
-    "merge_modal": {
-      "title": "Achtung: Reise bereits aktiv",
-      "description": "Sie haben aktuell eine Reise geladen. Möchten Sie die Orte aus der neuen Datei in diese Reise importieren (Duplikate werden automatisch gefiltert), oder möchten Sie die aktuelle Reise komplett überschreiben?",
-      "btn_merge": "Orte importieren (Merge)",
-      "desc_merge": "Daten, Reisedaten und Logistik der aktuellen Reise bleiben erhalten.",
-      "btn_overwrite": "Komplett überschreiben",
-      "desc_overwrite": "Die aktuelle Reise wird gelöscht und vollständig durch die neue Datei ersetzt."
-    },
+   "merge_modal": {
+   "title": "Planung bereits aktiv",
+  "description": "Es ist bereits eine Reise geladen. Möchten Sie die Orte der neuen Datei in Ihre bestehende Planung integrieren (Merge) oder die aktuelle Sitzung beenden und die neue Datei laden?",
+  "btn_merge": "Orte integrieren (Merge)",
+  "desc_merge": "Die neuen Orte werden hinzugefügt. Ihre Logistik- und Reisedaten bleiben erhalten.",
+  "btn_overwrite": "Neue Datei laden",
+  "desc_overwrite": "Das aktuelle Projekt im Speicher wird verworfen. Nicht gespeicherte Änderungen gehen verloren."
+},
     "toolbar": {
       "plan": "Plan",
       "guide": "Guide",

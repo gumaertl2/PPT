@@ -1,3 +1,4 @@
+// 24.02.2026 11:05 - FIX: Refined terminology in MergeProjectModal to clarify 'Loading/Discarding' instead of 'Deleting'.
 // 23.02.2026 16:30 - FEAT: Created dedicated MergeProjectModal with i18n support.
 // src/features/Cockpit/Layout/MergeProjectModal.tsx
 
@@ -25,10 +26,10 @@ export const MergeProjectModal: React.FC<MergeProjectModalProps> = ({ isOpen, on
                         <AlertTriangle className="w-6 h-6 text-amber-500" />
                     </div>
                     <h2 className="text-xl font-bold text-amber-900 mb-2">
-                        {t('wizard.merge_modal.title', 'Achtung: Reise bereits aktiv')}
+                        {t('wizard.merge_modal.title', 'Planung bereits aktiv')}
                     </h2>
                     <p className="text-sm text-amber-800 leading-relaxed">
-                        {t('wizard.merge_modal.description', 'Sie haben aktuell eine Reise geladen. Möchten Sie die Orte aus der neuen Datei in diese Reise importieren (Duplikate werden automatisch gefiltert), oder möchten Sie die aktuelle Reise komplett überschreiben?')}
+                        {t('wizard.merge_modal.description', 'Es ist bereits eine Reise geladen. Möchten Sie die Orte der neuen Datei in Ihre bestehende Planung integrieren (Merge) oder die aktuelle Sitzung beenden und die neue Datei laden?')}
                     </p>
                 </div>
                 
@@ -42,10 +43,10 @@ export const MergeProjectModal: React.FC<MergeProjectModalProps> = ({ isOpen, on
                         </div>
                         <div>
                             <div className="font-bold text-slate-800 group-hover:text-indigo-700">
-                                {t('wizard.merge_modal.btn_merge', 'Orte importieren (Merge)')}
+                                {t('wizard.merge_modal.btn_merge', 'Orte integrieren (Merge)')}
                             </div>
                             <div className="text-xs text-slate-500 mt-0.5">
-                                {t('wizard.merge_modal.desc_merge', 'Daten, Reisedaten und Logistik der aktuellen Reise bleiben erhalten.')}
+                                {t('wizard.merge_modal.desc_merge', 'Die neuen Orte werden hinzugefügt. Ihre Logistik- und Reisedaten bleiben erhalten.')}
                             </div>
                         </div>
                     </button>
@@ -59,10 +60,10 @@ export const MergeProjectModal: React.FC<MergeProjectModalProps> = ({ isOpen, on
                         </div>
                         <div>
                             <div className="font-bold text-slate-800 group-hover:text-red-600">
-                                {t('wizard.merge_modal.btn_overwrite', 'Komplett überschreiben')}
+                                {t('wizard.merge_modal.btn_overwrite', 'Neue Datei laden')}
                             </div>
                             <div className="text-xs text-slate-500 mt-0.5">
-                                {t('wizard.merge_modal.desc_overwrite', 'Die aktuelle Reise wird gelöscht und vollständig durch die neue Datei ersetzt.')}
+                                {t('wizard.merge_modal.desc_overwrite', 'Das aktuelle Projekt im Speicher wird verworfen. Nicht gespeicherte Änderungen gehen verloren.')}
                             </div>
                         </div>
                     </button>
