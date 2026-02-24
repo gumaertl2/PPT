@@ -1,7 +1,6 @@
+// 24.02.2026 19:55 - REFACTOR: Removed "V40" from main title.
+// 24.02.2026 19:35 - REFACTOR: Elevated Info (Marketing) and Quick Guide buttons to main grid for better visibility.
 // 24.02.2026 11:40 - FEAT: Integrated Quick Guide button and modal to WelcomeScreen.
-// 24.02.2026 10:05 - FIX: Corrected Zustand state access for Free Tier toggle (using aiSettings & setAiSettings).
-// 24.02.2026 09:50 - FEAT: Added Free Tier toggle directly to the WelcomeScreen.
-// 09.02.2026 10:45 - FIX: Delegate file loading to store to capture 'filename'.
 // src/features/Welcome/WelcomeScreen.tsx
 
 import { useState, useRef } from 'react';
@@ -11,18 +10,15 @@ import { Key, Upload, Plus, AlertCircle, Settings, FileText, HelpCircle, Book, D
 import type { LanguageCode } from '../../core/types';
 import { InfoModal } from './InfoModal';
 
-// NEU: Import der dedizierten Modals
 import { CatalogModal } from './CatalogModal';
 import { SettingsModal } from '../Cockpit/SettingsModal';
 import { quickGuide } from '../../data/Texts/quickguide';
 
 import { getInfoText } from '../../data/Texts';
-// FIX: Corrected import path casing to Match 'Texts' folder
 import type { InfoCategory } from '../../data/Texts';
 
 export const WelcomeScreen = () => {
   const { t, i18n } = useTranslation();
-  // Store Updates: setLanguage und project für Sync benötigt
   const { apiKey, setApiKey, setView, loadProject, setLanguage, project, aiSettings, setAiSettings } = useTripStore();
   
   const [localKey, setLocalKey] = useState(apiKey || '');
@@ -47,7 +43,6 @@ export const WelcomeScreen = () => {
 
   // --- HANDLERS ---
   const handleStartNew = () => {
-    // Key speichern, falls geändert (auch wenn leer für manuellen Modus)
     if (localKey !== apiKey) {
        setApiKey(localKey);
     }
@@ -58,28 +53,22 @@ export const WelcomeScreen = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // FIX: Apply API key first if entered locally
     if (localKey) setApiKey(localKey);
 
-    // FIX: Pass the FILE object directly to store. 
-    // This allows the store to extract 'file.name' into uiState.currentFileName.
     try {
         await loadProject(file);
-        // On success, store handles view switch to 'wizard'
     } catch (err) {
         console.error(err);
         setError(t('welcome.error_invalid_file', 'Ungültiges Dateiformat.'));
     }
     
-    event.target.value = ''; // Reset input
+    event.target.value = '';
   };
 
   const toggleLanguage = () => {
-    // Aktuelle Sprache aus Store oder i18n nehmen
     const current = project.meta.language;
     const next: LanguageCode = current === 'de' ? 'en' : 'de';
     
-    // UI und Store updaten
     i18n.changeLanguage(next);
     setLanguage(next);
   };
@@ -87,7 +76,6 @@ export const WelcomeScreen = () => {
   const currentLangLabel = (project.meta.language || i18n.language).substring(0, 2).toUpperCase();
   const langKey = project.meta.language === 'en' ? 'en' : 'de';
 
-  // Helper für den Toggle State
   const isFreeTier = aiSettings?.isFreeTierKey ?? true;
 
   return (
@@ -138,15 +126,13 @@ export const WelcomeScreen = () => {
         onClose={() => setShowSettings(false)}
       />
 
-      {/* Logo & Titel */}
-      <div className="mb-8">
-        <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-bold text-3xl mx-auto mb-4 shadow-lg shadow-blue-200">
-          P
-        </div>
-        <h1 className="text-3xl font-extrabold text-slate-900 mb-2">
-          Papatours <span className="text-blue-600">V40</span>
+      {/* Logo & Titel (Angepasst) */}
+      <div className="mb-8 pt-4">
+        <h1 className="text-4xl md:text-5xl font-black text-slate-900 mb-3 tracking-tight flex items-center justify-center gap-3">
+          <span>🌍</span>
+          PAPATOURS
         </h1>
-        <p className="text-slate-500 text-lg">
+        <p className="text-slate-500 text-lg font-medium">
           {t('welcome.subtitle', 'Ihr intelligenter KI-Reiseplaner.')}
         </p>
       </div>
@@ -173,7 +159,6 @@ export const WelcomeScreen = () => {
             <p className="text-xs text-slate-400">
               {t('welcome.storage_note', 'Gespeichert im LocalStorage (Base64).')}
             </p>
-            {/* Link zur Hilfe (bleibt hier, da kontextbezogen zum Key) */}
             <button 
                 onClick={() => openInfoModal('help')} 
                 className="text-xs text-blue-500 hover:underline flex items-center gap-1"
@@ -208,8 +193,10 @@ export const WelcomeScreen = () => {
         </div>
       </div>
 
-      {/* Haupt-Aktionen */}
+      {/* Haupt-Aktionen - 2x2 Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
+        
+        {/* Row 1: Start & Load */}
         <button 
           onClick={handleStartNew}
           className="flex flex-col items-center justify-center p-6 rounded-xl border-2 border-blue-600 bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-md group"
@@ -228,9 +215,19 @@ export const WelcomeScreen = () => {
           <span className="text-slate-400 text-sm mt-1">{t('welcome.btn_load_sub', 'Aus .json Datei')}</span>
         </button>
 
+        {/* Row 2: Info & Guide */}
+        <button 
+          onClick={() => openInfoModal('description')}
+          className="flex flex-col items-center justify-center p-6 rounded-xl border-2 border-slate-200 bg-white text-slate-700 hover:border-blue-400 hover:bg-blue-50 transition-all shadow-sm group"
+        >
+          <Book className="w-8 h-8 mb-2 text-blue-500 group-hover:scale-110 transition-transform" />
+          <span className="font-bold text-lg">{t('welcome.footer.description', 'Programm-Info')}</span>
+          <span className="text-slate-400 text-sm mt-1">{t('welcome.info_sub', 'Was ist Papatours?')}</span>
+        </button>
+
         <button 
           onClick={() => setShowQuickGuide(true)}
-          className="flex flex-col items-center justify-center p-6 rounded-xl border-2 border-slate-200 bg-white text-slate-700 hover:border-amber-400 hover:bg-amber-50 transition-all shadow-sm group md:col-span-2"
+          className="flex flex-col items-center justify-center p-6 rounded-xl border-2 border-slate-200 bg-white text-slate-700 hover:border-amber-400 hover:bg-amber-50 transition-all shadow-sm group"
         >
           <Zap className="w-8 h-8 mb-2 text-amber-500 group-hover:scale-110 transition-transform" />
           <span className="font-bold text-lg">{t('welcome.quick_guide_title', 'Schnellstart-Guide')}</span>
@@ -249,22 +246,17 @@ export const WelcomeScreen = () => {
 
       {/* FOOTER LINKS */}
       <div className="pt-6 border-t border-slate-100">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-center">
             
             <button onClick={() => openInfoModal('briefing')} className="flex items-center justify-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-600 p-2 rounded hover:bg-slate-50 transition-colors">
                 <FileText className="w-3.5 h-3.5" /> {t('welcome.footer.briefing', 'Briefing')}
             </button>
             
-            <button onClick={() => openInfoModal('description')} className="flex items-center justify-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-600 p-2 rounded hover:bg-slate-50 transition-colors">
-                <Book className="w-3.5 h-3.5" /> {t('welcome.footer.description', 'Programm-Info')}
-            </button>
-            
-            {/* KATALOG BUTTON -> Öffnet CatalogModal */}
             <button onClick={() => setShowCatalog(true)} className="flex items-center justify-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-600 p-2 rounded hover:bg-slate-50 transition-colors">
                 <Database className="w-3.5 h-3.5" /> {t('welcome.footer.catalog', 'Katalog')}
             </button>
             
-            <button onClick={() => openInfoModal('terms')} className="flex items-center justify-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-600 p-2 rounded hover:bg-slate-50 transition-colors">
+            <button onClick={() => openInfoModal('terms')} className="flex items-center justify-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-600 p-2 rounded hover:bg-slate-50 transition-colors md:col-span-1 col-span-2">
                 <FileText className="w-3.5 h-3.5" /> {t('welcome.footer.terms', 'Nutzungsbedingungen')}
             </button>
           </div>
@@ -273,4 +265,4 @@ export const WelcomeScreen = () => {
   );
 };
 
-// --- END OF FILE 207 Zeilen ---
+// --- END OF FILE 224 Zeilen ---
