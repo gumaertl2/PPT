@@ -1,3 +1,5 @@
+// 24.02.2026 15:50 - REFACTOR: Cleaned up Map UI, removed auto-sync, added centralized OfflineMapModal.
+// 24.02.2026 14:55 - FEAT: Integrated MapOfflineService with I18N UI controls for Live/Offline/Sync modes.
 // 23.02.2026 13:40 - FIX: Added logic to identify and display manual stationary hotels and hubs on the map.
 // 20.02.2026 18:35 - FEAT: Added GPS "Locate Me" Button and pulsing Blue Dot for current user location.
 // src/features/Cockpit/SightsMapView.tsx
@@ -7,10 +9,22 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useTripStore } from '../../store/useTripStore';
+import { useTranslation } from 'react-i18next';
 import type { Place } from '../../core/types/models';
-import { ExternalLink, RefreshCw, Zap, Maximize, Minimize, Navigation } from 'lucide-react'; 
+import { 
+  ExternalLink, 
+  RefreshCw, 
+  Zap, 
+  Maximize, 
+  Minimize, 
+  Navigation,
+  CloudOff,
+  Database
+} from 'lucide-react'; 
 import { GeocodingService } from '../../services/GeocodingService'; 
 import { LiveScout } from '../../services/LiveScout'; 
+import { MapOfflineService } from '../../services/MapOfflineService';
+import { OfflineMapModal } from './OfflineMapModal';
 
 // --- HIGH CONTRAST PALETTE ---
 const CATEGORY_COLORS: Record<string, string> = {
@@ -208,6 +222,52 @@ const UserLocationMarker: React.FC<{ location: [number, number] | null }> = ({ l
     );
 };
 
+// --- OFFLINE TILE LAYER COMPONENT ---
+const OfflineTileLayer = () => {
+    const { uiState } = useTripStore();
+    const { mapMode } = uiState;
+    const url = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+
+    const customLayerRef = useRef<L.TileLayer | null>(null);
+
+    // We extend L.TileLayer to intercept the tile creation
+    const ExtendedTileLayer = useMemo(() => {
+        return L.TileLayer.extend({
+            createTile: function(coords: L.Coords, done: L.DoneCallback) {
+                const tile = document.createElement('img');
+                const key = `${coords.z}/${coords.x}/${coords.y}`;
+
+                L.DomEvent.on(tile, 'load', L.Util.bind((this as any)._tileOnLoad, this, done, tile));
+                L.DomEvent.on(tile, 'error', L.Util.bind((this as any)._tileOnError, this, done, tile));
+
+                if ((this as any).options.crossOrigin || (this as any).options.crossOrigin === "") {
+                    tile.crossOrigin = (this as any).options.crossOrigin === true ? "" : (this as any).options.crossOrigin;
+                }
+
+                tile.alt = "";
+                tile.setAttribute('role', 'presentation');
+
+                // OFFLINE LOGIC
+                MapOfflineService.getTile(key).then(blob => {
+                    if (blob) {
+                        tile.src = URL.createObjectURL(blob);
+                    } else if (mapMode === 'offline') {
+                        // In strict offline mode, if not in DB, we show nothing or a placeholder
+                        tile.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAAEAAQMAAABmvDolAAAAA1BMVEW1tbW6T9UMAAAAH0lEQVRoQ+3BAQ0AAADCoPdPbQ43oAAAAAAAAAAAAIAvAxaAAGE6fS8AAAAASUVORK5CYII=';
+                    } else {
+                        // Live mode: fetch from internet (NO AUTO-SAVE)
+                        tile.src = (this as any).getTileUrl(coords);
+                    }
+                });
+
+                return tile;
+            }
+        });
+    }, [mapMode]);
+
+    return <TileLayer attribution='&copy; OpenStreetMap' url={url} instance={new (ExtendedTileLayer as any)(url)} />;
+};
+
 const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
   const categories = useMemo(() => {
     const cats = new Set<string>();
@@ -251,6 +311,7 @@ const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
 };
 
 export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
+  const { t } = useTranslation();
   const defaultCenter: [number, number] = [48.1351, 11.5820]; 
   const { uiState, setUIState, project, setProject } = useTripStore(); 
   const markerRefs = useRef<Record<string, L.Marker | null>>({});
@@ -428,6 +489,19 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
           <Navigation className={`w-5 h-5 ${isLocating ? 'animate-spin text-slate-400' : 'fill-blue-100'}`} />
       </button>
 
+      {/* --- NEW: MAP MANAGER BUTTON --- */}
+      <button 
+          onClick={() => setUIState({ isMapManagerOpen: true })}
+          className={`absolute top-[120px] right-4 z-[1000] p-2.5 rounded-xl shadow-lg border transition-all focus:outline-none ${
+              uiState.mapMode === 'offline' 
+                  ? 'bg-slate-800 text-white border-slate-900 hover:bg-black' 
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-blue-50 hover:text-blue-600'
+          }`}
+          title="Offline-Karten & Download"
+      >
+          {uiState.mapMode === 'offline' ? <CloudOff className="w-5 h-5" /> : <Database className="w-5 h-5" />}
+      </button>
+
       <MapStyles />
       <MapContainer 
         center={defaultCenter} 
@@ -436,8 +510,11 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
         scrollWheelZoom={true}
       >
         <MapResizer isFullscreen={isFullscreen} />
-        <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <OfflineTileLayer />
         <MapLogic places={places} />
+        
+        {/* MODAL IS INSIDE MAP CONTAINER TO ACCESS BOUNDS */}
+        <OfflineMapModal />
         
         <UserLocationMarker location={userLocation} />
 
@@ -521,4 +598,4 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
     </div>
   );
 };
-// --- END OF FILE 543 Zeilen ---
+// --- END OF FILE 618 Zeilen ---

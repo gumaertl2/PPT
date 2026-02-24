@@ -1,3 +1,5 @@
+// 24.02.2026 15:40 - REFACTOR: Replaced isMapRecording with isMapManagerOpen for new Offline Map Modal.
+// 24.02.2026 14:40 - FEAT: Added 'mapMode' and 'isMapRecording' to UIState for offline map management.
 // 23.02.2026 19:45 - FIX: Added 'Hotel-Shield' to updatePlace to prevent AI (Anreicherer) from overwriting the 'hotel' category.
 // 19.02.2026 14:15 - FEAT: Added 'showPlanningMode' to UIState (Lifting State Up).
 // 06.02.2026 15:10 - FEAT: Added 'currentFileName' to UIState.
@@ -39,7 +41,9 @@ export interface UIState {
   isPrintMode: boolean;
   printConfig: PrintConfig | null;
   currentFileName: string | null; 
-  showPlanningMode: boolean; 
+  showPlanningMode: boolean;
+  mapMode: 'live' | 'offline'; 
+  isMapManagerOpen: boolean; // NEW: Controls the offline map modal
 }
 
 export type AppView = 'welcome' | 'wizard' | 'results' | 'analysis_review';
@@ -92,7 +96,9 @@ const initialUIState: UIState = {
   isPrintMode: false,
   printConfig: null,
   currentFileName: null, 
-  showPlanningMode: false 
+  showPlanningMode: false,
+  mapMode: 'live',
+  isMapManagerOpen: false
 };
 
 export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => ({
@@ -199,4 +205,4 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
     notifications: state.notifications.map((n: AppNotification) => n.id === id ? { ...n, ...updates } : n)
   }))
 });
-// --- END OF FILE 208 Zeilen ---
+// --- END OF FILE 211 Zeilen ---

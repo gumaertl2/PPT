@@ -615,5 +615,31 @@
     "save_currencies": "Save Currencies",
     "error_fetch_rates": "Rates could not be retrieved. Please check your internet connection.",
     "settlement_base_info": "All settlements below are in the main currency:"
+  },
+  "map": {
+    "mode_live": "Live",
+    "mode_offline": "Offline",
+    "switch_to_live": "Switch to Live mode",
+    "switch_to_offline": "Switch to Offline mode",
+    "start_recording": "Start Synchronization",
+    "stop_recording": "Stop Synchronization",
+    "sync_active": "Sync ON",
+    "sync_inactive": "Sync OFF",
+    "clear_cache": "Delete Offline Maps",
+    "confirm_clear_cache": "Do you really want to delete all offline stored map data?",
+    "manager": {
+      "title": "Offline Maps",
+      "storage_label": "Storage",
+      "download_title": "Download Area",
+      "download_desc": "Saves current map view (Zoom 10-14).",
+      "name_label": "Region Name",
+      "name_placeholder": "e.g. Fuerteventura North",
+      "btn_download": "Save this area",
+      "btn_delete": "Delete region",
+      "no_regions": "No regions saved yet.",
+      "saved_title": "Saved Regions",
+      "limit_error": "Area too large. Please zoom in.",
+      "success_msg": "Tiles successfully saved."
+    }
   }
 }

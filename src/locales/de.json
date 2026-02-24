@@ -615,5 +615,31 @@
     "save_currencies": "Währungen speichern",
     "error_fetch_rates": "Die Kurse konnten nicht abgerufen werden. Bitte prüfen Sie Ihre Internetverbindung.",
     "settlement_base_info": "Alle Abrechnungen unten erfolgen in der Hauptwährung:"
+  },
+  "map": {
+    "mode_live": "Live",
+    "mode_offline": "Offline",
+    "switch_to_live": "Zum Live-Modus wechseln",
+    "switch_to_offline": "Zum Offline-Modus wechseln",
+    "start_recording": "Synchronisation starten",
+    "stop_recording": "Synchronisation stoppen",
+    "sync_active": "Sync EIN",
+    "sync_inactive": "Sync AUS",
+    "clear_cache": "Offline-Karten löschen",
+    "confirm_clear_cache": "Möchtest du alle offline gespeicherten Kartendaten wirklich löschen?",
+    "manager": {
+      "title": "Offline-Karten",
+      "storage_label": "Speicherplatz",
+      "download_title": "Bereich herunterladen",
+      "download_desc": "Speichert den aktuellen Ausschnitt (Zoom 10-14).",
+      "name_label": "Name der Region",
+      "name_placeholder": "z.B. Fuerteventura Nord",
+      "btn_download": "Diesen Bereich speichern",
+      "btn_delete": "Region löschen",
+      "no_regions": "Noch keine Regionen gespeichert.",
+      "saved_title": "Gespeicherte Regionen",
+      "limit_error": "Bereich zu groß. Bitte näher heranzoomen.",
+      "success_msg": "Kacheln erfolgreich gespeichert."
+    }
   }
 }
