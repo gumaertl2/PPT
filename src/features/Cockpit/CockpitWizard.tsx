@@ -1,3 +1,4 @@
+// 24.02.2026 13:50 - FIX: Removed unused handleBack and cleaned up props for ReviewStep to resolve build errors.
 // 24.02.2026 12:45 - UX: Removed CockpitFooter from data entry. Footer logic moved into ReviewStep.
 // 20.02.2026 23:55 - FIX: Imported and integrated CatalogModal into CockpitWizard to allow opening the catalog from the InfoModal.
 // 09.02.2026 19:20 - FIX: Disabled global background worker (useLiveStatusWorker removed).
@@ -28,7 +29,6 @@ import { PrintReport } from './PrintReport';
 
 // Layout Components
 import { CockpitHeader } from './Layout/CockpitHeader'; 
-// import { CockpitFooter } from './Layout/CockpitFooter'; // REMOVED per UX request
 
 // Icons
 import { 
@@ -113,13 +113,6 @@ export const CockpitWizard = () => {
   const handleNext = () => {
     if (currentStep < STEPS.length - 1) {
       setCurrentStep(prev => prev + 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
-
-  const handleBack = () => {
-    if (currentStep > 0) {
-      setCurrentStep(prev => prev - 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
@@ -292,12 +285,19 @@ export const CockpitWizard = () => {
         ) : (
           // UX FIX: Pass analysis props to ReviewStep directly
           currentStep === 5 
-            ? <ReviewStep onEdit={jumpToStep} onAnalyze={handleAnalyze} status={status} error={error} />
-            : <CurrentComponent onEdit={jumpToStep} onNext={handleNext} />
+            ? <ReviewStep 
+                onEdit={jumpToStep} 
+                onAnalyze={handleAnalyze} 
+                status={status} 
+                error={error} 
+                onNext={handleNext} 
+              />
+            : <CurrentComponent 
+                onEdit={jumpToStep} 
+                onNext={handleNext} 
+              />
         )}
       </main>
-
-      {/* FOOTER REMOVED PER UX REQUEST - Buttons are now inside the ReviewStep (Step 6) */}
 
       <InfoModal 
         isOpen={showHelp}
@@ -307,7 +307,6 @@ export const CockpitWizard = () => {
         onOpenCatalog={() => setIsCatalogOpen(true)} // FIX: Triggers Catalog Modal
       />
 
-      {/* NEW: Added CatalogModal to be accessible from the Wizard */}
       <CatalogModal 
         isOpen={isCatalogOpen} 
         onClose={() => setIsCatalogOpen(false)} 
@@ -346,4 +345,4 @@ export const CockpitWizard = () => {
     </div>
   );
 };
-// --- END OF FILE 369 Zeilen ---
+// --- END OF FILE 361 Zeilen ---

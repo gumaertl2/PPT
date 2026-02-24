@@ -1,3 +1,4 @@
+// 24.02.2026 13:45 - FIX: Added optional onNext to ReviewStepProps to satisfy TypeScript in CockpitWizard.
 // 24.02.2026 13:00 - UX: Integrated 'Fundamentalanalyse' button and error handling directly into ReviewStep.
 // 06.02.2026 15:20 - FEAT: Display currentFileName in Review Step.
 // 20.01.2026 21:10 - FIX: Robust resolveLabel and Safety Checks for missing data.
@@ -28,9 +29,10 @@ import {
 
 interface ReviewStepProps {
   onEdit?: (stepIndex: number) => void;
-  onAnalyze?: () => void; // NEW
-  status?: 'idle' | 'generating' | 'success' | 'error' | 'waiting_for_user' | 'paused'; // NEW
-  error?: string | null; // NEW
+  onAnalyze?: () => void; 
+  status?: 'idle' | 'generating' | 'success' | 'error' | 'waiting_for_user' | 'paused'; 
+  error?: string | null; 
+  onNext?: () => void; // FIX: Added to satisfy generic Step Component type
 }
 
 export const ReviewStep = ({ onEdit, onAnalyze, status, error }: ReviewStepProps) => {
@@ -316,4 +318,4 @@ export const ReviewStep = ({ onEdit, onAnalyze, status, error }: ReviewStepProps
   );
 };
 
-// --- END OF FILE 312 Zeilen ---
+// --- END OF FILE 313 Zeilen ---
