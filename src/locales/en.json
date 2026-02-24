@@ -631,15 +631,22 @@
       "title": "Offline Maps",
       "storage_label": "Storage",
       "download_title": "Download Area",
-      "download_desc": "Saves current map view (Zoom 10-14).",
       "name_label": "Region Name",
       "name_placeholder": "e.g. Fuerteventura North",
       "btn_download": "Save this area",
       "btn_delete": "Delete region",
       "no_regions": "No regions saved yet.",
       "saved_title": "Saved Regions",
-      "limit_error": "Area too large. Please zoom in.",
-      "success_msg": "Tiles successfully saved."
+      "limit_error": "Area too large for this detail level.",
+      "success_msg": "Tiles successfully saved.",
+      "area_size": "Area & Budget",
+      "frame_hint": "Pan the map to position the blue selection frame exactly over your target area.",
+      "zoom_standard": "Standard (Z14)",
+      "zoom_high": "Detailed (Z16)",
+      "btn_minimize": "Align Map",
+      "btn_restore": "Select Area & Continue",
+      "area_size": "Budget & Frame",
+      "offline_hint": "Stops live data usage."
     }
   }
 }

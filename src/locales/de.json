@@ -631,15 +631,22 @@
       "title": "Offline-Karten",
       "storage_label": "Speicherplatz",
       "download_title": "Bereich herunterladen",
-      "download_desc": "Speichert den aktuellen Ausschnitt (Zoom 10-14).",
       "name_label": "Name der Region",
       "name_placeholder": "z.B. Fuerteventura Nord",
       "btn_download": "Diesen Bereich speichern",
       "btn_delete": "Region löschen",
       "no_regions": "Noch keine Regionen gespeichert.",
-      "saved_title": "Gespeicherte Regionen",
-      "limit_error": "Bereich zu groß. Bitte näher heranzoomen.",
-      "success_msg": "Kacheln erfolgreich gespeichert."
+      "saved_title": "Gespeicherte Gebiete",
+      "limit_error": "Bereich zu groß für diese Detailstufe.",
+      "success_msg": "Kacheln erfolgreich gespeichert.",
+      "area_size": "Bereich & Budget",
+      "frame_hint": "Verschiebe die Karte, um den blauen Auswahlrahmen exakt über dein Zielgebiet zu legen.",
+      "zoom_standard": "Standard (Z14)",
+      "zoom_high": "Detail (Z16)",
+      "btn_minimize": "Karte ausrichten",
+      "btn_restore": "Ausschnitt wählen & Fortfahren",
+      "area_size": "Budget & Rahmen",
+      "offline_hint": "Stoppt den Live-Datenverbrauch."
     }
   }
 }

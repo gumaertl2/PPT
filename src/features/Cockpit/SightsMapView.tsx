@@ -1,6 +1,6 @@
+// 24.02.2026 16:55 - FIX: Removed erroneous backslash escapes in strings that caused Vite/Babel build errors.
+// 24.02.2026 16:50 - FIX: Dynamically restrict max zoom to level 14 in offline mode to prevent gray tiles.
 // 24.02.2026 16:40 - FIX: Resolved TS6133/TS2322 by refactoring OfflineTileLayer and using 't' for tooltips.
-// 24.02.2026 15:50 - REFACTOR: Cleaned up Map UI, removed auto-sync, added centralized OfflineMapModal.
-// 24.02.2026 14:55 - FEAT: Integrated MapOfflineService with I18N UI controls for Live/Offline/Sync modes.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -155,6 +155,18 @@ const MapLogic: React.FC<{ places: Place[] }> = ({ places }) => {
   const isInitialized = useRef(false);
   const lastSelectedId = useRef<string | null>(uiState.selectedPlaceId);
 
+  // --- DYNAMIC ZOOM LIMIT LOGIC ---
+  useEffect(() => {
+    const isOffline = uiState.mapMode === 'offline';
+    const maxLimit = isOffline ? 14 : 18;
+    
+    map.setMaxZoom(maxLimit);
+    
+    if (isOffline && map.getZoom() > 14) {
+      map.setZoom(14, { animate: true });
+    }
+  }, [uiState.mapMode, map]);
+
   useEffect(() => {
     const validPlaces = places.filter(p => p.location?.lat && p.location?.lng);
     if (validPlaces.length === 0) return;
@@ -230,7 +242,6 @@ const OfflineTileLayer = () => {
     useEffect(() => {
         const url = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
-        // FIX: Proper Leaflet TileLayer extension to resolve TS2322 'instance' error
         const ExtendedLayer = L.TileLayer.extend({
             createTile: function(coords: L.Coords, done: L.DoneCallback) {
                 const tile = document.createElement('img');
@@ -490,7 +501,6 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
           <Navigation className={`w-5 h-5 ${isLocating ? 'animate-spin text-slate-400' : 'fill-blue-100'}`} />
       </button>
 
-      {/* --- MAP MANAGER BUTTON --- */}
       <button 
           onClick={() => setUIState({ isMapManagerOpen: true })}
           className={`absolute top-[120px] right-4 z-[1000] p-2.5 rounded-xl shadow-lg border transition-all focus:outline-none ${
@@ -514,7 +524,6 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
         <OfflineTileLayer />
         <MapLogic places={places} />
         
-        {/* MODAL IS INSIDE MAP CONTAINER TO ACCESS BOUNDS */}
         <OfflineMapModal />
         
         <UserLocationMarker location={userLocation} />
@@ -522,7 +531,6 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
         {validPlaces.map((place) => {
           const isSelected = uiState.selectedPlaceId === place.id;
           
-          // FIX: Dynamic Hotel Identification
           const isHotel = hotelInfo.ids.has(place.id) || 
                           hotelInfo.names.has(place.name?.toLowerCase() || '') || 
                           hotelInfo.names.has(place.official_name?.toLowerCase() || '') ||
@@ -599,4 +607,4 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
     </div>
   );
 };
-// --- END OF FILE 620 Zeilen ---
+// --- END OF FILE 632 Zeilen ---
