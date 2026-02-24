@@ -17,7 +17,7 @@
     "edit": "Edit",
     "yes": "Yes",
     "no": "No",
-   "analyze_inputs": "Start Foundation Analysis",
+    "analyze_inputs": "Start Foundation Analysis",
     "analyzing": "Analyzing...",
     "regenerate": "Regenerate",
     "generate": "Generate",
@@ -106,7 +106,7 @@
     "json_placeholder": "Paste the AI response here... (starting with { or [)"
   },
   "welcome": {
-    "subtitle": "Your Intelligent AI Trip Planner.",
+    "subtitle": "Your Intelligent AI Trip Companion",
     "api_label": "OpenAI API Key",
     "storage_note": "Stored in LocalStorage (Base64).",
     "help_link": "Where can I find my key?",

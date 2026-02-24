@@ -106,7 +106,7 @@
     "json_placeholder": "Fügen Sie hier die Antwort der KI ein... (beginnend mit { oder [)"
   },
   "welcome": {
-    "subtitle": "Ihr intelligenter KI-Reiseplaner.",
+    "subtitle": "Ihre intelligente KI-Reisebegleitung",
     "api_label": "OpenAI API Key",
     "storage_note": "Gespeichert im LocalStorage (Base64).",
     "help_link": "Wo finde ich meinen Key?",
