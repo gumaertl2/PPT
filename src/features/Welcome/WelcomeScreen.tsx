@@ -1,10 +1,12 @@
+// 24.02.2026 10:05 - FIX: Corrected Zustand state access for Free Tier toggle (using aiSettings & setAiSettings).
+// 24.02.2026 09:50 - FEAT: Added Free Tier toggle directly to the WelcomeScreen.
 // 09.02.2026 10:45 - FIX: Delegate file loading to store to capture 'filename'.
 // src/features/Welcome/WelcomeScreen.tsx
 
 import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTripStore } from '../../store/useTripStore';
-import { Key, Upload, Plus, AlertCircle, Settings, FileText, HelpCircle, Book, Database, Globe } from 'lucide-react';
+import { Key, Upload, Plus, AlertCircle, Settings, FileText, HelpCircle, Book, Database, Globe, Check } from 'lucide-react';
 import type { LanguageCode } from '../../core/types';
 import { InfoModal } from './InfoModal';
 
@@ -19,7 +21,7 @@ import type { InfoCategory } from '../../data/Texts';
 export const WelcomeScreen = () => {
   const { t, i18n } = useTranslation();
   // Store Updates: setLanguage und project für Sync benötigt
-  const { apiKey, setApiKey, setView, loadProject, setLanguage, project } = useTripStore();
+  const { apiKey, setApiKey, setView, loadProject, setLanguage, project, aiSettings, setAiSettings } = useTripStore();
   
   const [localKey, setLocalKey] = useState(apiKey || '');
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +82,9 @@ export const WelcomeScreen = () => {
   };
 
   const currentLangLabel = (project.meta.language || i18n.language).substring(0, 2).toUpperCase();
+
+  // Helper für den Toggle State
+  const isFreeTier = aiSettings?.isFreeTierKey ?? true;
 
   return (
     <div className="max-w-3xl mx-auto mt-10 p-8 bg-white rounded-2xl shadow-xl border border-slate-200 text-center animate-fade-in-up relative">
@@ -172,6 +177,24 @@ export const WelcomeScreen = () => {
             {error}
           </div>
         )}
+
+        {/* FREE TIER TOGGLE */}
+        <div 
+          className={`mt-4 p-4 border rounded-xl flex items-start gap-3 cursor-pointer transition-colors ${isFreeTier ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-slate-200 hover:border-indigo-100'}`}
+          onClick={() => setAiSettings({ isFreeTierKey: !isFreeTier })}
+        >
+          <div className={`mt-0.5 w-5 h-5 rounded flex items-center justify-center border flex-shrink-0 transition-colors ${isFreeTier ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300'}`}>
+            {isFreeTier && <Check className="w-3.5 h-3.5" />}
+          </div>
+          <div>
+            <div className={`text-sm font-bold ${isFreeTier ? 'text-indigo-900' : 'text-slate-700'}`}>
+              {t('settings.free_tier_title', 'Ich nutze einen kostenlosen API-Key')}
+            </div>
+            <div className={`text-xs mt-1 ${isFreeTier ? 'text-indigo-700' : 'text-slate-500'}`}>
+              {t('settings.free_tier_desc', 'Aktiviert Limit-Schutz (Pausen zwischen API-Aufrufen) & tauscht "Pro" automatisch gegen das schnellere "Thinking"-Modell aus.')}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Haupt-Aktionen */}
@@ -229,4 +252,4 @@ export const WelcomeScreen = () => {
     </div>
   );
 };
-// --- END OF FILE 155 Zeilen ---
+// --- END OF FILE 178 Zeilen ---
