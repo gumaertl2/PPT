@@ -1,3 +1,4 @@
+// 24.02.2026 19:15 - REFACTOR: Moved Settings button to bottom of menu, renamed to "Setup" and changed icon.
 // 23.02.2026 16:40 - FIX: Removed unused 'onLoadClick' from destructuring to resolve TS6133.
 // 23.02.2026 16:30 - REFACTOR: Moved Smart Loader Modal to dedicated component.
 // 23.02.2026 16:05 - FEAT: Added 'Smart Loader' modal to offer Merge vs. Overwrite when loading projects.
@@ -19,7 +20,8 @@ import {
   Upload, 
   FileText, 
   Terminal,
-  Wallet
+  Wallet,
+  Settings // NEU: Importiert für den Setup Button
 } from 'lucide-react';
 
 import { useTripStore } from '../../../store/useTripStore';
@@ -30,7 +32,7 @@ import { MergeProjectModal } from './MergeProjectModal';
 interface ActionsMenuProps {
   viewMode: CockpitViewMode;
   setViewMode: (mode: CockpitViewMode) => void;
-  onLoadClick?: () => void; // Made optional to prevent parent component errors
+  onLoadClick?: () => void; 
   onReset: () => void;
   onOpenExport: () => void;
   onOpenPrint: () => void;
@@ -42,7 +44,6 @@ interface ActionsMenuProps {
 export const ActionsMenu: React.FC<ActionsMenuProps> = ({
   viewMode,
   setViewMode,
-  // FIX: Removed onLoadClick from here since we handle it internally now!
   onReset,
   onOpenExport,
   onOpenPrint,
@@ -220,22 +221,6 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
         <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2">
           
           <button 
-            onClick={() => { setIsOpen(false); onOpenSettings(); }}
-            className={`w-full text-left px-4 py-2 hover:bg-blue-50 flex items-center justify-between gap-3 text-sm font-medium border-b border-slate-100 ${apiKey ? 'text-blue-600' : 'text-slate-500'}`}
-            title={apiKey ? t('tooltips.auto') : t('tooltips.manual')}
-          >
-             <div className="flex items-center gap-3">
-                {apiKey ? <Sparkles className="w-4 h-4" /> : <Terminal className="w-4 h-4" />}
-                <span>{apiKey ? t('wizard.toolbar.auto') : t('wizard.toolbar.manual')}</span>
-             </div>
-             {apiKey && (usageStats.tokens > 0) && (
-                 <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
-                     {usageStats.tokens > 1000 ? `${(usageStats.tokens/1000).toFixed(1)}k` : usageStats.tokens}
-                 </span>
-             )}
-          </button>
-
-          <button 
             onClick={() => { setIsOpen(false); if (onOpenFinance) onOpenFinance(); }}
             className="w-full text-left px-4 py-2 hover:bg-emerald-50 text-emerald-700 flex items-center gap-3 text-sm font-bold border-b border-slate-100"
             title={t('tooltips.menu_items.finance', { defaultValue: 'Reisekasse' })}
@@ -342,6 +327,26 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
           >
             <Terminal className="w-4 h-4 text-slate-500" /> {t('wizard.actions_menu.log')}
           </button>
+
+          {/* NEU: SETUP / SETTINGS AM ENDE DES MENÜS */}
+          <div className="h-px bg-slate-100 my-1"></div>
+
+          <button 
+            onClick={() => { setIsOpen(false); onOpenSettings(); }}
+            className={`w-full text-left px-4 py-2 hover:bg-blue-50 flex items-center justify-between gap-3 text-sm font-medium ${apiKey ? 'text-blue-600' : 'text-slate-500'}`}
+            title="Setup & API Konfiguration"
+          >
+             <div className="flex items-center gap-3">
+                <Settings className="w-4 h-4" />
+                <span>Setup</span>
+             </div>
+             {apiKey && (usageStats.tokens > 0) && (
+                 <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
+                     {usageStats.tokens > 1000 ? `${(usageStats.tokens/1000).toFixed(1)}k` : usageStats.tokens}
+                 </span>
+             )}
+          </button>
+
         </div>
       )}
       
@@ -359,4 +364,4 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
     </div>
   );
 };
-// --- END OF FILE 329 Lines ---
+// --- END OF FILE 331 Zeilen ---
