@@ -1,75 +1,50 @@
-// 24.02.2026 16:55 - FIX: Removed erroneous backslash escapes in strings that caused Vite/Babel build errors.
-// 24.02.2026 16:50 - FIX: Dynamically restrict max zoom to level 14 in offline mode to prevent gray tiles.
-// 24.02.2026 16:40 - FIX: Resolved TS6133/TS2322 by refactoring OfflineTileLayer and using 't' for tooltips.
+// 25.02.2026 13:50 - FIX: Brought Fix-fields (Date, Time, Duration) into map popup and restricted date inputs.
+// 25.02.2026 13:30 - FEAT: Visual Priority rendering (Circles vs Squares, Opacity, Tooltip).
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, Marker, Popup, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
 import type { Place } from '../../core/types/models';
 import { 
-  ExternalLink, 
-  RefreshCw, 
-  Zap, 
-  Maximize, 
-  Minimize, 
-  Navigation,
-  CloudOff,
-  Database
+  ExternalLink, RefreshCw, Zap, Maximize, Minimize, 
+  Navigation, CloudOff, Database, CalendarClock, Clock 
 } from 'lucide-react'; 
 import { GeocodingService } from '../../services/GeocodingService'; 
 import { LiveScout } from '../../services/LiveScout'; 
 import { MapOfflineService } from '../../services/MapOfflineService';
 import { OfflineMapModal } from './OfflineMapModal';
 
-// --- HIGH CONTRAST PALETTE ---
 const CATEGORY_COLORS: Record<string, string> = {
-  'museum': '#dc2626',       
-  'architecture': '#db2777', 
-  'sight': '#dc2626',        
-  'districts': '#9333ea',    
-  'city_info': '#7e22ce',    
-  'nature': '#16a34a',       
-  'parks': '#84cc16',        
-  'view': '#16a34a',
-  'beach': '#2563eb',        
-  'lake': '#2563eb',
-  'wellness': '#06b6d4',     
-  'relaxation': '#06b6d4',
-  'sports': '#ea580c',       
-  'hiking': '#ea580c',
-  'abenteuer': '#ea580c',
-  'restaurant': '#ca8a04',   
-  'food': '#ca8a04',
-  'gastronomy': '#ca8a04',   
-  'dinner': '#ca8a04',
-  'lunch': '#ca8a04',
-  'shopping': '#7c3aed',     
-  'market': '#7c3aed',
-  'nightlife': '#1e3a8a',    
-  'family': '#0d9488',       
-  'hotel': '#000000',        
-  'accommodation': '#000000',
-  'camping': '#000000',
-  'campsite': '#000000',
-  'stellplatz': '#000000',
-  'arrival': '#4b5563',      
-  'general': '#64748b',
-  'special': '#f59e0b', 
-  'sunny': '#f59e0b',   
-  'rainy': '#3b82f6'    
+  'museum': '#dc2626', 'architecture': '#db2777', 'sight': '#dc2626',        
+  'districts': '#9333ea', 'city_info': '#7e22ce', 'nature': '#16a34a',       
+  'parks': '#84cc16', 'view': '#16a34a', 'beach': '#2563eb', 'lake': '#2563eb',
+  'wellness': '#06b6d4', 'relaxation': '#06b6d4', 'sports': '#ea580c',       
+  'hiking': '#ea580c', 'abenteuer': '#ea580c', 'restaurant': '#ca8a04',   
+  'food': '#ca8a04', 'gastronomy': '#ca8a04', 'dinner': '#ca8a04',
+  'lunch': '#ca8a04', 'shopping': '#7c3aed', 'market': '#7c3aed',
+  'nightlife': '#1e3a8a', 'family': '#0d9488', 'hotel': '#000000',        
+  'accommodation': '#000000', 'camping': '#000000', 'campsite': '#000000',
+  'stellplatz': '#000000', 'arrival': '#4b5563', 'general': '#64748b',
+  'special': '#f59e0b', 'sunny': '#f59e0b', 'rainy': '#3b82f6'    
 };
 
 const DEFAULT_COLOR = '#64748b'; 
 
-// --- SMART ICON GENERATOR ---
-const createSmartIcon = (categoryColor: string, isSelected: boolean, dayNumber?: number, isHotel?: boolean) => {
+const createSmartIcon = (categoryColor: string, isSelected: boolean, dayNumber?: number, isHotel?: boolean, userPriority: number = 0, isFixed: boolean = false) => {
   const baseSize = isSelected ? 28 : 22;
   const animClass = isSelected ? 'marker-pulse' : '';
   const border = isSelected ? '3px solid #000' : '2px solid white';
+
+  const isIgnored = userPriority === -1;
+  const hasPrio = isFixed || userPriority === 1 || userPriority === 2;
+  
+  const shapeRadius = hasPrio ? '50%' : '6px';
+  const opacity = isIgnored ? '0.4' : '0.9'; 
+  const grayscale = isIgnored ? 'filter: grayscale(100%);' : '';
 
   if (isHotel) {
       return L.divIcon({
@@ -94,14 +69,13 @@ const createSmartIcon = (categoryColor: string, isSelected: boolean, dayNumber?:
 
   return L.divIcon({
       className: `custom-map-marker ${animClass}`,
-      html: `<div style="background-color: ${categoryColor}; width: ${baseSize - 2}px; height: ${baseSize - 2}px; border-radius: 6px; border: ${border}; opacity: 0.85; box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 100;"></div>`,
+      html: `<div style="background-color: ${categoryColor}; width: ${baseSize - 2}px; height: ${baseSize - 2}px; border-radius: ${shapeRadius}; border: ${border}; opacity: ${opacity}; ${grayscale} box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
       iconSize: [baseSize - 2, baseSize - 2],
       iconAnchor: [(baseSize - 2) / 2, (baseSize - 2) / 2],
       popupAnchor: [0, -10]
   });
 };
 
-// --- FARBPALETTE FÜR TAGE (Geplante Orte) ---
 const DAY_COLORS = [
     '#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ec4899', 
     '#0ea5e9', '#f43f5e', '#14b8a6', '#f97316', '#6366f1'  
@@ -143,9 +117,17 @@ const MapStyles = () => (
       animation: pulse-blue 1.5s infinite;
       z-index: 10000 !important;
     }
-    .leaflet-container {
-      z-index: 1;
+    .leaflet-container { z-index: 1; }
+    .leaflet-tooltip.custom-tooltip {
+       background-color: rgba(255, 255, 255, 0.95);
+       border: 1px solid #e2e8f0;
+       border-radius: 8px;
+       box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+       color: #1e293b;
+       font-weight: 700;
+       padding: 4px 8px;
     }
+    .leaflet-tooltip-top.custom-tooltip::before { border-top-color: rgba(255, 255, 255, 0.95); }
   `}</style>
 );
 
@@ -155,13 +137,10 @@ const MapLogic: React.FC<{ places: Place[] }> = ({ places }) => {
   const isInitialized = useRef(false);
   const lastSelectedId = useRef<string | null>(uiState.selectedPlaceId);
 
-  // --- DYNAMIC ZOOM LIMIT LOGIC ---
   useEffect(() => {
     const isOffline = uiState.mapMode === 'offline';
     const maxLimit = isOffline ? 14 : 18;
-    
     map.setMaxZoom(maxLimit);
-    
     if (isOffline && map.getZoom() > 14) {
       map.setZoom(14, { animate: true });
     }
@@ -233,7 +212,6 @@ const UserLocationMarker: React.FC<{ location: [number, number] | null }> = ({ l
     );
 };
 
-// --- OFFLINE TILE LAYER COMPONENT ---
 const OfflineTileLayer = () => {
     const { uiState } = useTripStore();
     const { mapMode } = uiState;
@@ -310,6 +288,10 @@ const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
       </div>
       <div className="mt-2 pt-2 border-t border-slate-200 space-y-1.5">
           <div className="flex items-center gap-2 mb-1">
+              <div className="w-3 h-3 rounded-full border border-slate-400 bg-slate-100 shadow-sm flex items-center justify-center"></div>
+              <span className="text-[10px] text-slate-500 font-bold leading-tight">Hohe Prio (Kreis)</span>
+          </div>
+          <div className="flex items-center gap-2 mb-1">
               <div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-sm text-[8px] text-white flex items-center justify-center font-bold">1</div>
               <span className="text-[10px] text-slate-500 font-bold leading-tight">Geplant (Tag 1)</span>
           </div>
@@ -325,7 +307,7 @@ const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
 export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
   const { t } = useTranslation();
   const defaultCenter: [number, number] = [48.1351, 11.5820]; 
-  const { uiState, setUIState, project, setProject } = useTripStore(); 
+  const { uiState, setUIState, project, setProject, updatePlace } = useTripStore(); 
   const markerRefs = useRef<Record<string, L.Marker | null>>({});
 
   const [isUpdatingCoords, setIsUpdatingCoords] = useState(false);
@@ -355,7 +337,6 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
       return map;
   }, [project.itinerary]);
 
-  // FIX: Identify Hotel by both ID and Name to support manual inputs
   const hotelInfo = useMemo(() => {
       const names = new Set<string>();
       const ids = new Set<string>();
@@ -363,8 +344,8 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
       if (project.userInputs.logistics.mode === 'stationaer') {
           const h = project.userInputs.logistics.stationary.hotel;
           if (h) {
-              if (h.length > 20) ids.add(h); // Likely a UUID
-              else names.add(h.toLowerCase()); // Likely a name
+              if (h.length > 20) ids.add(h); 
+              else names.add(h.toLowerCase()); 
           }
       } else {
           project.userInputs.logistics.roundtrip.stops?.forEach((s: any) => {
@@ -376,6 +357,10 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
       }
       return { ids, names };
   }, [project.userInputs.logistics]);
+
+  // Für min/max Limitierungen der Fix-Felder auf der Karte
+  const tripStart = project.userInputs.dates?.start || '';
+  const tripEnd = project.userInputs.dates?.end || '';
 
   useEffect(() => {
     const runGeocoding = async () => {
@@ -540,15 +525,28 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
           const dayNumber = scheduledPlaces.get(place.id);
           const markerColor = getCategoryColor(place.category, place);
           
+          const isFixed = !!place.isFixed;
+          const userPrio = place.userPriority ?? 0;
+          
+          let baseZ = 0;
+          if (isFixed) baseZ = 400;
+          else if (userPrio === 1) baseZ = 300;
+          else if (userPrio === 2) baseZ = 200;
+          else if (userPrio === -1) baseZ = -100;
+          
           return (
             <Marker 
               key={place.id} 
               position={[place.location!.lat, place.location!.lng]}
-              icon={createSmartIcon(markerColor, isSelected, dayNumber, isHotel)}
-              zIndexOffset={isSelected ? 1000 : (isHotel ? 900 : (dayNumber ? 500 : 0))} 
+              icon={createSmartIcon(markerColor, isSelected, dayNumber, isHotel, userPrio, isFixed)}
+              zIndexOffset={isSelected ? 1000 : (isHotel ? 900 : (dayNumber ? 500 : baseZ))} 
               ref={(ref) => { markerRefs.current[place.id] = ref; }}
               eventHandlers={{ click: () => setUIState({ selectedPlaceId: place.id }) }}
             >
+              <Tooltip direction="top" offset={[0, -15]} opacity={0.95} className="custom-tooltip">
+                {place.name}
+              </Tooltip>
+
               <Popup>
                 <div className="min-w-[220px] font-sans p-1">
                   <div className="flex items-center justify-between mb-1">
@@ -568,6 +566,41 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
                   
                   <h3 className="font-bold text-slate-900 text-sm mb-1 mt-1">{place.name}</h3>
                   {place.address && <p className="text-xs text-slate-600 mb-2 leading-snug flex gap-1">📍 <span className="opacity-80">{place.address}</span></p>}
+
+                  {/* Inline Prio-Buttons im Map Popup */}
+                  <div className="flex justify-between gap-1 mt-3 mb-2 border-t border-slate-100 pt-2 no-print">
+                     <button 
+                       onClick={(e) => { e.stopPropagation(); updatePlace(place.id, { userPriority: isFixed && userPrio === 1 ? 0 : 1, isFixed: !(isFixed && userPrio === 1) }); }} 
+                       className={`flex-1 py-1 rounded text-[9px] font-bold transition-colors border shadow-sm ${isFixed && userPrio === 1 ? 'bg-purple-600 text-white border-purple-700' : 'bg-slate-50 text-slate-600 hover:bg-purple-50 hover:text-purple-700 border-slate-200'}`}
+                     >Fix</button>
+                     <button 
+                       onClick={(e) => { e.stopPropagation(); updatePlace(place.id, { userPriority: !isFixed && userPrio === 1 ? 0 : 1, isFixed: false }); }} 
+                       className={`flex-1 py-1 rounded text-[9px] font-bold transition-colors border shadow-sm ${!isFixed && userPrio === 1 ? 'bg-green-600 text-white border-green-700' : 'bg-slate-50 text-slate-600 hover:bg-green-50 hover:text-green-700 border-slate-200'}`}
+                     >Prio 1</button>
+                     <button 
+                       onClick={(e) => { e.stopPropagation(); updatePlace(place.id, { userPriority: userPrio === 2 ? 0 : 2, isFixed: false }); }} 
+                       className={`flex-1 py-1 rounded text-[9px] font-bold transition-colors border shadow-sm ${userPrio === 2 ? 'bg-blue-500 text-white border-blue-600' : 'bg-slate-50 text-slate-600 hover:bg-blue-50 hover:text-blue-700 border-slate-200'}`}
+                     >Prio 2</button>
+                     <button 
+                       onClick={(e) => { e.stopPropagation(); updatePlace(place.id, { userPriority: userPrio === -1 ? 0 : -1, isFixed: false }); }} 
+                       className={`flex-1 py-1 rounded text-[9px] font-bold transition-colors border shadow-sm ${userPrio === -1 ? 'bg-gray-800 text-white border-gray-900' : 'bg-slate-50 text-slate-400 hover:bg-gray-100 border-slate-200'}`}
+                     >Ignore</button>
+                  </div>
+
+                  {/* Fixtermin-Felder (nur sichtbar wenn Fix aktiv ist) */}
+                  {isFixed && (
+                     <div className="flex flex-col gap-1 bg-purple-50 px-2 py-1.5 rounded-md text-xs mt-1 mb-2 border border-purple-100 no-print animate-in slide-in-from-top-1">
+                        <span className="font-bold text-purple-800 flex items-center gap-1"><CalendarClock className="w-3.5 h-3.5" /> Fixtermin</span>
+                        <div className="flex gap-1 items-center">
+                           <input type="date" value={place.fixedDate || ''} min={tripStart} max={tripEnd} onChange={(e) => updatePlace(place.id, { fixedDate: e.target.value })} className="bg-white border border-purple-200 rounded px-1 py-0.5 text-[10px] w-full focus:ring-1 focus:ring-purple-500 outline-none" title="Datum" />
+                           <input type="time" value={place.fixedTime || ''} onChange={(e) => updatePlace(place.id, { fixedTime: e.target.value })} className="bg-white border border-purple-200 rounded px-1 py-0.5 text-[10px] focus:ring-1 focus:ring-purple-500 outline-none" title="Uhrzeit" />
+                           <div className="flex items-center gap-0.5 bg-white border border-purple-200 rounded px-1 py-0.5 focus-within:ring-1 focus-within:ring-purple-500">
+                               <Clock className="w-2.5 h-2.5 text-purple-400" />
+                               <input type="number" placeholder="Min" value={place.visitDuration || ''} onChange={(e) => updatePlace(place.id, { visitDuration: parseInt(e.target.value) || 0 })} className="w-8 bg-transparent border-none p-0 text-center text-[10px] text-purple-900 focus:ring-0 placeholder:text-purple-300 outline-none" title="Dauer in Minuten" />
+                           </div>
+                        </div>
+                     </div>
+                  )}
 
                   <button 
                     onClick={() => {
@@ -591,7 +624,7 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
                             categoryFilter: targetFilter
                         });
                     }}
-                    className="w-full mt-2 flex items-center justify-center gap-2 bg-slate-900 text-white py-2 rounded-lg text-xs font-bold hover:bg-black transition-colors shadow-sm"
+                    className="w-full mt-1 flex items-center justify-center gap-2 bg-slate-900 text-white py-2 rounded-lg text-xs font-bold hover:bg-black transition-colors shadow-sm"
                   >
                     <ExternalLink size={12} />
                     Im Reiseführer zeigen
@@ -607,4 +640,4 @@ export const SightsMapView: React.FC<SightsMapViewProps> = ({ places }) => {
     </div>
   );
 };
-// --- END OF FILE 632 Zeilen ---
+// --- END OF FILE 729 Zeilen ---

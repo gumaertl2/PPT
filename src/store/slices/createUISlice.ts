@@ -1,17 +1,11 @@
+// 25.02.2026 13:10 - FEAT: Added 'priority' to sortMode for Sight filtering.
 // 24.02.2026 15:40 - REFACTOR: Replaced isMapRecording with isMapManagerOpen for new Offline Map Modal.
-// 24.02.2026 14:40 - FEAT: Added 'mapMode' and 'isMapRecording' to UIState for offline map management.
-// 23.02.2026 19:45 - FIX: Added 'Hotel-Shield' to updatePlace to prevent AI (Anreicherer) from overwriting the 'hotel' category.
-// 19.02.2026 14:15 - FEAT: Added 'showPlanningMode' to UIState (Lifting State Up).
-// 06.02.2026 15:10 - FEAT: Added 'currentFileName' to UIState.
-// 29.01.2026 12:45 - FIX: Added 'selectedCategory' and 'selectedPrio' to UIState to resolve Vercel TS2339 build error.
-// 23.01.2026 18:45 - FIX: Moved print states to UIState for setUIState compatibility.
 // src/store/slices/createUISlice.ts
 
 import type { StateCreator } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import type { AppError, PrintConfig } from '../../core/types'; 
 
-// --- Types für Notifications ---
 export type NotificationType = 'success' | 'error' | 'info' | 'loading';
 
 export interface NotificationAction {
@@ -28,7 +22,6 @@ export interface AppNotification {
   actions?: NotificationAction[];
 }
 
-// --- Types für Anreicherer UI ---
 export interface UIState {
   searchTerm: string;
   categoryFilter: string[];
@@ -36,19 +29,18 @@ export interface UIState {
   selectedPrio: number | null;
   detailLevel: 'kompakt' | 'standard' | 'details';
   viewMode: 'list' | 'map';
-  sortMode: 'category' | 'tour' | 'alphabetical';
+  sortMode: 'category' | 'tour' | 'alphabetical' | 'priority'; // NEU: priority
   selectedPlaceId: string | null;
   isPrintMode: boolean;
   printConfig: PrintConfig | null;
   currentFileName: string | null; 
   showPlanningMode: boolean;
   mapMode: 'live' | 'offline'; 
-  isMapManagerOpen: boolean; // NEW: Controls the offline map modal
+  isMapManagerOpen: boolean; 
 }
 
 export type AppView = 'welcome' | 'wizard' | 'results' | 'analysis_review';
 
-// --- Slice Interface ---
 export interface UISlice {
   view: AppView;
   setView: (view: AppView) => void;
@@ -141,15 +133,10 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
     if (!newPlaces[id]) {
       newPlaces[id] = { id, ...data };
     } else {
-      // ROOT FIX: HOTEL-SHIELD
-      // Verhindert, dass KI-Agenten (wie der Anreicherer) die mühsam gesetzte Hotel-Kategorie 
-      // durch 'architecture' oder ähnliches überschreiben.
       const isHotel = newPlaces[id].category === 'hotel';
-      
       newPlaces[id] = { ...newPlaces[id], ...data };
-      
       if (isHotel) {
-         newPlaces[id].category = 'hotel'; // Schutzschild aktiviert!
+         newPlaces[id].category = 'hotel'; 
       }
     }
     return {

@@ -1,8 +1,5 @@
-// 23.02.2026 19:30 - FIX: Restored file length and logic after manual integrity review.
-// 23.02.2026 19:25 - FIX: Corrected syntax error in calculateDistance (stray '#' removed).
-// 23.02.2026 19:15 - UI: Added 'hotel' category rendering to show hotel descriptions/histories in the main list.
-// 23.02.2026 18:45 - DEFENSIVE: Added UI-level ID deduplication to prevent React Key crashes even if backend fails.
-// 23.02.2026 10:45 - FIX: i18n fully applied to grouping headers and banners.
+// 25.02.2026 13:45 - FIX: Corrected Priority grouping logic to map correctly to userPriority values. Sorts naturally.
+// 25.02.2026 13:20 - FEAT: Added grouping and filtering by Priority.
 // src/features/Cockpit/SightsView.tsx
 
 import React, { useMemo, useEffect, useState } from 'react';
@@ -29,12 +26,6 @@ const TRAVEL_PACE_CONFIG: Record<string, { startHour: number; endHour: number; b
   'relaxed': { startHour: 10, endHour: 16, breakMinutes: 90, bufferMinutes: 45 } 
 };
 
-interface SightsViewProps {
-  overrideSortMode?: 'category' | 'tour' | 'day' | 'alphabetical';
-  overrideDetailLevel?: DetailLevel; 
-}
-
-// Helper: Haversine distance in km
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371; 
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -46,7 +37,16 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
     return R * c;
 };
 
-export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overrideDetailLevel }) => {
+// HELPER: Map React-State (userPriority/isFixed) to a clean 0-4 scale for grouping & sorting
+const getRealPriorityValue = (p: any): number => {
+    if (p.isFixed) return 4;               // Fix
+    if (p.userPriority === 1) return 3;    // Prio 1
+    if (p.userPriority === 2) return 2;    // Prio 2
+    if (p.userPriority === -1) return 0;   // Ignore
+    return 1;                              // Ohne Prio
+};
+
+export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?: DetailLevel }> = ({ overrideSortMode, overrideDetailLevel }) => {
   const { t, i18n } = useTranslation(); 
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
 
@@ -64,12 +64,10 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
   const places = Object.values(data.places || {}) as Place[];
 
   const showPlanningMode = uiState.showPlanningMode || false;
-
   const activeSortMode = overrideSortMode || (uiState.sortMode as string) || 'category';
   const isTourMode = activeSortMode === 'tour';
   const isDayMode = activeSortMode === 'day';
 
-  // --- AUTO-SCROLL LOGIC ---
   useEffect(() => {
     if (overrideSortMode) return;
 
@@ -92,12 +90,10 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
     if (def && def.label) {
         return (def.label as any)[currentLang] || (def.label as any)['de'] || catId;
     }
-    // Translation fallback for 'hotel'
     if (catId === 'hotel') return t('interests.hotel', { defaultValue: 'Hotels' });
     return catId.charAt(0).toUpperCase() + catId.slice(1).replace(/_/g, ' ');
   };
 
-  // --- RADAR: LOCATE NEAREST SIGHT ---
   const handleLocateNearestSight = () => {
       setIsLocating(true);
       if (!navigator.geolocation) {
@@ -139,7 +135,6 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
       );
   };
 
-  // --- 1. BUDGET LOGIC ---
   const budgetStats = useMemo(() => {
     let totalMinutes = 0;
     const pace = userInputs.pace || 'balanced';
@@ -156,7 +151,7 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
 
     places.forEach((p: any) => {
       const prio = p.userPriority || 0;
-      if (prio > 0) {
+      if (prio > 0 || p.isFixed) {
          const dur = p.duration || p.min_duration_minutes || 60;
          totalMinutes += dur;
       }
@@ -165,7 +160,6 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
     return { total: totalBudget, used: totalMinutes, remaining: totalBudget - totalMinutes };
   }, [userInputs, places]);
 
-  // --- 2. DATA PREPARATION ---
   const categoryOptions = useMemo(() => {
     const counts: Record<string, number> = {};
     const ignoreList = APPENDIX_ONLY_INTERESTS || [];
@@ -226,11 +220,25 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
       }).filter((d: any) => d.count > 0);
   }, [project.itinerary, places, t]);
 
+  const priorityOptions = useMemo(() => {
+    // 4 = Fix, 3 = Prio 1, 2 = Prio 2, 1 = None, 0 = Ignore
+    const counts: Record<string, number> = { '4': 0, '3': 0, '2': 0, '1': 0, '0': 0 };
+    places.forEach((p: any) => {
+        counts[String(getRealPriorityValue(p))]++;
+    });
+    return [
+        { id: '4', label: t('sights.must_see', { defaultValue: '⭐️ Muss ich sehen (Fix)' }), count: counts['4'] },
+        { id: '3', label: t('sights.prio_1', { defaultValue: '🥇 Prio 1' }), count: counts['3'] },
+        { id: '2', label: t('sights.prio_2', { defaultValue: '🥈 Prio 2' }), count: counts['2'] },
+        { id: '1', label: t('sights.no_prio', { defaultValue: '⚪️ Ohne Prio' }), count: counts['1'] },
+        { id: '0', label: t('sights.ignored', { defaultValue: '❌ Ignoriert' }), count: counts['0'] }
+    ].filter(o => o.count > 0);
+  }, [places, t]);
+
   const handleViewModeChange = (mode: string) => {
       setUIState({ sortMode: mode as any, categoryFilter: [] });
   };
 
-  // --- 3. FILTER & SORT LOGIC ---
   const filteredLists = useMemo(() => {
     const mainList: any[] = [];
     const specialList: any[] = []; 
@@ -284,6 +292,10 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
 
       if (activeFilters.length > 0) {
           if (sortMode === 'category' && !activeFilters.includes(cat)) return;
+          else if (sortMode === 'priority') {
+              const prioValStr = String(getRealPriorityValue(p));
+              if (!activeFilters.includes(prioValStr)) return;
+          }
           else if (sortMode === 'tour') {
               const inSelectedTour = tourOptions.some((tour: any) => activeFilters.includes(tour.id) && tour.placeIds.includes(p.id));
               if (!inSelectedTour) return;
@@ -304,16 +316,18 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
       if (a._isReserve && !b._isReserve) return 1;
       if (!a._isReserve && b._isReserve) return -1;
       if (sortMode === 'alphabetical') return (a.name || '').localeCompare(b.name || '');
-      const pA = a.userPriority ?? a.userSelection?.priority ?? 0;
-      const pB = b.userPriority ?? b.userSelection?.priority ?? 0;
-      if (pA !== pB) return pB - pA;
+      
+      // Nutze den Real-Priority Wert für eine wasserdichte Sortierung
+      const pA = getRealPriorityValue(a);
+      const pB = getRealPriorityValue(b);
+      if (pA !== pB) return pB - pA; // Höherer Wert rutscht nach oben
+
       return (a.category || '').localeCompare(b.category || '');
     };
 
     return { main: mainList.sort(sortFn), special: specialList.sort(sortFn) };
   }, [places, uiState.searchTerm, uiState.categoryFilter, activeSortMode, uiState.selectedCategory, uiState.isPrintMode, overrideSortMode, userInputs.searchSettings, tourOptions, project.itinerary, t]);
 
-  // --- 4. RENDERER: GROUPED LIST ---
   const renderGroupedList = (list: any[], groupByOverride?: 'city') => {
     if (list.length === 0) return null; 
     const sortMode = activeSortMode;
@@ -322,6 +336,19 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
     if (groupByOverride === 'city') {
         list.forEach(p => {
             const key = p.city || t('sights.group_general_regional', { defaultValue: 'Allgemein / Überregional' });
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(p);
+        });
+    }
+    else if (sortMode === 'priority') {
+        list.forEach(p => {
+            const val = getRealPriorityValue(p);
+            let key = t('sights.no_prio', { defaultValue: '⚪️ Ohne Priorität' });
+            if (val === 4) key = t('sights.must_see', { defaultValue: '⭐️ Muss ich sehen (Fix)' });
+            if (val === 3) key = t('sights.prio_1', { defaultValue: '🥇 Prio 1' });
+            if (val === 2) key = t('sights.prio_2', { defaultValue: '🥈 Prio 2' });
+            if (val === 0) key = t('sights.ignored', { defaultValue: '❌ Reserve / Ignoriert' });
+            
             if (!groups[key]) groups[key] = [];
             groups[key].push(p);
         });
@@ -351,21 +378,36 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
         });
     }
 
-    return Object.entries(groups).map(([groupKey, items]) => (
-      <div key={groupKey} className="mb-6 last:mb-0 print:break-inside-avoid">
-        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-100 pb-1 ml-1 flex justify-between print:text-black">
-          <span className="flex items-center gap-2">{groupByOverride === 'city' && <span className="text-lg">📍</span>}{groupKey}</span>
-          <span className="text-xs text-gray-300 print:text-gray-500">{items.length}</span>
-        </h3>
-        <div className="space-y-3">
-          {items.map(place => (
-            <div key={place.id} id={`card-${place.id}`}>
-                <SightCard id={place.id} data={place} mode="selection" showPriorityControls={showPlanningMode} detailLevel={overrideDetailLevel} isReserve={place._isReserve} />
-            </div>
-          ))}
+    const groupKeys = Object.keys(groups);
+    if (sortMode === 'priority') {
+        const priorityOrder = [
+          t('sights.must_see', { defaultValue: '⭐️ Muss ich sehen (Fix)' }),
+          t('sights.prio_1', { defaultValue: '🥇 Prio 1' }),
+          t('sights.prio_2', { defaultValue: '🥈 Prio 2' }),
+          t('sights.no_prio', { defaultValue: '⚪️ Ohne Priorität' }),
+          t('sights.ignored', { defaultValue: '❌ Reserve / Ignoriert' })
+        ];
+        groupKeys.sort((a, b) => priorityOrder.indexOf(a) - priorityOrder.indexOf(b));
+    }
+
+    return groupKeys.map((groupKey) => {
+      const items = groups[groupKey];
+      return (
+        <div key={groupKey} className="mb-6 last:mb-0 print:break-inside-avoid">
+          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-100 pb-1 ml-1 flex justify-between print:text-black">
+            <span className="flex items-center gap-2">{groupByOverride === 'city' && <span className="text-lg">📍</span>}{groupKey}</span>
+            <span className="text-xs text-gray-300 print:text-gray-500">{items.length}</span>
+          </h3>
+          <div className="space-y-3">
+            {items.map(place => (
+              <div key={place.id} id={`card-${place.id}`}>
+                  <SightCard id={place.id} data={place} mode="selection" showPriorityControls={showPlanningMode} detailLevel={overrideDetailLevel} isReserve={place._isReserve} />
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-    ));
+      );
+    });
   };
 
   return (
@@ -421,8 +463,19 @@ export const SightsView: React.FC<SightsViewProps> = ({ overrideSortMode, overri
         </>
       )}
 
-      <SightFilterModal isOpen={isSightFilterOpen} onClose={toggleSightFilter} categoryOptions={categoryOptions} tourOptions={tourOptions} dayOptions={dayOptions} activeSortMode={activeSortMode} onSortModeChange={handleViewModeChange} showPlanningMode={showPlanningMode} onTogglePlanningMode={() => setUIState({ showPlanningMode: !showPlanningMode })} />
+      <SightFilterModal 
+        isOpen={isSightFilterOpen} 
+        onClose={toggleSightFilter} 
+        categoryOptions={categoryOptions} 
+        tourOptions={tourOptions} 
+        dayOptions={dayOptions} 
+        priorityOptions={priorityOptions} 
+        activeSortMode={activeSortMode} 
+        onSortModeChange={handleViewModeChange} 
+        showPlanningMode={showPlanningMode} 
+        onTogglePlanningMode={() => setUIState({ showPlanningMode: !showPlanningMode })} 
+      />
     </div>
   );
 };
-// --- END OF FILE 448 Zeilen ---
+// --- END OF FILE 485 Zeilen ---

@@ -1,6 +1,5 @@
-// 21.02.2026 12:00 - UX: Removed opacity dimming from the entire card for reserve items. Only the title will be dimmed via Header.
-// 20.02.2026 19:15 - UX: Passed 'isReserve' flag to card styles to visually dim reserve items within their natural group.
-// 20.02.2026 13:10 - LAYOUT: Cleaned up action controls, wired Check-In & Note to Header.
+// 25.02.2026 13:40 - FIX: Added min/max bounds to fixedDate input based on trip dates.
+// 21.02.2026 12:00 - UX: Removed opacity dimming from the entire card for reserve items.
 // src/features/Cockpit/SightCard/index.tsx
 
 import React, { useState, useEffect, useRef } from 'react'; 
@@ -223,7 +222,7 @@ export const SightCard: React.FC<SightCardProps> = ({
       borderClass = 'border-green-500 border-l-4';
   } else if (priority === 2) {
       borderClass = 'border-blue-400 border-l-4';
-  } else if (priority === -1) { // FIX: Only entirely dim cards that are explicitly set to 'Ignore'
+  } else if (priority === -1) { 
       borderClass = 'border-slate-200 opacity-60';
       bgClass = 'bg-slate-50/50';
   }
@@ -240,6 +239,10 @@ export const SightCard: React.FC<SightCardProps> = ({
           borderClass = 'border-emerald-500 border-l-4';
       }
   }
+
+  // MIN / MAX FÜR DATUM (Reisezeitraum)
+  const tripStart = project.userInputs.dates?.start || '';
+  const tripEnd = project.userInputs.dates?.end || '';
 
   return (
     <>
@@ -284,7 +287,7 @@ export const SightCard: React.FC<SightCardProps> = ({
         {activeData.isFixed && (
           <div className="flex flex-wrap items-center gap-2 bg-purple-50 px-3 py-2 rounded-md text-xs mb-1 mt-2 border border-purple-100 animate-in slide-in-from-top-1 fade-in">
             <span className="font-bold text-purple-800 flex items-center gap-1"><CalendarClock className="w-3.5 h-3.5" /> Fixtermin:</span>
-            <input type="date" value={activeData.fixedDate || ''} onChange={(e) => updatePlace(id, { fixedDate: e.target.value })} className="bg-white border border-purple-200 rounded px-2 py-0.5 text-purple-900 focus:ring-1 focus:ring-purple-500 focus:border-purple-500" title="Datum" />
+            <input type="date" min={tripStart} max={tripEnd} value={activeData.fixedDate || ''} onChange={(e) => updatePlace(id, { fixedDate: e.target.value })} className="bg-white border border-purple-200 rounded px-2 py-0.5 text-purple-900 focus:ring-1 focus:ring-purple-500 focus:border-purple-500" title="Datum" />
             <input type="time" value={activeData.fixedTime || ''} onChange={(e) => updatePlace(id, { fixedTime: e.target.value })} className="bg-white border border-purple-200 rounded px-2 py-0.5 text-purple-900 focus:ring-1 focus:ring-purple-500 focus:border-purple-500" title="Uhrzeit" />
             <div className="flex items-center gap-1 bg-white border border-purple-200 rounded px-2 py-0.5 ml-1"><Clock className="w-3 h-3 text-purple-400" /><input type="number" placeholder="Min" value={activeData.visitDuration || ''} onChange={(e) => updatePlace(id, { visitDuration: parseInt(e.target.value) || 0 })} className="w-10 bg-transparent border-none p-0 text-center text-purple-900 focus:ring-0 placeholder:text-purple-300" title="Dauer in Minuten" /></div>
           </div>
@@ -332,4 +335,4 @@ export const SightCard: React.FC<SightCardProps> = ({
     </>
   );
 };
-// --- END OF FILE 403 Zeilen ---
+// --- END OF FILE 407 Zeilen ---
