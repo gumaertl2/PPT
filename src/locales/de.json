@@ -616,6 +616,12 @@
     "error_fetch_rates": "Die Kurse konnten nicht abgerufen werden. Bitte prüfen Sie Ihre Internetverbindung.",
     "settlement_base_info": "Alle Abrechnungen unten erfolgen in der Hauptwährung:"
   },
+"layer": {
+  "standard": "Standard (Straße)",
+  "topo": "Wandern (Topografie)",
+  "cycle": "Fahrradwege (CyclOSM)",
+  "satellite": "Satellit (Esri)"
+},
   "map": {
     "mode_live": "Live",
     "mode_offline": "Offline",

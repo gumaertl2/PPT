@@ -616,6 +616,12 @@
     "error_fetch_rates": "Rates could not be retrieved. Please check your internet connection.",
     "settlement_base_info": "All settlements below are in the main currency:"
   },
+"layer": {
+  "standard": "Standard (Streets)",
+  "topo": "Hiking (Topography)",
+  "cycle": "Bicycle (CyclOSM)",
+  "satellite": "Satellite (Esri)"
+},
   "map": {
     "mode_live": "Live",
     "mode_offline": "Offline",

@@ -1,5 +1,5 @@
+// 26.02.2026 12:05 - FEAT: Added 'mapLayer' to support different map styles (Standard, Topo, Cycle, Satellite).
 // 25.02.2026 13:10 - FEAT: Added 'priority' to sortMode for Sight filtering.
-// 24.02.2026 15:40 - REFACTOR: Replaced isMapRecording with isMapManagerOpen for new Offline Map Modal.
 // src/store/slices/createUISlice.ts
 
 import type { StateCreator } from 'zustand';
@@ -29,7 +29,7 @@ export interface UIState {
   selectedPrio: number | null;
   detailLevel: 'kompakt' | 'standard' | 'details';
   viewMode: 'list' | 'map';
-  sortMode: 'category' | 'tour' | 'alphabetical' | 'priority'; // NEU: priority
+  sortMode: 'category' | 'tour' | 'alphabetical' | 'priority';
   selectedPlaceId: string | null;
   isPrintMode: boolean;
   printConfig: PrintConfig | null;
@@ -37,6 +37,7 @@ export interface UIState {
   showPlanningMode: boolean;
   mapMode: 'live' | 'offline'; 
   isMapManagerOpen: boolean; 
+  mapLayer: 'standard' | 'topo' | 'cycle' | 'satellite'; // NEU
 }
 
 export type AppView = 'welcome' | 'wizard' | 'results' | 'analysis_review';
@@ -90,7 +91,8 @@ const initialUIState: UIState = {
   currentFileName: null, 
   showPlanningMode: false,
   mapMode: 'live',
-  isMapManagerOpen: false
+  isMapManagerOpen: false,
+  mapLayer: 'standard'
 };
 
 export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => ({
@@ -192,4 +194,4 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
     notifications: state.notifications.map((n: AppNotification) => n.id === id ? { ...n, ...updates } : n)
   }))
 });
-// --- END OF FILE 211 Zeilen ---
+// --- END OF FILE 212 Zeilen ---

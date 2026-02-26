@@ -1,6 +1,5 @@
-// 24.02.2026 19:05 - FIX: Removed unused 'Info' import to resolve TS6133 build error.
-// 24.02.2026 18:55 - FIX: Moved modal to md:right-20 to avoid collision with map controls, narrowed to 260px.
-// 24.02.2026 18:45 - FIX: Added shrink-0 and z-10 to modal header.
+// 26.02.2026 12:55 - FEAT: Applied i18n translation hook to active layer name during download region naming.
+// 26.02.2026 12:20 - FEAT: Downloader uses selected MAP_LAYER and caches it securely with a layer prefix.
 // src/features/Cockpit/OfflineMapModal.tsx
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -12,6 +11,7 @@ import { useMap, useMapEvents, Rectangle } from 'react-leaflet';
 import L from 'leaflet';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
+import { MAP_LAYERS } from './Map/MapConstants'; 
 
 export const OfflineMapModal: React.FC = () => {
   const { t } = useTranslation();
@@ -69,7 +69,6 @@ export const OfflineMapModal: React.FC = () => {
 
     if (!isMinimized) {
       if (window.innerWidth >= 768) {
-        // Modal ist rechts bei 80px Abstand und 260px Breite -> belegt 340px.
         pixelCenterX = (map.getSize().x - 340) / 2;
       } else {
         pixelCenterY = map.getSize().y * 0.35;
@@ -102,23 +101,14 @@ export const OfflineMapModal: React.FC = () => {
   }, [map, targetMB, detailLevel, isMinimized]);
 
   useMapEvents({
-    move() {
-      if (uiState.isMapManagerOpen) updatePreviewBounds();
-    },
-    zoom() {
-      if (uiState.isMapManagerOpen) updatePreviewBounds();
-    },
-    resize() {
-      if (uiState.isMapManagerOpen) updatePreviewBounds();
-    }
+    move() { if (uiState.isMapManagerOpen) updatePreviewBounds(); },
+    zoom() { if (uiState.isMapManagerOpen) updatePreviewBounds(); },
+    resize() { if (uiState.isMapManagerOpen) updatePreviewBounds(); }
   });
 
   useEffect(() => {
-    if (uiState.isMapManagerOpen) {
-      updatePreviewBounds();
-    } else {
-      setPreviewBounds(null);
-    }
+    if (uiState.isMapManagerOpen) updatePreviewBounds();
+    else setPreviewBounds(null);
   }, [uiState.isMapManagerOpen, targetMB, detailLevel, updatePreviewBounds]);
 
   const handleTargetMBChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,6 +126,7 @@ export const OfflineMapModal: React.FC = () => {
     const minZoom = 10; 
     const maxZoom = detailLevel === 'high' ? 16 : 14; 
     
+    const activeLayer = MAP_LAYERS[uiState.mapLayer as keyof typeof MAP_LAYERS] || MAP_LAYERS['standard'];
     const urlsToFetch: {key: string, url: string}[] = [];
 
     for (let z = minZoom; z <= maxZoom; z++) {
@@ -147,8 +138,8 @@ export const OfflineMapModal: React.FC = () => {
       for (let x = Math.min(x1, x2); x <= Math.max(x1, x2); x++) {
         for (let y = Math.min(y1, y2); y <= Math.max(y1, y2); y++) {
           urlsToFetch.push({
-            key: `${z}/${x}/${y}`,
-            url: `https://a.tile.openstreetmap.org/${z}/${x}/${y}.png`
+            key: `${uiState.mapLayer}/${z}/${x}/${y}`,
+            url: activeLayer.url.replace('{s}', 'a').replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y))
           });
         }
       }
@@ -186,9 +177,11 @@ export const OfflineMapModal: React.FC = () => {
       setDownloadProgress(Math.min(i + batchSize, urlsToFetch.length));
     }
 
+    const translatedLayerName = t(activeLayer.nameKey, activeLayer.defaultName).split(' ')[0];
+    
     const newRegion: MapRegion = {
       id: uuidv4(),
-      name: regionName.trim() + (detailLevel === 'high' ? ' (HD)' : ''),
+      name: `${regionName.trim()} (${translatedLayerName})` + (detailLevel === 'high' ? ' HD' : ''),
       tileKeys: savedKeys,
       sizeInMB: (savedKeys.length * 18) / 1024,
       createdAt: new Date().toISOString()
@@ -221,7 +214,6 @@ export const OfflineMapModal: React.FC = () => {
 
   return (
     <>
-      {/* VISUELLER RAHMEN AUF DER KARTE */}
       {previewBounds && (
         <Rectangle 
           bounds={previewBounds} 
@@ -229,7 +221,6 @@ export const OfflineMapModal: React.FC = () => {
         />
       )}
 
-      {/* MINIMIERTER MODUS */}
       {isMinimized && (
         <div 
           className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[9999] pointer-events-auto"
@@ -248,7 +239,6 @@ export const OfflineMapModal: React.FC = () => {
         </div>
       )}
 
-      {/* MAXIMIERTER MODUS: Das eigentliche Modal */}
       {!isMinimized && (
         <div className="absolute md:top-4 md:right-20 bottom-0 left-0 right-0 md:left-auto z-[9999] pointer-events-none flex flex-col w-full md:w-[260px]">
           <div 
@@ -404,4 +394,4 @@ export const OfflineMapModal: React.FC = () => {
     </>
   );
 };
-// --- END OF FILE 373 Zeilen ---
+// --- END OF FILE 381 Zeilen ---
