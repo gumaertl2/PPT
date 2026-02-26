@@ -1,4 +1,5 @@
-// 26.02.2026 12:55 - FEAT: Applied i18n translation hook to active layer name during download region naming.
+// 26.02.2026 13:10 - FIX: Added download throttle (250ms sleep and reduced batch size) to prevent IP bans.
+// 26.02.2026 12:55 - FEAT: Applied i18n translation hook to active layer name.
 // 26.02.2026 12:20 - FEAT: Downloader uses selected MAP_LAYER and caches it securely with a layer prefix.
 // src/features/Cockpit/OfflineMapModal.tsx
 
@@ -155,7 +156,9 @@ export const OfflineMapModal: React.FC = () => {
     setDownloadProgress(0);
 
     const savedKeys: string[] = [];
-    const batchSize = 10;
+    
+    // FIX: Batch-Size reduziert auf 5 für sanfteren Traffic ohne Spike-Erkennung beim Tile-Server
+    const batchSize = 5; 
 
     for (let i = 0; i < urlsToFetch.length; i += batchSize) {
       const batch = urlsToFetch.slice(i, i + batchSize);
@@ -175,6 +178,9 @@ export const OfflineMapModal: React.FC = () => {
         }
       }));
       setDownloadProgress(Math.min(i + batchSize, urlsToFetch.length));
+      
+      // FIX: Tempolimit! Nach jedem Mini-Batch warten wir eine Viertelsekunde (250ms), um den IP-Ban zu umgehen.
+      await new Promise(resolve => setTimeout(resolve, 250));
     }
 
     const translatedLayerName = t(activeLayer.nameKey, activeLayer.defaultName).split(' ')[0];
@@ -394,4 +400,4 @@ export const OfflineMapModal: React.FC = () => {
     </>
   );
 };
-// --- END OF FILE 381 Zeilen ---
+// --- END OF FILE 387 Zeilen ---

@@ -1,5 +1,5 @@
+// 26.02.2026 15:15 - FIX: Solved the "Munich Problem" by dynamically calculating defaultCenter based on the first valid place.
 // 26.02.2026 12:55 - FEAT: Applied i18n translation hook to layer switcher menu.
-// 26.02.2026 12:05 - REFACTOR: Split monolithic file. Added interactive Layer Switcher (Standard, Topo, Cycle, Satellite).
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -21,7 +21,6 @@ import { MapStyles, MapLogic, MapResizer, UserLocationMarker, OfflineTileLayer, 
 
 export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
   const { t } = useTranslation();
-  const defaultCenter: [number, number] = [48.1351, 11.5820]; 
   const { uiState, setUIState, project, setProject, updatePlace } = useTripStore(); 
   const markerRefs = useRef<Record<string, L.Marker | null>>({});
 
@@ -35,6 +34,12 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
   const [isLocating, setIsLocating] = useState(false);
   
   const [isLayerMenuOpen, setIsLayerMenuOpen] = useState(false);
+
+  // FIX: München-Problem behoben. Wir holen uns vorab die validen Orte, um den Initial-Fokus zu setzen.
+  const validPlaces = useMemo(() => places.filter(p => p.location && p.location.lat && p.location.lng), [places]);
+  const defaultCenter: [number, number] = validPlaces.length > 0 
+    ? [validPlaces[0].location!.lat, validPlaces[0].location!.lng] 
+    : [48.1351, 11.5820]; // München bleibt nur als allerletzter Notfall, falls die DB komplett leer ist.
 
   const allPlacesFromStore = useMemo(() => Object.values(project.data.places), [project.data.places]);
 
@@ -154,8 +159,6 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
           { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
   };
-
-  const validPlaces = places.filter(p => p.location && p.location.lat && p.location.lng);
 
   const containerClasses = isFullscreen
     ? "fixed left-0 right-0 bottom-0 top-[70px] md:top-[80px] z-[40] bg-slate-100 shadow-2xl transition-all"

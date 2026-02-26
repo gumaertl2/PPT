@@ -1,4 +1,5 @@
-// 26.02.2026 12:05 - FEAT: Extracted Map SubComponents and updated OfflineTileLayer to support dynamic MAP_LAYERS with unique cache keys.
+// 26.02.2026 15:15 - FIX: Removed Live-Jitter. Native tile requests are instant again for smooth panning.
+// 26.02.2026 12:05 - FEAT: Extracted Map SubComponents and updated OfflineTileLayer.
 // src/features/Cockpit/Map/MapSubComponents.tsx
 
 import React, { useEffect, useMemo, useRef } from 'react';
@@ -121,7 +122,6 @@ export const UserLocationMarker: React.FC<{ location: [number, number] | null }>
     );
 };
 
-// FIX: Offline Tile Layer now correctly reads uiState.mapLayer and caches with prefix
 export const OfflineTileLayer = () => {
     const { uiState } = useTripStore();
     const { mapMode, mapLayer } = uiState;
@@ -151,6 +151,7 @@ export const OfflineTileLayer = () => {
                     } else if (mapMode === 'offline') {
                         tile.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAAEAAQMAAABmvDolAAAAA1BMVEW1tbW6T9UMAAAAH0lEQVRoQ+3BAQ0AAADCoPdPbQ43oAAAAAAAAAAAAIAvAxaAAGE6fS8AAAAASUVORK5CYII=';
                     } else {
+                        // FIX: Jitter entfernt. Kacheln laden jetzt wieder sofort.
                         tile.src = (this as any).getTileUrl(coords);
                     }
                 });
