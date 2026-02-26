@@ -1,5 +1,6 @@
-// 21.02.2026 00:45 - FIX: TypeScript Error TS2322. Removed 'title' prop from Lucide Icon and wrapped it in a span.
-// 21.02.2026 00:10 - UX: Unified Live-Check UI. Replaces LLM estimates with real Live Data for hours and prices.
+// 26.02.2026 10:10 - UX: Moved valuable Live-Check Note and Timestamp out of hidden tooltip into visible mobile-friendly UI.
+// 21.02.2026 00:45 - FIX: TypeScript Error TS2322. Removed 'title' prop from Lucide Icon.
+// 21.02.2026 00:10 - UX: Unified Live-Check UI.
 // src/features/Cockpit/SightCard/SightCardBody.tsx
 
 import React, { useState } from 'react';
@@ -54,7 +55,7 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
   
   const descriptionText = resolveDescription();
 
-  // --- NEW: UNIFIED RENDERERS FOR LIVE DATA ---
+  // --- UNIFIED RENDERERS FOR LIVE DATA ---
   
   const renderPrice = () => {
       const livePrice = data.liveStatus?.priceLevel; 
@@ -67,7 +68,6 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
           <div className={`flex items-center gap-1.5 px-2 py-1 rounded border font-medium text-xs shadow-sm transition-all ${isLive ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-white text-slate-600 border-slate-200'}`}>
               <Banknote className={`w-3.5 h-3.5 ${isLive ? 'text-emerald-600' : 'text-slate-400'}`} />
               <span>{highlightText(String(finalPrice))}</span>
-              {/* FIX: Wrapped Icon in a span to hold the title attribute, preventing TS2322 */}
               {isLive && <span title="Live abgerufener Preis" className="flex items-center"><Zap className="w-2.5 h-2.5 text-emerald-500 fill-current ml-0.5" /></span>}
           </div>
       );
@@ -100,8 +100,9 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
               statusBadge = <span className="bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ml-1 shadow-sm">Geändert</span>;
           }
 
+          // FIX: Tooltip entfernt, Info wandert in die visuelle Anzeige unten
           return (
-              <div className={`flex items-center gap-1 px-2 py-1 rounded border shadow-sm ${bgClass} ${colorClass} text-xs transition-all`} title={`Zuletzt geprüft: ${new Date(ls.lastChecked).toLocaleTimeString()}\nNotiz: ${ls.note || '-'}`}>
+              <div className={`flex items-center gap-1 px-2 py-1 rounded border shadow-sm ${bgClass} ${colorClass} text-xs transition-all`}>
                   <Zap className="w-3 h-3 fill-current opacity-70" />
                   <span className="font-bold">{label}</span>
                   {statusBadge}
@@ -214,7 +215,7 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
         </div>
       )}
 
-      {/* --- NEW: UNIFIED CONTACT & LIVE INFO BOX --- */}
+      {/* --- UNIFIED CONTACT & LIVE INFO BOX --- */}
       <div className="mt-3 bg-slate-50/80 rounded-xl p-3 border border-slate-200 shadow-sm space-y-2.5">
           <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-slate-600">
               {data.address && (<span className="flex items-start gap-1.5"><MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" /> <span className="leading-snug">{highlightText(data.address)}</span></span>)}
@@ -226,6 +227,19 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
               {renderPrice()}
           </div>
           
+          {/* FIX: Live-Status Hinweis und Timestamp jetzt nativ sichtbar integriert */}
+          {data.liveStatus && (
+              <div className="flex items-start gap-1.5 pt-1 text-[10px] text-slate-500">
+                  <Info className="w-3 h-3 text-slate-400 shrink-0 mt-0.5" />
+                  <span className="leading-snug">
+                      {data.liveStatus.note && <><strong className="text-slate-600">Live-Hinweis:</strong> {highlightText(data.liveStatus.note)} </>}
+                      <span className="opacity-70">
+                          {data.liveStatus.note ? '(' : ''}Stand: {new Date(data.liveStatus.lastChecked).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} Uhr{data.liveStatus.note ? ')' : ''}
+                      </span>
+                  </span>
+              </div>
+          )}
+
           {data.logistics && (
               <div className="flex items-start gap-1.5 pt-2 border-t border-slate-200/60 text-[11px] text-slate-600">
                   <Info className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
@@ -278,4 +292,4 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
     </div>
   );
 };
-// --- END OF FILE 259 Zeilen ---
+// --- END OF FILE 271 Zeilen ---

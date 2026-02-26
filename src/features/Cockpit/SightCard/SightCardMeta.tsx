@@ -1,8 +1,6 @@
+// 26.02.2026 10:20 - FIX: Changed duration unit from hours (h) to minutes (Min) and adjusted input steps.
 // 22.02.2026 16:35 - FIX: Appended Trip Region and Country to Google Search query to prevent ambiguous results.
 // 22.02.2026 16:30 - FIX: Prevented 'Restaurant' from being appended to Google Search queries for non-food sights.
-// 21.02.2026 00:30 - UX: Cleaned up Meta Bar. Removed Live-Check and Price to avoid redundancy, as they are now elegantly displayed in SightCardBody.
-// 09.02.2026 18:05 - FEAT: Traffic Light UI for Live Check.
-// 11.02.2026 19:15 - FIX: Smart Links (Search & Guide) with Award Context.
 // src/features/Cockpit/SightCard/SightCardMeta.tsx
 
 import React from 'react';
@@ -17,7 +15,7 @@ interface SightCardMetaProps {
   isSpecial: boolean;
   specialType: string;
   isHotel: boolean;
-  priceEstimate: string | null; // Kept in interface for backwards compatibility, but not rendered here anymore
+  priceEstimate: string | null;
   bookingUrl: string | null;
   sourceUrl: string | null;
   websiteUrl: string | null;
@@ -53,39 +51,30 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
   const isFood = (customCategory && ['food', 'restaurant'].includes(customCategory.toLowerCase())) || 
                  (data.category && ['food', 'restaurant'].includes(data.category.toLowerCase()));
 
-  // FIX: Smart Search Query now includes Region & Country context to avoid global ambiguities.
   const getGoogleSearchQuery = () => {
     const name = data.name || data.official_name || data.name_official || '';
     const city = data.city || (data.address ? data.address.split(',').pop()?.trim() : '') || '';
     
-    // Fetch Trip Context
     const { logistics } = project.userInputs;
     const tripRegion = logistics.mode === 'stationaer' ? logistics.stationary.region : logistics.roundtrip.region;
     const tripCountry = logistics.target_countries?.[0] || '';
     
-    // Only append region/country if they are not already part of the city string
     const regionStr = tripRegion && !city.includes(tripRegion) ? tripRegion : '';
     const countryStr = tripCountry && !city.includes(tripCountry) ? tripCountry : '';
     
-    // Check for Awards (e.g. "Michelin", "Gault&Millau")
     const awardContext = data.awards && data.awards.length > 0 ? data.awards[0] : '';
     const context = awardContext || (isFood ? 'Restaurant' : '');
 
-    // Build the final string, replacing multiple spaces with a single space
     return `${name} ${city} ${regionStr} ${countryStr} ${context}`.replace(/\s+/g, ' ').trim();
   };
 
-  // FIX: Smart Guide Link Fallback
-  // If no explicit guide_link exists, generate a Google Search specific to the award/guide.
   const getSmartGuideLink = () => {
       if (data.guide_link) return data.guide_link;
       
-      // Fallback: Build a search URL specific to the awards
       if (data.awards && data.awards.length > 0) {
           return `https://www.google.com/search?q=${encodeURIComponent(getGoogleSearchQuery())}`;
       }
       
-      // Fallback for Hotels or if nothing else exists (legacy behavior)
       return !isHotel ? sourceUrl : null;
   };
 
@@ -127,15 +116,23 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 mb-1">
         {renderCategory()}
         
-        <div className="flex items-center gap-1" title={t('sights.duration_hint', { defaultValue: 'Dauer in Stunden' })}>
+        {/* FIX: Tooltip, Step-Size und Einheit auf Minuten (Min) umgestellt */}
+        <div className="flex items-center gap-1" title={t('sights.duration_hint', { defaultValue: 'Dauer in Minuten' })}>
            <span className="text-gray-400">|</span><span className="text-gray-400">⏱</span>
-           <input type="number" min="0" step="0.5" value={customDuration || 0} onChange={(e) => { e.stopPropagation(); onDurationChange(e); }} onClick={(e) => e.stopPropagation()} className="w-8 bg-transparent border-b border-gray-300 p-0 text-center text-xs focus:border-indigo-500 focus:ring-0" />
-           <span>h</span>
+           <input 
+              type="number" 
+              min="0" 
+              step="5" 
+              value={customDuration || 0} 
+              onChange={(e) => { e.stopPropagation(); onDurationChange(e); }} 
+              onClick={(e) => e.stopPropagation()} 
+              className="w-10 bg-transparent border-b border-gray-300 p-0 text-center text-xs focus:border-indigo-500 focus:ring-0" 
+           />
+           <span className="text-[10px] font-medium">Min</span>
         </div>
         
         <div className="flex-1"></div>
 
-        {/* MAP BUTTON */}
         <button onClick={onShowMap} className="text-gray-400 hover:text-indigo-600 transition-colors mr-1" title={t('sights.show_on_map', { defaultValue: 'Auf Karte zeigen' })}>
           <MapIcon className="w-3.5 h-3.5" />
         </button>
@@ -149,19 +146,16 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
           </div>
         )}
         
-        {/* GUIDE LINK BUTTON - Now Smart */}
         {guideLink && (
             <a href={ensureAbsoluteUrl(guideLink)} target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:text-amber-700 transition-colors" title={data.awards && data.awards.length > 0 ? `Suche im Guide: ${data.awards[0]}` : "Zum Guide Eintrag"}>
                 <BookOpen className="w-3.5 h-3.5" />
             </a>
         )}
 
-        {/* WEBSITE BUTTON */}
         {websiteUrl && (<a href={ensureAbsoluteUrl(websiteUrl)} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:text-indigo-700 transition-colors" title="Zur Website"><Globe className="w-3.5 h-3.5" /></a>)}
         
-        {/* SEARCH BUTTON - Now Smart */}
         <a href={`https://www.google.com/search?q=${encodeURIComponent(getGoogleSearchQuery())}`} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-600 transition-colors" title={`Suche: ${getGoogleSearchQuery()}`}><Search className="w-3.5 h-3.5" /></a>
     </div>
   );
 };
-// --- END OF FILE 131 Zeilen ---
+// --- END OF FILE 136 Zeilen ---
