@@ -1,3 +1,4 @@
+// 26.02.2026 10:45 - DOCS: Converted API Key Help guide to informal "Du" personal pronoun.
 /**
  * src/data/texts/help.ts
  * Inhalt: Hilfe & API Key Guide
@@ -6,38 +7,38 @@
 export const help = {
   de: {
     title: "Hilfe & API Key",
-    content: `### So erhalten Sie Ihren kostenlosen Google Gemini API-Key
+    content: `### So erhältst du deinen kostenlosen Google Gemini API-Key
 
-Um "Papa-Tours Reiseplaner" nutzen zu können, benötigen Sie einen eigenen API-Schlüssel von Google.
+Um "Papa-Tours Reiseplaner" nutzen zu können, benötigst du einen eigenen API-Schlüssel von Google.
 Das klingt technisch, ist aber in wenigen Minuten erledigt und für die private Nutzung komplett kostenlos.
 
 ---
 
 **1. Warum brauche ich einen eigenen Schlüssel?**
-Dieses Programm läuft zu 100% auf Ihrem Gerät (in Ihrem Browser).
-Es gibt keinen "Server" von uns, der Ihre Anfragen weiterleitet.
-Damit Sie direkt mit der künstlichen Intelligenz (Google Gemini) kommunizieren können, müssen Sie sich bei Google authentifizieren.
-Das hat für Sie zwei Vorteile:
-* **Datenschutz:** Ihre Reisepläne bleiben privat zwischen Ihnen und Google. Niemand sonst liest mit.
+Dieses Programm läuft zu 100% auf deinem Gerät (in deinem Browser).
+Es gibt keinen "Server" von uns, der deine Anfragen weiterleitet.
+Damit du direkt mit der künstlichen Intelligenz (Google Gemini) kommunizieren kannst, musst du dich bei Google authentifizieren.
+Das hat für dich zwei Vorteile:
+* **Datenschutz:** Deine Reisepläne bleiben privat zwischen dir und Google. Niemand sonst liest mit.
 * **Kostenlos:** Google bietet jedem Nutzer ein großzügiges kostenloses Kontingent, das für private Reiseplanungen mehr als ausreicht.
 
 **2. Schritt-für-Schritt Anleitung**
 
-* **Schritt A:** Gehen Sie auf die offizielle Google AI Studio Seite:
+* **Schritt A:** Gehe auf die offizielle Google AI Studio Seite:
   👉 https://aistudio.google.com/app/apikey
 
-* **Schritt B:** Melden Sie sich mit Ihrem normalen Google-Konto (Gmail) an.
-(Falls Sie noch keines haben, können Sie dort eines erstellen).
-* **Schritt C:** Klicken Sie auf den blauen Button **"Create API Key"**.
+* **Schritt B:** Melde dich mit deinem normalen Google-Konto (Gmail) an.
+(Falls du noch keines hast, kannst du dort eines erstellen).
+* **Schritt C:** Klicke auf den blauen Button **"Create API Key"**.
   Es öffnet sich ein Fenster.
-Wählen Sie "Create API Key in new project" (oder ein bestehendes Projekt, falls vorhanden).
-* **Schritt D:** Kopieren Sie den Schlüssel.
-  Google zeigt Ihnen eine lange Zeichenkette (beginnt meist mit "AIza...").
-Klicken Sie auf "Copy", um den Schlüssel in die Zwischenablage zu kopieren.
+Wähle "Create API Key in new project" (oder ein bestehendes Projekt, falls vorhanden).
+* **Schritt D:** Kopiere den Schlüssel.
+  Google zeigt dir eine lange Zeichenkette (beginnt meist mit "AIza...").
+Klicke auf "Copy", um den Schlüssel in die Zwischenablage zu kopieren.
 
 **3. Schlüssel im Programm eingeben**
-Kehren Sie zu diesem Programm zurück und fügen Sie den Schlüssel in das Eingabefeld ein.
-Klicken Sie auf "Speichern". Fertig!
+Kehre zu diesem Programm zurück und füge den Schlüssel in das Eingabefeld ein.
+Klicke auf "Speichern". Fertig!
 
 ---
 
@@ -46,12 +47,12 @@ Klicken Sie auf "Speichern". Fertig!
 * **Kostet das wirklich nichts?**
   Ja.
 Der "Free Tier" von Google Gemini ist kostenlos. Er hat gewisse Limits (z.B. eine bestimmte Anzahl von Anfragen pro Minute), die für dieses Programm aber meist ausreichen.
-Sollten Sie das Limit erreichen, warten Sie einfach kurz oder wechseln Sie im Menü auf das Modell "Flash" (schneller & höhere Limits).
+Solltest du das Limit erreichen, warte einfach kurz oder wechsle im Menü auf das Modell "Flash" (schneller & höhere Limits).
 * **Ist mein Schlüssel sicher?**
-  Dieses Programm speichert Ihren Schlüssel nur lokal in Ihrem Browser (verschlüsselt).
-Er wird niemals an uns oder andere Server gesendet, sondern nur direkt an Google, wenn Sie eine Anfrage stellen.
+  Dieses Programm speichert deinen Schlüssel nur lokal in deinem Browser (verschlüsselt).
+Er wird niemals an uns oder andere Server gesendet, sondern nur direkt an Google, wenn du eine Anfrage stellst.
 * **Kann ich den Schlüssel später löschen?**
-  Ja. Sie können den Schlüssel jederzeit in Ihrem Google-Konto (AI Studio) widerrufen oder löschen.`
+  Ja. Du kannst den Schlüssel jederzeit in deinem Google-Konto (AI Studio) widerrufen oder löschen.`
   },
   en: {
     title: "Help & API Key",
@@ -103,3 +104,4 @@ It is never sent to us or other servers, only directly to Google when you make a
   Yes. You can revoke or delete the key at any time in your Google account (AI Studio).`
   }
 };
+// --- END OF FILE 86 Zeilen ---

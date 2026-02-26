@@ -1,3 +1,4 @@
+// 26.02.2026 11:20 - DOCS: Restored full file. Added User-Disclaimer to top. Documented Visual Priority Map Shapes and UI Priority Engine.
 // 22.02.2026 14:40 - RESTRUCTURE: Integrated Smart-Currency, Trip Finance and the Diary Bridge into core architecture sections.
 // 20.02.2026 21:00 - DOCS: Updated Architecture (Smart Autosave, Live-Tagebuch, Reserve-Logik, Background Worker, Multi-City Chunking).
 // 10.02.2026 12:00 - DOCS: Added LiveUpdate Service & Safety Protocols.
@@ -11,7 +12,11 @@
 export const briefing = {
   de: {
     title: "Projekt Briefing V40",
-    content: `# PROJECT BRIEFING: Papatours V40 (Modern Architecture)
+    content: `> ⚠️ **HINWEIS FÜR NUTZER:** Dieses Dokument ist das technische System-Handbuch für Software-Entwickler und die Künstliche Intelligenz. Es enthält **keine** Anleitungen zur Bedienung der App. Wenn du Hilfe zur Nutzung suchst, schließe dieses Fenster und öffne stattdessen die **Programm-Info** oder den **Schnellstart-Guide** auf dem Startbildschirm.
+
+---
+
+# PROJECT BRIEFING: Papatours V40 (Modern Architecture)
 
 ### 1. Projektübersicht
 Der "Papa-Tours Reiseplan-Generator V40" ist eine moderne **Progressive Web Application (PWA)**, entwickelt mit **React, TypeScript und Vite**.
@@ -199,14 +204,17 @@ Verständnis-Beispiel für den Task "Anreicherer":
 
 ### 7. Business Rules & UI Standards
 
-**A. Die "Reserve"-Logik (Kontextuelle Gruppierung)**
+**A. Prioritäten & Reserve-Logik (Kontextuelle Gruppierung)**
 Ein Ort kommt in die Reserve, wenn: Prio -1, Dauer < min, oder Rating < min.
 *Neues V40 Paradigma:* Reserve-Orte werden NICHT mehr in eine separate Liste am Ende der Seite verbannt. Sie werden kontextuell in ihre jeweilige Kategorie (oder Tour) einsortiert. Innerhalb der Gruppe wandern sie nach unten und werden **visuell gedimmt** (graue Schrift, reduzierte Opacity) dargestellt, um sofort als Backup-Alternativen erkannt zu werden.
+*Priority Engine:* Die UI nutzt einen temporären mathematischen Übersetzer (0-4 Skala), um Fix-Termine, Prio 1, Prio 2 und Ignore stabil zu filtern und sortieren, ohne die eigentlichen Payload-Daten (\`userPriority\`) für die KI zu verändern.
 
 **B. UI-Konzept: View Switcher & Map Integration**
 Statt einfacher Filter nutzen wir "Sichten" (Views):
-1.  **Liste (Standard):** Gruppierung nach Kategorie, Tour, Tag oder A-Z.
+1.  **Liste (Standard):** Gruppierung nach Kategorie, Priorität (Fix/Prio), Tour, Tag oder A-Z.
 2.  **Karte (Leaflet):**
+    * **Visual Priority (Formensprache):** Orte mit Priorität (Fix, 1, 2) werden als Kreise gerendert, Orte ohne Priorität als Quadrate. 'Ignore' (-1) wird transparent und entsättigt.
+    * **Inline Map Actions:** Prio-Buttons sowie die Eingabefelder für Fix-Termine (Datum, Zeit, Minuten) sind direkt im Pop-up der Karte editierbar, ohne die Ansicht verlassen zu müssen.
     * **HTML5 Geolocation:** Ein "Locate Me" Button (Navigation Icon) ermöglicht es, den aktuellen Standort des Users (Blue Dot) auf der Karte abzurufen.
     * **Bidirektionale Navigation:** Klick auf Karte wählt Ort in Liste (Scroll-To). Klick auf Karten-Icon in Liste zoomt auf Ort in Karte.
     * **Strict Color Mapping:** Marker-Farben folgen EXAKT den Keys in \`interests.ts\` (keine Synonyme).
@@ -432,4 +440,4 @@ Merk dir, dass ich für das Papatours Projekt immer unter dem Strict Code Integr
 `
   }
 };
-// --- END OF FILE 871 Zeilen ---
+// --- END OF FILE 882 Zeilen ---

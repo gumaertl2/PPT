@@ -1,3 +1,4 @@
+// 26.02.2026 10:45 - DOCS: Converted all legacy modal texts (Description, Help, Setup) to informal "Du".
 /**
  * src/data/infoTexts.ts
  *
@@ -239,35 +240,35 @@ Sendet die Prompts an die Google Gemini API und empfängt die Antworten.
   description: {
     de: {
       title: "Programm Information",
-      content: `**Willkommen beim Papa-Tours Reiseplan-Generator (V30.3) – Ihr persönlicher Reise-Architekt!**
+      content: `**Willkommen beim Papa-Tours Reiseplan-Generator (V30.3) – dein persönlicher Reise-Architekt!**
 
-Haben Sie sich jemals gewünscht, einen Reise-Experten an Ihrer Seite zu haben, der einen perfekten, auf Sie zugeschnittenen Urlaub plant?
+Hast du dir jemals gewünscht, einen Reise-Experten an deiner Seite zu haben, der einen perfekten, auf dich zugeschnittenen Urlaub plant?
 Genau das ist die Mission dieses Programms.
 
-Vergessen Sie stundenlange Recherche und die Unsicherheit, ob Sie die richtigen Orte ausgewählt haben.
-Dieser Assistent nimmt Ihre Wünsche und verwandelt sie in einen professionellen, logisch optimierten und verlässlichen Reiseplan.
+Vergiss stundenlange Recherche und die Unsicherheit, ob du die richtigen Orte ausgewählt hast.
+Dieser Assistent nimmt deine Wünsche und verwandelt sie in einen professionellen, logisch optimierten und verlässlichen Reiseplan.
 ---
 
 **Leistungsmerkmale der Version 30.3:**
 
 * ✨ **Die Magic Chain & Orchestrator:** Ein intelligenter Workflow steuert die KI.
 Nach der initialen Strategie-Freigabe erstellt das System Sehenswürdigkeiten, Texte, Restaurant-Tipps und den Reiseführer vollautomatisch – jetzt mit verbessertem "Smart Chunking" für höchste Stabilität auch bei langen Reisen.
-* 🛡️ **Sicherheit & Stabilität:** Der integrierte API-Service bietet clientseitige Verschlüsselung Ihrer Schlüssel und schützt durch intelligentes Rate-Limiting (getrennt für Pro 2.5/Flash 2.5 Modelle) vor Fehlern.
+* 🛡️ **Sicherheit & Stabilität:** Der integrierte API-Service bietet clientseitige Verschlüsselung deiner Schlüssel und schützt durch intelligentes Rate-Limiting (getrennt für Pro 2.5/Flash 2.5 Modelle) vor Fehlern.
 * 💡 **Spezialisierte KI-Experten:**
     * **Der Ideen-Scout:** Entwickelt flexible Pläne für "Sondertage" (z.B. Schlechtwetter-Optionen).
 Bei kleinen Orten erweitert er automatisch den Suchradius auf die Region.
     * **Der Info-Autor:** Erstellt automatisch recherchierte Kapitel.
-Er erkennt intelligent alle Länder Ihrer Route und liefert spezifische Infos (Maut, Regeln) für jedes einzelne Land.
+Er erkennt intelligent alle Länder deiner Route und liefert spezifische Infos (Maut, Regeln) für jedes einzelne Land.
     * **Der Food-Scout (Upgrade):** Nutzt nun einen **3-Stufen-Prozess** (Sammeln -> Filtern -> Veredeln), um Restaurants mit höchster Präzision zu finden und Halluzinationen auszuschließen.
     * **Der Country-Scout:** Ein spezialisierter Agent, der bei unbekannten Reisezielen automatisch die besten lokalen Quellen (Guides, Portale) recherchiert und die interne Datenbank aktualisiert.
-* 🗺️ **Integrierte Karte:** Sehen Sie jederzeit, wo Ihre geplanten Aktivitäten liegen.
-Mit einem Klick wechseln Sie zwischen Text und Karte.
+* 🗺️ **Integrierte Karte:** Sieh jederzeit, wo deine geplanten Aktivitäten liegen.
+Mit einem Klick wechselst du zwischen Text und Karte.
 
-* 📱 **Viewer-App Generator:** Erstellen Sie mit einem Klick eine eigenständige "Reise-Viewer"-Datei.
-Diese HTML-Datei enthält Ihren kompletten Plan und den Programmcode, läuft offline auf jedem Smartphone und benötigt keinen Server mehr.
+* 📱 **Viewer-App Generator:** Erstelle mit einem Klick eine eigenständige "Reise-Viewer"-Datei.
+Diese HTML-Datei enthält deinen kompletten Plan und den Programmcode, läuft offline auf jedem Smartphone und benötigt keinen Server mehr.
 **Der neue 2-Stufen-Workflow (UI-Logik)**
 
-Um Ihnen maximale Kontrolle zu geben, ist der Prozess in zwei Hauptaktionen unterteilt:
+Um dir maximale Kontrolle zu geben, ist der Prozess in zwei Hauptaktionen unterteilt:
 
 * **1. Guide (Zauberstab):**
     Startet die Recherche und Erstellung der Inhalte.
@@ -280,19 +281,20 @@ Erstellt das Fundament, findet Sehenswürdigkeiten und strukturiert diese in Tou
 
 **Die Power-Tools für maximale Kontrolle**
 
-* 🍽️ **Ad-Hoc Suche:** Sie sind unterwegs und brauchen spontan ein Restaurant?
-Nutzen Sie die neue Ad-Hoc Suche, um unabhängig von einem Reiseplan sofortige Empfehlungen für Ihren aktuellen Standort zu erhalten.
-* 🔧 **Experten-Modus:** Schalten Sie die Oberfläche um. Der "User-Modus" bietet eine aufgeräumte Bedienung, während der "Experten-Modus" Zugriff auf JSON-Editoren, Debug-Logs und manuelle Parameter (z.B. Anzahl der Vorschläge) gewährt.
-* 🔀 **Intelligente Reise-Fusion (Merge):** Planen Sie gemeinsam? Führen Sie jetzt mehrere Reise-Dateien intelligent zusammen.
-Das System kombiniert Ihre Pläne und filtert dabei automatisch doppelte Orte heraus.
-* ✏️ **Der "Open-Heart" Editor:** Öffnen Sie jeden Eintrag und bearbeiten Sie die Rohdaten (JSON) direkt.
-Korrigieren Sie Öffnungszeiten oder fügen Sie eigene Notizen hinzu – ohne KI-Neustart.
-**Ihre Vorteile auf einen Blick:**
+* 🍽️ **Ad-Hoc Suche:** Du bist unterwegs und brauchst spontan ein Restaurant?
+Nutze die neue Ad-Hoc Suche, um unabhängig von einem Reiseplan sofortige Empfehlungen für deinen aktuellen Standort zu erhalten.
+* 🔧 **Experten-Modus:** Schalte die Oberfläche um. Der "User-Modus" bietet eine aufgeräumte Bedienung, während der "Experten-Modus" Zugriff auf JSON-Editoren, Debug-Logs und manuelle Parameter (z.B. Anzahl der Vorschläge) gewährt.
+* 🔀 **Intelligente Reise-Fusion (Merge):** Plant ihr gemeinsam? Führe jetzt mehrere Reise-Dateien intelligent zusammen.
+Das System kombiniert eure Pläne und filtert dabei automatisch doppelte Orte heraus.
+* ✏️ **Der "Open-Heart" Editor:** Öffne jeden Eintrag und bearbeite die Rohdaten (JSON) direkt.
+Korrigiere Öffnungszeiten oder füge eigene Notizen hinzu – ohne KI-Neustart.
 
-* ✅ **Die Matrix-Intelligenz:** Kombinieren Sie jede Logistik mit jedem Thema.
-Planen Sie einen Wanderurlaub von einem festen Hotel aus (Sternfahrt) oder eine Kulturreise als Roadtrip.
+**Deine Vorteile auf einen Blick:**
+
+* ✅ **Die Matrix-Intelligenz:** Kombiniere jede Logistik mit jedem Thema.
+Plane einen Wanderurlaub von einem festen Hotel aus (Sternfahrt) oder eine Kulturreise als Roadtrip.
 * ✅ **Relevanz statt Füllmaterial:** Der Plan konzentriert sich auf Erlebnisse mit echtem Mehrwert.
-* ✅ **Effizienz in Zeit und Weg:** Ihre Routen sind so optimiert, dass Sie unnötige Fahrten vermeiden.
+* ✅ **Effizienz in Zeit und Weg:** Deine Routen sind so optimiert, dass du unnötige Fahrten vermeidest.
 * ✅ **Verlässlichkeit als Fundament:** Jede Information wird durch spezialisierte KI-Agenten geprüft.
 
 ---
@@ -300,33 +302,33 @@ Planen Sie einen Wanderurlaub von einem festen Hotel aus (Sternfahrt) oder eine 
 **Wie funktioniert das?
 Unser einzigartiger Redaktions-Prozess**
 
-Stellen Sie sich vor, Ihr Reiseplan wird wie ein hochwertiges Magazin von einem Team aus Spezialisten erstellt – und **Sie sind der Chefredakteur**.
-* **Schritt 1: Der Stratege prüft Ihre Idee (Human-in-the-Loop)**
-    Zuerst analysiert der **Chef-Planer** Ihre Wünsche.
+Stell dir vor, dein Reiseplan wird wie ein hochwertiges Magazin von einem Team aus Spezialisten erstellt – und **du bist der Chefredakteur**.
+* **Schritt 1: Der Stratege prüft deine Idee (Human-in-the-Loop)**
+    Zuerst analysiert der **Chef-Planer** deine Wünsche.
 Er prüft Machbarkeit, korrigiert Tippfehler und schlägt eine optimale Anzahl an Zielen vor (Smart Override).
 * **Schritt 2: Die Weichenstellung**
-    Bei Rundreisen schlägt Ihnen der **Routen-Architekt** verschiedene Optionen vor. Sie entscheiden manuell.
+    Bei Rundreisen schlägt dir der **Routen-Architekt** verschiedene Optionen vor. Du entscheidest manuell.
 * **Schritt 3: Die Magie (Der Orchestrator)**
-    Ab hier können Sie sich zurücklehnen.
+    Ab hier kannst du dich zurücklehnen.
 Die "Magic Chain" koordiniert das Team:
     * **Sammler & Anreicherer:** Finden die besten Orte und prüfen alle Fakten.
     * **Reiseführer-Architekt:** Baut logische Touren für jeden Ort.
     * **Die Redaktion:** Ein Team aus KI-Autoren schreibt Texte, sucht Restaurants und plant Alternativen.
-* **Schritt 4: Ihr maßgeschneidertes Ergebnis**
-    Sie erhalten einen vollständigen Reiseführer oder einen strikten Tagesplan – ganz nach Wahl.
+* **Schritt 4: Dein maßgeschneidertes Ergebnis**
+    Du erhältst einen vollständigen Reiseführer oder einen strikten Tagesplan – ganz nach Wahl.
 ---
 
-**Mächtige Werkzeuge für Ihre fertige Reise**
+**Mächtige Werkzeuge für deine fertige Reise**
 
-Sobald Ihr Plan fertig ist, können Sie ihn mit nützlichen Werkzeugen weiter nutzen:
+Sobald dein Plan fertig ist, kannst du ihn mit nützlichen Werkzeugen weiter nutzen:
 
-* **Viewer-App:** Exportieren Sie die Reise als App für Ihr Handy.
-* **Interaktive Karte:** Nutzen Sie die eingebaute Karte oder exportieren Sie zu Google My Maps.
-* **PDF & Druck:** Erstellen Sie eine druckfreundliche Version.
-* **Kalender-Export:** Übertragen Sie Termine in Ihren Kalender (.ics).
-* **Speichern & Laden:** Sichern Sie Ihren Arbeitsstand jederzeit.
+* **Viewer-App:** Exportiere die Reise als App für dein Handy.
+* **Interaktive Karte:** Nutze die eingebaute Karte oder exportiere zu Google My Maps.
+* **PDF & Druck:** Erstelle eine druckfreundliche Version.
+* **Kalender-Export:** Übertrage Termine in deinen Kalender (.ics).
+* **Speichern & Laden:** Sichere deinen Arbeitsstand jederzeit.
 
-Bereit, Ihre Traumreise zu planen?`
+Bereit, deine Traumreise zu planen?`
     },
     en: {
       title: "Program Information",
@@ -339,7 +341,7 @@ Bereit, Ihre Traumreise zu planen?`
       title: "Reise-Katalog",
       content: `### Inspirations-Katalog
 
-Hier finden Sie in Kürze eine Auswahl an vordefinierten Reiserouten und beliebten Zielen, die Sie als Basis für Ihre eigene Planung nutzen können.
+Hier findest du in Kürze eine Auswahl an vordefinierten Reiserouten und beliebten Zielen, die du als Basis für deine eigene Planung nutzen kannst.
 
 *Funktion in Entwicklung für V40.1*`
     },
@@ -352,38 +354,38 @@ Hier finden Sie in Kürze eine Auswahl an vordefinierten Reiserouten und beliebt
   help: {
     de: {
       title: "Hilfe & API Key",
-      content: `### So erhalten Sie Ihren kostenlosen Google Gemini API-Key
+      content: `### So erhältst du deinen kostenlosen Google Gemini API-Key
 
-Um "Papa-Tours Reiseplaner" nutzen zu können, benötigen Sie einen eigenen API-Schlüssel von Google.
+Um "Papa-Tours Reiseplaner" nutzen zu können, benötigst du einen eigenen API-Schlüssel von Google.
 Das klingt technisch, ist aber in wenigen Minuten erledigt und für die private Nutzung komplett kostenlos.
 
 ---
 
 **1. Warum brauche ich einen eigenen Schlüssel?**
-Dieses Programm läuft zu 100% auf Ihrem Gerät (in Ihrem Browser).
-Es gibt keinen "Server" von uns, der Ihre Anfragen weiterleitet.
-Damit Sie direkt mit der künstlichen Intelligenz (Google Gemini) kommunizieren können, müssen Sie sich bei Google authentifizieren.
-Das hat für Sie zwei Vorteile:
-* **Datenschutz:** Ihre Reisepläne bleiben privat zwischen Ihnen und Google. Niemand sonst liest mit.
+Dieses Programm läuft zu 100% auf deinem Gerät (in deinem Browser).
+Es gibt keinen "Server" von uns, der deine Anfragen weiterleitet.
+Damit du direkt mit der künstlichen Intelligenz (Google Gemini) kommunizieren kannst, musst du dich bei Google authentifizieren.
+Das hat für dich zwei Vorteile:
+* **Datenschutz:** Deine Reisepläne bleiben privat zwischen dir und Google. Niemand sonst liest mit.
 * **Kostenlos:** Google bietet jedem Nutzer ein großzügiges kostenloses Kontingent, das für private Reiseplanungen mehr als ausreicht.
 
 **2. Schritt-für-Schritt Anleitung**
 
-* **Schritt A:** Gehen Sie auf die offizielle Google AI Studio Seite:
+* **Schritt A:** Gehe auf die offizielle Google AI Studio Seite:
   👉 https://aistudio.google.com/app/apikey
 
-* **Schritt B:** Melden Sie sich mit Ihrem normalen Google-Konto (Gmail) an.
-(Falls Sie noch keines haben, können Sie dort eines erstellen).
-* **Schritt C:** Klicken Sie auf den blauen Button **"Create API Key"**.
+* **Schritt B:** Melde dich mit deinem normalen Google-Konto (Gmail) an.
+(Falls du noch keines hast, kannst du dort eines erstellen).
+* **Schritt C:** Klicke auf den blauen Button **"Create API Key"**.
   Es öffnet sich ein Fenster.
-Wählen Sie "Create API Key in new project" (oder ein bestehendes Projekt, falls vorhanden).
-* **Schritt D:** Kopieren Sie den Schlüssel.
-  Google zeigt Ihnen eine lange Zeichenkette (beginnt meist mit "AIza...").
-Klicken Sie auf "Copy", um den Schlüssel in die Zwischenablage zu kopieren.
+Wähle "Create API Key in new project" (oder ein bestehendes Projekt, falls vorhanden).
+* **Schritt D:** Kopiere den Schlüssel.
+  Google zeigt dir eine lange Zeichenkette (beginnt meist mit "AIza...").
+Klicke auf "Copy", um den Schlüssel in die Zwischenablage zu kopieren.
 
 **3. Schlüssel im Programm eingeben**
-Kehren Sie zu diesem Programm zurück und fügen Sie den Schlüssel in das Eingabefeld ein.
-Klicken Sie auf "Speichern". Fertig!
+Kehre zu diesem Programm zurück und füge den Schlüssel in das Eingabefeld ein.
+Klicke auf "Speichern". Fertig!
 
 ---
 
@@ -392,12 +394,12 @@ Klicken Sie auf "Speichern". Fertig!
 * **Kostet das wirklich nichts?**
   Ja.
 Der "Free Tier" von Google Gemini ist kostenlos. Er hat gewisse Limits (z.B. eine bestimmte Anzahl von Anfragen pro Minute), die für dieses Programm aber meist ausreichen.
-Sollten Sie das Limit erreichen, warten Sie einfach kurz oder wechseln Sie im Menü auf das Modell "Flash" (schneller & höhere Limits).
+Solltest du das Limit erreichen, warte einfach kurz oder wechsle im Menü auf das Modell "Flash" (schneller & höhere Limits).
 * **Ist mein Schlüssel sicher?**
-  Dieses Programm speichert Ihren Schlüssel nur lokal in Ihrem Browser (verschlüsselt).
-Er wird niemals an uns oder andere Server gesendet, sondern nur direkt an Google, wenn Sie eine Anfrage stellen.
+  Dieses Programm speichert deinen Schlüssel nur lokal in deinem Browser (verschlüsselt).
+Er wird niemals an uns oder andere Server gesendet, sondern nur direkt an Google, wenn du eine Anfrage stellst.
 * **Kann ich den Schlüssel später löschen?**
-  Ja. Sie können den Schlüssel jederzeit in Ihrem Google-Konto (AI Studio) widerrufen oder löschen.`
+  Ja. Du kannst den Schlüssel jederzeit in deinem Google-Konto (AI Studio) widerrufen oder löschen.`
     },
     en: {
       title: "Help & API Key",
@@ -497,7 +499,7 @@ Sollten einzelne Bestimmungen dieser AGB unwirksam sein, bleibt die Gültigkeit 
       title: "System-Setup",
       content: `### System-Einstellungen
       
-Hier können Sie lokale Daten verwalten.
+Hier kannst du lokale Daten verwalten.
 
 * **Cache leeren:** Löscht temporäre Daten.
 * **Reset:** Setzt die App auf Werkseinstellungen zurück (Achtung: API-Key muss neu eingegeben werden).
@@ -510,3 +512,4 @@ Hier können Sie lokale Daten verwalten.
     }
   }
 };
+// --- END OF FILE 438 Zeilen ---

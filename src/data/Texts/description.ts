@@ -1,5 +1,5 @@
+// 26.02.2026 10:45 - DOCS: Converted Technical Manual to informal "Du" to match the marketing copy.
 // 24.02.2026 19:30 - DOCS: Prepended complete Marketing & Sales Brochure to the technical manual (DE & EN).
-// 22.02.2026 14:15 - DOCS: Added Trip Finance to the User Manual and provided full English translation.
 // src/data/Texts/description.ts
 /**
  * Inhalt: Programm-Beschreibung / Marketing Broschüre / Handbuch
@@ -94,66 +94,66 @@ Papatours ist eine moderne Web-App der neuesten Generation (PWA). Das bedeutet f
 
 ### 🛠 Technisches Handbuch
 
-**Willkommen bei Papatours – Ihrem persönlichen KI-Reiseplaner und digitalen Tagebuch!**
+**Willkommen bei Papatours – deinem persönlichen KI-Reiseplaner und digitalen Tagebuch!**
 
-Dieses Handbuch erklärt Ihnen, wie Sie die App optimal nutzen: Von der ersten Idee bis zu den Erinnerungen während der Reise.
+Dieses Handbuch erklärt dir, wie du die App optimal nutzt: Von der ersten Idee bis zu den Erinnerungen während der Reise.
 
 ### Phase 1: Die Planung (Der Assistent)
-Wenn Sie eine neue Reise starten, führt Sie ein Assistent (Wizard) durch 5 einfache Schritte:
+Wenn du eine neue Reise startest, führt dich ein Assistent (Wizard) durch 5 einfache Schritte:
 1. **Cockpit:** Wohin geht es? (Stationär im Hotel oder als Rundreise).
 2. **Wer & Wie:** Wer reist mit und wie ist die allgemeine Stimmung (z.B. entspannt oder sportlich)?
-3. **Interessen:** Was machen Sie gerne? (z.B. Museen, Wandern, Kulinarik).
-4. **Termine:** Wann reisen Sie und gibt es schon feste Termine (z.B. ein gebuchter Flug)?
+3. **Interessen:** Was machst du gerne? (z.B. Museen, Wandern, Kulinarik).
+4. **Termine:** Wann reist du und gibt es schon feste Termine (z.B. ein gebuchter Flug)?
 5. **Start:** Hier fassen wir alles zusammen. Ein Klick auf "Generieren" weckt die KI auf!
 
-*Tipp: Die KI plant die Route, sucht passende Sehenswürdigkeiten, checkt Öffnungszeiten und schreibt einen kompletten Reiseführer für Sie.*
+*Tipp: Die KI plant die Route, sucht passende Sehenswürdigkeiten, checkt Öffnungszeiten und schreibt einen kompletten Reiseführer für dich.*
 
-### Phase 2: Die 4 Hauptansichten (Ihr Reisebegleiter)
-Sobald die KI fertig ist, verwandelt sich die App in Ihren interaktiven Reisebegleiter. Oben in der Menüleiste finden Sie die vier wichtigsten Schalter:
+### Phase 2: Die 4 Hauptansichten (Dein Reisebegleiter)
+Sobald die KI fertig ist, verwandelt sich die App in deinen interaktiven Reisebegleiter. Oben in der Menüleiste findest du die vier wichtigsten Schalter:
 
 📝 **1. Plan (Das Dashboard & Tagebuch)**
-Hier finden Sie die Zusammenfassung Ihrer Reise, Ihre Routenplanung und (ganz wichtig) Ihr **Live-Reisetagebuch**. 
-* **Vor Ort:** Nutzen Sie den Button "Eigener Eintrag", um spontane Erlebnisse samt Ihrem aktuellen GPS-Standort festzuhalten. Orte, die Sie besuchen und einchecken, tauchen hier automatisch chronologisch auf.
+Hier findest du die Zusammenfassung deiner Reise, deine Routenplanung und (ganz wichtig) dein **Live-Reisetagebuch**. 
+* **Vor Ort:** Nutze den Button "Eigener Eintrag", um spontane Erlebnisse samt deinem aktuellen GPS-Standort festzuhalten. Orte, die du besuchst und eincheckst, tauchen hier automatisch chronologisch auf.
 
 📖 **2. Guide (Der Reiseführer & Katalog)**
-Dies ist das Herzstück. Hier finden Sie alle von der KI gesammelten Orte (Sehenswürdigkeiten, Restaurants, Natur).
-* **Organisieren:** Sortieren Sie die Liste nach Kategorien, Alphabet oder nach Touren.
-* **Planen:** Nutzen Sie die Prioritäts-Buttons ("Fix", "Prio 1", "Prio 2"), um Orte in Ihren Kalender zu schieben oder unpassende Dinge auszublenden ("Ignore").
-* **Notizen:** Klicken Sie auf einen Ort, um eine eigene Notiz für Ihr Tagebuch hinzuzufügen oder "einzuchecken".
+Dies ist das Herzstück. Hier findest du alle von der KI gesammelten Orte (Sehenswürdigkeiten, Restaurants, Natur).
+* **Organisieren:** Sortiere die Liste nach Kategorien, Alphabet oder nach Touren.
+* **Planen:** Nutze die Prioritäts-Buttons ("Fix", "Prio 1", "Prio 2"), um Orte in deinen Kalender zu schieben oder unpassende Dinge auszublenden ("Ignore").
+* **Notizen:** Klicke auf einen Ort, um eine eigene Notiz für dein Tagebuch hinzuzufügen oder "einzuchecken".
 
 🌍 **3. Karte (Die visuelle Übersicht)**
-Sehen Sie alle Orte übersichtlich auf der Landkarte. Die Farben entsprechen den jeweiligen Kategorien (z.B. Grün für Natur, Rot für Kultur).
-* **Wo bin ich?** Klicken Sie auf das kleine Fadenkreuz-Symbol oben rechts auf der Karte. Die App ortet Sie per GPS und zeigt Ihnen mit einem blauen Punkt, wo Sie gerade stehen.
+Sieh dir alle Orte übersichtlich auf der Landkarte an. Die Farben entsprechen den jeweiligen Kategorien (z.B. Grün für Natur, Rot für Kultur).
+* **Wo bin ich?** Klicke auf das kleine Fadenkreuz-Symbol oben rechts auf der Karte. Die App ortet dich per GPS und zeigt dir mit einem blauen Punkt, wo du gerade stehst.
 
 ℹ️ **4. Info (Das Lexikon)**
-Hier finden Sie alle allgemeinen Texte, die nicht an eine direkte Koordinate gebunden sind:
+Hier findest du alle allgemeinen Texte, die nicht an eine direkte Koordinate gebunden sind:
 * A-Z Stadtführer für alle besuchten Orte.
 * Wissenswertes zur Region, Einreise- und Mautbestimmungen.
-* Eine Budget-Schätzung für Ihre Reise.
+* Eine Budget-Schätzung für deine Reise.
 
-### Phase 3: Das Aktionen-Menü (Ihre Werkzeuge)
-Unter dem Menü-Punkt **"Aktionen"** (oben rechts) finden Sie mächtige Helfer und Werkzeuge, um Ihre Reise nachträglich anzupassen:
+### Phase 3: Das Aktionen-Menü (Deine Werkzeuge)
+Unter dem Menü-Punkt **"Aktionen"** (oben rechts) findest du mächtige Helfer und Werkzeuge, um deine Reise nachträglich anzupassen:
 
-* 💸 **Reisekasse:** Ihr smartes Finanz-Tool. Erfassen Sie Ausgaben direkt im Urlaub, splitten Sie Kosten exakt auf Mitreisende auf und lassen Sie Papatours mit tagesaktuellen Bankenkursen am Ende berechnen, wer wem wie viel schuldet.
-* 🤖 **KI-Workflows:** Das Kontrollzentrum der App (siehe Phase 4). Hier können Sie einzelne KI-Agenten gezielt neu starten.
-* 📋 **Daten:** Bringt Sie zurück zum Start-Assistenten, falls Sie grundlegende Dinge (z.B. Reisedatum oder Interessen) ändern möchten.
-* 🏛️ **Fundament:** Zeigt Ihnen die strategische Machbarkeitsprüfung der KI (Chef-Planer).
+* 💸 **Reisekasse:** Dein smartes Finanz-Tool. Erfasse Ausgaben direkt im Urlaub, splitte Kosten exakt auf Mitreisende auf und lasse Papatours mit tagesaktuellen Bankenkursen am Ende berechnen, wer wem wie viel schuldet.
+* 🤖 **KI-Workflows:** Das Kontrollzentrum der App (siehe Phase 4). Hier kannst du einzelne KI-Agenten gezielt neu starten.
+* 📋 **Daten:** Bringt dich zurück zum Start-Assistenten, falls du grundlegende Dinge (z.B. Reisedatum oder Interessen) ändern möchtest.
+* 🏛️ **Fundament:** Zeigt dir die strategische Machbarkeitsprüfung der KI (Chef-Planer).
 * 🗺️ **Route:** Öffnet den Routenplaner (nur bei Rundreisen relevant), um Etappen anzupassen.
-* 🍽️ **Ad-Hoc Food:** Sie haben spontan Hunger? Dieses Tool nutzt Ihren aktuellen GPS-Standort und sucht sofort nach den besten Restaurants in Gehweite.
-* 🖨️ **Drucken / PDF:** Generiert ein wunderschönes, tintensparendes Dokument Ihrer Reise (inkl. Reisetagebuch).
+* 🍽️ **Ad-Hoc Food:** Du hast spontan Hunger? Dieses Tool nutzt deinen aktuellen GPS-Standort und sucht sofort nach den besten Restaurants in Gehweite.
+* 🖨️ **Drucken / PDF:** Generiert ein wunderschönes, tintensparendes Dokument deiner Reise (inkl. Reisetagebuch).
 * 📍 **Google Maps Export:** Kopiert alle Orte, um sie direkt in "Google My Maps" einzufügen.
-* 💾 **Speichern & Laden:** Ihre Reise wird automatisch gesichert. Hier können Sie die Reise aber als Datei herunterladen, um sie als Backup am PC zu speichern oder an Mitreisende zu senden.
+* 💾 **Speichern & Laden:** Deine Reise wird automatisch gesichert. Hier kannst du die Reise aber als Datei herunterladen, um sie als Backup am PC zu speichern oder an Mitreisende zu senden.
 
 ### Phase 4: Die KI-Spezialisten (Workflows)
-Im Menüpunkt "KI-Workflows" können Sie unserem Team aus digitalen Spezialisten bei der Arbeit zusehen oder ihnen gezielt neue Aufträge geben. Das Team besteht aus folgenden Experten:
+Im Menüpunkt "KI-Workflows" kannst du unserem Team aus digitalen Spezialisten bei der Arbeit zusehen oder ihnen gezielt neue Aufträge geben. Das Team besteht aus folgenden Experten:
 
-* 👨‍💼 **Chef-Planer:** Analysiert Ihre Grundidee auf Machbarkeit, Wetterbedingungen und Logistik.
+* 👨‍💼 **Chef-Planer:** Analysiert deine Grundidee auf Machbarkeit, Wetterbedingungen und Logistik.
 * 🕵️ **Sammler:** Durchkämmt die Region nach den besten Orten.
 * 🔍 **Anreicherer (Fakten-Check):** Nimmt die gefundenen Orte und recherchiert Adressen, GPS, Websites und Öffnungszeiten.
 * 👨‍🍳 **Food-Scout & Enricher:** Der Feinschmecker. Sucht erstklassige Restaurants, Cafés und Bars.
 * 🛣️ **Routen-Architekt:** (Nur bei Rundreisen). Berechnet die beste Reihenfolge der Stopps.
 * 🗺️ **Tour-Guide (Clustering):** Sortiert alle Sehenswürdigkeiten in sinnvolle Tages-Touren.
-* ✍️ **Chefredakteur:** Schreibt inspirierende, detaillierte Texte und Hintergründe für Ihre Highlights.
+* ✍️ **Chefredakteur:** Schreibt inspirierende, detaillierte Texte und Hintergründe für deine Highlights.
 * 📚 **Info-Autor:** Verfasst die Texte für den "Info"-Tab (A-Z Stadtführer).
 * 💡 **Ideen-Scout:** Der Joker. Er liefert kreative Alternativ-Pläne für Regentage.`
   },
