@@ -1,3 +1,4 @@
+// 26.02.2026 17:25 - FIX: Removed unused 'DAY_COLORS' import to resolve TS6133 Vercel build error.
 // 26.02.2026 15:15 - FIX: Removed Live-Jitter. Native tile requests are instant again for smooth panning.
 // 26.02.2026 12:05 - FEAT: Extracted Map SubComponents and updated OfflineTileLayer.
 // src/features/Cockpit/Map/MapSubComponents.tsx
@@ -8,7 +9,7 @@ import L from 'leaflet';
 import { useTripStore } from '../../../store/useTripStore';
 import { MapOfflineService } from '../../../services/MapOfflineService';
 import type { Place } from '../../../core/types/models';
-import { MAP_LAYERS, getCategoryColor, DAY_COLORS } from './MapConstants';
+import { MAP_LAYERS, getCategoryColor } from './MapConstants';
 
 export const MapStyles = () => (
   <style>{`
