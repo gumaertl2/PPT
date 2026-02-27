@@ -1,4 +1,5 @@
 {
+  "lang": "en",
   "app": {
     "title": "Papagtours Trip Planner",
     "version": "V40",
@@ -135,14 +136,14 @@
       "review": "6. Start",
       "routeArchitect": "0b. Route Architect"
     },
-   "merge_modal": {
-   "title": "Trip already active",
-   "description": "A trip is already loaded. Would you like to integrate the places from the new file into your existing plan or end the current session and load the new file?",
-   "btn_merge": "Integrate places (Merge)",
-   "desc_merge": "New places will be added. Your logistics and travel dates will be preserved.",
-   "btn_overwrite": "Load new file",
-   "desc_overwrite": "The current project in memory will be discarded. Unsaved changes will be lost."
-},
+    "merge_modal": {
+      "title": "Trip already active",
+      "description": "A trip is already loaded. Would you like to integrate the places from the new file into your existing plan or end the current session and load the new file?",
+      "btn_merge": "Integrate places (Merge)",
+      "desc_merge": "New places will be added. Your logistics and travel dates will be preserved.",
+      "btn_overwrite": "Load new file",
+      "desc_overwrite": "The current project in memory will be discarded. Unsaved changes will be lost."
+    },
     "toolbar": {
       "plan": "Plan",
       "guide": "Guide",
@@ -402,7 +403,29 @@
     "no_filters_available": "No filters available.",
     "sort_alpha_desc": "Sorts all places alphabetically A-Z.",
     "tour_short": "Tour",
-    "alpha_short": "A-Z"
+    "alpha_short": "A-Z",
+    "live_check_loading": "Live Check...",
+    "live_checked": "Verified",
+    "status_open": "Open",
+    "status_closed": "Closed",
+    "status_closed_short": "Closed",
+    "status_changed": "Changed",
+    "reload": "Reload",
+    "live_check_tooltip": "Fetch real opening hours & status live",
+    "live_check_btn_short": "Live Check",
+    "live_price_tooltip": "Live fetched price",
+    "live_note": "Live Note:",
+    "live_stand": "As of:",
+    "planning_note": "Planning Note:",
+    "walk_route_title": "Walk: {{count}} Stops",
+    "open_gmaps": "Open route in Google Maps",
+    "tip": "Tip:",
+    "strategic_location": "Strategic Location:",
+    "regenerating": "Regenerating...",
+    "regenerate_text": "Update Text",
+    "live_check_progress": "Updating... ({{current}}/{{total}})",
+    "live_check_btn": "Live Update (Selection)",
+    "live_check_up_to_date": "All currently displayed places are already up to date (less than 4 weeks old)."
   },
   "route": {
     "no_results": "No route proposals available.",
@@ -616,13 +639,13 @@
     "error_fetch_rates": "Rates could not be retrieved. Please check your internet connection.",
     "settlement_base_info": "All settlements below are in the main currency:"
   },
-"layer": {
-  "standard": "Standard (Streets)",
-  "topo": "Hiking (Topography)",
-  "cycle": "Bicycle (CyclOSM)",
-  "satellite": "Satellite (Esri)"
-},
   "map": {
+    "layer": {
+      "standard": "Standard (Streets)",
+      "topo": "Hiking (Topography)",
+      "cycle": "Bicycle (CyclOSM)",
+      "satellite": "Satellite (Esri)"
+    },
     "mode_live": "Live",
     "mode_offline": "Offline",
     "switch_to_live": "Switch to Live mode",
@@ -645,7 +668,6 @@
       "saved_title": "Saved Regions",
       "limit_error": "Area too large for this detail level.",
       "success_msg": "Tiles successfully saved.",
-      "area_size": "Area & Budget",
       "frame_hint": "Pan the map to position the blue selection frame exactly over your target area.",
       "zoom_standard": "Standard (Z14)",
       "zoom_high": "Detailed (Z16)",

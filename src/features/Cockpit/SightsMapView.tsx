@@ -1,5 +1,5 @@
-// 26.02.2026 15:15 - FIX: Solved the "Munich Problem" by dynamically calculating defaultCenter based on the first valid place.
-// 26.02.2026 12:55 - FEAT: Applied i18n translation hook to layer switcher menu.
+// 27.02.2026 09:40 - REFACTOR: Removed automatic background Live-Check from MapView to prevent unnecessary API usage.
+// 26.02.2026 15:15 - FIX: Solved the "Munich Problem" by dynamically calculating defaultCenter.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -9,11 +9,10 @@ import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
 import type { Place } from '../../core/types/models';
 import { 
-  ExternalLink, RefreshCw, Zap, Maximize, Minimize, 
+  ExternalLink, RefreshCw, Maximize, Minimize, 
   Navigation, CloudOff, Database, CalendarClock, Clock, Layers
 } from 'lucide-react'; 
 import { GeocodingService } from '../../services/GeocodingService'; 
-import { LiveScout } from '../../services/LiveScout'; 
 import { OfflineMapModal } from './OfflineMapModal';
 
 import { MAP_LAYERS, getCategoryColor, createSmartIcon, DAY_COLORS } from './Map/MapConstants';
@@ -26,8 +25,6 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
 
   const [isUpdatingCoords, setIsUpdatingCoords] = useState(false);
   const [updateProgress, setUpdateProgress] = useState({ current: 0, total: 0 });
-  const [isCheckingLive, setIsCheckingLive] = useState(false);
-  const [liveCheckProgress, setLiveCheckProgress] = useState({ current: 0, total: 0 });
   
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
@@ -35,11 +32,10 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
   
   const [isLayerMenuOpen, setIsLayerMenuOpen] = useState(false);
 
-  // FIX: München-Problem behoben. Wir holen uns vorab die validen Orte, um den Initial-Fokus zu setzen.
   const validPlaces = useMemo(() => places.filter(p => p.location && p.location.lat && p.location.lng), [places]);
   const defaultCenter: [number, number] = validPlaces.length > 0 
     ? [validPlaces[0].location!.lat, validPlaces[0].location!.lng] 
-    : [48.1351, 11.5820]; // München bleibt nur als allerletzter Notfall, falls die DB komplett leer ist.
+    : [48.1351, 11.5820]; 
 
   const allPlacesFromStore = useMemo(() => Object.values(project.data.places), [project.data.places]);
 
@@ -81,6 +77,7 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
   const tripStart = project.userInputs.dates?.start || '';
   const tripEnd = project.userInputs.dates?.end || '';
 
+  // GECODING BLEIBT ERHALTEN
   useEffect(() => {
     const runGeocoding = async () => {
         const needsValidation = allPlacesFromStore.some(p => !p.coordinatesValidated);
@@ -111,27 +108,6 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
     const timer = setTimeout(runGeocoding, 1000);
     return () => clearTimeout(timer);
   }, [allPlacesFromStore.length]);
-
-  useEffect(() => {
-    const runLiveCheck = () => {
-        if (isCheckingLive) return;
-        const uncheckedPlaces = allPlacesFromStore.filter(p => !p.liveStatus && p.category !== 'internal');
-        if (uncheckedPlaces.length > 0) {
-            const candidates = uncheckedPlaces.slice(0, 50).map(p => p.id);
-            if (candidates.length > 0) {
-                setIsCheckingLive(true);
-                setLiveCheckProgress({ current: 0, total: candidates.length });
-                LiveScout.verifyBatch(candidates, (curr, total) => {
-                    setLiveCheckProgress({ current: curr, total });
-                })
-                .catch(e => console.error("LiveCheck error", e))
-                .finally(() => setIsCheckingLive(false));
-            }
-        }
-    };
-    const timer = setTimeout(runLiveCheck, 2000);
-    return () => clearTimeout(timer);
-  }, []); 
 
   useEffect(() => {
     if (uiState.selectedPlaceId && markerRefs.current[uiState.selectedPlaceId]) {
@@ -171,13 +147,6 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
           <div className={`absolute top-4 right-20 z-[1000] bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-md border border-slate-200 flex items-center gap-3 text-xs font-medium text-slate-600 animate-in slide-in-from-top-2`}>
               <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-500" />
               <span className="hidden sm:inline">Optimiere Koordinaten... ({updateProgress.current}/{updateProgress.total})</span>
-          </div>
-      )}
-
-      {isCheckingLive && (
-          <div className={`absolute right-20 z-[1000] bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-md border border-slate-200 flex items-center gap-3 text-xs font-medium text-slate-600 animate-in slide-in-from-top-2 ${isUpdatingCoords ? 'top-16' : 'top-4'}`}>
-              <Zap className="w-3.5 h-3.5 animate-pulse text-amber-500 fill-current" />
-              <span className="hidden sm:inline">Live-Check... ({liveCheckProgress.current}/{liveCheckProgress.total})</span>
           </div>
       )}
 
@@ -332,4 +301,4 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
     </div>
   );
 };
-// --- END OF FILE 232 Zeilen ---
+// --- END OF FILE 208 Zeilen ---

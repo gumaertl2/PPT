@@ -1,5 +1,5 @@
-// 25.02.2026 13:45 - FIX: Corrected Priority grouping logic to map correctly to userPriority values. Sorts naturally.
-// 25.02.2026 13:20 - FEAT: Added grouping and filtering by Priority.
+// 27.02.2026 09:45 - FIX: Corrected i18n interpolation for live check progress.
+// 27.02.2026 09:40 - FEAT: Added 'Live-Update' button with 4-week caching rule for currently visible places.
 // src/features/Cockpit/SightsView.tsx
 
 import React, { useMemo, useEffect, useState } from 'react';
@@ -12,12 +12,15 @@ import { APPENDIX_ONLY_INTERESTS } from '../../data/constants';
 import type { LanguageCode, Place, DetailLevel } from '../../core/types';
 import { SightsMapView } from './SightsMapView';
 import { DayPlannerView } from './DayPlannerView'; 
+import { LiveScout } from '../../services/LiveScout'; 
 
 import { 
   FileText,
   Briefcase, 
   Layout,
-  Navigation
+  Navigation,
+  Zap,
+  RefreshCw
 } from 'lucide-react';
 
 const TRAVEL_PACE_CONFIG: Record<string, { startHour: number; endHour: number; breakMinutes: number; bufferMinutes: number }> = {
@@ -59,6 +62,8 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
   } = useTripStore();
   
   const [isLocating, setIsLocating] = useState(false);
+  const [isLiveChecking, setIsLiveChecking] = useState(false);
+  const [liveCheckProgress, setLiveCheckProgress] = useState({ current: 0, total: 0 });
 
   const { userInputs, data, analysis } = project; 
   const places = Object.values(data.places || {}) as Place[];
@@ -328,6 +333,36 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     return { main: mainList.sort(sortFn), special: specialList.sort(sortFn) };
   }, [places, uiState.searchTerm, uiState.categoryFilter, activeSortMode, uiState.selectedCategory, uiState.isPrintMode, overrideSortMode, userInputs.searchSettings, tourOptions, project.itinerary, t]);
 
+  const handleBatchLiveCheck = async () => {
+      if (isLiveChecking) return;
+      const now = Date.now();
+      const fourWeeksMs = 28 * 24 * 60 * 60 * 1000;
+
+      const candidates = [...filteredLists.main, ...filteredLists.special].filter(p => {
+          if (p.category === 'internal') return false;
+          if (!p.liveStatus) return true;
+          const lastCheckedTime = new Date(p.liveStatus.lastChecked).getTime();
+          return (now - lastCheckedTime) > fourWeeksMs;
+      }).map(p => p.id);
+
+      if (candidates.length === 0) {
+          alert(t('sights.live_check_up_to_date', { defaultValue: 'Alle aktuell angezeigten Orte sind bereits auf dem neuesten Stand (jünger als 4 Wochen).' }));
+          return;
+      }
+
+      setIsLiveChecking(true);
+      setLiveCheckProgress({ current: 0, total: candidates.length });
+      try {
+          await LiveScout.verifyBatch(candidates, (curr, total) => {
+              setLiveCheckProgress({ current: curr, total });
+          });
+      } catch (err) {
+          console.error("Batch Live Check failed", err);
+      } finally {
+          setIsLiveChecking(false);
+      }
+  };
+
   const renderGroupedList = (list: any[], groupByOverride?: 'city') => {
     if (list.length === 0) return null; 
     const sortMode = activeSortMode;
@@ -442,7 +477,11 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
                     {t('sights.candidates', { defaultValue: 'ORTE & KANDIDATEN' })} ({filteredLists.main.length})
                 </div>
                 {!overrideSortMode && (
-                    <div className="flex justify-end mb-4 print:hidden pt-2">
+                    <div className="flex justify-end mb-4 print:hidden pt-2 gap-2 flex-wrap">
+                        <button onClick={handleBatchLiveCheck} disabled={isLiveChecking} className={`flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm border ${isLiveChecking ? 'bg-amber-50 text-amber-500 border-amber-100 cursor-not-allowed' : 'bg-white hover:bg-amber-50 text-amber-600 border-amber-200 hover:border-amber-300 hover:shadow-md'}`}>
+                            {isLiveChecking ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4 text-amber-500 fill-current" />}
+                            {isLiveChecking ? t('sights.live_check_progress', { current: liveCheckProgress.current, total: liveCheckProgress.total, defaultValue: `Update läuft... (${liveCheckProgress.current}/${liveCheckProgress.total})` }) : t('sights.live_check_btn', { defaultValue: 'Live-Update (Auswahl)' })}
+                        </button>
                         <button onClick={handleLocateNearestSight} disabled={isLocating} className={`flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm border ${isLocating ? 'bg-indigo-50 text-indigo-400 border-indigo-100 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white border-transparent hover:shadow-md'}`}>
                             <Navigation className={`w-4 h-4 ${isLocating ? 'animate-pulse' : ''}`} />
                             {isLocating ? t('sights.radar_locating', { defaultValue: 'Ortung läuft...' }) : t('sights.radar_button', { defaultValue: 'Radar: Was ist in meiner Nähe?' })}
@@ -478,4 +517,4 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     </div>
   );
 };
-// --- END OF FILE 485 Zeilen ---
+// --- END OF FILE 528 Zeilen ---

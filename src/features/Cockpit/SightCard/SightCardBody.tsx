@@ -1,6 +1,5 @@
-// 26.02.2026 10:10 - UX: Moved valuable Live-Check Note and Timestamp out of hidden tooltip into visible mobile-friendly UI.
-// 21.02.2026 00:45 - FIX: TypeScript Error TS2322. Removed 'title' prop from Lucide Icon.
-// 21.02.2026 00:10 - UX: Unified Live-Check UI.
+// 27.02.2026 09:45 - FEAT: Added full i18n support for all Live-Check and UI strings.
+// 27.02.2026 09:40 - UX: Changed Live-Status timestamp format from time to date.
 // src/features/Cockpit/SightCard/SightCardBody.tsx
 
 import React, { useState } from 'react';
@@ -68,45 +67,44 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
           <div className={`flex items-center gap-1.5 px-2 py-1 rounded border font-medium text-xs shadow-sm transition-all ${isLive ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-white text-slate-600 border-slate-200'}`}>
               <Banknote className={`w-3.5 h-3.5 ${isLive ? 'text-emerald-600' : 'text-slate-400'}`} />
               <span>{highlightText(String(finalPrice))}</span>
-              {isLive && <span title="Live abgerufener Preis" className="flex items-center"><Zap className="w-2.5 h-2.5 text-emerald-500 fill-current ml-0.5" /></span>}
+              {isLive && <span title={t('sights.live_price_tooltip', { defaultValue: 'Live abgerufener Preis' })} className="flex items-center"><Zap className="w-2.5 h-2.5 text-emerald-500 fill-current ml-0.5" /></span>}
           </div>
       );
   };
 
   const renderOpeningHours = () => {
       if (isChecking) {
-          return <div className="flex items-center gap-1.5 text-blue-500 text-xs font-medium bg-blue-50 px-2 py-1 rounded border border-blue-100"><Loader2 className="w-3 h-3 animate-spin" /> Live-Check...</div>;
+          return <div className="flex items-center gap-1.5 text-blue-500 text-xs font-medium bg-blue-50 px-2 py-1 rounded border border-blue-100"><Loader2 className="w-3 h-3 animate-spin" /> {t('sights.live_check_loading', { defaultValue: 'Live-Check...' })}</div>;
       }
 
       if (data.liveStatus) {
           const ls = data.liveStatus;
           let colorClass = 'text-slate-700';
           let bgClass = 'bg-white border-slate-200';
-          let label = ls.openingHoursToday || 'Geprüft';
+          let label = ls.openingHoursToday || t('sights.live_checked', { defaultValue: 'Geprüft' });
           let statusBadge = null;
 
           if (ls.status === 'open') {
               colorClass = 'text-emerald-800';
               bgClass = 'bg-emerald-50 border-emerald-200';
-              statusBadge = <span className="bg-emerald-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ml-1 shadow-sm">Offen</span>;
+              statusBadge = <span className="bg-emerald-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ml-1 shadow-sm">{t('sights.status_open', { defaultValue: 'Offen' })}</span>;
           } else if (ls.status === 'closed' || ls.status === 'permanently_closed') {
               colorClass = 'text-red-800';
               bgClass = 'bg-red-50 border-red-200';
-              label = ls.openingHoursToday || 'Geschlossen';
-              statusBadge = <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ml-1 shadow-sm">Zu</span>;
+              label = ls.openingHoursToday || t('sights.status_closed', { defaultValue: 'Geschlossen' });
+              statusBadge = <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ml-1 shadow-sm">{t('sights.status_closed_short', { defaultValue: 'Zu' })}</span>;
           } else if (ls.status === 'corrected') {
               colorClass = 'text-amber-800';
               bgClass = 'bg-amber-50 border-amber-200';
-              statusBadge = <span className="bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ml-1 shadow-sm">Geändert</span>;
+              statusBadge = <span className="bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ml-1 shadow-sm">{t('sights.status_changed', { defaultValue: 'Geändert' })}</span>;
           }
 
-          // FIX: Tooltip entfernt, Info wandert in die visuelle Anzeige unten
           return (
               <div className={`flex items-center gap-1 px-2 py-1 rounded border shadow-sm ${bgClass} ${colorClass} text-xs transition-all`}>
                   <Zap className="w-3 h-3 fill-current opacity-70" />
                   <span className="font-bold">{label}</span>
                   {statusBadge}
-                  <button onClick={handleLiveCheck} className="ml-1 opacity-40 hover:opacity-100 transition-opacity" title="Neu laden"><RefreshCw className="w-3 h-3" /></button>
+                  <button onClick={handleLiveCheck} className="ml-1 opacity-40 hover:opacity-100 transition-opacity" title={t('sights.reload', { defaultValue: 'Neu laden' })}><RefreshCw className="w-3 h-3" /></button>
               </div>
           );
       }
@@ -123,9 +121,9 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
               <button 
                   onClick={handleLiveCheck} 
                   className="flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 border border-blue-200 rounded text-[10px] font-bold transition-colors shadow-sm"
-                  title="Echte Öffnungszeiten & Status live abrufen"
+                  title={t('sights.live_check_tooltip', { defaultValue: 'Echte Öffnungszeiten & Status live abrufen' })}
               >
-                  <Zap className="w-3 h-3" /> Live-Check
+                  <Zap className="w-3 h-3" /> {t('sights.live_check_btn_short', { defaultValue: 'Live-Check' })}
               </button>
           </div>
       );
@@ -150,13 +148,13 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
       <div className="mt-1 mb-1 p-2 bg-slate-50/50 rounded border border-slate-100 flex items-start gap-2">
          <Footprints className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
          <div className="flex-1">
-             <div className="text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-tight">Spaziergang: {data.waypoints.length} Stationen</div>
+             <div className="text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-tight">{t('sights.walk_route_title', { count: data.waypoints.length, defaultValue: `Spaziergang: ${data.waypoints.length} Stationen` })}</div>
              <div className="text-[10px] text-slate-600 leading-tight mb-2 flex flex-wrap gap-x-1.5 gap-y-0.5">
                  {data.waypoints.map((wp: any, i: number) => (
                      <span key={i} className="flex items-center whitespace-nowrap"><span className="opacity-50 mr-0.5">{i + 1}.</span>{wp.name}{i < data.waypoints.length - 1 && <span className="ml-1.5 text-slate-300">|</span>}</span>
                  ))}
              </div>
-             <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"><MapIcon className="w-3 h-3" /><span className="underline decoration-indigo-200 underline-offset-2">Route auf Google Maps öffnen</span></a>
+             <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"><MapIcon className="w-3 h-3" /><span className="underline decoration-indigo-200 underline-offset-2">{t('sights.open_gmaps', { defaultValue: 'Route auf Google Maps öffnen' })}</span></a>
          </div>
       </div>
     );
@@ -169,7 +167,7 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
             <div className="flex items-start gap-2 mb-2 text-[11px] text-emerald-800 bg-emerald-50/50 p-2 rounded border border-emerald-100">
               <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
               <div className="leading-snug">
-                  <span className="font-bold block text-emerald-700 text-[10px] uppercase">Strategische Lage:</span>
+                  <span className="font-bold block text-emerald-700 text-[10px] uppercase">{t('sights.strategic_location', { defaultValue: 'Strategische Lage:' })}</span>
                   <span className="italic">"{highlightText(data.location_match)}"</span>
               </div>
           </div>
@@ -205,7 +203,7 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
       
       {data.category === 'special' && data.details?.note && (
         <p className="text-[10px] text-amber-700 italic mb-2 border-l-2 border-amber-300 pl-2 leading-tight bg-amber-50 p-1 rounded-r">
-          <span className="font-bold not-italic">Tipp: </span>"{highlightText(data.details.note)}"
+          <span className="font-bold not-italic">{t('sights.tip', { defaultValue: 'Tipp:' })} </span>"{highlightText(data.details.note)}"
         </p>
       )}
 
@@ -215,7 +213,6 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
         </div>
       )}
 
-      {/* --- UNIFIED CONTACT & LIVE INFO BOX --- */}
       <div className="mt-3 bg-slate-50/80 rounded-xl p-3 border border-slate-200 shadow-sm space-y-2.5">
           <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-slate-600">
               {data.address && (<span className="flex items-start gap-1.5"><MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" /> <span className="leading-snug">{highlightText(data.address)}</span></span>)}
@@ -227,14 +224,13 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
               {renderPrice()}
           </div>
           
-          {/* FIX: Live-Status Hinweis und Timestamp jetzt nativ sichtbar integriert */}
           {data.liveStatus && (
               <div className="flex items-start gap-1.5 pt-1 text-[10px] text-slate-500">
                   <Info className="w-3 h-3 text-slate-400 shrink-0 mt-0.5" />
                   <span className="leading-snug">
-                      {data.liveStatus.note && <><strong className="text-slate-600">Live-Hinweis:</strong> {highlightText(data.liveStatus.note)} </>}
+                      {data.liveStatus.note && <><strong className="text-slate-600">{t('sights.live_note', { defaultValue: 'Live-Hinweis:' })}</strong> {highlightText(data.liveStatus.note)} </>}
                       <span className="opacity-70">
-                          {data.liveStatus.note ? '(' : ''}Stand: {new Date(data.liveStatus.lastChecked).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} Uhr{data.liveStatus.note ? ')' : ''}
+                          {data.liveStatus.note ? '(' : ''}{t('sights.live_stand', { defaultValue: 'Stand:' })} {new Date(data.liveStatus.lastChecked).toLocaleDateString(t('lang', { defaultValue: 'de-DE' }), { day: '2-digit', month: '2-digit', year: 'numeric' })}{data.liveStatus.note ? ')' : ''}
                       </span>
                   </span>
               </div>
@@ -243,7 +239,7 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
           {data.logistics && (
               <div className="flex items-start gap-1.5 pt-2 border-t border-slate-200/60 text-[11px] text-slate-600">
                   <Info className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
-                  <span className="leading-snug"><strong className="text-slate-800">Planungs-Hinweis: </strong>{highlightText(data.logistics)}</span>
+                  <span className="leading-snug"><strong className="text-slate-800">{t('sights.planning_note', { defaultValue: 'Planungs-Hinweis:' })} </strong>{highlightText(data.logistics)}</span>
               </div>
           )}
       </div>
@@ -261,7 +257,7 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
           {onRegenerate && hasCategoryChanged && (
             <div className="flex justify-end no-print -mt-1 mb-2">
                 <button onClick={onRegenerate} disabled={isRegenerating} className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-[10px] font-bold border transition-all ${isRegenerating ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-100 hover:border-indigo-200'}`}>
-                    <RefreshCw className={`w-3 h-3 ${isRegenerating ? 'animate-spin' : ''}`} />{isRegenerating ? 'Schreibe neu...' : 'Text aktualisieren'}
+                    <RefreshCw className={`w-3 h-3 ${isRegenerating ? 'animate-spin' : ''}`} />{isRegenerating ? t('sights.regenerating', { defaultValue: 'Schreibe neu...' }) : t('sights.regenerate_text', { defaultValue: 'Text aktualisieren' })}
                 </button>
             </div>
           )}

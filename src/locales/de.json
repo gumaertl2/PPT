@@ -135,14 +135,14 @@
       "review": "6. Start",
       "routeArchitect": "0b. Routen-Architekt"
     },
-   "merge_modal": {
-   "title": "Planung bereits aktiv",
-  "description": "Es ist bereits eine Reise geladen. Möchten Sie die Orte der neuen Datei in Ihre bestehende Planung integrieren (Merge) oder die aktuelle Sitzung beenden und die neue Datei laden?",
-  "btn_merge": "Orte integrieren (Merge)",
-  "desc_merge": "Die neuen Orte werden hinzugefügt. Ihre Logistik- und Reisedaten bleiben erhalten.",
-  "btn_overwrite": "Neue Datei laden",
-  "desc_overwrite": "Das aktuelle Projekt im Speicher wird verworfen. Nicht gespeicherte Änderungen gehen verloren."
-},
+    "merge_modal": {
+      "title": "Planung bereits aktiv",
+      "description": "Es ist bereits eine Reise geladen. Möchten Sie die Orte der neuen Datei in Ihre bestehende Planung integrieren (Merge) oder die aktuelle Sitzung beenden und die neue Datei laden?",
+      "btn_merge": "Orte integrieren (Merge)",
+      "desc_merge": "Die neuen Orte werden hinzugefügt. Ihre Logistik- und Reisedaten bleiben erhalten.",
+      "btn_overwrite": "Neue Datei laden",
+      "desc_overwrite": "Das aktuelle Projekt im Speicher wird verworfen. Nicht gespeicherte Änderungen gehen verloren."
+    },
     "toolbar": {
       "plan": "Plan",
       "guide": "Guide",
@@ -402,7 +402,29 @@
     "no_filters_available": "Keine Filter verfügbar.",
     "sort_alpha_desc": "Sortiert alle Orte alphabetisch von A bis Z.",
     "tour_short": "Tour",
-    "alpha_short": "A-Z"
+    "alpha_short": "A-Z",
+    "live_check_loading": "Live-Check...",
+    "live_checked": "Geprüft",
+    "status_open": "Offen",
+    "status_closed": "Geschlossen",
+    "status_closed_short": "Zu",
+    "status_changed": "Geändert",
+    "reload": "Neu laden",
+    "live_check_tooltip": "Echte Öffnungszeiten & Status live abrufen",
+    "live_check_btn_short": "Live-Check",
+    "live_price_tooltip": "Live abgerufener Preis",
+    "live_note": "Live-Hinweis:",
+    "live_stand": "Stand:",
+    "planning_note": "Planungs-Hinweis:",
+    "walk_route_title": "Spaziergang: {{count}} Stationen",
+    "open_gmaps": "Route auf Google Maps öffnen",
+    "tip": "Tipp:",
+    "strategic_location": "Strategische Lage:",
+    "regenerating": "Schreibe neu...",
+    "regenerate_text": "Text aktualisieren",
+    "live_check_progress": "Update läuft... ({{current}}/{{total}})",
+    "live_check_btn": "Live-Update (Auswahl)",
+    "live_check_up_to_date": "Alle aktuell angezeigten Orte sind bereits auf dem neuesten Stand (jünger als 4 Wochen)."
   },
   "route": {
     "no_results": "Keine Routenvorschläge verfügbar.",
@@ -616,13 +638,13 @@
     "error_fetch_rates": "Die Kurse konnten nicht abgerufen werden. Bitte prüfen Sie Ihre Internetverbindung.",
     "settlement_base_info": "Alle Abrechnungen unten erfolgen in der Hauptwährung:"
   },
-"layer": {
-  "standard": "Standard (Straße)",
-  "topo": "Wandern (Topografie)",
-  "cycle": "Fahrradwege (CyclOSM)",
-  "satellite": "Satellit (Esri)"
-},
   "map": {
+    "layer": {
+      "standard": "Standard (Straße)",
+      "topo": "Wandern (Topografie)",
+      "cycle": "Fahrradwege (CyclOSM)",
+      "satellite": "Satellit (Esri)"
+    },
     "mode_live": "Live",
     "mode_offline": "Offline",
     "switch_to_live": "Zum Live-Modus wechseln",
@@ -645,13 +667,12 @@
       "saved_title": "Gespeicherte Gebiete",
       "limit_error": "Bereich zu groß für diese Detailstufe.",
       "success_msg": "Kacheln erfolgreich gespeichert.",
-      "area_size": "Bereich & Budget",
+      "area_size": "Budget & Rahmen",
       "frame_hint": "Verschiebe die Karte, um den blauen Auswahlrahmen exakt über dein Zielgebiet zu legen.",
       "zoom_standard": "Standard (Z14)",
       "zoom_high": "Detail (Z16)",
       "btn_minimize": "Karte ausrichten",
       "btn_restore": "Ausschnitt wählen & Fortfahren",
-      "area_size": "Budget & Rahmen",
       "offline_hint": "Stoppt den Live-Datenverbrauch."
     }
   }
