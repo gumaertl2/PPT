@@ -1,3 +1,4 @@
+// 27.02.2026 19:35 - LOGIC: Fixed budget calculation to use net days (-2), subtract breaks, and add 30min logistics overhead per sight.
 // 27.02.2026 19:25 - UX: Implemented true "Freeze Mode" via useRef to prevent cards from jumping or disappearing during Planning Mode.
 // 27.02.2026 14:45 - UX: Froze priority and reserve sorting.
 // src/features/Cockpit/SightsView.tsx
@@ -160,16 +161,24 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     const end = new Date(`2000-01-01T${userInputs.dates?.dailyEndTime || '18:00'}`);
     let dailyMinutes = (end.getTime() - start.getTime()) / 60000;
     
-    if (isNaN(dailyMinutes) || dailyMinutes <= 0) dailyMinutes = (config.endHour - config.startHour) * 60 - config.breakMinutes;
+    if (isNaN(dailyMinutes) || dailyMinutes <= 0) {
+        dailyMinutes = (config.endHour - config.startHour) * 60;
+    }
+    // NEU: Ziehe immer die Mittagspause/Breaks vom Netto-Tagesbudget ab
+    dailyMinutes = Math.max(0, dailyMinutes - config.breakMinutes);
 
-    const daysCount = (new Date(userInputs.dates.end).getTime() - new Date(userInputs.dates.start).getTime()) / (1000 * 3600 * 24) + 1;
+    const daysCountRaw = (new Date(userInputs.dates.end).getTime() - new Date(userInputs.dates.start).getTime()) / (1000 * 3600 * 24) + 1;
+    // NEU: Ziehe 2 Tage für An- und Abreise ab (Minimum 1 Tag)
+    const daysCount = Math.max(1, daysCountRaw - 2);
+    
     const totalBudget = Math.floor(dailyMinutes * daysCount);
 
     places.forEach((p: any) => {
       const prio = p.userPriority || 0;
       if (prio > 0 || p.isFixed) {
          const dur = p.duration || p.min_duration_minutes || 60;
-         totalMinutes += dur;
+         // NEU: Pauschal 30 Minuten Logistik-/Fahrtzeit pro Ort aufschlagen
+         totalMinutes += (dur + 30);
       }
     });
 
@@ -560,4 +569,4 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     </div>
   );
 };
-// --- END OF FILE 580 Zeilen ---
+// Zeilenanzahl: 588

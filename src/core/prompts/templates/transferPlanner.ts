@@ -1,3 +1,4 @@
+// 27.02.2026 19:20 - LOGIC: Upgraded 'localMobility' reality check to demand concrete, actionable solutions for one-way hikes (park traps) instead of just warnings.
 // 27.02.2026 14:15 - REFACTOR: Adapted signature to accept V40 Payload strictly separating data prep from logic.
 // 27.02.2026 13:45 - FEAT: Integrated 'localMobility' reality check (ÖPNV/Mietwagen constraints).
 // src/core/prompts/templates/transferPlanner.ts
@@ -29,7 +30,7 @@ ${modeInstruction}
 The user has specified their local mobility as: "${context.local_mobility || 'car'}".
 You MUST verify if the planned transfers are realistic with this mode of transport.
 - If "public_transport" or "bicycle" is selected but a location is unreachable (e.g. remote beach, mountain trail), YOU MUST FLAG THIS! Suggest alternatives (like taking a Taxi, Uber, or renting a car for a day) and estimate the costs (e.g., "Taxi approx. 30 €").
-- If "car" or "camper" is selected and the activity is a one-way hike (Streckenwanderung), point out the "parking trap" (how to get back to the vehicle).
+- If "car" or "camper" is selected and the activity is a one-way hike (Streckenwanderung), point out the "parking trap" (how to get back to the vehicle). DO NOT JUST WARN. You MUST provide concrete, actionable solutions (e.g., "Take local bus line X back to start", "Pre-book a local 4x4 taxi for approx. Y Euro", "Use the Colectivo-Shuttle").
 
 # CALCULATION RULES
 1.  **Realism:** Use realistic average speeds (City 30km/h, Rural 70km/h, Highway 110km/h).
@@ -51,7 +52,7 @@ Create a list of transfer connections. If a connection is problematic based on t
         "distance_km": "Number",
         "transport_mode": "String (car, public, walk, taxi, etc.)",
         "notes": "String (e.g. 'Toll road' or 'Scenic route')",
-        "reality_check_warning": "String or null (If unreachable with chosen mobility, explain why, suggest alternative like Taxi/Rental Car, and estimate costs. If car/camper: warn about parking traps for one-way hikes.)"
+        "reality_check_warning": "String or null (If unreachable with chosen mobility, explain why, suggest alternative like Taxi/Rental Car, and estimate costs. If car/camper and one-way hike: warn about parking traps AND provide concrete return transport solutions like bus lines, taxi pre-booking, or shuttles.)"
       }
     ]
   };
@@ -65,4 +66,4 @@ Create a list of transfer connections. If a connection is problematic based on t
     .withSelfCheck(['planning']) 
     .build();
 };
-// --- END OF FILE 62 Zeilen ---
+// Zeilenanzahl: 63
