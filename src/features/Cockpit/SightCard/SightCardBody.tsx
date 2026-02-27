@@ -1,10 +1,10 @@
-// 27.02.2026 17:40 - FEAT: Added KI-Planungs-Konflikt warning for unassigned places from Tagesplaner.
-// 27.02.2026 09:45 - FEAT: Added full i18n support for all Live-Check and UI strings.
-// 27.02.2026 09:40 - UX: Changed Live-Status timestamp format from time to date.
+// 27.02.2026 19:15 - UX: Made Flex Day exception toggleable (can be removed) and fully mobile-friendly.
+// 27.02.2026 18:15 - FEAT: Added "Flex Day" Button to UI for overriding strict planner rules.
+// 27.02.2026 17:40 - FEAT: Added KI-Planungs-Konflikt warning for unassigned places.
 // src/features/Cockpit/SightCard/SightCardBody.tsx
 
 import React, { useState } from 'react';
-import { CheckCircle2, ChefHat, Utensils, Sparkles, Trophy, Phone, Footprints, Map as MapIcon, ChevronUp, RefreshCw, MapPin, Clock, Info, Banknote, Star, Zap, Loader2, AlertCircle } from 'lucide-react';
+import { CheckCircle2, ChefHat, Utensils, Sparkles, Trophy, Phone, Footprints, Map as MapIcon, ChevronUp, RefreshCw, MapPin, Clock, Info, Banknote, Star, Zap, Loader2, AlertCircle, Unlock, X } from 'lucide-react';
 import { LiveScout } from '../../../services/LiveScout'; 
 import { useTripStore } from '../../../store/useTripStore';
 
@@ -34,7 +34,7 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
   hasCategoryChanged = false 
 }) => {
   const [isChecking, setIsChecking] = useState(false);
-  const { project } = useTripStore();
+  const { project, updatePlace } = useTripStore();
 
   if (!isStandardOrHigher) return null;
 
@@ -57,9 +57,17 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
   
   const descriptionText = resolveDescription();
 
-  // FEAT: Prüfe, ob dieser Ort vom Tagesplaner aussortiert wurde
   const unassignedList = (project.analysis as any)?.initialTagesplaner?.unassigned || [];
   const unassignedInfo = unassignedList.find((u: any) => u.id === data.id);
+  const isFlexDayAllowed = data.userSelection?.allowFlexibleDay === true;
+
+  // UX-FIX: Toggle function instead of just setting to true
+  const handleToggleFlexDay = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      updatePlace(data.id, { 
+          userSelection: { ...data.userSelection, allowFlexibleDay: !isFlexDayAllowed } 
+      });
+  };
 
   // --- UNIFIED RENDERERS FOR LIVE DATA ---
   
@@ -170,14 +178,40 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
   return (
     <div className="text-sm text-gray-600 mt-2 pt-2 border-t border-gray-100 animate-in fade-in duration-200">
       
-      {/* KI-Planungs-Konflikt Warnung */}
+      {/* KI-Planungs-Konflikt Warnung & Flex-Button Toggle */}
       {unassignedInfo && (
-          <div className="flex items-start gap-2 mb-3 p-2.5 bg-orange-50 border border-orange-200 rounded-lg text-xs text-orange-800 shadow-sm animate-in fade-in slide-in-from-top-2">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-orange-600" />
-              <div>
-                  <strong className="block font-bold mb-0.5 uppercase tracking-wide text-[10px] text-orange-700">{t('sights.planning_conflict', { defaultValue: 'KI-Planungs-Konflikt (Nicht im Tagesplan)' })}</strong>
-                  <span className="leading-snug">{unassignedInfo.reason}</span>
+          <div className="flex flex-col gap-2 mb-3 p-2.5 bg-orange-50 border border-orange-200 rounded-lg shadow-sm animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-start gap-2 text-xs text-orange-800">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-orange-600" />
+                  <div>
+                      <strong className="block font-bold mb-0.5 uppercase tracking-wide text-[10px] text-orange-700">{t('sights.planning_conflict', { defaultValue: 'KI-Planungs-Konflikt (Nicht im Tagesplan)' })}</strong>
+                      <span className="leading-snug">{unassignedInfo.reason}</span>
+                  </div>
               </div>
+              
+              {!isFlexDayAllowed ? (
+                  <button 
+                      onClick={handleToggleFlexDay}
+                      className="mt-1 flex items-center justify-center gap-1.5 w-full py-1.5 bg-white border border-orange-300 text-orange-700 rounded-md text-[10px] font-bold hover:bg-orange-100 transition-colors shadow-sm"
+                  >
+                      <Unlock className="w-3 h-3" />
+                      {t('sights.allow_flex_day', { defaultValue: 'Ausnahmeregel: Zeitgrenzen für diesen Ort ignorieren' })}
+                  </button>
+              ) : (
+                  <div className="mt-1 flex items-center justify-between w-full py-1 pl-2 pr-1 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-md text-[10px] font-bold">
+                      <div className="flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3 h-3" />
+                          {t('sights.flex_day_active', { defaultValue: 'Ausnahmeregel aktiv! (Für Neuplanung)' })}
+                      </div>
+                      <button 
+                          onClick={handleToggleFlexDay}
+                          className="p-1 hover:bg-red-100 hover:text-red-700 text-emerald-600 rounded transition-colors"
+                          title={t('sights.remove_flex_day', { defaultValue: 'Ausnahmeregel entfernen' })}
+                      >
+                          <X className="w-3.5 h-3.5" />
+                      </button>
+                  </div>
+              )}
           </div>
       )}
 
@@ -306,4 +340,4 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
     </div>
   );
 };
-// --- END OF FILE 285 Zeilen ---
+// --- END OF FILE 319 Zeilen ---

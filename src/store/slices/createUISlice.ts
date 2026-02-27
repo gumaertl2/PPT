@@ -1,5 +1,5 @@
-// 26.02.2026 12:05 - FEAT: Added 'mapLayer' to support different map styles (Standard, Topo, Cycle, Satellite).
-// 25.02.2026 13:10 - FEAT: Added 'priority' to sortMode for Sight filtering.
+// 27.02.2026 19:00 - FEAT: Added Intercept States (pendingDayPlan, plannerConflicts) for Human-in-the-Loop DayPlanner.
+// 26.02.2026 12:05 - FEAT: Added 'mapLayer' to support different map styles.
 // src/store/slices/createUISlice.ts
 
 import type { StateCreator } from 'zustand';
@@ -29,7 +29,7 @@ export interface UIState {
   selectedPrio: number | null;
   detailLevel: 'kompakt' | 'standard' | 'details';
   viewMode: 'list' | 'map';
-  sortMode: 'category' | 'tour' | 'alphabetical' | 'priority';
+  sortMode: 'category' | 'tour' | 'alphabetical' | 'priority' | 'day'; 
   selectedPlaceId: string | null;
   isPrintMode: boolean;
   printConfig: PrintConfig | null;
@@ -37,7 +37,7 @@ export interface UIState {
   showPlanningMode: boolean;
   mapMode: 'live' | 'offline'; 
   isMapManagerOpen: boolean; 
-  mapLayer: 'standard' | 'topo' | 'cycle' | 'satellite'; // NEU
+  mapLayer: 'standard' | 'topo' | 'cycle' | 'satellite';
 }
 
 export type AppView = 'welcome' | 'wizard' | 'results' | 'analysis_review';
@@ -75,6 +75,13 @@ export interface UISlice {
   dismissNotification: (id: string) => void;
   removeNotification: (id: string) => void; 
   updateNotification: (id: string, updates: Partial<AppNotification>) => void;
+
+  // NEW: Planner Intercept States
+  showConflictModal: boolean;
+  plannerConflicts: any[];
+  pendingDayPlan: any | null;
+  setPlannerConflictData: (conflicts: any[], pendingPlan: any) => void;
+  resolvePlannerConflict: (accept: boolean) => void;
 }
 
 const initialUIState: UIState = {
@@ -192,6 +199,42 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
 
   updateNotification: (id, updates) => set((state: any) => ({
     notifications: state.notifications.map((n: AppNotification) => n.id === id ? { ...n, ...updates } : n)
-  }))
+  })),
+
+  // NEW: Planner Intercept Logic
+  showConflictModal: false,
+  plannerConflicts: [],
+  pendingDayPlan: null,
+
+  setPlannerConflictData: (conflicts, pendingPlan) => set({
+      showConflictModal: true,
+      plannerConflicts: conflicts,
+      pendingDayPlan: pendingPlan
+  }),
+
+  resolvePlannerConflict: (accept) => set((state: any) => {
+      if (accept && state.pendingDayPlan) {
+          // Push draft to SSOT
+          return {
+              showConflictModal: false,
+              plannerConflicts: [],
+              project: {
+                  ...state.project,
+                  itinerary: {
+                      ...state.project.itinerary,
+                      days: state.pendingDayPlan.itinerary
+                  }
+              },
+              pendingDayPlan: null
+          };
+      } else {
+          // Reject draft
+          return {
+              showConflictModal: false,
+              plannerConflicts: [],
+              pendingDayPlan: null
+          };
+      }
+  })
 });
-// --- END OF FILE 212 Zeilen ---
+// --- END OF FILE 259 Zeilen ---

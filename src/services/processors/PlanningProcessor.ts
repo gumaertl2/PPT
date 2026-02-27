@@ -1,11 +1,5 @@
-// 23.02.2026 20:15 - FIX: Separated Logistics and Places state updates in chefPlaner to prevent Zustand collision (which caused empty Cockpit hotel fields).
-// 23.02.2026 19:40 - FIX: Optimized Hotel-POV logic. Now uses resolvePlaceId to update existing entries instead of creating duplicates.
-// 23.02.2026 19:15 - FEAT: Hotels are now automatically added to 'data.places' with category 'hotel' to show their descriptions in UI.
-// 23.02.2026 18:55 - FIX: Resolved mode mismatch ('mobil' vs 'roundtrip') to restore Hotel write-back to Cockpit.
-// 23.02.2026 18:45 - FIX: Implemented intermediate cache sync in processIdeenScout to prevent duplicate creation.
-// 23.02.2026 18:00 - FEAT: Added Write-Back logic for ChefPlaner Typo-Corrections & Hotel-Validation to userInputs.
-// 19.02.2026 15:10 - FIX: Mapped initialTagesplaner data to SSOT (project.itinerary.days).
-// 05.02.2026 16:30 - REFACTOR: PLANNING PROCESSOR.
+// 27.02.2026 19:00 - FEAT: Added intelligent Intercept Switch. Prevents blind save if Prio 1/2 places are unassigned.
+// 23.02.2026 20:15 - FIX: Separated Logistics and Places state updates in chefPlaner.
 // src/services/processors/PlanningProcessor.ts
 
 import { v4 as uuidv4 } from 'uuid';
@@ -24,18 +18,42 @@ export const PlanningProcessor = {
             setAnalysisResult(step as any, data);
             console.log(`[${step}] Analysis result persisted.`);
 
-            // FIX: Map initialTagesplaner to SSOT (project.itinerary.days)
+            // FEAT: Intelligent Intercept for Tagesplaner
             if (step === 'initialTagesplaner' && data.itinerary) {
-                useTripStore.setState((state) => ({
-                    project: {
-                        ...state.project,
-                        itinerary: {
-                            ...state.project.itinerary,
-                            days: data.itinerary
-                        }
-                    }
+                const currentState = useTripStore.getState();
+                const places = currentState.project.data.places || {};
+                const unassigned = data.unassigned || [];
+                
+                // Identify high-priority dropouts
+                const conflicts = unassigned.filter((u: any) => {
+                    const place = places[u.id];
+                    if (!place) return false;
+                    const prio = place.userPriority ?? (place.userSelection?.priority || 0);
+                    return prio >= 1 || place.isFixed;
+                }).map((u: any) => ({
+                    id: u.id,
+                    name: places[u.id]?.name || u.name,
+                    reason: u.reason,
+                    prio: places[u.id]?.userPriority ?? (places[u.id]?.userSelection?.priority || 0)
                 }));
-                console.log(`[PlanningProcessor] Mapped itinerary to project.itinerary SSOT.`);
+
+                if (conflicts.length > 0) {
+                    console.log(`[PlanningProcessor] Intercepted ${conflicts.length} high-priority conflicts! Triggering UI Modal.`);
+                    // Send to waiting room, do NOT save yet.
+                    currentState.setPlannerConflictData(conflicts, data);
+                } else {
+                    console.log(`[PlanningProcessor] Mapped itinerary directly to SSOT (No conflicts).`);
+                    // Happy Path: Save directly
+                    useTripStore.setState((state) => ({
+                        project: {
+                            ...state.project,
+                            itinerary: {
+                                ...state.project.itinerary,
+                                days: data.itinerary
+                            }
+                        }
+                    }));
+                }
             }
 
             // FIX: Apply Geography Correction & Typo Fixes from ChefPlaner to Store
@@ -76,39 +94,32 @@ export const PlanningProcessor = {
                     const logistics = JSON.parse(JSON.stringify(state.project.userInputs.logistics)); 
                     let stateChanged = false;
 
-                    // 1. Inferred Country
                     if (corrections.inferred_country) {
                         const currentCountries = logistics.target_countries || [];
                         if (currentCountries.length === 0 || (currentCountries.length === 1 && !currentCountries[0])) {
-                            console.log(`[PlanningProcessor] Applying inferred country: ${corrections.inferred_country}`);
                             logistics.target_countries = [corrections.inferred_country];
                             stateChanged = true;
                         }
                     }
 
-                    // 2. Destination Typos
                     if (corrections.destination_typo_found && corrections.corrected_destination) {
                         const correctDest = corrections.corrected_destination;
                         
                         if (logistics.mode === 'stationaer' && isTypo(logistics.stationary.destination, correctDest)) {
-                            console.log(`[PlanningProcessor] Typo Fix (Stationary): ${logistics.stationary.destination} -> ${correctDest}`);
                             logistics.stationary.destination = correctDest;
                             stateChanged = true;
                         } else if (logistics.mode === 'mobil' || logistics.mode === 'roundtrip') {
                             if (isTypo(logistics.roundtrip.startLocation, correctDest)) {
-                                console.log(`[PlanningProcessor] Typo Fix (Start): ${logistics.roundtrip.startLocation} -> ${correctDest}`);
                                 logistics.roundtrip.startLocation = correctDest;
                                 stateChanged = true;
                             }
                             if (isTypo(logistics.roundtrip.endLocation, correctDest)) {
-                                console.log(`[PlanningProcessor] Typo Fix (End): ${logistics.roundtrip.endLocation} -> ${correctDest}`);
                                 logistics.roundtrip.endLocation = correctDest;
                                 stateChanged = true;
                             }
                             if (logistics.roundtrip.stops) {
                                 logistics.roundtrip.stops.forEach((stop: any) => {
                                     if (isTypo(stop.location, correctDest)) {
-                                        console.log(`[PlanningProcessor] Typo Fix (Stop): ${stop.location} -> ${correctDest}`);
                                         stop.location = correctDest;
                                         stateChanged = true;
                                     }
@@ -117,7 +128,6 @@ export const PlanningProcessor = {
                         }
                     }
 
-                    // 3. Hotel Validation (Write-back official names to Cockpit)
                     if (validatedHotels.length > 0 && (logistics.mode === 'mobil' || logistics.mode === 'roundtrip') && logistics.roundtrip.stops) {
                         logistics.roundtrip.stops.forEach((stop: any) => {
                             const match = validatedHotels.find((vh: any) => 
@@ -126,7 +136,6 @@ export const PlanningProcessor = {
                             
                             if (match && match.official_name) {
                                 if (stop.hotel !== match.official_name) {
-                                    console.log(`[PlanningProcessor] Hotel Fix (Cockpit): ${stop.hotel || 'Empty'} -> ${match.official_name}`);
                                     stop.hotel = match.official_name;
                                     stateChanged = true;
                                 }
@@ -149,7 +158,6 @@ export const PlanningProcessor = {
                 });
 
                 // PART 2: UPDATE PLACES (Guide View)
-                // This MUST be done outside the setState callback to prevent Zustand state-merging collisions!
                 if (validatedHotels.length > 0) {
                     const currentState = useTripStore.getState();
                     const currentLogistics = currentState.project.userInputs.logistics;
@@ -184,14 +192,12 @@ export const PlanningProcessor = {
         }
     },
 
-    // --- IDEEN SCOUT (WILDCARDS) ---
     processIdeenScout: (data: any, debug: boolean) => {
         const { updatePlace, project, setAnalysisResult } = useTripStore.getState();
         if (data) setAnalysisResult('ideenScout', data);
         
         if (data && data.results && Array.isArray(data.results)) {
              let runningPlaces = { ...(project.data?.places || {}) };
-             let addedCount = 0;
 
              data.results.forEach((group: any) => {
                  const groupLocation = group.location || "Unbekannte Region";
@@ -220,18 +226,15 @@ export const PlanningProcessor = {
                          
                          updatePlace(id, placeUpdate);
                          runningPlaces[id] = { ...runningPlaces[id], ...placeUpdate };
-                         addedCount++;
                      });
                  };
                  processList(group.sunny_day_ideas, 'sunny');
                  processList(group.rainy_day_ideas, 'rainy');
                  processList(group.wildcard_ideas, 'wildcard');
              });
-             console.log(`[IdeenScout] Added ${addedCount} special places with intermediate sync.`);
         }
     },
 
-    // --- INFO AUTOR (CONTENT) ---
     processInfoAutor: (data: any) => {
         const { project } = useTripStore.getState();
         const extractedItems = extractItems(data, true);
@@ -270,22 +273,14 @@ export const PlanningProcessor = {
                     }
                 }
             }));
-            console.log(`[InfoAutor] Persisted ${processedChapters.length} chapters.`);
         }
     },
 
-    // --- TOUR GUIDE ---
     processTourGuide: (data: any) => {
          const { setAnalysisResult } = useTripStore.getState();
-         if (data) {
-              setAnalysisResult('tourGuide', data);
-              if (data.guide && data.guide.tours) {
-                  console.log(`[TourGuide] Persisted ${data.guide.tours.length} tours.`);
-              }
-         }
+         if (data) setAnalysisResult('tourGuide', data);
     },
 
-    // --- COUNTRY SCOUT ---
     processCountryScout: (data: any) => {
         if (data.recommended_guides && data.country_profile?.official_name) {
              const country = data.country_profile.official_name;
@@ -305,4 +300,4 @@ export const PlanningProcessor = {
         }
     }
 };
-// --- END OF FILE 295 Zeilen ---
+// --- END OF FILE 314 Zeilen ---

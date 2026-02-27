@@ -1,5 +1,5 @@
-// 27.02.2026 15:30 - FEAT: Added exact dates list to prevent departure day bugs (-1 day error) and expanded daily end times.
-// 19.02.2026 22:30 - FIX: Resolved TypeScript Build Errors (RouteStop, DepartureDetails, Camper Types).
+// 27.02.2026 18:15 - FEAT: Handled 'allowFlexibleDay' user selection to append [FLEX_DAY] tag for the AI.
+// 27.02.2026 15:30 - FEAT: Added exact dates list to prevent departure day bugs (-1 day error).
 // src/core/prompts/preparers/prepareTagesplanerPayload.ts
 
 import type { TripProject, Place, RouteStop } from '../../types/models';
@@ -12,7 +12,7 @@ export interface TagesplanerPayload {
     total_days: number;
     daily_start: string;
     daily_end: string;
-    exact_days_list: string; // NEW: Explicit day-by-day mapping
+    exact_days_list: string;
   };
   hotel_base: {
     name: string;
@@ -24,8 +24,8 @@ export interface TagesplanerPayload {
 }
 
 const PACE_LOGISTICS = {
-  relaxed: { start: "10:00", end: "17:30", breakMin: 90 }, // Expanded end time
-  balanced: { start: "09:30", end: "18:30", breakMin: 60 }, // Expanded end time, dynamic break
+  relaxed: { start: "10:00", end: "17:30", breakMin: 90 }, 
+  balanced: { start: "09:30", end: "18:30", breakMin: 60 }, 
   packed: { start: "08:30", end: "19:30", breakMin: 45 }
 };
 
@@ -40,7 +40,6 @@ export const prepareTagesplanerPayload = (project: TripProject): TagesplanerPayl
   const diffTime = Math.abs(end.getTime() - start.getTime());
   const totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
-  // FEAT: Generate exact list of days to prevent AI calculation errors
   const exactDaysArray = [];
   for(let i = 0; i < totalDays; i++) {
       const d = new Date(start);
@@ -49,7 +48,6 @@ export const prepareTagesplanerPayload = (project: TripProject): TagesplanerPayl
   }
   const exactDaysList = exactDaysArray.join('\n');
 
-  // 1. Logistik & Unterkunfts-Planung
   const isRoundtrip = userInputs.logistics.mode === 'roundtrip';
   let accommodationSchedule = "";
   let firstHotel: Place | undefined;
@@ -80,7 +78,6 @@ export const prepareTagesplanerPayload = (project: TripProject): TagesplanerPayl
       geo: firstHotel?.location ? `${firstHotel.location.lat}, ${firstHotel.location.lng}` : "0,0"
   };
 
-  // 2. Kandidatenliste formatieren
   const formattedSights = places
     .filter(p => {
         if (p.category === 'accommodation' || p.category === 'Hotel') return false;
@@ -90,15 +87,22 @@ export const prepareTagesplanerPayload = (project: TripProject): TagesplanerPayl
     .map(p => {
       const prio = p.userPriority ?? (p.userSelection?.priority || 0);
       const isFixed = p.isFixed;
+      const isFlexDayAllowed = p.userSelection?.allowFlexibleDay === true; // FEAT: Check for UI override
       const duration = p.visitDuration || p.duration || 60; 
       const geoStr = p.location ? `${p.location.lat.toFixed(4)}, ${p.location.lng.toFixed(4)}` : "0,0";
 
       let tags = `[ID: ${p.id}] [GEO: ${geoStr}] [DURATION: ${duration}m]`;
+      
+      if (isFlexDayAllowed) {
+          tags += ` [FLEX_DAY]`; // Give AI the permission to break boundaries
+      }
+
       if (isFixed && p.fixedDate) {
           tags += ` [FIXED: ${p.fixedDate} ${p.fixedTime || "10:00"}] [PRIO: 1]`; 
       } else {
           tags += ` [PRIO: ${prio}]`;
       }
+      
       if (p.openingHours) {
          const oh = Array.isArray(p.openingHours) ? p.openingHours.join(' | ') : p.openingHours;
          tags += ` [OPEN: ${oh.substring(0, 100)}...]`; 
@@ -107,7 +111,6 @@ export const prepareTagesplanerPayload = (project: TripProject): TagesplanerPayl
       return `- ${tags} ${p.name} (${p.category || 'Sight'}): ${p.address || ''}`;
     }).join('\n');
 
-  // 3. Transport-Modi & Reisetempo (Pace)
   const arrival = userInputs.dates.arrival;
   const departure = userInputs.dates.departure;
   const origin = userInputs.travelers.origin || "Heimatort";
@@ -155,4 +158,4 @@ TIME BOUNDARIES (CRITICAL):
 - Day End: ${finalEnd}`
   };
 };
-// --- END OF FILE 149 Zeilen ---
+// --- END OF FILE 153 Zeilen ---

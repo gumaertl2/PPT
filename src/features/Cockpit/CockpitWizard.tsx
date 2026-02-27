@@ -1,17 +1,11 @@
+// 27.02.2026 19:00 - FEAT: Embedded PlannerConflictModal into CockpitWizard to handle AI interception callbacks.
 // 24.02.2026 13:50 - FIX: Removed unused handleBack and cleaned up props for ReviewStep to resolve build errors.
-// 24.02.2026 12:45 - UX: Removed CockpitFooter from data entry. Footer logic moved into ReviewStep.
-// 20.02.2026 23:55 - FIX: Imported and integrated CatalogModal into CockpitWizard to allow opening the catalog from the InfoModal.
-// 09.02.2026 19:20 - FIX: Disabled global background worker (useLiveStatusWorker removed).
-// 08.02.2026 21:00 - FIX: Pass 'options' (Smart Mode) to startWorkflow.
-// 06.02.2026 19:35 - FEAT: Added 'plan' viewMode handling.
-// 06.02.2026 18:45 - FIX: Pass printConfig to PrintReport and wrap in 'print-only' container.
 // src/features/Cockpit/CockpitWizard.tsx
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTripStore } from '../../store/useTripStore'; 
 import { useTripGeneration } from '../../hooks/useTripGeneration';
-// import { useLiveStatusWorker } from '../../hooks/useLiveStatusWorker'; // DISABLED for now to save quota
 import type { WorkflowStepId, CockpitViewMode } from '../../core/types'; 
 
 // Components
@@ -22,23 +16,17 @@ import { InfoView } from '../info/InfoView';
 import { PlanView } from './PlanView'; 
 import { ConfirmModal } from './ConfirmModal';
 import { InfoModal } from '../Welcome/InfoModal';
-import { CatalogModal } from '../Welcome/CatalogModal'; // NEW: Import Catalog Modal
+import { CatalogModal } from '../Welcome/CatalogModal'; 
 import { ManualPromptModal } from './ManualPromptModal'; 
 import { WorkflowSelectionModal } from '../Workflow/WorkflowSelectionModal';
 import { PrintReport } from './PrintReport'; 
+import { PlannerConflictModal } from './PlannerConflictModal'; // FEAT: Imported new modal
 
 // Layout Components
 import { CockpitHeader } from './Layout/CockpitHeader'; 
 
 // Icons
-import { 
-  Map as MapIcon, 
-  Users, 
-  Search, 
-  Edit3, 
-  FileText, 
-  CheckCircle 
-} from 'lucide-react';
+import { Map as MapIcon, Users, Search, Edit3, FileText, CheckCircle } from 'lucide-react';
 
 // Steps
 import { LogisticsStep } from './steps/LogisticsStep';
@@ -56,18 +44,15 @@ export const CockpitWizard = () => {
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
   
-  // Store & Hooks
   const { 
       project, 
       setView, 
       isWorkflowModalOpen, 
       setWorkflowModalOpen,
-      uiState 
+      uiState,
+      setUIState // Added to manipulate view state on intercept
   } = useTripStore(); 
   
-  // DISABLED: Background Worker is currently OFF by default to save API calls.
-  // usage: useLiveStatusWorker(true);
-
   const { userInputs } = project;
   
   const { 
@@ -80,15 +65,13 @@ export const CockpitWizard = () => {
     submitManualResult  
   } = useTripGeneration();
 
-  // Local State
   const [viewMode, setViewMode] = useState<CockpitViewMode>('wizard');
   const [currentStep, setCurrentStep] = useState(0);
   
-  // Modals
   const [showHelp, setShowHelp] = useState(false);
   const [helpContent, setHelpContent] = useState({ title: '', body: '' });
   const [showRerunModal, setShowRerunModal] = useState(false);
-  const [isCatalogOpen, setIsCatalogOpen] = useState(false); // NEW: State for Catalog Modal
+  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
 
   const STEPS = [
     { id: 'logistics', label: t('wizard.steps.logistics'), icon: MapIcon, component: LogisticsStep },
@@ -101,8 +84,6 @@ export const CockpitWizard = () => {
 
   const hasAnalysisResult = !!project.analysis.chefPlaner;
   
-  // --- NAVIGATION ---
-
   const jumpToStep = (index: number) => {
     if (status === 'generating') return;
     setCurrentStep(index);
@@ -116,8 +97,6 @@ export const CockpitWizard = () => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
-
-  // --- ANALYSIS & WORKFLOW ---
 
   const executeAnalysis = async () => {
     await startSingleTask('chefPlaner');
@@ -165,18 +144,15 @@ export const CockpitWizard = () => {
       setWorkflowModalOpen(true);
   };
 
-  // FIX: Added 'options' parameter to pass Smart Mode
   const handleStartSelectedWorkflows = async (selectedSteps: WorkflowStepId[], options?: { mode: 'smart' | 'force' }) => {
       setWorkflowModalOpen(false); 
       if (selectedSteps.length > 0) {
-          await startWorkflow(selectedSteps, options); // Pass options to hook
+          await startWorkflow(selectedSteps, options); 
           setViewMode('sights');
           window.scrollTo({ top: 0, behavior: 'smooth' });
       }
   };
   
-  // --- HEADER ACTIONS ---
-
   const handleHeaderReset = () => {
     setView('wizard');
     setViewMode('wizard');
@@ -283,7 +259,6 @@ export const CockpitWizard = () => {
         ) : viewMode === 'plan' ? ( 
           <PlanView />
         ) : (
-          // UX FIX: Pass analysis props to ReviewStep directly
           currentStep === 5 
             ? <ReviewStep 
                 onEdit={jumpToStep} 
@@ -304,7 +279,7 @@ export const CockpitWizard = () => {
         onClose={() => setShowHelp(false)}
         title={helpContent.title}
         content={helpContent.body}
-        onOpenCatalog={() => setIsCatalogOpen(true)} // FIX: Triggers Catalog Modal
+        onOpenCatalog={() => setIsCatalogOpen(true)} 
       />
 
       <CatalogModal 
@@ -322,6 +297,18 @@ export const CockpitWizard = () => {
         onCancel={handleRerunCancel}
       />
       
+      {/* FEAT: Human-in-the-Loop Intercept Modal */}
+      <PlannerConflictModal 
+        onReject={() => {
+            setUIState({ showPlanningMode: true, sortMode: 'priority' });
+            setViewMode('sights');
+        }}
+        onAccept={() => {
+            setUIState({ sortMode: 'day', showPlanningMode: false });
+            setViewMode('sights');
+        }}
+      />
+
       <ManualPromptModal
         isOpen={!!manualPrompt}
         promptText={manualPrompt || ''}
@@ -345,4 +332,4 @@ export const CockpitWizard = () => {
     </div>
   );
 };
-// --- END OF FILE 361 Zeilen ---
+// --- END OF FILE 379 Zeilen ---

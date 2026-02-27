@@ -440,7 +440,12 @@
     "regenerate_text": "Update Text",
     "live_check_progress": "Updating... ({{current}}/{{total}})",
     "live_check_btn": "Live Update (Selection)",
-    "live_check_up_to_date": "All currently displayed places are already up to date (less than 4 weeks old)."
+    "live_check_up_to_date": "All currently displayed places are already up to date (less than 4 weeks old).",
+    "conflict_modal_title": "Planning Compromise Required",
+    "conflict_modal_desc": "Your time budget is too tight. The AI could not fit the following high-priority places into the itinerary:",
+    "conflict_modal_accept": "Accept plan anyway",
+    "conflict_modal_reject": "Discard & adjust",
+    "remove_flex_day": "Remove exception"
   },
   "route": {
     "no_results": "No route proposals available.",

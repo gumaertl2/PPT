@@ -438,7 +438,12 @@
     "regenerate_text": "Text aktualisieren",
     "live_check_progress": "Update läuft... ({{current}}/{{total}})",
     "live_check_btn": "Live-Update (Auswahl)",
-    "live_check_up_to_date": "Alle aktuell angezeigten Orte sind bereits auf dem neuesten Stand (jünger als 4 Wochen)."
+    "live_check_up_to_date": "Alle aktuell angezeigten Orte sind bereits auf dem neuesten Stand (jünger als 4 Wochen).",
+    "conflict_modal_title": "Planungs-Kompromiss nötig",
+    "conflict_modal_desc": "Dein vorgegebenes Zeitbudget ist zu knapp. Die KI konnte folgende hochpriorisierte Orte nicht im Tagesplan unterbringen:",
+     "conflict_modal_accept": "Plan trotzdem übernehmen",
+     "conflict_modal_reject": "Plan verwerfen & anpassen",
+     "remove_flex_day": "Ausnahmeregel entfernen"
   },
   "route": {
     "no_results": "Keine Routenvorschläge verfügbar.",

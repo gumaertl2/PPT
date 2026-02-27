@@ -1,9 +1,8 @@
-// 27.02.2026 14:45 - UX: Froze priority and reserve sorting while in Planning Mode to prevent items from jumping around.
-// 27.02.2026 09:45 - FIX: Corrected i18n interpolation for live check progress.
-// 27.02.2026 09:40 - FEAT: Added 'Live-Update' button with 4-week caching rule for currently visible places.
+// 27.02.2026 19:25 - UX: Implemented true "Freeze Mode" via useRef to prevent cards from jumping or disappearing during Planning Mode.
+// 27.02.2026 14:45 - UX: Froze priority and reserve sorting.
 // src/features/Cockpit/SightsView.tsx
 
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo, useEffect, useState, useRef } from 'react';
 import { useTripStore } from '../../store/useTripStore';
 import { SightCard } from './SightCard';
 import { SightFilterModal } from './SightFilterModal'; 
@@ -74,6 +73,16 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
   const isTourMode = activeSortMode === 'tour';
   const isDayMode = activeSortMode === 'day';
 
+  // UX FIX: Freeze Reference Cache for Planning Mode
+  const frozenMetaRef = useRef<Record<string, any>>({});
+
+  useEffect(() => {
+      // Clear the cache whenever Planning Mode is turned OFF
+      if (!showPlanningMode) {
+          frozenMetaRef.current = {};
+      }
+  }, [showPlanningMode]);
+
   useEffect(() => {
     if (overrideSortMode) return;
 
@@ -141,6 +150,7 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
       );
   };
 
+  // BUDGET CALCULATION: Always uses live data so the progress bar updates instantly!
   const budgetStats = useMemo(() => {
     let totalMinutes = 0;
     const pace = userInputs.pace || 'balanced';
@@ -226,8 +236,8 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
       }).filter((d: any) => d.count > 0);
   }, [project.itinerary, places, t]);
 
+  // PRIORITY BADGES: Always uses live data so counts update instantly
   const priorityOptions = useMemo(() => {
-    // 4 = Fix, 3 = Prio 1, 2 = Prio 2, 1 = None, 0 = Ignore
     const counts: Record<string, number> = { '4': 0, '3': 0, '2': 0, '1': 0, '0': 0 };
     places.forEach((p: any) => {
         counts[String(getRealPriorityValue(p))]++;
@@ -282,8 +292,32 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
         });
     }
 
+    // HELPER: Lazy-Freeze Meta Extraction
+    const getMeta = (p: any) => {
+        const duration = p.duration || p.min_duration_minutes || 0;
+        const rating = p.rating || 0;
+        const currentPrioVal = getRealPriorityValue(p);
+        const currentIsReserve = (p.userPriority === -1) || (duration < minDuration) || (rating > 0 && rating < minRating);
+        const currentCat = p.category || 'Sonstiges';
+        const currentName = p.name || '';
+
+        // If NOT in planning mode, always return fresh data
+        if (!showPlanningMode) {
+            return { prioVal: currentPrioVal, isReserve: currentIsReserve, cat: currentCat, name: currentName };
+        }
+
+        // If in planning mode, freeze the data on first access
+        if (!frozenMetaRef.current[p.id]) {
+            frozenMetaRef.current[p.id] = { prioVal: currentPrioVal, isReserve: currentIsReserve, cat: currentCat, name: currentName };
+        }
+
+        return frozenMetaRef.current[p.id];
+    };
+
     uniquePlaces.forEach((p: any) => {
-      const cat = p.category || 'Sonstiges';
+      const meta = getMeta(p);
+      const cat = meta.cat;
+
       if (ignoreList.includes(cat) && cat !== 'hotel') return; 
 
       if (term) {
@@ -292,14 +326,14 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
       }
       
       if (selectedCategory && selectedCategory !== 'all') {
-          const pCat = p.userSelection?.customCategory || p.category;
+          const pCat = p.userSelection?.customCategory || cat;
           if (pCat !== selectedCategory) return;
       }
 
       if (activeFilters.length > 0) {
           if (sortMode === 'category' && !activeFilters.includes(cat)) return;
           else if (sortMode === 'priority') {
-              const prioValStr = String(getRealPriorityValue(p));
+              const prioValStr = String(meta.prioVal); // Uses FROZEN priority for filter stability
               if (!activeFilters.includes(prioValStr)) return;
           }
           else if (sortMode === 'tour') {
@@ -309,39 +343,34 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
           else if (sortMode === 'day' && otherDayPlaceIds.has(p.id) && !selectedDayPlaceIds.has(p.id)) return;
       }
 
-      const rating = p.rating || 0;
-      const duration = p.duration || p.min_duration_minutes || 0;
-      const isReserve = (p.userPriority === -1) || (duration < minDuration) || (rating > 0 && rating < minRating);
-      const placeWithMeta = { ...p, _isReserve: isReserve };
+      // UX: Calculate live reserve status just for visual greying-out (opacity), 
+      // but use the frozen `meta` for strict list ordering.
+      const liveDuration = p.duration || p.min_duration_minutes || 0;
+      const liveRating = p.rating || 0;
+      const liveIsReserve = (p.userPriority === -1) || (liveDuration < minDuration) || (liveRating > 0 && liveRating < minRating);
+
+      const placeWithMeta = { ...p, _meta: meta, _liveIsReserve: liveIsReserve };
 
       if (cat === 'special') specialList.push(placeWithMeta);
       else mainList.push(placeWithMeta); 
     });
 
     const sortFn = (a: any, b: any) => {
-      // 1. A-Z Ansicht bleibt immer stabil
-      if (sortMode === 'alphabetical') return (a.name || '').localeCompare(b.name || '');
-      
-      // 2. UX-FIX: "Freeze Mode" im Planungsmodus!
-      // Wenn der Planungsmodus aktiv ist, frieren wir die Sortierung nach Prio & Reserve ein,
-      // damit die Elemente beim Klicken nicht wegspringen.
-      // (Ausnahme: Der User wählt explizit oben 'Sortieren nach Priorität')
-      if (!showPlanningMode || sortMode === 'priority') {
-          // Reserve immer nach unten
-          if (a._isReserve && !b._isReserve) return 1;
-          if (!a._isReserve && b._isReserve) return -1;
-          
-          // Dann nach Priorität
-          const pA = getRealPriorityValue(a);
-          const pB = getRealPriorityValue(b);
-          if (pA !== pB) return pB - pA; 
-      }
+      const aMeta = a._meta;
+      const bMeta = b._meta;
 
-      // 3. Stabiler Fallback (Nach Kategorie, dann Alphabetisch)
-      const catCompare = (a.category || '').localeCompare(b.category || '');
+      if (sortMode === 'alphabetical') return aMeta.name.localeCompare(bMeta.name);
+      
+      // UX-FIX: Use frozen `isReserve` and `prioVal` so elements never jump during Planning Mode
+      if (aMeta.isReserve && !bMeta.isReserve) return 1;
+      if (!aMeta.isReserve && bMeta.isReserve) return -1;
+      
+      if (aMeta.prioVal !== bMeta.prioVal) return bMeta.prioVal - aMeta.prioVal; 
+
+      const catCompare = aMeta.cat.localeCompare(bMeta.cat);
       if (catCompare !== 0) return catCompare;
 
-      return (a.name || '').localeCompare(b.name || '');
+      return aMeta.name.localeCompare(bMeta.name);
     };
 
     return { main: mainList.sort(sortFn), special: specialList.sort(sortFn) };
@@ -382,16 +411,16 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     const sortMode = activeSortMode;
     const groups: Record<string, any[]> = {};
     
-    if (groupByOverride === 'city') {
-        list.forEach(p => {
+    list.forEach(p => {
+        const meta = p._meta; // Use frozen meta for robust grouping
+
+        if (groupByOverride === 'city') {
             const key = p.city || t('sights.group_general_regional', { defaultValue: 'Allgemein / Überregional' });
             if (!groups[key]) groups[key] = [];
             groups[key].push(p);
-        });
-    }
-    else if (sortMode === 'priority') {
-        list.forEach(p => {
-            const val = getRealPriorityValue(p);
+        }
+        else if (sortMode === 'priority') {
+            const val = meta.prioVal;
             let key = t('sights.no_prio', { defaultValue: '⚪️ Ohne Priorität' });
             if (val === 4) key = t('sights.must_see', { defaultValue: '⭐️ Muss ich sehen (Fix)' });
             if (val === 3) key = t('sights.prio_1', { defaultValue: '🥇 Prio 1' });
@@ -400,32 +429,31 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
             
             if (!groups[key]) groups[key] = [];
             groups[key].push(p);
-        });
-    }
-    else if (sortMode === 'tour') {
-        const tourGuide = (analysis as any)?.tourGuide;
-        const tours = (tourGuide?.guide?.tours || []) as any[];
-        const assignedIds = new Set<string>();
-        tours.forEach((tour: any) => {
-            const title = tour.tour_title || "Tour";
-            const tourPlaces = list.filter(p => tour.suggested_order_ids?.includes(p.id));
-            if (tourPlaces.length > 0) {
-                groups[title] = tourPlaces.sort((a, b) => (tour.suggested_order_ids.indexOf(a.id) - tour.suggested_order_ids.indexOf(b.id)));
-                tourPlaces.forEach(p => assignedIds.add(p.id));
-            }
-        });
-        const leftovers = list.filter(p => !assignedIds.has(p.id));
-        if (leftovers.length > 0) groups[t('sights.group_other_tour', { defaultValue: 'Weitere Orte (Ohne Tour)' })] = leftovers;
-    } 
-    else {
-        list.forEach(p => {
+        }
+        else if (sortMode === 'tour') {
+            const tourGuide = (analysis as any)?.tourGuide;
+            const tours = (tourGuide?.guide?.tours || []) as any[];
+            const assignedIds = new Set<string>();
+            tours.forEach((tour: any) => {
+                const title = tour.tour_title || "Tour";
+                const tourPlaces = list.filter(lp => tour.suggested_order_ids?.includes(lp.id));
+                if (tourPlaces.length > 0) {
+                    groups[title] = tourPlaces.sort((a, b) => (tour.suggested_order_ids.indexOf(a.id) - tour.suggested_order_ids.indexOf(b.id)));
+                    tourPlaces.forEach(lp => assignedIds.add(lp.id));
+                }
+            });
+            const leftovers = list.filter(lp => !assignedIds.has(lp.id));
+            if (leftovers.length > 0) groups[t('sights.group_other_tour', { defaultValue: 'Weitere Orte (Ohne Tour)' })] = leftovers;
+        } 
+        else {
             let key = t('sights.group_general', { defaultValue: 'Allgemein' });
-            if (sortMode === 'category') key = resolveCategoryLabel(p.category);
-            else if (sortMode === 'alphabetical') key = p.name ? p.name[0].toUpperCase() : '?';
+            if (sortMode === 'category') key = resolveCategoryLabel(meta.cat);
+            else if (sortMode === 'alphabetical') key = meta.name ? meta.name[0].toUpperCase() : '?';
+            
             if (!groups[key]) groups[key] = [];
             groups[key].push(p);
-        });
-    }
+        }
+    });
 
     const groupKeys = Object.keys(groups);
     if (sortMode === 'priority') {
@@ -450,7 +478,8 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
           <div className="space-y-3">
             {items.map(place => (
               <div key={place.id} id={`card-${place.id}`}>
-                  <SightCard id={place.id} data={place} mode="selection" showPriorityControls={showPlanningMode} detailLevel={overrideDetailLevel} isReserve={place._isReserve} />
+                  {/* UX: Passing _liveIsReserve allows instant visual feedback (grey out) without changing list position! */}
+                  <SightCard id={place.id} data={place} mode="selection" showPriorityControls={showPlanningMode} detailLevel={overrideDetailLevel} isReserve={place._liveIsReserve} />
               </div>
             ))}
           </div>
@@ -531,4 +560,4 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     </div>
   );
 };
-// --- END OF FILE 534 Zeilen ---
+// --- END OF FILE 580 Zeilen ---

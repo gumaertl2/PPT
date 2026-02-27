@@ -1,5 +1,5 @@
-// 27.02.2026 15:30 - UX/LOGIC: Introduced Dynamic Lunch Break, Golden Hour Rule (17:00+) and enforced explicit departure times for transfers.
-// 19.02.2026 20:45 - FIX: Restored full 8-section detail (154 lines) to prevent AI logic loss.
+// 27.02.2026 18:15 - FEAT: Introduced [FLEX_DAY] logic for AI to break boundaries and enforced translated 'reason' output.
+// 27.02.2026 15:30 - UX/LOGIC: Introduced Dynamic Lunch Break, Golden Hour Rule (17:00+) and enforced explicit departure times.
 // src/core/prompts/templates/initialTagesplaner.ts
 
 export interface TagesplanerPayload {
@@ -58,6 +58,7 @@ Storytelling: Give each day a thematic "title" (motto) reflecting the day's mood
 - 4.3 Daily Rhythm & Smart Pace Rules:
   - Dynamic Lunch Break: If the day is focused on hiking/nature/active outdoors, schedule a 30-45 minute "Picnic/Rest" break. If it is a city/culture/relaxed day, schedule a 60-90 minute "Lunch Break".
   - Golden Hour Rule (17:00+): Museums, shops, and indoor sights usually close around 17:00. DO NOT schedule them after 17:00. Use the time between 17:00 and your 'daily_end' EXCLUSIVELY for outdoor activities (Beaches, Parks, Viewpoints, Sunset Strolls) or "Relax at Hotel".
+  - FLEX-DAY EXCEPTION: If a sight has the [FLEX_DAY] tag, you MUST prioritize it and are ALLOWED to break the daily time boundaries (e.g., start at 08:00, end at 20:30, skip lunch breaks) on the specific day you schedule it, just to make it fit into the trip.
   ${payload.constraints}
 
 5. GAP MANAGEMENT (BUFFER-RULE)
@@ -125,7 +126,7 @@ STRICT REQUIREMENT: You must return ONLY the following JSON structure:
     }
   ],
   "unassigned": [
-    { "id": "ID", "name": "Name", "reason": "Detailed logic" }
+    { "id": "ID", "name": "Name", "reason": "String (Explain logic. MUST be translated into the user's requested language!)" }
   ]
 }
 
@@ -139,4 +140,4 @@ RETURN STRICTLY VALID JSON.
 `;
 };
 
-// Zeilenanzahl: 156
+// Zeilenanzahl: 158
