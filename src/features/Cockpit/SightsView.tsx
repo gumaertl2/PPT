@@ -1,3 +1,4 @@
+// 27.02.2026 14:45 - UX: Froze priority and reserve sorting while in Planning Mode to prevent items from jumping around.
 // 27.02.2026 09:45 - FIX: Corrected i18n interpolation for live check progress.
 // 27.02.2026 09:40 - FEAT: Added 'Live-Update' button with 4-week caching rule for currently visible places.
 // src/features/Cockpit/SightsView.tsx
@@ -318,20 +319,33 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     });
 
     const sortFn = (a: any, b: any) => {
-      if (a._isReserve && !b._isReserve) return 1;
-      if (!a._isReserve && b._isReserve) return -1;
+      // 1. A-Z Ansicht bleibt immer stabil
       if (sortMode === 'alphabetical') return (a.name || '').localeCompare(b.name || '');
       
-      // Nutze den Real-Priority Wert für eine wasserdichte Sortierung
-      const pA = getRealPriorityValue(a);
-      const pB = getRealPriorityValue(b);
-      if (pA !== pB) return pB - pA; // Höherer Wert rutscht nach oben
+      // 2. UX-FIX: "Freeze Mode" im Planungsmodus!
+      // Wenn der Planungsmodus aktiv ist, frieren wir die Sortierung nach Prio & Reserve ein,
+      // damit die Elemente beim Klicken nicht wegspringen.
+      // (Ausnahme: Der User wählt explizit oben 'Sortieren nach Priorität')
+      if (!showPlanningMode || sortMode === 'priority') {
+          // Reserve immer nach unten
+          if (a._isReserve && !b._isReserve) return 1;
+          if (!a._isReserve && b._isReserve) return -1;
+          
+          // Dann nach Priorität
+          const pA = getRealPriorityValue(a);
+          const pB = getRealPriorityValue(b);
+          if (pA !== pB) return pB - pA; 
+      }
 
-      return (a.category || '').localeCompare(b.category || '');
+      // 3. Stabiler Fallback (Nach Kategorie, dann Alphabetisch)
+      const catCompare = (a.category || '').localeCompare(b.category || '');
+      if (catCompare !== 0) return catCompare;
+
+      return (a.name || '').localeCompare(b.name || '');
     };
 
     return { main: mainList.sort(sortFn), special: specialList.sort(sortFn) };
-  }, [places, uiState.searchTerm, uiState.categoryFilter, activeSortMode, uiState.selectedCategory, uiState.isPrintMode, overrideSortMode, userInputs.searchSettings, tourOptions, project.itinerary, t]);
+  }, [places, uiState.searchTerm, uiState.categoryFilter, activeSortMode, uiState.selectedCategory, uiState.isPrintMode, overrideSortMode, userInputs.searchSettings, tourOptions, project.itinerary, t, showPlanningMode]);
 
   const handleBatchLiveCheck = async () => {
       if (isLiveChecking) return;
@@ -517,4 +531,4 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     </div>
   );
 };
-// --- END OF FILE 528 Zeilen ---
+// --- END OF FILE 534 Zeilen ---

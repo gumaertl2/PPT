@@ -1,5 +1,5 @@
+// 27.02.2026 15:30 - UX/LOGIC: Introduced Dynamic Lunch Break, Golden Hour Rule (17:00+) and enforced explicit departure times for transfers.
 // 19.02.2026 20:45 - FIX: Restored full 8-section detail (154 lines) to prevent AI logic loss.
-// - Re-integrated explicit Arrival/Departure, 30-Min-Gap law, and Roundtrip/Hotel-Loop mandates.
 // src/core/prompts/templates/initialTagesplaner.ts
 
 export interface TagesplanerPayload {
@@ -9,6 +9,7 @@ export interface TagesplanerPayload {
     total_days: number;
     daily_start: string;
     daily_end: string;
+    exact_days_list: string;
   };
   hotel_base: {
     name: string;
@@ -31,7 +32,7 @@ Tetris-Mindset: Integrate fixed appointments, priorities, and buffers into a flu
 Storytelling: Give each day a thematic "title" (motto) reflecting the day's mood.
 
 2. STEP-BY-STEP INSTRUCTIONS
-- Data Check: Validate all inputs (Travel dates, Hotel base, Accommodation Schedule, Prio-lists).
+- Data Check: Validate the exact days. You MUST output exactly ${payload.travel_dates.total_days} days.
 - Geospatial Clustering: Group sights by proximity to minimize travel time and avoid city-zigzag.
 - Time Calculation: Calculate daily flows strictly following all buffer and logistics rules.
 - Validation: Check results against "Winter-Mode" (e.g. closures of gorges) and the "Transfer Mandate".
@@ -40,47 +41,43 @@ Storytelling: Give each day a thematic "title" (motto) reflecting the day's mood
 3. DATA INTEGRITY (SSOT)
 - Uniqueness: Each location (except hotels) must be visited EXACTLY ONCE in the entire trip.
 - Source Fidelity: STRICTLY use the provided Candidate Pool. DO NOT invent places.
-- Availability: Check if the sight is open at the planned time. Consider "Winter Closures" (e.g., Gorges/Klammen in winter).
 - Duration: Use the [DURATION] tag strictly. Do not shorten it to fit the plan.
 - Rejection Transparency: Report in 'unassigned' why Prio 1 or Prio 2 items were omitted.
 
 4. LOGISTICS ALGORITHMS & TIMING
 - 4.1 Flight & Station Logic:
-  - Arrival (${payload.travel_dates.start}): Allow strictly 60 MINUTES for immigration and luggage before the first transfer starts (unless "Car/RV" mode is specified).
-  - Departure (${payload.travel_dates.end}): The traveler must arrive at the airport/station exactly 120 MINUTES (2 hrs) before departure.
-  - Boundary Handling: If no specific flight times are given, assume 10:00 Arrival and 18:00 Departure.
+  - Exact Days: You must plan exactly the days listed below. The last day is strictly the departure day. Do NOT shift departure to the day before!
+    ${payload.travel_dates.exact_days_list}
+  - Arrival: Allow strictly 60 MINUTES for immigration and luggage before the first transfer starts (unless "Car" mode is specified).
+  - Departure: The traveler must arrive at the airport/station exactly 120 MINUTES (2 hrs) before departure.
 - 4.2 Hotel & Transfer Rules (Roundtrip & Stationary):
   - The Hotel-Loop (MANDATORY): EVERY day MUST start at the hotel assigned to that day and EVERY day MUST end at that day's hotel.
   - Roundtrip Transition: If Day X ends at a different hotel than Day X+1 starts, the last transfer of Day X MUST go to the NEW hotel.
-  - Check-In: Allow 45 MINUTES for the check-in process on every hotel change.
   - Transfer Mandate: Between ANY two points (Hotel -> A -> B -> Hotel), you MUST insert a 'transfer' object.
-  - Drive Mode: If 'mode' is 'drive', you MUST estimate 'distance_km'. 
-  - Descriptions: Transfers MUST describe the route (e.g. "Drive from ${payload.hotel_base.name} to Sight A").
-- 4.3 Pace Rules:
+  - Explicit Departure Times: EVERY 'transfer' object MUST have a "time" attribute (e.g., "11:00") indicating exactly when the traveler leaves the previous location.
+- 4.3 Daily Rhythm & Smart Pace Rules:
+  - Dynamic Lunch Break: If the day is focused on hiking/nature/active outdoors, schedule a 30-45 minute "Picnic/Rest" break. If it is a city/culture/relaxed day, schedule a 60-90 minute "Lunch Break".
+  - Golden Hour Rule (17:00+): Museums, shops, and indoor sights usually close around 17:00. DO NOT schedule them after 17:00. Use the time between 17:00 and your 'daily_end' EXCLUSIVELY for outdoor activities (Beaches, Parks, Viewpoints, Sunset Strolls) or "Relax at Hotel".
   ${payload.constraints}
 
 5. GAP MANAGEMENT (BUFFER-RULE)
 - 30-Minute Law: Any gap > 30 minutes MUST be filled actively.
-- Fill Strategy: Use Prio 2 or unprioritized candidates. If none fit, generate a logical stop (e.g., "Coffee Break", "Photo Stop").
-- No generic fillers: Do not use "Stroll" or "Leisure" > 60 mins without a specific location.
 - Radius Expansion: If a gap > 60 min exists, you MUST pick a candidate even if it requires a longer drive.
 
 6. PRIORITIZATION
 - User Overrides: Manual corrections/choices have top priority.
 - Fixed Appointments ([FIXED]): These are unmovable. Plan the route around them.
-- Fixed Conflicts: If [FIXED] dates conflict, report in _thought_process but prioritize the earliest fixed constraint.
 
 7. FEW-SHOT EXAMPLE (Muster)
-Input: Arrival 10:00, Hotel A, Sight B (Prio 1).
 Output:
 {
-  "_thought_process": "Landing 10:00 + 60m luggage = 11:00 Start. Transfer to Hotel (30m). Check-in (45m). Start Sight B at 12:15...",
+  "_thought_process": "Landing 10:00. Transfer starts 11:00. Hike is 4h, so lunch break is just 30m picnic. After 17:00 only scheduling beach...",
   "itinerary": [
     {
       "day_id": "day-1",
       "activities": [
-        {"time": "11:00", "type": "transfer", "mode": "drive", "distance_km": 35.0, "description": "Drive to Hotel."},
-        {"time": "11:45", "type": "check-in", "location": "Hotel A", "duration": 45}
+        {"time": "11:00", "type": "transfer", "mode": "drive", "duration": 30, "distance_km": 35.0, "description": "Drive to Hotel."},
+        {"time": "11:30", "type": "check-in", "location": "Hotel A", "duration": 45}
       ]
     }
   ]
@@ -89,7 +86,7 @@ Output:
 8. OUTPUT FORMAT (JSON ONLY)
 STRICT REQUIREMENT: You must return ONLY the following JSON structure:
 {
-  "_thought_process": "Detailed math: Start -> Duration -> Transfer -> Arrival. Confirming 60m luggage, 120m airport, and 45m check-in rules.",
+  "_thought_process": "Detailed math: Start -> Duration -> Transfer -> Arrival. Confirming 60m luggage, dynamic lunch breaks, and Golden Hour rule.",
   "itinerary": [
     {
       "day_id": "day-1",
@@ -104,6 +101,7 @@ STRICT REQUIREMENT: You must return ONLY the following JSON structure:
         },
         {
            "type": "transfer",
+           "time": "HH:MM", 
            "mode": "walk/transit/drive",
            "duration": 15,
            "distance_km": 5.2, 
@@ -120,8 +118,8 @@ STRICT REQUIREMENT: You must return ONLY the following JSON structure:
         {
            "type": "break",
            "time": "HH:MM",
-           "duration": 90,
-           "description": "Lunch Break / Coffee Break"
+           "duration": 45,
+           "description": "Picnic / Lunch Break"
         }
       ]
     }
@@ -131,10 +129,8 @@ STRICT REQUIREMENT: You must return ONLY the following JSON structure:
   ]
 }
 
-FINAL VALIDATION: Document the math for all buffer rules and hotel-loops in the _thought_process.
-
 INPUT DATA:
-- Travel Dates: ${payload.travel_dates.start} to ${payload.travel_dates.end}
+- Total Days: ${payload.travel_dates.total_days}
 - Base Hotel: ${payload.hotel_base.name}
 - Candidate Pool:
 ${payload.available_sights}
@@ -143,4 +139,4 @@ RETURN STRICTLY VALID JSON.
 `;
 };
 
-// Zeilenanzahl: 154
+// Zeilenanzahl: 156

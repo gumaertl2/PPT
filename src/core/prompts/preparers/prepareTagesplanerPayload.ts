@@ -1,5 +1,5 @@
+// 27.02.2026 15:30 - FEAT: Added exact dates list to prevent departure day bugs (-1 day error) and expanded daily end times.
 // 19.02.2026 22:30 - FIX: Resolved TypeScript Build Errors (RouteStop, DepartureDetails, Camper Types).
-// 19.02.2026 21:30 - FEAT: Added smart Pace Logistics mapping.
 // src/core/prompts/preparers/prepareTagesplanerPayload.ts
 
 import type { TripProject, Place, RouteStop } from '../../types/models';
@@ -12,6 +12,7 @@ export interface TagesplanerPayload {
     total_days: number;
     daily_start: string;
     daily_end: string;
+    exact_days_list: string; // NEW: Explicit day-by-day mapping
   };
   hotel_base: {
     name: string;
@@ -23,9 +24,9 @@ export interface TagesplanerPayload {
 }
 
 const PACE_LOGISTICS = {
-  relaxed: { start: "10:00", end: "16:30", breakMin: 120 },
-  balanced: { start: "09:30", end: "17:30", breakMin: 90 },
-  packed: { start: "08:30", end: "19:00", breakMin: 60 }
+  relaxed: { start: "10:00", end: "17:30", breakMin: 90 }, // Expanded end time
+  balanced: { start: "09:30", end: "18:30", breakMin: 60 }, // Expanded end time, dynamic break
+  packed: { start: "08:30", end: "19:30", breakMin: 45 }
 };
 
 export const prepareTagesplanerPayload = (project: TripProject): TagesplanerPayload => {
@@ -39,6 +40,15 @@ export const prepareTagesplanerPayload = (project: TripProject): TagesplanerPayl
   const diffTime = Math.abs(end.getTime() - start.getTime());
   const totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
+  // FEAT: Generate exact list of days to prevent AI calculation errors
+  const exactDaysArray = [];
+  for(let i = 0; i < totalDays; i++) {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      exactDaysArray.push(`- Day ${i + 1}: ${d.toISOString().split('T')[0]}${i === totalDays - 1 ? ' (DEPARTURE DAY)' : ''}`);
+  }
+  const exactDaysList = exactDaysArray.join('\n');
+
   // 1. Logistik & Unterkunfts-Planung
   const isRoundtrip = userInputs.logistics.mode === 'roundtrip';
   let accommodationSchedule = "";
@@ -51,7 +61,6 @@ export const prepareTagesplanerPayload = (project: TripProject): TagesplanerPayl
           const hotel = stop.hotel ? data.places[stop.hotel] : undefined;
           if (index === 0) firstHotel = hotel;
           
-          // FIX: Use duration instead of nights, location/name instead of city (per models.ts)
           const nights = stop.duration || 1; 
           const lastDayOfStop = currentDay + nights - 1;
           const stopCity = stop.name || stop.location || 'Local Area';
@@ -110,7 +119,6 @@ export const prepareTagesplanerPayload = (project: TripProject): TagesplanerPayl
   const finalStart = userInputs.dates.dailyStartTime || smartPace.start;
   const finalEnd = userInputs.dates.dailyEndTime || smartPace.end;
 
-  // FIX: Adjust Departure (has no type) and Arrival (use camper/mobile_home)
   let transportLogistics = `ARRIVAL MODE: ${arrival?.type || 'car'}, DEPARTURE TIME: ${departure?.time || 'flexible'}.`;
   
   if (arrival?.type === 'car' || arrival?.type === 'camper' || arrival?.type === 'mobile_home') {
@@ -127,7 +135,8 @@ export const prepareTagesplanerPayload = (project: TripProject): TagesplanerPayl
         end: endDate,
         total_days: totalDays,
         daily_start: finalStart,
-        daily_end: finalEnd
+        daily_end: finalEnd,
+        exact_days_list: exactDaysList
     },
     hotel_base: hotelBase,
     available_sights: formattedSights,
@@ -140,11 +149,10 @@ LOGISTICS & BOUNDARIES:
 
 PACE & RHYTHM:
 ${paceInstruction}
-- Mandatory Lunch Break: ${smartPace.breakMin} minutes.
 
 TIME BOUNDARIES (CRITICAL):
 - Day Start: ${finalStart}
 - Day End: ${finalEnd}`
   };
 };
-// --- END OF FILE 144 Zeilen ---
+// --- END OF FILE 149 Zeilen ---
