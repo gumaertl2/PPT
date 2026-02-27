@@ -1,3 +1,4 @@
+// 27.02.2026 10:45 - FIX: Removed unused 'DAY_COLORS' import to resolve TS6133 Vercel build error (again).
 // 27.02.2026 10:25 - FEAT: Added interactive category filtering directly from the MapLegend.
 // 27.02.2026 10:15 - UX: Made MapLegend collapsible to save screen space on mobile devices.
 // src/features/Cockpit/Map/MapSubComponents.tsx
@@ -8,7 +9,7 @@ import L from 'leaflet';
 import { useTripStore } from '../../../store/useTripStore';
 import { MapOfflineService } from '../../../services/MapOfflineService';
 import type { Place } from '../../../core/types/models';
-import { MAP_LAYERS, getCategoryColor, DAY_COLORS } from './MapConstants';
+import { MAP_LAYERS, getCategoryColor } from './MapConstants';
 import { List, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
