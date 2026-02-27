@@ -1,15 +1,16 @@
-// 26.02.2026 17:25 - FIX: Removed unused 'DAY_COLORS' import to resolve TS6133 Vercel build error.
-// 26.02.2026 15:15 - FIX: Removed Live-Jitter. Native tile requests are instant again for smooth panning.
-// 26.02.2026 12:05 - FEAT: Extracted Map SubComponents and updated OfflineTileLayer.
+// 27.02.2026 10:25 - FEAT: Added interactive category filtering directly from the MapLegend.
+// 27.02.2026 10:15 - UX: Made MapLegend collapsible to save screen space on mobile devices.
 // src/features/Cockpit/Map/MapSubComponents.tsx
 
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useMap, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import { useTripStore } from '../../../store/useTripStore';
 import { MapOfflineService } from '../../../services/MapOfflineService';
 import type { Place } from '../../../core/types/models';
-import { MAP_LAYERS, getCategoryColor } from './MapConstants';
+import { MAP_LAYERS, getCategoryColor, DAY_COLORS } from './MapConstants';
+import { List, ChevronDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export const MapStyles = () => (
   <style>{`
@@ -152,7 +153,6 @@ export const OfflineTileLayer = () => {
                     } else if (mapMode === 'offline') {
                         tile.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAAEAAQMAAABmvDolAAAAA1BMVEW1tbW6T9UMAAAAH0lEQVRoQ+3BAQ0AAADCoPdPbQ43oAAAAAAAAAAAAIAvAxaAAGE6fS8AAAAASUVORK5CYII=';
                     } else {
-                        // FIX: Jitter entfernt. Kacheln laden jetzt wieder sofort.
                         tile.src = (this as any).getTileUrl(coords);
                     }
                 });
@@ -173,6 +173,10 @@ export const OfflineTileLayer = () => {
 };
 
 export const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
+  const { t } = useTranslation();
+  const { uiState, setUIState } = useTripStore();
+  const [isOpen, setIsOpen] = useState(false);
+
   const categories = useMemo(() => {
     const cats = new Set<string>();
     places.forEach(p => {
@@ -182,34 +186,95 @@ export const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
     return Array.from(cats).sort();
   }, [places]);
 
+  const activeFilters = uiState.categoryFilter || [];
+  const isCategoryMode = uiState.sortMode === 'category';
+
+  const handleCategoryClick = (cat: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    let newFilter: string[] = [];
+    if (isCategoryMode) {
+        if (activeFilters.length === 0) {
+            newFilter = [cat];
+        } else if (activeFilters.includes(cat)) {
+            newFilter = activeFilters.filter(c => c !== cat);
+        } else {
+            newFilter = [...activeFilters, cat];
+        }
+    } else {
+        newFilter = [cat];
+    }
+    setUIState({ sortMode: 'category', categoryFilter: newFilter });
+  };
+
   if (categories.length === 0) return null;
 
+  if (!isOpen) {
+    return (
+      <button 
+        onClick={(e) => { e.stopPropagation(); setIsOpen(true); }}
+        className="absolute left-4 bottom-6 z-[500] bg-white/95 backdrop-blur-sm px-3 py-2 rounded-xl border border-slate-200 shadow-lg text-xs font-bold text-slate-700 flex items-center gap-2 hover:bg-blue-50 hover:text-blue-600 transition-all"
+        title={t('map.show_legend', { defaultValue: 'Legende einblenden' })}
+      >
+        <List className="w-4 h-4" /> {t('map.legend', { defaultValue: 'Legende' })}
+        {isCategoryMode && activeFilters.length > 0 && (
+            <span className="bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded-full shadow-sm">{activeFilters.length}</span>
+        )}
+      </button>
+    );
+  }
+
   return (
-    <div className={`absolute left-6 z-[500] bg-white/95 backdrop-blur-sm p-3 rounded-xl border border-slate-200 shadow-xl max-h-[200px] overflow-y-auto bottom-6`}>
-      <h4 className="text-[10px] font-bold uppercase text-slate-400 mb-2 tracking-wider sticky top-0 bg-white/95 pb-1">Legende</h4>
-      <div className="space-y-1.5">
-        {categories.map(cat => (
-          <div key={cat} className="flex items-center gap-2">
-            <div 
-              className="w-3 h-3 rounded border border-white shadow-sm shrink-0" 
-              style={{ backgroundColor: getCategoryColor(cat) }}
-            ></div>
-            <span className="text-xs font-medium text-slate-700 capitalize truncate max-w-[120px]" title={cat}>
-               {cat.replace(/_/g, ' ')}
-            </span>
+    <div className={`absolute left-4 z-[500] bg-white/95 backdrop-blur-sm p-3 rounded-xl border border-slate-200 shadow-xl max-h-[250px] overflow-y-auto bottom-6 custom-scrollbar min-w-[180px]`}>
+      <div className="flex items-center justify-between mb-2 sticky top-0 bg-white/95 pb-1 z-10 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+              <h4 className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">{t('map.legend', { defaultValue: 'Legende' })}</h4>
+              {isCategoryMode && activeFilters.length > 0 && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setUIState({ categoryFilter: [] }); }}
+                    className="text-[9px] text-blue-500 hover:text-blue-700 hover:underline font-bold transition-colors"
+                  >
+                      ({t('sights.reset_filter', { defaultValue: 'Alle anzeigen' })})
+                  </button>
+              )}
           </div>
-        ))}
+          <button 
+              onClick={(e) => { e.stopPropagation(); setIsOpen(false); }}
+              className="p-1 hover:bg-slate-200 rounded-full transition-colors text-slate-500"
+              title={t('map.hide_legend', { defaultValue: 'Legende ausblenden' })}
+          >
+              <ChevronDown className="w-4 h-4" />
+          </button>
       </div>
-      <div className="mt-2 pt-2 border-t border-slate-200 space-y-1.5">
-          <div className="flex items-center gap-2 mb-1">
+      <div className="space-y-0.5">
+        {categories.map(cat => {
+          const isActive = isCategoryMode && activeFilters.length > 0 ? activeFilters.includes(cat) : true;
+          return (
+              <button
+                key={cat}
+                onClick={(e) => handleCategoryClick(cat, e)}
+                className={`flex items-center gap-2 w-full text-left hover:bg-slate-50 p-1.5 -mx-1 rounded transition-all ${isActive ? 'opacity-100' : 'opacity-40 grayscale'}`}
+              >
+                <div 
+                  className="w-3 h-3 rounded border border-white shadow-sm shrink-0" 
+                  style={{ backgroundColor: getCategoryColor(cat) }}
+                ></div>
+                <span className="text-xs font-medium text-slate-700 capitalize truncate max-w-[120px]" title={cat}>
+                   {cat.replace(/_/g, ' ')}
+                </span>
+              </button>
+          )
+        })}
+      </div>
+      <div className="mt-2 pt-2 border-t border-slate-200 space-y-1.5 pointer-events-none">
+          <div className="flex items-center gap-2 mb-1 px-0.5">
               <div className="w-3 h-3 rounded-full border border-slate-400 bg-slate-100 shadow-sm flex items-center justify-center"></div>
               <span className="text-[10px] text-slate-500 font-bold leading-tight">Hohe Prio (Kreis)</span>
           </div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 px-0.5">
               <div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-sm text-[8px] text-white flex items-center justify-center font-bold">1</div>
               <span className="text-[10px] text-slate-500 font-bold leading-tight">Geplant (Tag 1)</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 px-0.5">
               <div className="w-4 h-4 rounded-md bg-slate-900 border-2 border-white shadow-sm text-[10px] flex items-center justify-center">🏨</div>
               <span className="text-[10px] text-slate-500 font-bold leading-tight">Unterkunft</span>
           </div>
@@ -217,4 +282,4 @@ export const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
     </div>
   );
 };
-// --- END OF FILE 221 Zeilen ---
+// --- END OF FILE 291 Zeilen ---

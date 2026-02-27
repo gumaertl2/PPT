@@ -1,5 +1,5 @@
+// 27.02.2026 10:25 - FEAT: Passed unfiltered place list to MapLegend to enable global map filtering.
 // 27.02.2026 09:40 - REFACTOR: Removed automatic background Live-Check from MapView to prevent unnecessary API usage.
-// 26.02.2026 15:15 - FIX: Solved the "Munich Problem" by dynamically calculating defaultCenter.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -38,6 +38,9 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
     : [48.1351, 11.5820]; 
 
   const allPlacesFromStore = useMemo(() => Object.values(project.data.places), [project.data.places]);
+  
+  // FIX: Wir übergeben der Legende IMMER alle Orte mit Koordinaten, damit die Filter-Buttons nicht verschwinden.
+  const allValidPlacesForLegend = useMemo(() => (allPlacesFromStore as Place[]).filter(p => p.location && p.location.lat && p.location.lng), [allPlacesFromStore]);
 
   const scheduledPlaces = useMemo(() => {
       const map = new Map<string, number>();
@@ -77,7 +80,6 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
   const tripStart = project.userInputs.dates?.start || '';
   const tripEnd = project.userInputs.dates?.end || '';
 
-  // GECODING BLEIBT ERHALTEN
   useEffect(() => {
     const runGeocoding = async () => {
         const needsValidation = allPlacesFromStore.some(p => !p.coordinatesValidated);
@@ -296,9 +298,9 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
           );
         })}
 
-        <MapLegend places={validPlaces} />
+        <MapLegend places={allValidPlacesForLegend} />
       </MapContainer>
     </div>
   );
 };
-// --- END OF FILE 208 Zeilen ---
+// --- END OF FILE 211 Zeilen ---
