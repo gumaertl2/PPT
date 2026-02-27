@@ -1,3 +1,4 @@
+// 27.02.2026 10:55 - FIX: Added L.DomEvent propagation stoppers to MapLegend to fix scrolling issues on mobile/iPhone.
 // 27.02.2026 10:45 - FIX: Removed unused 'DAY_COLORS' import to resolve TS6133 Vercel build error (again).
 // 27.02.2026 10:25 - FEAT: Added interactive category filtering directly from the MapLegend.
 // 27.02.2026 10:15 - UX: Made MapLegend collapsible to save screen space on mobile devices.
@@ -177,6 +178,15 @@ export const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
   const { t } = useTranslation();
   const { uiState, setUIState } = useTripStore();
   const [isOpen, setIsOpen] = useState(false);
+  const legendRef = useRef<HTMLDivElement>(null);
+
+  // FIX: Verhindert, dass das Scrollen in der Legende die Karte auf Mobile-Geräten verschiebt.
+  useEffect(() => {
+    if (isOpen && legendRef.current) {
+        L.DomEvent.disableClickPropagation(legendRef.current);
+        L.DomEvent.disableScrollPropagation(legendRef.current);
+    }
+  }, [isOpen]);
 
   const categories = useMemo(() => {
     const cats = new Set<string>();
@@ -225,7 +235,10 @@ export const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
   }
 
   return (
-    <div className={`absolute left-4 z-[500] bg-white/95 backdrop-blur-sm p-3 rounded-xl border border-slate-200 shadow-xl max-h-[250px] overflow-y-auto bottom-6 custom-scrollbar min-w-[180px]`}>
+    <div 
+      ref={legendRef} 
+      className={`absolute left-4 z-[500] bg-white/95 backdrop-blur-sm p-3 rounded-xl border border-slate-200 shadow-xl max-h-[250px] overflow-y-auto bottom-6 custom-scrollbar min-w-[180px]`}
+    >
       <div className="flex items-center justify-between mb-2 sticky top-0 bg-white/95 pb-1 z-10 border-b border-slate-100">
           <div className="flex items-center gap-2">
               <h4 className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">{t('map.legend', { defaultValue: 'Legende' })}</h4>
@@ -283,4 +296,4 @@ export const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
     </div>
   );
 };
-// --- END OF FILE 291 Zeilen ---
+// --- END OF FILE 302 Zeilen ---
