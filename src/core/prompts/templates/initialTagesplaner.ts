@@ -1,5 +1,6 @@
+// 27.02.2026 19:52 - LOGIC: Enforced strict Immersive Block Rule (4+ Hours) requiring absolute overlap of core midday hours to skip lunch breaks.
+// 27.02.2026 19:40 - UX/LOGIC: Restricted 'unassigned' reasoning strictly to Prio 1, Prio 2, and Fixed items. AI will no longer justify omitting Prio 0 (filler) places.
 // 27.02.2026 18:15 - FEAT: Introduced [FLEX_DAY] logic for AI to break boundaries and enforced translated 'reason' output.
-// 27.02.2026 15:30 - UX/LOGIC: Introduced Dynamic Lunch Break, Golden Hour Rule (17:00+) and enforced explicit departure times.
 // src/core/prompts/templates/initialTagesplaner.ts
 
 export interface TagesplanerPayload {
@@ -42,7 +43,7 @@ Storytelling: Give each day a thematic "title" (motto) reflecting the day's mood
 - Uniqueness: Each location (except hotels) must be visited EXACTLY ONCE in the entire trip.
 - Source Fidelity: STRICTLY use the provided Candidate Pool. DO NOT invent places.
 - Duration: Use the [DURATION] tag strictly. Do not shorten it to fit the plan.
-- Rejection Transparency: Report in 'unassigned' why Prio 1 or Prio 2 items were omitted.
+- Rejection Transparency: Report in 'unassigned' ONLY why high-priority items ([PRIO: 1], [PRIO: 2], or [FIXED]) were omitted. STRICT RULE: DO NOT report items with [PRIO: 0], they are just filler material!
 
 4. LOGISTICS ALGORITHMS & TIMING
 - 4.1 Flight & Station Logic:
@@ -57,6 +58,7 @@ Storytelling: Give each day a thematic "title" (motto) reflecting the day's mood
   - Explicit Departure Times: EVERY 'transfer' object MUST have a "time" attribute (e.g., "11:00") indicating exactly when the traveler leaves the previous location.
 - 4.3 Daily Rhythm & Smart Pace Rules:
   - Dynamic Lunch Break: If the day is focused on hiking/nature/active outdoors, schedule a 30-45 minute "Picnic/Rest" break. If it is a city/culture/relaxed day, schedule a 60-90 minute "Lunch Break".
+  - Immersive Block Rule (4+ Hours): If a single activity has a [DURATION] of 4 hours (240 mins) or more AND completely swallows the core midday hours (e.g., Start 09:00 -> End 13:00, or Start 10:00 -> End 14:00), DO NOT schedule a separate "Lunch Break". Assume the traveler eats during the activity. If the activity is strictly under 4 hours (e.g., 3 hours), you MUST schedule a separate, dedicated Lunch Break block after the activity to prevent the traveler from starving.
   - Golden Hour Rule (17:00+): Museums, shops, and indoor sights usually close around 17:00. DO NOT schedule them after 17:00. Use the time between 17:00 and your 'daily_end' EXCLUSIVELY for outdoor activities (Beaches, Parks, Viewpoints, Sunset Strolls) or "Relax at Hotel".
   - FLEX-DAY EXCEPTION: If a sight has the [FLEX_DAY] tag, you MUST prioritize it and are ALLOWED to break the daily time boundaries (e.g., start at 08:00, end at 20:30, skip lunch breaks) on the specific day you schedule it, just to make it fit into the trip.
   ${payload.constraints}
@@ -126,7 +128,7 @@ STRICT REQUIREMENT: You must return ONLY the following JSON structure:
     }
   ],
   "unassigned": [
-    { "id": "ID", "name": "Name", "reason": "String (Explain logic. MUST be translated into the user's requested language!)" }
+    { "id": "ID", "name": "Name", "reason": "String (Explain logic. MUST be translated into the user's requested language. ONLY FOR PRIO 1, PRIO 2, OR FIXED!)" }
   ]
 }
 
@@ -140,4 +142,4 @@ RETURN STRICTLY VALID JSON.
 `;
 };
 
-// Zeilenanzahl: 158
+// Zeilenanzahl: 161
