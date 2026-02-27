@@ -1,6 +1,6 @@
+// 27.02.2026 14:15 - FIX: Replaced all remaining hardcoded strings and alerts with proper i18n hooks.
+// 27.02.2026 13:45 - FEAT: Added 'Mobilität vor Ort' (localMobility) selection for realistic AI transfer checks.
 // 01.02.2026 14:30 - FIX: Added 'resolveHotelName' to display Place names instead of IDs in inputs.
-// 06.02.2026 23:30 - FIX: Correctly store 'strictRoute' in 'logistics.roundtripOptions'.
-// - Switched from 'updateRoundtrip' (nested) to 'setRoundtripOptions' (sibling).
 // src/features/Cockpit/steps/LogisticsStep.tsx
 
 import { useEffect } from 'react';
@@ -31,10 +31,11 @@ export const LogisticsStep = () => {
   // Store Access
   const { 
     project, 
+    setProject, 
     setLogisticMode, 
     updateStationary,
     updateRoundtrip,
-    setRoundtripOptions, // FIX: Import specific setter for roundtripOptions
+    setRoundtripOptions,
     addRouteStop,
     removeRouteStop,
     updateRouteStop,
@@ -111,17 +112,17 @@ export const LogisticsStep = () => {
   }, [dates.duration, logistics.mode]);
 
   const ARRIVAL_OPTIONS = [
-    { value: 'suggestion', label: t('cockpit.arrival_options.suggestion') },
-    { value: 'flight', label: t('cockpit.arrival_options.flight') },
-    { value: 'train', label: t('cockpit.arrival_options.train') },
-    { value: 'car', label: t('cockpit.arrival_options.car') },
-    { value: 'camper', label: t('cockpit.arrival_options.camper') },
-    { value: 'other', label: t('cockpit.arrival_options.other') }
+    { value: 'suggestion', label: t('cockpit.arrival_options.suggestion', { defaultValue: 'KI Vorschlag' }) },
+    { value: 'flight', label: t('cockpit.arrival_options.flight', { defaultValue: 'Flugzeug' }) },
+    { value: 'train', label: t('cockpit.arrival_options.train', { defaultValue: 'Bahn' }) },
+    { value: 'car', label: t('cockpit.arrival_options.car', { defaultValue: 'Auto' }) },
+    { value: 'camper', label: t('cockpit.arrival_options.camper', { defaultValue: 'Wohnmobil' }) },
+    { value: 'other', label: t('cockpit.arrival_options.other', { defaultValue: 'Sonstiges' }) }
   ];
 
   const handleEndDateChange = (value: string) => {
     if (dates.start && value < dates.start) {
-      alert("End date cannot be before start date.");
+      alert(t('cockpit.error_end_date', { defaultValue: 'Enddatum darf nicht vor dem Startdatum liegen.' }));
       return;
     }
     setDates({ end: value });
@@ -138,7 +139,7 @@ export const LogisticsStep = () => {
         {/* ZEITRAUM */}
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col">
           <h3 className="text-xs font-bold text-slate-700 mb-3 flex items-center gap-2 uppercase">
-            <Calendar className="w-3 h-3 text-blue-500" /> {t('cockpit.dates_section')}
+            <Calendar className="w-3 h-3 text-blue-500" /> {t('cockpit.dates_section', { defaultValue: 'Reisezeitraum' })}
           </h3>
           
           <div className="flex-1 flex flex-col gap-4">
@@ -151,7 +152,7 @@ export const LogisticsStep = () => {
                     onChange={() => setDates({ flexible: false })}
                     className="text-blue-600 focus:ring-blue-500"
                   />
-                  <span className={`text-xs font-bold ${!dates.flexible ? 'text-blue-600' : 'text-slate-500'}`}>{t('cockpit.dates_fix')}</span>
+                  <span className={`text-xs font-bold ${!dates.flexible ? 'text-blue-600' : 'text-slate-500'}`}>{t('cockpit.dates_fix', { defaultValue: 'Fixes Datum' })}</span>
                </label>
                <label className="flex items-center gap-2 cursor-pointer">
                   <input 
@@ -161,25 +162,25 @@ export const LogisticsStep = () => {
                     onChange={() => setDates({ flexible: true })}
                     className="text-blue-600 focus:ring-blue-500"
                   />
-                  <span className={`text-xs font-bold ${dates.flexible ? 'text-blue-600' : 'text-slate-500'}`}>{t('cockpit.dates_flex')}</span>
+                  <span className={`text-xs font-bold ${dates.flexible ? 'text-blue-600' : 'text-slate-500'}`}>{t('cockpit.dates_flex', { defaultValue: 'Flexibel' })}</span>
                </label>
              </div>
 
             {dates.flexible ? (
                <div className="animate-fade-in">
-                  <label className="text-xs font-bold text-slate-500 block mb-1">{t('cockpit.duration_label')}</label>
+                  <label className="text-xs font-bold text-slate-500 block mb-1">{t('cockpit.duration_label', { defaultValue: 'Dauer (Tage)' })}</label>
                   <input
                     type="number"
                     className="w-full text-sm border-slate-300 rounded-md"
                     value={dates.duration || 7}
                     onChange={(e) => setDates({ duration: parseInt(e.target.value) })}
                   />
-                  <p className="text-[10px] text-slate-400 mt-2">{t('cockpit.ai_hint')}</p>
+                  <p className="text-[10px] text-slate-400 mt-2">{t('cockpit.ai_hint', { defaultValue: 'KI schlägt Zeitraum vor.' })}</p>
                </div>
             ) : (
                 <div className="grid grid-cols-2 gap-2 animate-fade-in">
                   <div>
-                      <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">{t('cockpit.date_from')}</label>
+                      <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">{t('cockpit.date_from', { defaultValue: 'Von' })}</label>
                       <input
                       type="date"
                       className="w-full text-xs border-slate-300 rounded-md"
@@ -188,7 +189,7 @@ export const LogisticsStep = () => {
                       />
                   </div>
                   <div>
-                      <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">{t('cockpit.date_to')}</label>
+                      <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">{t('cockpit.date_to', { defaultValue: 'Bis' })}</label>
                       <input
                       type="date"
                       className="w-full text-xs border-slate-300 rounded-md"
@@ -202,10 +203,10 @@ export const LogisticsStep = () => {
           </div>
         </div>
 
-        {/* ANREISE */}
+        {/* ANREISE & LOGISTIK */}
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
           <h3 className="text-xs font-bold text-slate-700 mb-3 flex items-center gap-2 uppercase">
-            <Car className="w-3 h-3 text-blue-500" /> {t('cockpit.arrival_section')}
+            <Car className="w-3 h-3 text-blue-500" /> {t('cockpit.arrival_section', { defaultValue: 'Anreise & Logistik' })}
           </h3>
 
           <div className="space-y-3">
@@ -223,7 +224,7 @@ export const LogisticsStep = () => {
 
             <div className="grid grid-cols-2 gap-2">
                 <div className="relative">
-                    <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">{t('cockpit.arrival_time')}</label>
+                    <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">{t('cockpit.arrival_time', { defaultValue: 'Ankunft (Uhr)' })}</label>
                     <div className="relative">
                         <Clock className="w-3 h-3 absolute left-2 top-2 text-slate-400" />
                         <input 
@@ -235,7 +236,7 @@ export const LogisticsStep = () => {
                     </div>
                 </div>
                 <div>
-                      <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">{t('cockpit.departure_time')}</label>
+                      <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">{t('cockpit.departure_time', { defaultValue: 'Abreise (Uhr)' })}</label>
                       <div className="relative">
                         <Clock className="w-3 h-3 absolute left-2 top-2 text-slate-400" />
                         <input 
@@ -247,6 +248,28 @@ export const LogisticsStep = () => {
                     </div>
                 </div>
             </div>
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-slate-100">
+             <label className="text-[10px] text-slate-400 uppercase font-bold block mb-2">{t('cockpit.local_mobility', { defaultValue: 'Mobilität vor Ort' })}</label>
+             <select
+                className="w-full text-xs border-slate-300 rounded-md bg-blue-50/50"
+                value={logistics.localMobility || 'car'}
+                onChange={(e) => setProject({
+                    ...project,
+                    userInputs: {
+                        ...userInputs,
+                        logistics: { ...logistics, localMobility: e.target.value as any }
+                    }
+                })}
+             >
+                <option value="car">{t('cockpit.mobility.car', { defaultValue: 'Mietwagen / Auto' })}</option>
+                <option value="camper">{t('cockpit.mobility.camper', { defaultValue: 'Camper / Wohnmobil' })}</option>
+                <option value="public_transport">{t('cockpit.mobility.public', { defaultValue: 'ÖPNV (Bus/Bahn)' })}</option>
+                <option value="bicycle">{t('cockpit.mobility.bicycle', { defaultValue: 'Fahrrad' })}</option>
+                <option value="walk">{t('cockpit.mobility.walk', { defaultValue: 'Zu Fuß' })}</option>
+                <option value="mix">{t('cockpit.mobility.mix', { defaultValue: 'Mix (Taxi/Uber/ÖPNV)' })}</option>
+             </select>
           </div>
         </div>
       </div>
@@ -277,7 +300,7 @@ export const LogisticsStep = () => {
         {logistics.mode === 'stationaer' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-bold text-slate-500 uppercase block mb-1">{t('cockpit.region_label')}</label>
+              <label className="text-xs font-bold text-slate-500 uppercase block mb-1">{t('cockpit.region_label', { defaultValue: 'Region' })}</label>
               <input
                 type="text"
                 className="w-full text-sm border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
@@ -287,7 +310,7 @@ export const LogisticsStep = () => {
               />
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-500 uppercase block mb-1">{t('cockpit.destination_label')}</label>
+              <label className="text-xs font-bold text-slate-500 uppercase block mb-1">{t('cockpit.destination_label', { defaultValue: 'Ziel' })}</label>
               <input
                 type="text"
                 className="w-full text-sm border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
@@ -299,7 +322,7 @@ export const LogisticsStep = () => {
             
             <div>
                <label className="text-[10px] text-slate-500 block font-bold mb-1 flex items-center gap-1">
-                 <Compass className="w-3 h-3"/> Max. Fahrzeit Ausflüge (h)
+                 <Compass className="w-3 h-3"/> {t('cockpit.constraints_drive_day', { defaultValue: 'Max. Fahrzeit Ausflüge (h)' })}
                </label>
                <input 
                   type="number"
@@ -313,16 +336,16 @@ export const LogisticsStep = () => {
                       });
                   }}
                />
-               <span className="text-[9px] text-slate-400">Hin & Zurück (Tageslimit)</span>
+               <span className="text-[9px] text-slate-400">{t('cockpit.constraints_drive_day_hint', { defaultValue: 'Hin & Zurück (Tageslimit)' })}</span>
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-500 uppercase block mb-1">{t('cockpit.hotel_label')}</label>
+              <label className="text-xs font-bold text-slate-500 uppercase block mb-1">{t('cockpit.hotel_label', { defaultValue: 'Hotel' })}</label>
               <input
                 type="text"
                 className="w-full text-sm border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 placeholder={t('cockpit.hotel_placeholder')}
-                value={resolveHotelName(logistics.stationary.hotel)} // FIX: Show Name instead of ID
+                value={resolveHotelName(logistics.stationary.hotel)}
                 onChange={(e) => updateStationary({ hotel: e.target.value })}
               />
             </div>
@@ -332,7 +355,7 @@ export const LogisticsStep = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">{t('cockpit.roundtrip_region')}</label>
+                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">{t('cockpit.roundtrip_region', { defaultValue: 'Region' })}</label>
                 <input
                   type="text"
                   placeholder={t('cockpit.roundtrip_region_placeholder')}
@@ -342,7 +365,7 @@ export const LogisticsStep = () => {
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">{t('cockpit.roundtrip_start')}</label>
+                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">{t('cockpit.roundtrip_start', { defaultValue: 'Start' })}</label>
                 <input
                   type="text"
                   placeholder={t('cockpit.roundtrip_start_placeholder')}
@@ -352,7 +375,7 @@ export const LogisticsStep = () => {
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">{t('cockpit.roundtrip_end')}</label>
+                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">{t('cockpit.roundtrip_end', { defaultValue: 'Ende' })}</label>
                 <input
                   type="text"
                   placeholder={t('cockpit.roundtrip_end_placeholder')}
@@ -366,7 +389,7 @@ export const LogisticsStep = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-3 rounded-lg border border-slate-100">
               
               <div>
-                 <label className="text-[10px] text-slate-500 block font-bold mb-1">{t('cockpit.constraints_drive_leg')}</label>
+                 <label className="text-[10px] text-slate-500 block font-bold mb-1">{t('cockpit.constraints_drive_leg', { defaultValue: 'Max Fahrzeit (Etappe)' })}</label>
                  <input 
                     type="number"
                     placeholder="h"
@@ -382,7 +405,7 @@ export const LogisticsStep = () => {
               </div>
 
               <div>
-                 <label className="text-[10px] text-slate-500 block font-bold mb-1">{t('cockpit.constraints_drive_total')}</label>
+                 <label className="text-[10px] text-slate-500 block font-bold mb-1">{t('cockpit.constraints_drive_total', { defaultValue: 'Max Fahrzeit (Gesamt)' })}</label>
                  <input 
                     type="number"
                     placeholder="h"
@@ -395,11 +418,11 @@ export const LogisticsStep = () => {
                         });
                     }}
                  />
-                 <span className="text-[9px] text-slate-400">Auto-calc: (Tage-2)*3h</span>
+                 <span className="text-[9px] text-slate-400">{t('cockpit.auto_calc_total', { defaultValue: 'Auto-calc: (Tage-2)*3h' })}</span>
               </div>
 
               <div>
-                 <label className="text-[10px] text-slate-500 block font-bold mb-1">{t('cockpit.constraints_hotel_changes')}</label>
+                 <label className="text-[10px] text-slate-500 block font-bold mb-1">{t('cockpit.constraints_hotel_changes', { defaultValue: 'Max Hotelwechsel' })}</label>
                  <input 
                     type="number"
                     placeholder="#"
@@ -409,13 +432,13 @@ export const LogisticsStep = () => {
                         constraints: { ...logistics.roundtrip.constraints, maxHotelChanges: parseInt(e.target.value) } 
                     })}
                  />
-                 <span className="text-[9px] text-slate-400">Auto-calc: Tage/4</span>
+                 <span className="text-[9px] text-slate-400">{t('cockpit.auto_calc_hotels', { defaultValue: 'Auto-calc: Tage/4' })}</span>
               </div>
             </div>
 
             <div>
               <div className="flex justify-between items-center mb-2">
-                <label className="text-xs font-bold text-slate-500 uppercase">{t('cockpit.stops_label')}</label>
+                <label className="text-xs font-bold text-slate-500 uppercase">{t('cockpit.stops_label', { defaultValue: 'Stationen' })}</label>
                 
                 <div className="flex bg-slate-100 rounded p-0.5">
                    <button 
@@ -424,7 +447,7 @@ export const LogisticsStep = () => {
                        isStrictRoute ? 'bg-white shadow text-blue-600' : 'text-slate-400'
                      }`}
                    >
-                     {t('cockpit.mode_fix')}
+                     {t('cockpit.mode_fix', { defaultValue: 'Fix' })}
                    </button>
                    <button 
                      onClick={() => setRoundtripOptions({ strictRoute: false })}
@@ -432,7 +455,7 @@ export const LogisticsStep = () => {
                        !isStrictRoute ? 'bg-white shadow text-blue-600' : 'text-slate-400'
                      }`}
                    >
-                     {t('cockpit.mode_inspiration')}
+                     {t('cockpit.mode_inspiration', { defaultValue: 'Inspiration' })}
                    </button>
                 </div>
               </div>
@@ -443,16 +466,16 @@ export const LogisticsStep = () => {
                     <span className="text-xs font-bold text-slate-400 w-4">{index + 1}.</span>
                     <input
                       type="text"
-                      placeholder={t('cockpit.destination_label')}
+                      placeholder={t('cockpit.destination_label', { defaultValue: 'Ziel' })}
                       className="flex-1 text-xs border-slate-300 rounded"
                       value={stop.location}
                       onChange={(e) => updateRouteStop(stop.id, { location: e.target.value })}
                     />
                     <input
                       type="text"
-                      placeholder={t('cockpit.hotel_label')}
+                      placeholder={t('cockpit.hotel_label', { defaultValue: 'Hotel' })}
                       className="flex-1 text-xs border-slate-300 rounded"
-                      value={resolveHotelName(stop.hotel)} // FIX: Show Name instead of ID
+                      value={resolveHotelName(stop.hotel)}
                       onChange={(e) => updateRouteStop(stop.id, { hotel: e.target.value })}
                     />
                       <div className="flex items-center gap-1">
@@ -463,7 +486,7 @@ export const LogisticsStep = () => {
                             value={stop.duration || ''}
                             onChange={(e) => updateRouteStop(stop.id, { duration: parseInt(e.target.value) })}
                         />
-                        <span className="text-[10px] text-slate-500">{t('cockpit.nights')}</span>
+                        <span className="text-[10px] text-slate-500">{t('cockpit.nights', { defaultValue: 'Nächte' })}</span>
                     </div>
                     <button onClick={() => removeRouteStop(stop.id)} className="text-slate-300 hover:text-red-500">
                       <Trash2 className="w-3.5 h-3.5" />
@@ -474,7 +497,7 @@ export const LogisticsStep = () => {
                   onClick={addRouteStop}
                   className="w-full py-1.5 border border-dashed border-slate-300 text-slate-500 text-xs rounded hover:bg-slate-50 hover:border-blue-300 hover:text-blue-600 flex items-center justify-center gap-1"
                 >
-                  <Plus className="w-3 h-3" /> {t('cockpit.add_stop')}
+                  <Plus className="w-3 h-3" /> {t('cockpit.add_stop', { defaultValue: 'Station hinzufügen' })}
                 </button>
               </div>
             </div>
@@ -485,4 +508,4 @@ export const LogisticsStep = () => {
     </div>
   );
 };
-// --- END OF FILE 505 Zeilen ---
+// --- END OF FILE 534 Zeilen ---

@@ -1,7 +1,6 @@
+// 27.02.2026 14:15 - FIX: Integrated prepareTransferPlannerPayload into PayloadBuilder.
 // 21.02.2026 12:20 - FIX: TS6133 removed unused CONFIG import.
-// 21.02.2026 11:30 - FIX: Aligned chunk limits by replacing local flawed getTaskChunkLimit with LimitManager SSOT. Prevents the 15 vs 10 cutoff bug.
-// 19.02.2026 13:30 - FIX: Removed unused 'LocalizedContent' import to resolve Vercel TS6196 error.
-// 19.02.2026 12:30 - REFACTOR: Removed V30 Legacy Code (transferPlanner chunk logic & buildChefPlanerPayload), extracted helpers.
+// 21.02.2026 11:30 - FIX: Aligned chunk limits by replacing local flawed getTaskChunkLimit with LimitManager SSOT.
 // src/core/prompts/PayloadBuilder.ts
 
 import { useTripStore } from '../../store/useTripStore';
@@ -35,6 +34,7 @@ import { prepareFoodScoutPayload } from './preparers/prepareFoodScoutPayload';
 import { prepareFoodEnricherPayload } from './preparers/prepareFoodEnricherPayload';
 import { prepareHotelScoutPayload } from './preparers/prepareHotelScoutPayload';
 import { prepareTagesplanerPayload } from './preparers/prepareTagesplanerPayload'; 
+import { prepareTransferPlannerPayload } from './preparers/prepareTransferPlannerPayload'; // FEAT: Imported TransferPlanner Preparer
 
 import type { TaskKey, ChunkingState, TripProject, FoodSearchMode } from '../types';
 import { filterByRadius } from '../utils/geo';
@@ -43,7 +43,6 @@ import type { GeoPoint } from '../utils/geo';
 // --- HELPER FUNCTIONS ---
 const getTaskChunkLimit = (taskKey: TaskKey): number => {
     const state = useTripStore.getState();
-    // FIX: Nutze die Single Source of Truth, damit Orchestrator und PayloadBuilder exakt dieselbe Zahl verwenden!
     return LimitManager.getTaskLimit(taskKey, !state.apiKey);
 };
 
@@ -204,10 +203,6 @@ export const PayloadBuilder = {
               mode = 'stars';
           }
           
-          if (options?.candidates && options.candidates.length > 0) {
-             console.log(`[PayloadBuilder] FoodScout processing specific candidates:`, options.candidates);
-          }
-
           const payload = prepareFoodScoutPayload(project, mode, feedback || "", options);
           generatedPrompt = buildFoodScoutPrompt(project, payload.context);
           break;
@@ -286,8 +281,9 @@ export const PayloadBuilder = {
 
       case 'transfers':
       case 'transferPlanner': {
-        const fallbackLoc = options?.candidates?.[0] || '';
-        generatedPrompt = buildTransferPlannerPrompt(project, fallbackLoc);
+        // FIX: Replaced direct project mapping with clean V40 Payload Prep logic
+        const payload = prepareTransferPlannerPayload(project, feedback);
+        generatedPrompt = buildTransferPlannerPrompt(payload);
         break;
       }
 
@@ -308,4 +304,4 @@ export const PayloadBuilder = {
     return generatedPrompt;
   }
 };
-// --- END OF FILE 307 Zeilen ---
+// --- END OF FILE 309 Zeilen ---

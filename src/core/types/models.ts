@@ -1,7 +1,6 @@
-// 23.02.2026 15:15 - FIX: Added 'official_name' to Place interface to resolve TS2339/TS2353.
-// 22.02.2026 16:45 - FEAT: Added 'userRating' to Place interface for Diary Emotion Rating.
-// 22.02.2026 13:00 - FIX: Added 'currencyConfig' to TripProject data and added import.
-// 21.02.2026 15:20 - FIX: Added 'travelerNames' to TripUserProfile and 'expenses' to TripProject data for Trip Finance feature.
+// 27.02.2026 13:55 - FEAT: Added 'TransferPlannerResult' interface and injected it into TripProject analysis SSOT.
+// 27.02.2026 13:45 - FEAT: Added 'localMobility' to TripUserProfile.logistics for realistic transfer checks.
+// 23.02.2026 15:15 - FIX: Added 'official_name' to Place interface.
 // src/core/types/models.ts
 
 import type { LanguageCode, Expense, CurrencyConfig } from './shared';
@@ -39,8 +38,8 @@ export interface TripUserProfile {
     nationality: string;
     groupType: 'couple' | 'family' | 'friends' | 'solo' | 'other';
     pets: boolean;
-    travelerNames?: string; // FIX: Added for Trip Finance
-    interests?: string[]; // Legacy compat
+    travelerNames?: string;
+    interests?: string[]; 
   };
   dates: {
     start: string;
@@ -61,6 +60,7 @@ export interface TripUserProfile {
   };
   logistics: {
     mode: 'stationaer' | 'mobil' | 'roundtrip';
+    localMobility?: 'car' | 'camper' | 'public_transport' | 'bicycle' | 'walk' | 'mix'; 
     accommodationStatus?: 'needs_suggestions' | 'booked'; 
     target_countries?: string[];
     roundtripOptions?: {
@@ -215,6 +215,20 @@ export interface IdeenScoutResult {
     }>;
 }
 
+// NEW: Transfer Planner Result Definition
+export interface TransferPlannerResult {
+    _thought_process?: string;
+    transfers: Array<{
+        from_id: string;
+        to_id: string;
+        duration_minutes: number;
+        distance_km: number;
+        transport_mode: string;
+        notes: string;
+        reality_check_warning: string | null;
+    }>;
+}
+
 // --- PLACES & CONTENT ---
 export type PlaceCategory = 'sight' | 'food' | 'accommodation' | 'hidden-gem' | string;
 
@@ -233,29 +247,19 @@ export interface Place {
   name: string;
   official_name?: string;
   category: PlaceCategory;
-  
-  // Geo
   address?: string;
   vicinity?: string;
   location?: { lat: number; lng: number };
   coordinatesValidated?: boolean; 
-  
-  // NEW: Live Check Data
   liveStatus?: LiveStatus;
-
-  // Metadata
   userPriority?: number; 
   rating?: number;
   user_ratings_total?: number;
   userSelection?: any; 
-  
-  // Hard Constraints
   isFixed?: boolean;       
   fixedDate?: string;      
   fixedTime?: string;      
   visitDuration?: number;  
-  
-  // Content
   shortDesc?: string;
   description?: string; 
   summary?: string; 
@@ -269,8 +273,6 @@ export interface Place {
   priceLevel?: string; 
   duration?: number; 
   price_estimate?: string; 
-  
-  // Special Fields
   waypoints?: Array<{ name: string; address: string; }>;
   phone?: string;
   awards?: string[];
@@ -278,13 +280,9 @@ export interface Place {
   cuisine?: string;
   vibe?: string[];
   signature_dish?: string;
-  
-  // Hotel Specifics
   location_match?: string;
   bookingUrl?: string;
   pros?: string[];
-
-  // Ideas / Wildcards
   details?: {
     specialType?: 'sunny' | 'rainy' | 'wildcard' | string;
     duration?: number;
@@ -292,14 +290,11 @@ export interface Place {
     website?: string;
     source?: string;
   };
-
   visited?: boolean;
   visitedAt?: string; 
   userNote?: string;
-  userRating?: number; // FEAT: Added Emotion Rating (1-5) for the Diary
+  userRating?: number; 
   googlePlaceId?: string; 
-  
-  // Enriched Links
   guide_link?: string;
 }
 
@@ -345,6 +340,7 @@ export interface TripProject {
     tourGuide?: TourGuideResult | null;
     ideenScout?: IdeenScoutResult | null;
     infoAutor?: InfoAutorResult | null; 
+    transferPlanner?: TransferPlannerResult | null; // FEAT: Added TransferPlanner
   };
   data: {
     places: Record<string, Place>; 
@@ -357,4 +353,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 334 Zeilen ---
+// --- END OF FILE 368 Zeilen ---

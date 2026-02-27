@@ -1,6 +1,6 @@
+// 27.02.2026 14:25 - FIX: Enabled 'transferPlanner' for stationary trips so it can perform the Local Mobility Reality Check.
 // 23.02.2026 18:15 - FIX: 'basis' step status now ignores pre-populated hotels to accurately reflect completion.
 // 23.02.2026 11:45 - FIX: Prevents auto-selection of 'hotelScout' if a manual hotel is already present.
-// 19.02.2026 13:45 - FIX: Added tourGuide, chefredakteur & hotelScout to initial selection fallback.
 // src/hooks/useWorkflowSelection.ts
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -95,7 +95,7 @@ export const useWorkflowSelection = (isOpen: boolean) => {
                 return hasIdeen ? 'done' : 'available';
 
             case 'transferPlanner': 
-                if (isStationary) return 'locked';
+                // FIX: transferPlanner is NOW available for stationary trips to check local mobility!
                 const hasDayPlan = project.itinerary.days.length > 0;
                 const canRunTransfer = hasDayPlan || isSelected('initialTagesplaner');
                 return canRunTransfer ? 'available' : 'locked';
@@ -155,8 +155,8 @@ export const useWorkflowSelection = (isOpen: boolean) => {
             });
             
             const validDefaults = defaults.filter(id => {
+                // FIX: Only routeArchitect is blocked for stationary now. TransferPlanner is allowed.
                 if (id === 'routeArchitect' && isStationary) return false;
-                if (id === 'transferPlanner' && isStationary) return false;
                 return true;
             });
 
@@ -196,4 +196,4 @@ export const useWorkflowSelection = (isOpen: boolean) => {
         validateStepStart 
     };
 };
-// --- END OF FILE 222 Zeilen ---
+// --- END OF FILE 221 Zeilen ---

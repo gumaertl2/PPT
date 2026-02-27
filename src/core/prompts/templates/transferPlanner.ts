@@ -1,76 +1,57 @@
-// 23.01.2026 15:45 - FIX: Synchronized Schema with CoT Instruction (added _thought_process).
-// 19.01.2026 17:43 - REFACTOR: "Operation Clean Sweep" - Migrated to V40 English Keys.
+// 27.02.2026 14:15 - REFACTOR: Adapted signature to accept V40 Payload strictly separating data prep from logic.
+// 27.02.2026 13:45 - FEAT: Integrated 'localMobility' reality check (ÖPNV/Mietwagen constraints).
 // src/core/prompts/templates/transferPlanner.ts
-// 19.01.2026 13:40 - FIX: Restored V30 Legacy Schema (German Keys) for TransferPlanner.
-// 18.01.2026 14:35 - FIX: Added previousLocation argument to support Chunking-Awareness.
-// 17.01.2026 15:35 - UPDATE: Added 'Stationary Mode' (Hub & Spoke) Logic.
-// 18.01.2026 00:20 - REFACTOR: Migrated to class-based PromptBuilder.
 
-import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
 
-export const buildTransferPlannerPrompt = (project: TripProject, previousLocation: string = ''): string => {
-  const { userInputs, data } = project;
-  const { logistics } = userInputs;
-
-  // Context for AI
-  const placesList = Object.values(data.places || {}).flat().map((p: any) => ({
-    id: p.id,
-    name: p.name,
-    geo: p.geo_koordinaten || p.geo || p.location, // Robustness
-    base_location: logistics.mode === 'stationaer' ? logistics.stationary.destination : 'Varied'
-  }));
-
-  const contextData = {
-    mode: logistics.mode,
-    // If Stationary: The Base
-    base: logistics.mode === 'stationaer' ? logistics.stationary.destination : null,
-    // If Roundtrip: The Route
-    stops: logistics.mode === 'mobil' ? logistics.roundtrip.stops : null,
-    // Places to connect
-    places_to_connect: placesList,
-    // NEW: Where did planning stop last? (For Chunking)
-    previous_chunk_end_location: previousLocation
-  };
+export const buildTransferPlannerPrompt = (payload: any): string => {
+  const { context, meta } = payload;
 
   const role = `You are the "Transfer Planner". Your task is to calculate logistic connections (transfers) between locations.
-  You create **NO** daily schedule, but a pure "Distance Matrix" and route recommendations.`;
+  You create **NO** daily schedule, but a pure "Distance Matrix" and act as a REALITY CHECK for the chosen mobility.`;
 
   // Instruction depends on mode
   let modeInstruction = "";
-  if (logistics.mode === 'stationaer') {
+  if (context.mode === 'stationaer') {
     modeInstruction = `MODE: STATIONARY (Hub & Spoke).
-    Calculate the drive time and distance from the base ("${logistics.stationary.destination}") for EVERY place.
+    Calculate the drive time and distance from the base ("${context.base}") for EVERY place.
     This is a Star-Topology (There & Back).`;
   } else {
     modeInstruction = `MODE: ROUNDTRIP (Moving Chain).
-    Calculate distances between logically consecutive places (Cluster Logic).
-    If a "previous_chunk_end_location" (${previousLocation}) is provided, you MUST start calculation from there!
+    Calculate distances between logically consecutive places (Cluster Logic) based on the provided itinerary_days.
     Try to group places into clusters to minimize drive time.`;
   }
 
   const instructions = `# TASK
 ${modeInstruction}
 
+# LOCAL MOBILITY REALITY CHECK (CRITICAL)
+The user has specified their local mobility as: "${context.local_mobility || 'car'}".
+You MUST verify if the planned transfers are realistic with this mode of transport.
+- If "public_transport" or "bicycle" is selected but a location is unreachable (e.g. remote beach, mountain trail), YOU MUST FLAG THIS! Suggest alternatives (like taking a Taxi, Uber, or renting a car for a day) and estimate the costs (e.g., "Taxi approx. 30 €").
+- If "car" or "camper" is selected and the activity is a one-way hike (Streckenwanderung), point out the "parking trap" (how to get back to the vehicle).
+
 # CALCULATION RULES
 1.  **Realism:** Use realistic average speeds (City 30km/h, Rural 70km/h, Highway 110km/h).
 2.  **Buffer:** Always add 15-20% buffer to pure Google Maps time (parking search, traffic).
-3.  **Transport:** Base it on user input: ${(userInputs.dates.arrival as any).type || 'car'}.
+3.  **Transport:** Base it strictly on the user's local mobility ("${context.local_mobility || 'car'}").
+
+${meta.feedbackSection || ''}
 
 # OUTPUT SCHEMA
-Create a list of transfer connections.`;
+Create a list of transfer connections. If a connection is problematic based on the local mobility, provide a warning.`;
 
-  // FIX: Schema converted to V40 English keys & CoT added
   const outputSchema = {
-    "_thought_process": "String (Route analysis & logic check)",
+    "_thought_process": "String (Route analysis, local mobility reality check & logic check)",
     "transfers": [
       {
         "from_id": "String (ID or 'BASE')",
         "to_id": "String (ID)",
         "duration_minutes": "Integer",
         "distance_km": "Number",
-        "transport_mode": "String (car, public, walk)",
-        "notes": "String (e.g. 'Toll road' or 'Scenic route')"
+        "transport_mode": "String (car, public, walk, taxi, etc.)",
+        "notes": "String (e.g. 'Toll road' or 'Scenic route')",
+        "reality_check_warning": "String or null (If unreachable with chosen mobility, explain why, suggest alternative like Taxi/Rental Car, and estimate costs. If car/camper: warn about parking traps for one-way hikes.)"
       }
     ]
   };
@@ -78,10 +59,10 @@ Create a list of transfer connections.`;
   return new PromptBuilder()
     .withOS()
     .withRole(role)
-    .withContext(contextData, "LOGISTICS DATA")
+    .withContext(context, "LOGISTICS DATA")
     .withInstruction(instructions)
     .withOutputSchema(outputSchema)
     .withSelfCheck(['planning']) 
     .build();
 };
-// --- END OF FILE 77 Zeilen ---
+// --- END OF FILE 62 Zeilen ---

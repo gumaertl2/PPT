@@ -1,7 +1,6 @@
+// 27.02.2026 14:35 - FIX: Removed 'transferPlanner' from the hardcoded stationary warning in the UI, as it is now supported.
 // 19.02.2026 14:45 - FEAT: Added 'showPlanningMode: true' to handleGoToPrios for direct planning access.
 // 19.02.2026 12:00 - FIX: Repaired TypeScript Errors (TS2367, TS2322, TS6133) & restored missing warning block.
-// 17.02.2026 22:05 - FIX: Added Error Boundary around executeStart & Robust UI handling.
-// 17.02.2026 21:35 - FEAT: UI Integration of 'validateStepStart' for Priority Check.
 // src/features/Workflow/WorkflowSelectionModal.tsx
 
 import React, { useState } from 'react';
@@ -52,7 +51,6 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
     // 1. PRIORITY CHECK
     if (selectedSteps.includes('initialTagesplaner')) {
         const validation = validateStepStart('initialTagesplaner');
-        // FIX: Geändert von 'missing_priorities' auf 'no_priorities' (TS2367)
         if (!validation.canStart && validation.reason === 'no_priorities') {
             setShowPrioConfirm(true);
             return;
@@ -80,9 +78,6 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
 
   const executeStart = async (options?: { mode: 'smart' | 'force' }) => {
     try {
-        // FIX: Entfernt, da 'plan' kein gültiger viewMode ('list' | 'map') ist und TS2322 verursachte. 
-        // Der Orchestrator setzt den Ladezustand ohnehin.
-        
         await onStart(selectedSteps, options); 
         onClose();
         
@@ -97,7 +92,6 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
 
   const handleGoToPrios = () => {
       onClose();
-      // FIX: Trigger the global 'showPlanningMode' state so SightsView opens it immediately
       setUIState({ viewMode: 'list', showPlanningMode: true }); 
   };
 
@@ -204,8 +198,8 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
                       {step.description[lang]}
                     </p>
 
-                    {/* FIX: Dieser Block wurde wiederhergestellt, was TS6133 behebt (AlertCircle & isStationary) */}
-                    {isWarning && isStationary && (step.id === 'routeArchitect' || step.id === 'transferPlanner') && (
+                    {/* FIX: Warning is now ONLY shown for routeArchitect if stationary */}
+                    {isWarning && isStationary && step.id === 'routeArchitect' && (
                        <div className="flex items-center gap-1 mt-2 text-xs text-slate-400">
                         <AlertCircle className="w-3 h-3" />
                         <span>
@@ -365,4 +359,4 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
     </>
   );
 };
-// --- END OF FILE 342 Zeilen ---
+// --- END OF FILE 339 Zeilen ---

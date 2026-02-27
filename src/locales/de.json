@@ -215,7 +215,21 @@
       "car": "Auto",
       "camper": "Wohnmobil",
       "other": "Sonstiges"
-    }
+    },
+   "local_mobility": "Mobilität vor Ort",
+  "mobility": {
+  "car": "Mietwagen / Auto",
+  "camper": "Camper / Wohnmobil",
+  "public": "ÖPNV (Bus/Bahn)",
+  "bicycle": "Fahrrad",
+  "walk": "Zu Fuß",
+  "mix": "Mix (Taxi/Uber/ÖPNV)"
+},
+"error_end_date": "Enddatum darf nicht vor dem Startdatum liegen.",
+"constraints_drive_day": "Max. Fahrzeit Ausflüge (h)",
+"constraints_drive_day_hint": "Hin & Zurück (Tageslimit)",
+"auto_calc_total": "Auto-calc: (Tage-2)*3h",
+"auto_calc_hotels": "Auto-calc: Tage/4"
   },
   "dates": {
     "warning_flexible_title": "Kein fester Reisezeitraum gewählt.",

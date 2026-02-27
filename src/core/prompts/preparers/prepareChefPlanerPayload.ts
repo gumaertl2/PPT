@@ -1,6 +1,5 @@
+// 27.02.2026 13:55 - FEAT: Injected 'localMobility' into ChefPlaner logistics briefing so the AI knows how the user travels.
 // 24.01.2026 19:30 - FEAT: New Preparer for ChefPlaner.
-// Implements "Exclusion Protocol": Filters out Non-Sammler interests (Hotels, Restaurants)
-// to prevent the ChefPlaner from assigning wrong tasks to the Collector.
 // src/core/prompts/preparers/prepareChefPlanerPayload.ts
 
 import type { TripProject, LocalizedContent } from '../../types';
@@ -8,14 +7,12 @@ import { INTEREST_DATA, STRATEGY_OPTIONS } from '../../../data/staticData';
 
 // --- DEFINITIONS & WHITELISTS ---
 
-// These categories are handled by SPECIALIST AGENTS (HotelScout, FoodScout).
-// The ChefPlaner must NOT instruct the Collector (Sammler) to search for these.
 const EXCLUDED_INTERESTS = [
-    'hotel', 'camping', 'accommodation',  // -> HotelScout
-    'restaurant', 'food', 'culinary',     // -> FoodScout
-    'logistics', 'transport',             // -> RouteArchitect
-    'budget',                             // -> Controller
-    'city_info', 'general_info'           // -> ContentScout
+    'hotel', 'camping', 'accommodation',  
+    'restaurant', 'food', 'culinary',     
+    'logistics', 'transport',             
+    'budget',                             
+    'city_info', 'general_info'           
 ];
 
 // --- HELPER FUNCTIONS (Ported from Template) ---
@@ -40,7 +37,6 @@ const extractHotels = (userInputs: TripProject['userInputs']) => {
       });
     }
   } else {
-    // Rundreise: Stops durchgehen
     userInputs.logistics.roundtrip.stops.forEach((stop: any) => {
       if (stop.hotel) {
         hotels.push({
@@ -71,18 +67,14 @@ const getMonthName = (dateStr: string, lang: 'de' | 'en'): string => {
 
 /**
  * Der Preparer für den "ChefPlaner".
- * Bereitet alle Daten vor und filtert falsche Interessen heraus.
  */
 export const prepareChefPlanerPayload = (project: TripProject, feedback?: string) => {
     const { userInputs, meta } = project;
     const uiLang = meta.language === 'en' ? 'en' : 'de';
 
-    // 1. LANGUAGE & META
     const desiredLangCode = userInputs.aiOutputLanguage || meta.language;
     const targetLanguageName = getFullLanguageName(desiredLangCode);
 
-    // 2. INTERESTS FILTERING (THE FIX)
-    // We only pass interests that are NOT in the exclusion list.
     const safeInterestIds = userInputs.selectedInterests.filter(id => 
         !EXCLUDED_INTERESTS.includes(id.toLowerCase())
     );
@@ -96,19 +88,20 @@ export const prepareChefPlanerPayload = (project: TripProject, feedback?: string
         };
     });
 
-    // 3. STRATEGY
     const strategyDef = STRATEGY_OPTIONS ? STRATEGY_OPTIONS[userInputs.strategyId] : null;
     const strategyInfo = {
         name: resolveText(strategyDef?.label, uiLang) || userInputs.strategyId,
         instruction: resolveText(strategyDef?.promptInstruction, uiLang)
     };
 
-    // 4. LOGISTICS & CONSTRAINTS
     const extractedHotels = extractHotels(userInputs);
     const rawEvents = userInputs.dates.fixedEvents || [];
     const fixedEvents = rawEvents.filter(e => e.name && e.name.trim().length > 0);
 
     let logisticsBriefing = {};
+    
+    // FEAT: Inject local mobility for better spatial awareness
+    const localMobility = userInputs.logistics.localMobility || 'car';
     
     if (userInputs.logistics.mode === 'stationaer') {
         const maxDriveTimeMins = userInputs.logistics.stationary.constraints?.maxDriveTimeDay || 180;
@@ -117,7 +110,8 @@ export const prepareChefPlanerPayload = (project: TripProject, feedback?: string
         logisticsBriefing = {
             type: "STATIONARY (Hub & Spoke)",
             base_location: userInputs.logistics.stationary.destination,
-            constraint_description: `Search Radius Limit: Max ${maxDriveTimeHours} hours drive time (round trip) from base location for daily excursions.`,
+            local_mobility_preference: localMobility,
+            constraint_description: `Search Radius Limit: Max ${maxDriveTimeHours} hours travel time (round trip) from base location using ${localMobility}. Ensure sights are realistically reachable!`,
             max_drive_time_day_hours: parseFloat(maxDriveTimeHours)
         };
     } else {
@@ -139,8 +133,9 @@ export const prepareChefPlanerPayload = (project: TripProject, feedback?: string
             start_location: startLoc,
             end_location: endLoc,
             stops: userInputs.logistics.roundtrip.stops.map(s => s.location),
+            local_mobility_preference: localMobility,
             mandatory_region: region || null,
-            constraint_description: `Route Feasibility: Max ${maxLegHours} hours drive time between hotels (Legs). Max ${maxHotelChanges} hotel changes allowed. ${regionConstraint}`,
+            constraint_description: `Route Feasibility: Max ${maxLegHours} hours drive time between hotels (Legs). Max ${maxHotelChanges} hotel changes allowed. User uses ${localMobility} locally. ${regionConstraint}`,
             max_drive_time_leg_hours: parseFloat(maxLegHours),
             max_hotel_changes: maxHotelChanges,
             implied_local_radius_hours: localRadiusHours
@@ -151,13 +146,11 @@ export const prepareChefPlanerPayload = (project: TripProject, feedback?: string
     const travelMonth = getMonthName(userInputs.dates.start, uiLang);
     const transportMode = userInputs.dates.arrival.type || 'car';
 
-    // 5. FEEDBACK LOOP
     let feedbackSection = '';
     if (feedback) {
         feedbackSection = `\n### IMPORTANT: USER FEEDBACK (CORRECTION LOOP)\nThe user reviewed your previous analysis and requests these changes:\n"""\n${feedback}\n"""\n`;
     }
 
-    // 6. BUILD FINAL CONTEXT
     return {
         context: {
             travelers: {
@@ -177,7 +170,7 @@ export const prepareChefPlanerPayload = (project: TripProject, feedback?: string
             appointments_to_validate: fixedEvents,
             target_sights_count: targetSightsCount,
             strategy: strategyInfo,
-            interests: activeInterests, // <-- FILTERED LIST
+            interests: activeInterests, 
             custom_notes: userInputs.notes,
             custom_preferences: userInputs.customPreferences,
             target_output_language: targetLanguageName
@@ -185,8 +178,8 @@ export const prepareChefPlanerPayload = (project: TripProject, feedback?: string
         meta: {
             target_sights_count: targetSightsCount,
             targetLanguageName,
-            feedbackSection // We pass this separate to inject into role/instruction if needed
+            feedbackSection 
         }
     };
 };
-// --- END OF FILE 168 Zeilen --- 
+// --- END OF FILE 176 Zeilen ---
