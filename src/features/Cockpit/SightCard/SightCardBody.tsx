@@ -1,10 +1,12 @@
+// 27.02.2026 17:40 - FEAT: Added KI-Planungs-Konflikt warning for unassigned places from Tagesplaner.
 // 27.02.2026 09:45 - FEAT: Added full i18n support for all Live-Check and UI strings.
 // 27.02.2026 09:40 - UX: Changed Live-Status timestamp format from time to date.
 // src/features/Cockpit/SightCard/SightCardBody.tsx
 
 import React, { useState } from 'react';
-import { CheckCircle2, ChefHat, Utensils, Sparkles, Trophy, Phone, Footprints, Map as MapIcon, ChevronUp, RefreshCw, MapPin, Clock, Info, Banknote, Star, Zap, Loader2 } from 'lucide-react';
+import { CheckCircle2, ChefHat, Utensils, Sparkles, Trophy, Phone, Footprints, Map as MapIcon, ChevronUp, RefreshCw, MapPin, Clock, Info, Banknote, Star, Zap, Loader2, AlertCircle } from 'lucide-react';
 import { LiveScout } from '../../../services/LiveScout'; 
+import { useTripStore } from '../../../store/useTripStore';
 
 interface SightCardBodyProps {
   data: any;
@@ -32,6 +34,7 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
   hasCategoryChanged = false 
 }) => {
   const [isChecking, setIsChecking] = useState(false);
+  const { project } = useTripStore();
 
   if (!isStandardOrHigher) return null;
 
@@ -53,6 +56,10 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
   };
   
   const descriptionText = resolveDescription();
+
+  // FEAT: Prüfe, ob dieser Ort vom Tagesplaner aussortiert wurde
+  const unassignedList = (project.analysis as any)?.initialTagesplaner?.unassigned || [];
+  const unassignedInfo = unassignedList.find((u: any) => u.id === data.id);
 
   // --- UNIFIED RENDERERS FOR LIVE DATA ---
   
@@ -162,7 +169,18 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
 
   return (
     <div className="text-sm text-gray-600 mt-2 pt-2 border-t border-gray-100 animate-in fade-in duration-200">
-            
+      
+      {/* KI-Planungs-Konflikt Warnung */}
+      {unassignedInfo && (
+          <div className="flex items-start gap-2 mb-3 p-2.5 bg-orange-50 border border-orange-200 rounded-lg text-xs text-orange-800 shadow-sm animate-in fade-in slide-in-from-top-2">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-orange-600" />
+              <div>
+                  <strong className="block font-bold mb-0.5 uppercase tracking-wide text-[10px] text-orange-700">{t('sights.planning_conflict', { defaultValue: 'KI-Planungs-Konflikt (Nicht im Tagesplan)' })}</strong>
+                  <span className="leading-snug">{unassignedInfo.reason}</span>
+              </div>
+          </div>
+      )}
+
       {isHotel && data.location_match && (
             <div className="flex items-start gap-2 mb-2 text-[11px] text-emerald-800 bg-emerald-50/50 p-2 rounded border border-emerald-100">
               <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
@@ -288,4 +306,4 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
     </div>
   );
 };
-// --- END OF FILE 271 Zeilen ---
+// --- END OF FILE 285 Zeilen ---
