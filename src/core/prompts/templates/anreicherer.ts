@@ -1,3 +1,4 @@
+// 28.02.2026 18:00 - FIX: Added CRITICAL GEOCODING RULE securely.
 // 05.02.2026 20:45 - FIX: Mapped output to 'logistics' field (removed new field logistics_tip).
 // 05.02.2026 20:30 - FEATURE: ENRICHER V2 - Added Price & Logistics Research.
 // src/core/prompts/templates/anreicherer.ts
@@ -43,7 +44,7 @@ You receive a list of candidates, each with a unique 'id'.
 
 # PROTOCOL B: GEO-PRECISION & VALIDATION
 1. **Coordinates:** Find exact Lat/Lng. Do not estimate.
-2. **Address:** Must be navigable (Street, Number, Zip, City).
+2. **Address:** Must be navigable. CRITICAL GEOCODING RULE: The 'address' field MUST contain ONLY a clean, official postal address (Street, Number, ZIP, City, Country). STRICTLY FORBIDDEN: Do not include building names, POI names, descriptions, or abbreviations like 's/n' (sin número). If no exact street exists, provide only City and Country. OpenStreetMap/Nominatim will crash if you add descriptive fluff.
 3. **Region Check:** If the place is not in "${context.search_region}", set "valid": false.
 4. **Hallucination Check:** If you cannot find the place with 99% certainty, set "valid": false.
 

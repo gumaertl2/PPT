@@ -1,3 +1,4 @@
+// 28.02.2026 18:00 - FIX: Added CRITICAL GEOCODING RULE securely.
 // src/core/prompts/templates/foodScout.ts
 // 16.02.2026 19:00 - PROMPT: INTERNATIONAL TRIPLE DRAGNET.
 // - Logic: Combines 3 Strategies: Regional Lists + Neighbor Cluster + District Zoom.
@@ -63,6 +64,7 @@ export const buildFoodScoutPrompt = (_project: TripProject, context: any): strin
     - **Relevance Check:** Is the restaurant in ${targetLocation} OR a direct neighbor (< 10km)? -> KEEP.
     - **Guide Check:** Is it mentioned in a guide (Snippet or Website)? -> KEEP.
     - **Duplication Check:** Ensure "Fürstenfelder" is listed only once.
+    - **Address Formatting (CRITICAL GEOCODING RULE):** The 'address' field MUST contain ONLY a clean, official postal address (Street, Number, ZIP, City, Country). STRICTLY FORBIDDEN: Do not include building names, POI names, descriptions, or abbreviations like 's/n' (sin número). If no exact street exists, provide only City and Country. OpenStreetMap/Nominatim will crash if you add descriptive fluff.
 
     ### OUTPUT (JSON ONLY):
     {
@@ -113,4 +115,4 @@ export const buildFoodScoutPrompt = (_project: TripProject, context: any): strin
 
   return builder.build();
 };
-// --- END OF FILE 105 Lines ---
+// --- END OF FILE 107 Lines ---
