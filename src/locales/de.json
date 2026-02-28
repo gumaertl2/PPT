@@ -216,20 +216,20 @@
       "camper": "Wohnmobil",
       "other": "Sonstiges"
     },
-   "local_mobility": "Mobilität vor Ort",
-  "mobility": {
-  "car": "Mietwagen / Auto",
-  "camper": "Camper / Wohnmobil",
-  "public": "ÖPNV (Bus/Bahn)",
-  "bicycle": "Fahrrad",
-  "walk": "Zu Fuß",
-  "mix": "Mix (Taxi/Uber/ÖPNV)"
-},
-"error_end_date": "Enddatum darf nicht vor dem Startdatum liegen.",
-"constraints_drive_day": "Max. Fahrzeit Ausflüge (h)",
-"constraints_drive_day_hint": "Hin & Zurück (Tageslimit)",
-"auto_calc_total": "Auto-calc: (Tage-2)*3h",
-"auto_calc_hotels": "Auto-calc: Tage/4"
+    "local_mobility": "Mobilität vor Ort",
+    "mobility": {
+      "car": "Mietwagen / Auto",
+      "camper": "Camper / Wohnmobil",
+      "public": "ÖPNV (Bus/Bahn)",
+      "bicycle": "Fahrrad",
+      "walk": "Zu Fuß",
+      "mix": "Mix (Taxi/Uber/ÖPNV)"
+    },
+    "error_end_date": "Enddatum darf nicht vor dem Startdatum liegen.",
+    "constraints_drive_day": "Max. Fahrzeit Ausflüge (h)",
+    "constraints_drive_day_hint": "Hin & Zurück (Tageslimit)",
+    "auto_calc_total": "Auto-calc: (Tage-2)*3h",
+    "auto_calc_hotels": "Auto-calc: Tage/4"
   },
   "dates": {
     "warning_flexible_title": "Kein fester Reisezeitraum gewählt.",
@@ -441,9 +441,9 @@
     "live_check_up_to_date": "Alle aktuell angezeigten Orte sind bereits auf dem neuesten Stand (jünger als 4 Wochen).",
     "conflict_modal_title": "Planungs-Kompromiss nötig",
     "conflict_modal_desc": "Dein vorgegebenes Zeitbudget ist zu knapp. Die KI konnte folgende hochpriorisierte Orte nicht im Tagesplan unterbringen:",
-     "conflict_modal_accept": "Plan trotzdem übernehmen",
-     "conflict_modal_reject": "Plan verwerfen & anpassen",
-     "remove_flex_day": "Ausnahmeregel entfernen"
+    "conflict_modal_accept": "Plan trotzdem übernehmen",
+    "conflict_modal_reject": "Plan verwerfen & anpassen",
+    "remove_flex_day": "Ausnahmeregel entfernen"
   },
   "route": {
     "no_results": "Keine Routenvorschläge verfügbar.",
@@ -692,7 +692,11 @@
       "zoom_high": "Detail (Z16)",
       "btn_minimize": "Karte ausrichten",
       "btn_restore": "Ausschnitt wählen & Fortfahren",
-      "offline_hint": "Stoppt den Live-Datenverbrauch."
+      "offline_hint": "Stoppt den Live-Datenverbrauch.",
+      "error_no_name": "Bitte gib einen Namen für die Region ein.",
+      "error_offline": "Keine Internetverbindung. Download nicht möglich.",
+      "error_layer": "Fehler beim Laden der Kartenebene. Bitte wechsle die Ebene.",
+      "error_download": "Beim Herunterladen ist ein Fehler aufgetreten. Überprüfe deine Internetverbindung."
     }
   }
 }

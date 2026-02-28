@@ -217,21 +217,20 @@
       "camper": "Camper",
       "other": "Other"
     },
-"local_mobility": "Local Mobility",
-"mobility": {
-  "car": "Rental Car / Auto",
-  "camper": "Camper / RV",
-  "public": "Public Transport",
-  "bicycle": "Bicycle",
-  "walk": "Walking",
-  "mix": "Mix (Taxi/Uber/Transit)"
-},
-"error_end_date": "End date cannot be before start date.",
-"constraints_drive_day": "Max Drive Time Excursions (h)",
-"constraints_drive_day_hint": "Round trip (Daily limit)",
-"auto_calc_total": "Auto-calc: (Days-2)*3h",
-"auto_calc_hotels": "Auto-calc: Days/4"
-
+    "local_mobility": "Local Mobility",
+    "mobility": {
+      "car": "Rental Car / Auto",
+      "camper": "Camper / RV",
+      "public": "Public Transport",
+      "bicycle": "Bicycle",
+      "walk": "Walking",
+      "mix": "Mix (Taxi/Uber/Transit)"
+    },
+    "error_end_date": "End date cannot be before start date.",
+    "constraints_drive_day": "Max Drive Time Excursions (h)",
+    "constraints_drive_day_hint": "Round trip (Daily limit)",
+    "auto_calc_total": "Auto-calc: (Days-2)*3h",
+    "auto_calc_hotels": "Auto-calc: Days/4"
   },
   "dates": {
     "warning_flexible_title": "No fixed period chosen.",
@@ -694,7 +693,11 @@
       "btn_minimize": "Align Map",
       "btn_restore": "Select Area & Continue",
       "area_size": "Budget & Frame",
-      "offline_hint": "Stops live data usage."
+      "offline_hint": "Stops live data usage.",
+      "error_no_name": "Please enter a name for the region.",
+      "error_offline": "No internet connection. Download not possible.",
+      "error_layer": "Error loading map layer. Please switch the layer.",
+      "error_download": "An error occurred during download. Check your internet connection."
     }
   }
 }

@@ -1,8 +1,8 @@
+// 28.02.2026 12:15 - I18N: Translated static legend items and GPS marker popup.
 // 28.02.2026 10:55 - I18N: Added full translation support to MapLegend categories using INTEREST_DATA.
 // 27.02.2026 10:55 - FIX: Added L.DomEvent propagation stoppers to MapLegend to fix scrolling issues on mobile/iPhone.
 // 27.02.2026 10:45 - FIX: Removed unused 'DAY_COLORS' import to resolve TS6133 Vercel build error (again).
 // 27.02.2026 10:25 - FEAT: Added interactive category filtering directly from the MapLegend.
-// 27.02.2026 10:15 - UX: Made MapLegend collapsible to save screen space on mobile devices.
 // src/features/Cockpit/Map/MapSubComponents.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -107,6 +107,7 @@ export const MapResizer: React.FC<{ isFullscreen: boolean }> = ({ isFullscreen }
 };
 
 export const UserLocationMarker: React.FC<{ location: [number, number] | null }> = ({ location }) => {
+    const { t } = useTranslation();
     const map = useMap();
     useEffect(() => {
         if (location) map.flyTo(location, 14, { animate: true, duration: 1.5 });
@@ -124,7 +125,7 @@ export const UserLocationMarker: React.FC<{ location: [number, number] | null }>
 
     return (
         <Marker position={location} icon={userIcon} zIndexOffset={9999}>
-            <Popup><div className="text-xs font-bold text-blue-600 p-1">Mein aktueller Standort</div></Popup>
+            <Popup><div className="text-xs font-bold text-blue-600 p-1">{t('map.current_location', 'Mein aktueller Standort')}</div></Popup>
         </Marker>
     );
 };
@@ -185,7 +186,6 @@ export const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
   const [isOpen, setIsOpen] = useState(false);
   const legendRef = useRef<HTMLDivElement>(null);
 
-  // FIX: Verhindert, dass das Scrollen in der Legende die Karte auf Mobile-Geräten verschiebt.
   useEffect(() => {
     if (isOpen && legendRef.current) {
         L.DomEvent.disableClickPropagation(legendRef.current);
@@ -297,18 +297,18 @@ export const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
       <div className="mt-2 pt-2 border-t border-slate-200 space-y-1.5 pointer-events-none">
           <div className="flex items-center gap-2 mb-1 px-0.5">
               <div className="w-3 h-3 rounded-full border border-slate-400 bg-slate-100 shadow-sm flex items-center justify-center"></div>
-              <span className="text-[10px] text-slate-500 font-bold leading-tight">Hohe Prio (Kreis)</span>
+              <span className="text-[10px] text-slate-500 font-bold leading-tight">{t('map.legend_prio', 'Hohe Prio (Kreis)')}</span>
           </div>
           <div className="flex items-center gap-2 mb-1 px-0.5">
               <div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-sm text-[8px] text-white flex items-center justify-center font-bold">1</div>
-              <span className="text-[10px] text-slate-500 font-bold leading-tight">Geplant (Tag 1)</span>
+              <span className="text-[10px] text-slate-500 font-bold leading-tight">{t('map.legend_planned', 'Geplant (Tag 1)')}</span>
           </div>
           <div className="flex items-center gap-2 px-0.5">
               <div className="w-4 h-4 rounded-md bg-slate-900 border-2 border-white shadow-sm text-[10px] flex items-center justify-center">🏨</div>
-              <span className="text-[10px] text-slate-500 font-bold leading-tight">Unterkunft</span>
+              <span className="text-[10px] text-slate-500 font-bold leading-tight">{t('map.legend_hotel', 'Unterkunft')}</span>
           </div>
       </div>
     </div>
   );
 };
-// Zeilenanzahl: 310
+// Zeilenanzahl: 311

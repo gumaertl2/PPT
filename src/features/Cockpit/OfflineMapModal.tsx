@@ -1,6 +1,8 @@
+// 28.02.2026 12:15 - I18N: Translated 'AKTIV' and 'AUS' buttons in the offline map toggle.
+// 28.02.2026 12:05 - UX/I18N: Made download button always clickable to provide an i18n translated error alert when region name is missing.
+// 28.02.2026 11:55 - FIX: Replaced L.DomEvent propagation with native Leaflet lockMap/unlockMap logic to restore button functionality on iOS/Mobile.
+// 28.02.2026 11:40 - FIX: Wrapped handleDownloadArea in try-catch to prevent silent crashes, added online check.
 // 26.02.2026 13:10 - FIX: Added download throttle (250ms sleep and reduced batch size) to prevent IP bans.
-// 26.02.2026 12:55 - FEAT: Applied i18n translation hook to active layer name.
-// 26.02.2026 12:20 - FEAT: Downloader uses selected MAP_LAYER and caches it securely with a layer prefix.
 // src/features/Cockpit/OfflineMapModal.tsx
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -32,6 +34,36 @@ export const OfflineMapModal: React.FC = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [totalToDownload, setTotalToDownload] = useState(0);
+
+  // --- NATIVE MAP LOCK LOGIC ---
+  const lockMap = useCallback(() => {
+    if (!map) return;
+    map.dragging.disable();
+    map.touchZoom.disable();
+    map.doubleClickZoom.disable();
+    map.scrollWheelZoom.disable();
+    map.boxZoom.disable();
+    map.keyboard.disable();
+  }, [map]);
+
+  const unlockMap = useCallback(() => {
+    if (!map) return;
+    map.dragging.enable();
+    map.touchZoom.enable();
+    map.doubleClickZoom.enable();
+    map.scrollWheelZoom.enable();
+    map.boxZoom.enable();
+    map.keyboard.enable();
+  }, [map]);
+
+  // Safety Cleanup: Always unlock map when modal closes or unmounts
+  useEffect(() => {
+    if (!uiState.isMapManagerOpen) {
+      unlockMap();
+    }
+    return () => unlockMap();
+  }, [uiState.isMapManagerOpen, unlockMap]);
+  // -----------------------------
 
   useEffect(() => {
     if (uiState.isMapManagerOpen) {
@@ -118,7 +150,17 @@ export const OfflineMapModal: React.FC = () => {
   };
 
   const handleDownloadArea = async () => {
-    if (!regionName.trim() || !previewBounds) return;
+    if (!previewBounds) return;
+
+    if (!regionName.trim()) {
+        alert(t('map.manager.error_no_name', 'Bitte gib einen Namen für die Region ein.'));
+        return;
+    }
+
+    if (!navigator.onLine) {
+        alert(t('map.manager.error_offline', 'Keine Internetverbindung. Download nicht möglich.'));
+        return;
+    }
 
     const safeMB = Math.max(10, Math.min(500, targetMB || 10));
     setTargetMB(safeMB);
@@ -128,6 +170,11 @@ export const OfflineMapModal: React.FC = () => {
     const maxZoom = detailLevel === 'high' ? 16 : 14; 
     
     const activeLayer = MAP_LAYERS[uiState.mapLayer as keyof typeof MAP_LAYERS] || MAP_LAYERS['standard'];
+    if (!activeLayer || !activeLayer.url) {
+        alert(t('map.manager.error_layer', 'Fehler beim Laden der Kartenebene. Bitte wechsle die Ebene.'));
+        return;
+    }
+
     const urlsToFetch: {key: string, url: string}[] = [];
 
     for (let z = minZoom; z <= maxZoom; z++) {
@@ -147,7 +194,7 @@ export const OfflineMapModal: React.FC = () => {
     }
 
     if (urlsToFetch.length > 15000) {
-      alert(t('map.manager.limit_error', 'Bereich zu groß für diese Detailstufe.'));
+      alert(t('map.manager.limit_error', 'Bereich zu groß für diese Detailstufe. Bitte verkleinere das Budget oder wähle "Standard".'));
       return;
     }
 
@@ -155,48 +202,59 @@ export const OfflineMapModal: React.FC = () => {
     setTotalToDownload(urlsToFetch.length);
     setDownloadProgress(0);
 
-    const savedKeys: string[] = [];
-    
-    // FIX: Batch-Size reduziert auf 5 für sanfteren Traffic ohne Spike-Erkennung beim Tile-Server
-    const batchSize = 5; 
+    try {
+        const savedKeys: string[] = [];
+        const batchSize = 5; 
 
-    for (let i = 0; i < urlsToFetch.length; i += batchSize) {
-      const batch = urlsToFetch.slice(i, i + batchSize);
-      await Promise.all(batch.map(async (tile) => {
-        try {
-          const existing = await MapOfflineService.getTile(tile.key);
-          if (!existing) {
-            const res = await fetch(tile.url);
-            if (res.ok) {
-              const blob = await res.blob();
-              await MapOfflineService.saveTile(tile.key, blob);
+        for (let i = 0; i < urlsToFetch.length; i += batchSize) {
+          const batch = urlsToFetch.slice(i, i + batchSize);
+          await Promise.all(batch.map(async (tile) => {
+            try {
+              const existing = await MapOfflineService.getTile(tile.key);
+              if (existing) {
+                  savedKeys.push(tile.key);
+              } else {
+                const res = await fetch(tile.url);
+                if (res.ok) {
+                  const blob = await res.blob();
+                  await MapOfflineService.saveTile(tile.key, blob);
+                  savedKeys.push(tile.key);
+                } else {
+                  console.warn(`Tile fetch failed with status: ${res.status} for ${tile.key}`);
+                }
+              }
+            } catch (e) {
+              console.warn("Tile fetch failed (Network/CORS)", tile.key, e);
             }
-          }
-          savedKeys.push(tile.key);
-        } catch (e) {
-          console.warn("Tile fetch failed", tile.key);
+          }));
+          setDownloadProgress(Math.min(i + batchSize, urlsToFetch.length));
+          
+          await new Promise(resolve => setTimeout(resolve, 250));
         }
-      }));
-      setDownloadProgress(Math.min(i + batchSize, urlsToFetch.length));
-      
-      // FIX: Tempolimit! Nach jedem Mini-Batch warten wir eine Viertelsekunde (250ms), um den IP-Ban zu umgehen.
-      await new Promise(resolve => setTimeout(resolve, 250));
+
+        if (savedKeys.length === 0) {
+            throw new Error("Download fehlgeschlagen. Keine Kacheln empfangen.");
+        }
+
+        const translatedLayerName = t(activeLayer.nameKey, activeLayer.defaultName).split(' ')[0];
+        
+        const newRegion: MapRegion = {
+          id: uuidv4(),
+          name: `${regionName.trim()} (${translatedLayerName})` + (detailLevel === 'high' ? ' HD' : ''),
+          tileKeys: savedKeys,
+          sizeInMB: (savedKeys.length * 18) / 1024,
+          createdAt: new Date().toISOString()
+        };
+        await MapOfflineService.saveRegion(newRegion);
+
+    } catch (error) {
+        console.error("Download Error:", error);
+        alert(t('map.manager.error_download', 'Beim Herunterladen ist ein Fehler aufgetreten. Überprüfe deine Internetverbindung.'));
+    } finally {
+        setIsDownloading(false);
+        setRegionName('');
+        updateStats();
     }
-
-    const translatedLayerName = t(activeLayer.nameKey, activeLayer.defaultName).split(' ')[0];
-    
-    const newRegion: MapRegion = {
-      id: uuidv4(),
-      name: `${regionName.trim()} (${translatedLayerName})` + (detailLevel === 'high' ? ' HD' : ''),
-      tileKeys: savedKeys,
-      sizeInMB: (savedKeys.length * 18) / 1024,
-      createdAt: new Date().toISOString()
-    };
-    await MapOfflineService.saveRegion(newRegion);
-
-    setIsDownloading(false);
-    setRegionName('');
-    updateStats();
   };
 
   const handleDeleteRegion = async (id: string) => {
@@ -210,10 +268,6 @@ export const OfflineMapModal: React.FC = () => {
         updateStats();
       }
     }
-  };
-
-  const stopEventPropagation = (e: React.MouseEvent | React.TouchEvent | React.WheelEvent) => {
-    e.stopPropagation();
   };
 
   if (!uiState.isMapManagerOpen) return null;
@@ -230,10 +284,11 @@ export const OfflineMapModal: React.FC = () => {
       {isMinimized && (
         <div 
           className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[9999] pointer-events-auto"
-          onDoubleClick={stopEventPropagation}
-          onMouseDown={stopEventPropagation}
-          onTouchStart={stopEventPropagation}
-          onWheel={stopEventPropagation}
+          onMouseEnter={lockMap}
+          onMouseLeave={unlockMap}
+          onTouchStart={lockMap}
+          onTouchEnd={() => setTimeout(unlockMap, 150)}
+          onTouchCancel={unlockMap}
         >
           <button 
             onClick={() => setIsMinimized(false)}
@@ -249,10 +304,11 @@ export const OfflineMapModal: React.FC = () => {
         <div className="absolute md:top-4 md:right-20 bottom-0 left-0 right-0 md:left-auto z-[9999] pointer-events-none flex flex-col w-full md:w-[260px]">
           <div 
             className="bg-white/95 backdrop-blur-md md:rounded-2xl rounded-t-2xl shadow-2xl w-full flex flex-col border border-slate-200 pointer-events-auto animate-in slide-in-from-bottom-4 md:slide-in-from-right-4 max-h-[85vh] md:max-h-full"
-            onDoubleClick={stopEventPropagation}
-            onMouseDown={stopEventPropagation}
-            onTouchStart={stopEventPropagation}
-            onWheel={stopEventPropagation}
+            onMouseEnter={lockMap}
+            onMouseLeave={unlockMap}
+            onTouchStart={lockMap}
+            onTouchEnd={() => setTimeout(unlockMap, 150)}
+            onTouchCancel={unlockMap}
           >
             
             <div className="flex items-center justify-between p-3.5 border-b border-slate-200/60 bg-slate-50/80 md:rounded-t-2xl rounded-t-2xl shrink-0 relative z-10">
@@ -334,7 +390,7 @@ export const OfflineMapModal: React.FC = () => {
                 />
                 <button 
                   onClick={handleDownloadArea}
-                  disabled={isDownloading || !regionName.trim()}
+                  disabled={isDownloading}
                   className={`w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-xs transition-all shadow-md ${
                     isDownloading ? 'bg-blue-100 text-blue-400 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-lg'
                   }`}
@@ -389,7 +445,7 @@ export const OfflineMapModal: React.FC = () => {
                     uiState.mapMode === 'offline' ? 'bg-amber-500 text-white' : 'bg-white text-slate-700 border border-slate-200'
                   }`}
                 >
-                  {uiState.mapMode === 'offline' ? 'AKTIV' : 'AUS'}
+                  {uiState.mapMode === 'offline' ? t('map.manager.active', 'AKTIV') : t('map.manager.inactive', 'AUS')}
                 </button>
               </div>
 
@@ -400,4 +456,4 @@ export const OfflineMapModal: React.FC = () => {
     </>
   );
 };
-// --- END OF FILE 387 Zeilen ---
+// Zeilenanzahl: 428
