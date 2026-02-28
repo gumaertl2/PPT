@@ -1,3 +1,5 @@
+// 28.02.2026 13:40 - FIX: MapResizer now triggers invalidateSize on viewMode changes to prevent half-rendered or shifted maps.
+// 28.02.2026 13:25 - FIX: Added strict minZoom (10) and maxZoom (16) constraints when offline to prevent gray map areas.
 // 28.02.2026 12:15 - I18N: Translated static legend items and GPS marker popup.
 // 28.02.2026 10:55 - I18N: Added full translation support to MapLegend categories using INTEREST_DATA.
 // 27.02.2026 10:55 - FIX: Added L.DomEvent propagation stoppers to MapLegend to fix scrolling issues on mobile/iPhone.
@@ -60,11 +62,20 @@ export const MapLogic: React.FC<{ places: Place[] }> = ({ places }) => {
   useEffect(() => {
     const isOffline = uiState.mapMode === 'offline';
     const activeLayer = MAP_LAYERS[uiState.mapLayer as keyof typeof MAP_LAYERS] || MAP_LAYERS['standard'];
-    const maxLimit = isOffline ? 14 : activeLayer.maxZoom;
     
-    map.setMaxZoom(maxLimit);
-    if (isOffline && map.getZoom() > 14) {
-      map.setZoom(14, { animate: true });
+    if (isOffline) {
+        // Im Offline-Modus binden wir den User an die Zoom-Level 10 bis 16,
+        // da wir außerhalb dieses Bereichs keine Kacheln speichern und sonst alles grau wäre.
+        map.setMinZoom(10);
+        map.setMaxZoom(16);
+        
+        if (map.getZoom() < 10) {
+            map.setZoom(10, { animate: true });
+        }
+    } else {
+        // Im Live-Modus heben wir die Grenzen wieder auf.
+        map.setMinZoom(3);
+        map.setMaxZoom(activeLayer.maxZoom);
     }
   }, [uiState.mapMode, uiState.mapLayer, map]);
 
@@ -98,11 +109,22 @@ export const MapLogic: React.FC<{ places: Place[] }> = ({ places }) => {
 
 export const MapResizer: React.FC<{ isFullscreen: boolean }> = ({ isFullscreen }) => {
     const map = useMap();
+    const { uiState } = useTripStore();
+
     useEffect(() => {
+        // Wir lösen den Refresh mehrfach mit Verzögerung aus, um sicherzustellen, 
+        // dass alle CSS-Animationen und Layout-Änderungen abgeschlossen sind.
         const timer1 = setTimeout(() => map.invalidateSize(), 50);
         const timer2 = setTimeout(() => map.invalidateSize(), 300);
-        return () => { clearTimeout(timer1); clearTimeout(timer2); };
-    }, [isFullscreen, map]);
+        const timer3 = setTimeout(() => map.invalidateSize(), 600);
+        
+        return () => { 
+            clearTimeout(timer1); 
+            clearTimeout(timer2); 
+            clearTimeout(timer3);
+        };
+    }, [isFullscreen, uiState.viewMode, map]);
+    
     return null;
 };
 
@@ -311,4 +333,4 @@ export const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
     </div>
   );
 };
-// Zeilenanzahl: 311
+// Zeilenanzahl: 326
