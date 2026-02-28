@@ -1,3 +1,4 @@
+// 28.02.2026 10:55 - I18N: Added full translation support to MapLegend categories using INTEREST_DATA.
 // 27.02.2026 10:55 - FIX: Added L.DomEvent propagation stoppers to MapLegend to fix scrolling issues on mobile/iPhone.
 // 27.02.2026 10:45 - FIX: Removed unused 'DAY_COLORS' import to resolve TS6133 Vercel build error (again).
 // 27.02.2026 10:25 - FEAT: Added interactive category filtering directly from the MapLegend.
@@ -10,6 +11,8 @@ import L from 'leaflet';
 import { useTripStore } from '../../../store/useTripStore';
 import { MapOfflineService } from '../../../services/MapOfflineService';
 import type { Place } from '../../../core/types/models';
+import type { LanguageCode } from '../../../core/types';
+import { INTEREST_DATA } from '../../../data/interests';
 import { MAP_LAYERS, getCategoryColor } from './MapConstants';
 import { List, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -175,7 +178,9 @@ export const OfflineTileLayer = () => {
 };
 
 export const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const currentLang = i18n.language.substring(0, 2) as LanguageCode;
+  
   const { uiState, setUIState } = useTripStore();
   const [isOpen, setIsOpen] = useState(false);
   const legendRef = useRef<HTMLDivElement>(null);
@@ -215,6 +220,16 @@ export const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
         newFilter = [cat];
     }
     setUIState({ sortMode: 'category', categoryFilter: newFilter });
+  };
+
+  const resolveCategoryLabel = (catId: string): string => {
+    if (!catId) return "";
+    const def = INTEREST_DATA[catId];
+    if (def && def.label) {
+        return (def.label as any)[currentLang] || (def.label as any)['de'] || catId;
+    }
+    if (catId === 'hotel') return t('interests.hotel', { defaultValue: 'Hotels' });
+    return catId.charAt(0).toUpperCase() + catId.slice(1).replace(/_/g, ' ');
   };
 
   if (categories.length === 0) return null;
@@ -273,7 +288,7 @@ export const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
                   style={{ backgroundColor: getCategoryColor(cat) }}
                 ></div>
                 <span className="text-xs font-medium text-slate-700 capitalize truncate max-w-[120px]" title={cat}>
-                   {cat.replace(/_/g, ' ')}
+                   {resolveCategoryLabel(cat)}
                 </span>
               </button>
           )
@@ -296,4 +311,4 @@ export const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
     </div>
   );
 };
-// --- END OF FILE 302 Zeilen ---
+// Zeilenanzahl: 310
