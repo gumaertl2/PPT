@@ -1,3 +1,4 @@
+// 28.02.2026 13:45 - FIX: Changed position to 'fixed' and optimized viewport behavior for iPad/Mobile to prevent layout jump on keyboard focus.
 // 28.02.2026 12:15 - I18N: Translated 'AKTIV' and 'AUS' buttons in the offline map toggle.
 // 28.02.2026 12:05 - UX/I18N: Made download button always clickable to provide an i18n translated error alert when region name is missing.
 // 28.02.2026 11:55 - FIX: Replaced L.DomEvent propagation with native Leaflet lockMap/unlockMap logic to restore button functionality on iOS/Mobile.
@@ -283,7 +284,7 @@ export const OfflineMapModal: React.FC = () => {
 
       {isMinimized && (
         <div 
-          className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[9999] pointer-events-auto"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] pointer-events-auto"
           onMouseEnter={lockMap}
           onMouseLeave={unlockMap}
           onTouchStart={lockMap}
@@ -301,9 +302,9 @@ export const OfflineMapModal: React.FC = () => {
       )}
 
       {!isMinimized && (
-        <div className="absolute md:top-4 md:right-20 bottom-0 left-0 right-0 md:left-auto z-[9999] pointer-events-none flex flex-col w-full md:w-[260px]">
+        <div className="fixed md:absolute md:top-4 md:right-20 bottom-0 left-0 right-0 md:left-auto z-[9999] pointer-events-none flex flex-col w-full md:w-[260px]">
           <div 
-            className="bg-white/95 backdrop-blur-md md:rounded-2xl rounded-t-2xl shadow-2xl w-full flex flex-col border border-slate-200 pointer-events-auto animate-in slide-in-from-bottom-4 md:slide-in-from-right-4 max-h-[85vh] md:max-h-full"
+            className="bg-white/95 backdrop-blur-md md:rounded-2xl rounded-t-2xl shadow-2xl w-full flex flex-col border border-slate-200 pointer-events-auto animate-in slide-in-from-bottom-4 md:slide-in-from-right-4 max-h-[70vh] md:max-h-full"
             onMouseEnter={lockMap}
             onMouseLeave={unlockMap}
             onTouchStart={lockMap}
