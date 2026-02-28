@@ -1,3 +1,4 @@
+// 28.02.2026 18:50 - FIX: Relaxed CRITICAL GEOCODING RULE.
 // 28.02.2026 18:00 - FIX: Added CRITICAL GEOCODING RULE securely.
 // src/core/prompts/templates/foodScout.ts
 // 16.02.2026 19:00 - PROMPT: INTERNATIONAL TRIPLE DRAGNET.
@@ -64,7 +65,7 @@ export const buildFoodScoutPrompt = (_project: TripProject, context: any): strin
     - **Relevance Check:** Is the restaurant in ${targetLocation} OR a direct neighbor (< 10km)? -> KEEP.
     - **Guide Check:** Is it mentioned in a guide (Snippet or Website)? -> KEEP.
     - **Duplication Check:** Ensure "Fürstenfelder" is listed only once.
-    - **Address Formatting (CRITICAL GEOCODING RULE):** The 'address' field MUST contain ONLY a clean, official postal address (Street, Number, ZIP, City, Country). STRICTLY FORBIDDEN: Do not include building names, POI names, descriptions, or abbreviations like 's/n' (sin número). If no exact street exists, provide only City and Country. OpenStreetMap/Nominatim will crash if you add descriptive fluff.
+    - **Address Formatting (CRITICAL GEOCODING RULE):** The 'address' field must be clean and machine-readable for OpenStreetMap. Use 'Street, Number, ZIP, City, Country' if available. If it's a natural sight or has no street, use the specific local identifier (e.g. 'Plaza de la Iglesia', 'Camino a...'). STRICTLY FORBIDDEN: Never use descriptive prose, brackets like '(Leuchtturm)', or abbreviations like 's/n' in the address.
 
     ### OUTPUT (JSON ONLY):
     {

@@ -1,3 +1,4 @@
+// 28.02.2026 18:50 - FIX: Relaxed CRITICAL GEOCODING RULE to allow specific local identifiers (like Plazas) but keep blocking prose/brackets.
 // 28.02.2026 18:00 - FIX: Added CRITICAL GEOCODING RULE securely without breaking exports.
 // 02.02.2026 09:30 - FIX: Enforced explicit research for 'user_ratings_total'.
 // Added DATA ACCURACY section to prevent estimated review counts.
@@ -50,7 +51,7 @@ Context: ${context.location_reasoning}
 # PHASE 3: DATA ACCURACY & OUTPUT
 - Provide 2-3 top candidates.
 - **Coordinates:** You MUST provide accurate Latitude/Longitude for the Map View.
-- **Address (CRITICAL GEOCODING RULE):** The 'address' field MUST contain ONLY a clean, official postal address (Street, Number, ZIP, City, Country). STRICTLY FORBIDDEN: Do not include building names, POI names, descriptions, or abbreviations like 's/n' (sin número). If no exact street exists, provide only City and Country. OpenStreetMap/Nominatim will crash if you add descriptive fluff.
+- **Address (CRITICAL GEOCODING RULE):** The 'address' field must be clean and machine-readable for OpenStreetMap. Use 'Street, Number, ZIP, City, Country' if available. If it's a natural sight or has no street, use the specific local identifier (e.g. 'Plaza de la Iglesia', 'Camino a...'). STRICTLY FORBIDDEN: Never use descriptive prose, brackets like '(Leuchtturm)', or abbreviations like 's/n' in the address.
 - **Reviews (MANDATORY):** You MUST find the **exact number** of Google Reviews (e.g. 1342, not "1000+").
 - **Reasoning:** In 'location_match', explain specifically WHY this fits the strategy.`;
 
