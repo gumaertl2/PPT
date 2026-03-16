@@ -1,3 +1,4 @@
+// 16.03.2026 16:15 - FIX: Removed unused 'Search' icon import to resolve TS6133 build error.
 // 16.03.2026 15:45 - REFACTOR: Removed inline language hacks. Switched to strict i18n keys for deep links and tooltips.
 // 16.03.2026 15:15 - FIX: Smart Google Maps routing (Name+Address instead of Lat/Lng for sights).
 // 16.03.2026 14:45 - FEAT: Added deep links (Sprungbretter) to seamlessly navigate from Diary entries to the Map or Guide view.
@@ -9,7 +10,7 @@ import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
 import { 
   CheckCircle, CheckCircle2, Map as MapIcon, ExternalLink, 
-  PenLine, X, MapPin, Trash2, Clock, Navigation, Quote, ArrowRight, Banknote, Star, Search, BookOpen
+  PenLine, X, MapPin, Trash2, Clock, Navigation, Quote, ArrowRight, Banknote, Star, BookOpen
 } from 'lucide-react';
 import type { LanguageCode, Place, CockpitViewMode } from '../../core/types';
 import { INTEREST_DATA } from '../../data/staticData';
