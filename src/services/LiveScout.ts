@@ -1,6 +1,6 @@
+// 16.03.2026 18:15 - FIX: Added 'city' to payload and strictly enforced 'Location Match' rule to prevent AI from hallucinating same-name places in wrong cities.
 // 16.03.2026 17:15 - FIX: Added aggressive API throttling (2.5s) and strict Error throwing for UI alerts.
-// 16.03.2026 16:45 - FEAT: Added verified_address/city extraction and auto-trigger for Geo-Validation (Self-Healing Map).
-// 12.02.2026 16:00 - FEAT: BULK PROCESSING (10 items per Call) to save API Quota.
+// 16.03.2026 16:45 - FEAT: Added verified_address/city extraction and auto-trigger for Geo-Validation.
 // src/services/LiveScout.ts
 
 import { GeminiService } from './gemini'; 
@@ -46,6 +46,7 @@ export const LiveScout = {
             return p ? {
                 id: p.id,
                 name: p.name,
+                city: p.city || 'Unknown City', // FIX: Explizit die Stadt übergeben!
                 address: p.address || p.vicinity || 'Address unknown',
                 stored_hours: p.openingHours ? (Array.isArray(p.openingHours) ? p.openingHours.join(', ') : p.openingHours) : "N/A"
             } : null;
@@ -61,6 +62,7 @@ export const LiveScout = {
           ${JSON.stringify(placesData, null, 2)}
           
           ### ANALYSIS RULES:
+          0. **Location Match (CRITICAL):** You MUST verify the place in the EXACT 'city' and 'address' provided. Do NOT return data for a place with the same name in a different city or country. If the place cannot be found in the specified city, set status to 'unknown'.
           1. **Status Check:** Is it OPEN, CLOSED (Seasonal/Renovation), or PERMANENTLY CLOSED?
           2. **Hours:** What are the opening hours TODAY?
           3. **Rating:** Extract current GOOGLE MAPS Rating (1.0-5.0) and Count.
@@ -129,6 +131,7 @@ export const LiveScout = {
                     (updates as any).business_status = result.business_status;
                 }
 
+                // Apply verified address if it looks better than current
                 if (result.verified_address && result.verified_address.length > 5 && result.verified_address !== currentPlace.address) {
                     updates.address = result.verified_address;
                     if (result.verified_city) updates.city = result.verified_city;
@@ -142,7 +145,6 @@ export const LiveScout = {
           }
         } catch (error) {
           console.error(`[LiveScout] Chunk Error:`, error);
-          // WICHTIG: Fehler werfen, damit die UI davon erfährt!
           throw error; 
         }
     };
@@ -157,7 +159,6 @@ export const LiveScout = {
         if (onProgress) onProgress(completedCount, placeIds.length);
         
         if (i + BATCH_SIZE < placeIds.length) {
-            // FIX: Aggressive Throttling - Warte 2.5 Sekunden zwischen Batches um 429 Rate Limits zu vermeiden
             await new Promise(resolve => setTimeout(resolve, 2500));
         }
     }

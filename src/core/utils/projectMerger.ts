@@ -1,6 +1,6 @@
-// 16.03.2026 16:30 - FEAT: Upgraded Merge Utility to safely inject/merge Diary entries (visited, userNote, rating) when duplicates are found.
+// 16.03.2026 18:30 - HOTFIX: Resolved TS2339 'never' control-flow error by replacing .some() with .find() for robust type inference.
+// 16.03.2026 16:30 - FEAT: Upgraded Merge Utility to safely inject/merge Diary entries.
 // 23.02.2026 16:30 - FEAT: Added Fuzzy Matching (Sørensen-Dice) for robust duplicate detection (>80%).
-// 23.02.2026 15:45 - FEAT: Smart Merge Utility to combine places from a donor project without duplicates.
 // src/core/utils/projectMerger.ts
 
 import type { TripProject, Place } from '../types';
@@ -8,7 +8,7 @@ import type { TripProject, Place } from '../types';
 export interface MergeStats {
   addedCount: number;
   skippedCount: number;
-  updatedCount: number; // NEU: Zählt gerettete Tagebucheinträge
+  updatedCount: number; 
 }
 
 // --- FUZZY MATCHING (Sørensen-Dice Coefficient) ---
@@ -61,40 +61,30 @@ export const mergeProjects = (master: TripProject, donor: any): { updatedProject
   donorPlaces.forEach((donorPlace) => {
     if (donorPlace.category === 'internal') return;
 
-    let matchedMasterPlace: Place | undefined = undefined;
-
-    const isDuplicate = masterPlaces.some(masterPlace => {
+    // HOTFIX: Use .find() so TypeScript accurately infers the Place type instead of 'never'
+    const matchedMasterPlace = masterPlaces.find(masterPlace => {
       // 1. Exact ID match
-      if (masterPlace.id === donorPlace.id) {
-          matchedMasterPlace = masterPlace;
-          return true;
-      }
+      if (masterPlace.id === donorPlace.id) return true;
       
       // 2. Fuzzy match on primary name
       const mName = masterPlace.name || '';
       const dName = donorPlace.name || '';
-      if (calculateSimilarity(mName, dName) >= SIMILARITY_THRESHOLD) {
-          matchedMasterPlace = masterPlace;
-          return true;
-      }
+      if (calculateSimilarity(mName, dName) >= SIMILARITY_THRESHOLD) return true;
 
       // 3. Fuzzy match on official name
       const mOfficial = masterPlace.official_name || '';
       const dOfficial = donorPlace.official_name || '';
-      if (mOfficial && dOfficial && calculateSimilarity(mOfficial, dOfficial) >= SIMILARITY_THRESHOLD) {
-          matchedMasterPlace = masterPlace;
-          return true;
-      }
+      if (mOfficial && dOfficial && calculateSimilarity(mOfficial, dOfficial) >= SIMILARITY_THRESHOLD) return true;
 
       return false;
     });
 
-    if (!isDuplicate) {
+    if (!matchedMasterPlace) {
       // Völlig neuer Ort -> Einfach hinzufügen
       updatedProject.data.places[donorPlace.id] = donorPlace;
       masterPlaces.push(donorPlace); 
       addedCount++;
-    } else if (matchedMasterPlace) {
+    } else {
       // Ist ein Duplikat -> Rette Tagebuch- und Besuchsdaten!
       let wasUpdated = false;
 
@@ -136,4 +126,4 @@ export const mergeProjects = (master: TripProject, donor: any): { updatedProject
 
   return { updatedProject, stats: { addedCount, skippedCount, updatedCount } };
 };
-// --- END OF FILE 127 Zeilen ---
+// --- END OF FILE 119 Zeilen ---
