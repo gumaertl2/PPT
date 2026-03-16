@@ -1,6 +1,7 @@
-// 22.02.2026 17:00 - UX: Moved 5-Star Emotion Rating to the first line next to the title.
-// 22.02.2026 16:45 - UX: Added confirmation prompt before undoing a check-in and implemented 5-star Emotion Rating per diary entry.
-// 22.02.2026 12:30 - I18N: Replaced all hardcoded German texts in Route and Diary sections with translation keys.
+// 16.03.2026 15:45 - REFACTOR: Removed inline language hacks. Switched to strict i18n keys for deep links and tooltips.
+// 16.03.2026 15:15 - FIX: Smart Google Maps routing (Name+Address instead of Lat/Lng for sights).
+// 16.03.2026 14:45 - FEAT: Added deep links (Sprungbretter) to seamlessly navigate from Diary entries to the Map or Guide view.
+// 16.03.2026 14:15 - FEAT: Upgraded diary edit mode to support editing Title, Date/Time, Note and GPS tracking.
 // src/features/Cockpit/PlanView.tsx
 
 import React, { useMemo, useState } from 'react';
@@ -8,33 +9,55 @@ import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
 import { 
   CheckCircle, CheckCircle2, Map as MapIcon, ExternalLink, 
-  PenLine, X, MapPin, Trash2, Clock, Navigation, Quote, ArrowRight, Banknote, Star
+  PenLine, X, MapPin, Trash2, Clock, Navigation, Quote, ArrowRight, Banknote, Star, Search, BookOpen
 } from 'lucide-react';
-import type { LanguageCode, Place } from '../../core/types';
+import type { LanguageCode, Place, CockpitViewMode } from '../../core/types';
 import { INTEREST_DATA } from '../../data/staticData';
 import { generateGoogleMapsRouteUrl } from './utils';
 import { ExpenseEntryButton } from './ExpenseEntryButton';
 
-export const PlanView: React.FC = () => {
+export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void }> = ({ setViewMode }) => {
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
   
-  const { project, updatePlace, togglePlaceVisited, setProject } = useTripStore();
+  const { project, updatePlace, togglePlaceVisited, setProject, uiState, setUIState } = useTripStore();
   const { userInputs, analysis, data } = project;
   const { logistics, travelers } = userInputs;
   const routeAnalysis = analysis.routeArchitect;
   const travelerNames = travelers.travelerNames || '';
 
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  // Full Edit Mode States
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editNote, setEditNote] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editLocation, setEditLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [isUpdatingGPS, setIsUpdatingGPS] = useState(false);
+
   const [isAddingCustom, setIsAddingCustom] = useState(false);
   const [customTitle, setCustomTitle] = useState('');
   const [customNote, setCustomNote] = useState('');
   const [isFetchingGPS, setIsFetchingGPS] = useState(false);
   const [customLocation, setCustomLocation] = useState<{lat: number, lng: number} | null>(null);
+  
+  const globalSearchTerm = uiState.searchTerm || '';
 
   const [pendingExpense, setPendingExpense] = useState<{title: string, location: any} | null>(null);
 
   const isRoundtripContext = ['roundtrip', 'mobil'].includes(logistics.mode);
+
+  const highlightText = (text: string, highlight: string) => {
+      if (!highlight.trim() || !text) return text;
+      const regex = new RegExp(`(${highlight})`, 'gi');
+      const parts = text.split(regex);
+      return (
+          <span>
+              {parts.map((part, i) => 
+                  regex.test(part) ? <mark key={i} className="bg-yellow-200 text-slate-900 rounded-sm px-0.5">{part}</mark> : <span key={i}>{part}</span>
+              )}
+          </span>
+      );
+  };
 
   const resolveLabel = (item: any): string => {
     if (!item || !item.label) return '';
@@ -144,9 +167,58 @@ export const PlanView: React.FC = () => {
       }
   };
 
+  const handleOpenEdit = (place: any) => {
+      setEditingEntryId(place.id);
+      setEditTitle(place.name || '');
+      setEditNote(place.userNote || '');
+      if (place.visitedAt) {
+          const d = new Date(place.visitedAt);
+          const tzOffset = d.getTimezoneOffset() * 60000;
+          const localISOTime = (new Date(d.getTime() - tzOffset)).toISOString().slice(0, 16);
+          setEditDate(localISOTime);
+      } else {
+          setEditDate('');
+      }
+      setEditLocation(place.location || null);
+  };
+
+  const handleSaveEdit = (id: string) => {
+      const updates: Partial<Place> = {};
+      if (editTitle.trim()) updates.name = editTitle.trim();
+      updates.userNote = editNote;
+      if (editDate) {
+          updates.visitedAt = new Date(editDate).toISOString();
+      }
+      updates.location = editLocation || undefined;
+
+      updatePlace(id, updates);
+      setEditingEntryId(null);
+  };
+
+  const getGoogleMapsUrl = (place: any) => {
+      if (place.category === 'custom_diary') {
+          if (place.location?.lat && place.location?.lng) {
+              return `https://www.google.com/maps/search/?api=1&query=${place.location.lat},${place.location.lng}`;
+          }
+          return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}`;
+      }
+      // For real sights, use official name and address to trigger the proper Maps POI profile
+      const query = [place.official_name || place.name, place.address || place.city].filter(Boolean).join(', ');
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  };
+
   const renderVisitedDiary = () => {
-    const visitedPlaces = Object.values(data?.places || {})
-        .filter((p: any) => p.visited && p.visitedAt)
+    const allVisited = Object.values(data?.places || {})
+        .filter((p: any) => p.visited && p.visitedAt);
+        
+    const visitedPlaces = allVisited
+        .filter((p: any) => {
+            if (!globalSearchTerm) return true;
+            const term = globalSearchTerm.toLowerCase();
+            const nameMatch = (p.name || '').toLowerCase().includes(term);
+            const noteMatch = (p.userNote || '').toLowerCase().includes(term);
+            return nameMatch || noteMatch;
+        })
         .sort((a: any, b: any) => new Date(a.visitedAt).getTime() - new Date(b.visitedAt).getTime());
 
     return (
@@ -201,7 +273,14 @@ export const PlanView: React.FC = () => {
                 </div>
             )}
 
-            {visitedPlaces.length === 0 && !isAddingCustom && (<div className="text-center py-8 text-slate-400 text-sm italic">{t('diary.empty_state', { defaultValue: 'Noch keine Einträge. Checke bei Orten ein oder erstelle einen eigenen Eintrag!' })}</div>)}
+            {visitedPlaces.length === 0 && !isAddingCustom && (
+                <div className="text-center py-8 text-slate-400 text-sm italic">
+                    {globalSearchTerm 
+                        ? t('diary.no_search_results', { defaultValue: 'Keine Einträge für diese Suche gefunden.' })
+                        : t('diary.empty_state', { defaultValue: 'Noch keine Einträge. Checke bei Orten ein oder erstelle einen eigenen Eintrag!' })
+                    }
+                </div>
+            )}
 
             <div className="space-y-1">
                 {visitedPlaces.map((place: any) => {
@@ -220,15 +299,16 @@ export const PlanView: React.FC = () => {
                                 
                                 <div className="flex justify-between items-start mb-1 gap-2">
                                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                                        <h4 className={`font-bold text-sm leading-tight ${isCustomEntry ? 'text-indigo-900' : 'text-slate-800'}`}>{place.name}</h4>
-                                        {/* FEAT: 5-Star Emotion Rating moved next to the title */}
+                                        <h4 className={`font-bold text-sm leading-tight ${isCustomEntry ? 'text-indigo-900' : 'text-slate-800'}`}>
+                                            {highlightText(place.name, globalSearchTerm)}
+                                        </h4>
                                         <div className="flex items-center">
                                             {[1, 2, 3, 4, 5].map(star => (
                                                 <button 
                                                     key={star} 
                                                     onClick={(e) => { e.stopPropagation(); updatePlace(place.id, { userRating: star === rating ? 0 : star }); }}
                                                     className={`transition-transform hover:scale-110 p-0.5 ${star <= rating ? 'text-amber-400' : 'text-slate-200 hover:text-amber-200'}`}
-                                                    title={`${star} Stern${star > 1 ? 'e' : ''}`}
+                                                    title={`${star} Star${star > 1 ? 's' : ''}`}
                                                 >
                                                     <Star size={14} className={star <= rating ? "fill-current" : ""} />
                                                 </button>
@@ -239,7 +319,7 @@ export const PlanView: React.FC = () => {
                                     <div className="flex items-center gap-1.5 shrink-0">
                                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${isCustomEntry ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}`}><Clock size={10} /> {dateStr}, {timeStr}</span>
                                         <ExpenseEntryButton placeId={place.id} defaultTitle={place.name} travelers={travelerNames} mode="diary" />
-                                        <button onClick={() => setEditingNoteId(editingNoteId === place.id ? null : place.id)} className={`p-1.5 rounded transition-colors shadow-sm border ${editingNoteId === place.id ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-white text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border-slate-200'}`} title={t('diary.edit_note', { defaultValue: 'Notiz bearbeiten' })}><PenLine size={12} /></button>
+                                        <button onClick={() => editingEntryId === place.id ? setEditingEntryId(null) : handleOpenEdit(place)} className={`p-1.5 rounded transition-colors shadow-sm border ${editingEntryId === place.id ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-white text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border-slate-200'}`} title={t('diary.edit_note', { defaultValue: 'Eintrag bearbeiten' })}><PenLine size={12} /></button>
                                         {isCustomEntry ? (
                                             <button onClick={() => handleDeleteCustom(place.id)} className="p-1.5 rounded bg-white text-slate-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors shadow-sm border border-slate-200" title={t('diary.delete_entry', { defaultValue: 'Eintrag löschen' })}><Trash2 size={12} /></button>
                                         ) : (
@@ -248,17 +328,65 @@ export const PlanView: React.FC = () => {
                                     </div>
                                 </div>
                                 
-                                <div className="text-xs text-slate-500 flex gap-1 items-center font-medium mb-2">
-                                    {isCustomEntry ? <PenLine size={10} className="text-indigo-400" /> : <MapIcon size={10} className="text-emerald-400" />} {categoryLabel}
-                                    {place.location?.lat && (<a href={`https://www.google.com/maps/search/?api=1&query=${place.location.lat},${place.location.lng}`} target="_blank" rel="noopener noreferrer" className="ml-2 flex items-center gap-0.5 text-blue-500 hover:underline" title={t('sights.open_map', { defaultValue: 'Auf Karte öffnen' })}><MapPin size={10}/> GPS</a>)}
+                                <div className="text-xs flex flex-wrap gap-1 items-center font-medium mb-2">
+                                    <span className="text-slate-500 flex items-center gap-1 mr-2">
+                                        {isCustomEntry ? <PenLine size={10} className="text-indigo-400" /> : <MapIcon size={10} className="text-emerald-400" />} {categoryLabel}
+                                    </span>
+                                    
+                                    {/* SMART GOOGLE MAPS LINK */}
+                                    {(place.location?.lat || place.address) && (
+                                        <a href={getGoogleMapsUrl(place)} target="_blank" rel="noopener noreferrer" className="mr-2 flex items-center gap-0.5 text-blue-500 hover:text-blue-700 transition-colors hover:underline" title={t('sights.open_google_maps', { defaultValue: 'Auf Google Maps öffnen' })}><MapPin size={10}/> Maps</a>
+                                    )}
+                                    
+                                    {/* DEEP LINKS (SPRUNGNRETT) - STRICT I18N */}
+                                    {setViewMode && place.location && (
+                                        <button onClick={() => { setUIState({ viewMode: 'map', selectedPlaceId: place.id }); setViewMode('sights'); }} className="mr-2 flex items-center gap-0.5 text-indigo-500 hover:text-indigo-700 transition-colors" title={t('diary.jump_to_map_tooltip', { defaultValue: 'Auf unserer Karte zeigen' })}><MapIcon size={10} /> {t('diary.jump_to_map', {defaultValue: 'Zur Karte'})}</button>
+                                    )}
+                                    {setViewMode && !isCustomEntry && (
+                                        <button onClick={() => { setUIState({ viewMode: 'list', selectedPlaceId: place.id }); setViewMode('sights'); }} className="mr-2 flex items-center gap-0.5 text-indigo-500 hover:text-indigo-700 transition-colors" title={t('diary.jump_to_guide_tooltip', { defaultValue: 'Details im Guide ansehen' })}><BookOpen size={10} /> {t('diary.jump_to_guide', {defaultValue: 'Zum Guide'})}</button>
+                                    )}
                                 </div>
 
-                                {editingNoteId === place.id ? (
-                                    <div className="mt-2 animate-in fade-in slide-in-from-top-1"><textarea value={place.userNote || ''} onChange={(e) => updatePlace(place.id, { userNote: e.target.value })} placeholder={t('diary.personal_note_placeholder', { defaultValue: 'Meine persönliche Notiz...' })} className="w-full text-xs text-indigo-900 bg-indigo-50/50 border border-indigo-200 rounded-md p-2 focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white resize-y min-h-[60px]" autoFocus /></div>
+                                {editingEntryId === place.id ? (
+                                    <div className="mt-3 p-3 bg-indigo-50/50 border border-indigo-200 rounded-xl animate-in fade-in slide-in-from-top-1">
+                                        <div className="flex flex-col gap-2 mb-2">
+                                            <label className="text-[10px] font-bold text-indigo-400 uppercase">{t('diary.edit_title', {defaultValue: 'Titel'})}</label>
+                                            <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full text-sm p-2.5 border border-indigo-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white" />
+                                        </div>
+                                        <div className="flex flex-col gap-2 mb-2">
+                                            <label className="text-[10px] font-bold text-indigo-400 uppercase">{t('diary.edit_date', {defaultValue: 'Datum & Uhrzeit'})}</label>
+                                            <input type="datetime-local" value={editDate} onChange={e => setEditDate(e.target.value)} className="w-full text-sm p-2.5 border border-indigo-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white" />
+                                        </div>
+                                        <div className="flex flex-col gap-2 mb-3">
+                                            <label className="text-[10px] font-bold text-indigo-400 uppercase">{t('diary.edit_note', {defaultValue: 'Notiz'})}</label>
+                                            <textarea value={editNote} onChange={e => setEditNote(e.target.value)} className="w-full text-sm p-2.5 border border-indigo-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 min-h-[80px] bg-white resize-y" />
+                                        </div>
+                                        <div className="flex flex-col sm:flex-row gap-2">
+                                            <button onClick={() => {
+                                                setIsUpdatingGPS(true);
+                                                if (!navigator.geolocation) { alert(t('finance.error_no_gps', { defaultValue: 'Dein Browser unterstützt kein GPS.' })); setIsUpdatingGPS(false); return; }
+                                                navigator.geolocation.getCurrentPosition(
+                                                    (pos) => { setEditLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setIsUpdatingGPS(false); },
+                                                    (err) => { console.error(err); alert(t('finance.error_gps_failed', { defaultValue: 'GPS konnte nicht abgerufen werden.' })); setIsUpdatingGPS(false); },
+                                                    { enableHighAccuracy: true, timeout: 10000 }
+                                                );
+                                            }} className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-white text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 justify-center flex-1 transition-colors">
+                                                <MapPin size={14} className={isUpdatingGPS ? "animate-bounce text-indigo-500" : ""} /> {editLocation ? t('finance.gps_saved', {defaultValue: 'Standort gespeichert ✓'}) : t('diary.update_gps', {defaultValue: 'GPS-Daten taggen'})}
+                                            </button>
+                                            <div className="flex gap-2 flex-1">
+                                                <button onClick={() => setEditingEntryId(null)} className="flex-1 flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-white text-slate-600 border border-slate-200 rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 justify-center transition-colors">
+                                                    <X size={14} /> {t('actions.cancel', {defaultValue: 'Abbruch'})}
+                                                </button>
+                                                <button onClick={() => handleSaveEdit(place.id)} className="flex-[2] flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 justify-center transition-colors shadow-sm w-full">
+                                                    <CheckCircle2 size={14} /> {t('actions.save', {defaultValue: 'Speichern'})}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 ) : place.userNote ? (
-                                    <div className="mt-2 text-xs text-indigo-900 bg-white/60 border border-indigo-100 rounded-lg p-2.5 italic leading-relaxed shadow-sm cursor-pointer hover:bg-indigo-50/30 transition-colors relative group" onClick={() => setEditingNoteId(place.id)} title={t('diary.click_to_edit', { defaultValue: 'Klicken zum Bearbeiten' })}>
+                                    <div className="mt-2 text-xs text-indigo-900 bg-white/60 border border-indigo-100 rounded-lg p-2.5 italic leading-relaxed shadow-sm cursor-pointer hover:bg-indigo-50/30 transition-colors relative group" onClick={() => handleOpenEdit(place)} title={t('diary.click_to_edit', { defaultValue: 'Klicken zum Bearbeiten' })}>
                                         <PenLine className="absolute top-2 right-2 w-3 h-3 text-indigo-200 group-hover:text-indigo-400" />
-                                        {place.userNote.split('\n').map((line: string, i: number) => (<React.Fragment key={i}>{line}<br/></React.Fragment>))}
+                                        {place.userNote.split('\n').map((line: string, i: number) => (<React.Fragment key={i}>{highlightText(line, globalSearchTerm)}<br/></React.Fragment>))}
                                     </div>
                                 ) : null}
                             </div>
@@ -277,4 +405,4 @@ export const PlanView: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 268 Zeilen ---
+// Zeilenanzahl: 355

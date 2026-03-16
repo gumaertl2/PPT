@@ -1,3 +1,4 @@
+// 16.03.2026 14:00 - FIX: Smart Search Routing now also allows searching while inside the 'plan' (Diary) view without jumping to 'sights'.
 // 24.02.2026 11:55 - FEAT: Added Quick Guide button and modal to CockpitHeader for direct access.
 // 22.02.2026 17:35 - FIX: Made the global search input visible and responsive on mobile portrait screens.
 // 21.02.2026 13:30 - FEAT: Added state and integration for the new TripFinanceModal.
@@ -269,7 +270,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                   type="text" 
                   value={uiState.searchTerm || ''}
                   onChange={(e) => {
-                      if (viewMode !== 'sights' && viewMode !== 'info') {
+                      if (viewMode !== 'sights' && viewMode !== 'info' && viewMode !== 'plan') {
                           setViewMode('sights');
                       }
                       setUIState({ searchTerm: e.target.value });
@@ -357,4 +358,4 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
   );
 };
 
-// --- END OF FILE 373 Zeilen ---
+// --- END OF FILE 374 Zeilen ---

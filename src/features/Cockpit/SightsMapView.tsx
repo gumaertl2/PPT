@@ -1,3 +1,4 @@
+// 16.03.2026 16:00 - UX: Passed visited status to createSmartIcon to highlight visited sights on the map.
 // 27.02.2026 10:25 - FEAT: Passed unfiltered place list to MapLegend to enable global map filtering.
 // 27.02.2026 09:40 - REFACTOR: Removed automatic background Live-Check from MapView to prevent unnecessary API usage.
 // src/features/Cockpit/SightsMapView.tsx
@@ -234,7 +235,7 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
             <Marker 
               key={place.id} 
               position={[place.location!.lat, place.location!.lng]}
-              icon={createSmartIcon(markerColor, isSelected, dayNumber, isHotel, userPrio, isFixed)}
+              icon={createSmartIcon(markerColor, isSelected, dayNumber, isHotel, userPrio, isFixed, !!place.visited)}
               zIndexOffset={isSelected ? 1000 : (isHotel ? 900 : (dayNumber ? 500 : baseZ))} 
               ref={(ref) => { markerRefs.current[place.id] = ref; }}
               eventHandlers={{ click: () => setUIState({ selectedPlaceId: place.id }) }}

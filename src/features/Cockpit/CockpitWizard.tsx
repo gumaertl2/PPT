@@ -1,3 +1,4 @@
+// 16.03.2026 14:45 - FEAT: Passed setViewMode down to PlanView to enable deep-linking (Sprungbretter) from Diary to Guide/Map.
 // 27.02.2026 19:00 - FEAT: Embedded PlannerConflictModal into CockpitWizard to handle AI interception callbacks.
 // 24.02.2026 13:50 - FIX: Removed unused handleBack and cleaned up props for ReviewStep to resolve build errors.
 // src/features/Cockpit/CockpitWizard.tsx
@@ -257,7 +258,7 @@ export const CockpitWizard = () => {
         ) : viewMode === 'info' ? (
           <InfoView /> 
         ) : viewMode === 'plan' ? ( 
-          <PlanView />
+          <PlanView setViewMode={setViewMode} />
         ) : (
           currentStep === 5 
             ? <ReviewStep 

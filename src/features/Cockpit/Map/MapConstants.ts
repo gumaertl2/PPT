@@ -1,3 +1,4 @@
+// 16.03.2026 16:00 - UX: Added blue border highlight for visited places in createSmartIcon.
 // 26.02.2026 12:55 - FEAT: Replaced hardcoded 'name' with 'nameKey' and 'defaultName' for i18n support.
 // 26.02.2026 12:05 - FEAT: Extracted mapping constants, Layer Configs, and Icon Generators.
 // src/features/Cockpit/Map/MapConstants.ts
@@ -71,10 +72,12 @@ export const getCategoryColor = (cat?: string, place?: Place): string => {
   return match ? CATEGORY_COLORS[match] : DEFAULT_COLOR;
 };
 
-export const createSmartIcon = (categoryColor: string, isSelected: boolean, dayNumber?: number, isHotel?: boolean, userPriority: number = 0, isFixed: boolean = false) => {
+export const createSmartIcon = (categoryColor: string, isSelected: boolean, dayNumber?: number, isHotel?: boolean, userPriority: number = 0, isFixed: boolean = false, isVisited: boolean = false) => {
   const baseSize = isSelected ? 28 : 22;
   const animClass = isSelected ? 'marker-pulse' : '';
-  const border = isSelected ? '3px solid #000' : '2px solid white';
+  
+  // UX: Blue border for visited places, standard white otherwise, black if actively selected
+  const border = isSelected ? '3px solid #000' : (isVisited ? '3px solid #3b82f6' : '2px solid white');
 
   const isIgnored = userPriority === -1;
   const hasPrio = isFixed || userPriority === 1 || userPriority === 2;
@@ -112,4 +115,4 @@ export const createSmartIcon = (categoryColor: string, isSelected: boolean, dayN
       popupAnchor: [0, -10]
   });
 };
-// --- END OF FILE 98 Zeilen ---
+// --- END OF FILE 101 Zeilen ---

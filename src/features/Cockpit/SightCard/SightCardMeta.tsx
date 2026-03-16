@@ -1,10 +1,10 @@
+// 16.03.2026 15:45 - REFACTOR: Removed inline language hacks. Switched to strict i18n keys for tooltips and variables.
+// 16.03.2026 15:15 - UX: Added explicit Google Maps link to SightCardMeta and unified tooltip labels for internal vs external maps.
 // 26.02.2026 10:20 - FIX: Changed duration unit from hours (h) to minutes (Min) and adjusted input steps.
-// 22.02.2026 16:35 - FIX: Appended Trip Region and Country to Google Search query to prevent ambiguous results.
-// 22.02.2026 16:30 - FIX: Prevented 'Restaurant' from being appended to Google Search queries for non-food sights.
 // src/features/Cockpit/SightCard/SightCardMeta.tsx
 
 import React from 'react';
-import { Sun, CloudRain, ExternalLink, Check, BookOpen, Globe, Search, Map as MapIcon, Sparkles } from 'lucide-react';
+import { Sun, CloudRain, ExternalLink, Check, BookOpen, Globe, Search, Map as MapIcon, Sparkles, MapPin } from 'lucide-react';
 import { VALID_POI_CATEGORIES, INTEREST_DATA } from '../../../data/interests';
 import { useTripStore } from '../../../store/useTripStore';
 
@@ -26,6 +26,7 @@ interface SightCardMetaProps {
   onShowMap: (e: React.MouseEvent) => void;
   ensureAbsoluteUrl: (url: string | undefined) => string | undefined;
   t: any;
+  i18n?: any; 
 }
 
 export const SightCardMeta: React.FC<SightCardMetaProps> = ({
@@ -44,9 +45,13 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
   onHotelSelect,
   onShowMap,
   ensureAbsoluteUrl,
-  t
+  t,
+  i18n
 }) => {
   const { project } = useTripStore();
+  
+  // Need currentLang specifically for pulling the static category label from INTEREST_DATA
+  const currentLang = i18n?.language?.substring(0, 2) || 'de';
 
   const isFood = (customCategory && ['food', 'restaurant'].includes(customCategory.toLowerCase())) || 
                  (data.category && ['food', 'restaurant'].includes(data.category.toLowerCase()));
@@ -78,6 +83,11 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
       return !isHotel ? sourceUrl : null;
   };
 
+  const getGoogleMapsUrl = () => {
+      const query = [data.official_name || data.name, data.address || data.city].filter(Boolean).join(', ');
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  };
+
   const guideLink = getSmartGuideLink();
 
   const renderSpecialBadge = () => {
@@ -85,9 +95,9 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
           return <div className="flex items-center gap-1 font-bold text-purple-600"><Sparkles className="w-3.5 h-3.5" /><span>Wildcard</span></div>;
       }
       if (specialType === 'sunny') {
-          return <div className="flex items-center gap-1 font-bold text-amber-600"><Sun className="w-3.5 h-3.5" /><span>Sonnentag</span></div>;
+          return <div className="flex items-center gap-1 font-bold text-amber-600"><Sun className="w-3.5 h-3.5" /><span>{t('sights.sunny_day', { defaultValue: 'Sonnentag' })}</span></div>;
       }
-      return <div className="flex items-center gap-1 font-bold text-blue-600"><CloudRain className="w-3.5 h-3.5" /><span>Regentag</span></div>;
+      return <div className="flex items-center gap-1 font-bold text-blue-600"><CloudRain className="w-3.5 h-3.5" /><span>{t('sights.rainy_day', { defaultValue: 'Regentag' })}</span></div>;
   };
 
   const renderCategory = () => {
@@ -104,7 +114,7 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
                 className="bg-transparent border-none p-0 text-xs font-medium text-gray-600 focus:ring-0 cursor-pointer hover:text-indigo-600 truncate max-w-[120px]"
             >
                 {VALID_POI_CATEGORIES.map(cat => (
-                <option key={cat} value={cat}>{(INTEREST_DATA as any)[cat]?.label?.[t('lang', { defaultValue: 'de' })] || cat}</option>
+                <option key={cat} value={cat}>{(INTEREST_DATA as any)[cat]?.label?.[currentLang] || cat}</option>
                 ))}
                 <option value="custom">{t('categories.other', { defaultValue: 'Sonstiges' })}</option>
             </select>
@@ -116,7 +126,6 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 mb-1">
         {renderCategory()}
         
-        {/* FIX: Tooltip, Step-Size und Einheit auf Minuten (Min) umgestellt */}
         <div className="flex items-center gap-1" title={t('sights.duration_hint', { defaultValue: 'Dauer in Minuten' })}>
            <span className="text-gray-400">|</span><span className="text-gray-400">⏱</span>
            <input 
@@ -133,9 +142,15 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
         
         <div className="flex-1"></div>
 
-        <button onClick={onShowMap} className="text-gray-400 hover:text-indigo-600 transition-colors mr-1" title={t('sights.show_on_map', { defaultValue: 'Auf Karte zeigen' })}>
+        {/* INTERNAL MAP BUTTON */}
+        <button onClick={onShowMap} className="text-gray-400 hover:text-indigo-600 transition-colors mr-1" title={t('sights.show_on_our_map', { defaultValue: 'Auf unserer Karte zeigen' })}>
           <MapIcon className="w-3.5 h-3.5" />
         </button>
+        
+        {/* GOOGLE MAPS LINK */}
+        <a href={getGoogleMapsUrl()} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700 transition-colors mr-1" title={t('sights.open_google_maps', { defaultValue: 'Auf Google Maps öffnen' })}>
+          <MapPin className="w-3.5 h-3.5" />
+        </a>
 
         {isHotel && (
           <div className="flex items-center gap-1 mr-2">
@@ -147,15 +162,15 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
         )}
         
         {guideLink && (
-            <a href={ensureAbsoluteUrl(guideLink)} target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:text-amber-700 transition-colors" title={data.awards && data.awards.length > 0 ? `Suche im Guide: ${data.awards[0]}` : "Zum Guide Eintrag"}>
+            <a href={ensureAbsoluteUrl(guideLink)} target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:text-amber-700 transition-colors" title={data.awards && data.awards.length > 0 ? t('sights.search_guide', { award: data.awards[0], defaultValue: 'Suche im Guide' }) : t('sights.open_guide', { defaultValue: 'Zum Guide Eintrag' })}>
                 <BookOpen className="w-3.5 h-3.5" />
             </a>
         )}
 
-        {websiteUrl && (<a href={ensureAbsoluteUrl(websiteUrl)} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:text-indigo-700 transition-colors" title="Zur Website"><Globe className="w-3.5 h-3.5" /></a>)}
+        {websiteUrl && (<a href={ensureAbsoluteUrl(websiteUrl)} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:text-indigo-700 transition-colors" title={t('sights.website', { defaultValue: 'Zur Website' })}><Globe className="w-3.5 h-3.5" /></a>)}
         
-        <a href={`https://www.google.com/search?q=${encodeURIComponent(getGoogleSearchQuery())}`} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-600 transition-colors" title={`Suche: ${getGoogleSearchQuery()}`}><Search className="w-3.5 h-3.5" /></a>
+        <a href={`https://www.google.com/search?q=${encodeURIComponent(getGoogleSearchQuery())}`} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-600 transition-colors" title={t('sights.web_search', { query: getGoogleSearchQuery(), defaultValue: 'Web-Suche' })}><Search className="w-3.5 h-3.5" /></a>
     </div>
   );
 };
-// --- END OF FILE 136 Zeilen ---
+// --- END OF FILE 149 Zeilen ---

@@ -1,3 +1,5 @@
+// 16.03.2026 13:10 - FEAT: Merged visited and custom_diary into one map/list filter layer using existing i18n keys.
+// 16.03.2026 12:00 - FEAT: Added 'visited' category override to show visited sights in a dedicated filter bucket.
 // 27.02.2026 19:35 - LOGIC: Fixed budget calculation to use net days (-2), subtract breaks, and add 30min logistics overhead per sight.
 // 27.02.2026 19:25 - UX: Implemented true "Freeze Mode" via useRef to prevent cards from jumping or disappearing during Planning Mode.
 // 27.02.2026 14:45 - UX: Froze priority and reserve sorting.
@@ -102,6 +104,7 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
   
   const resolveCategoryLabel = (catId: string): string => {
     if (!catId) return "";
+    if (catId === 'custom_diary') return `📔 ${t('diary.title', { defaultValue: 'Reisetagebuch' })}`;
     const def = INTEREST_DATA[catId];
     if (def && def.label) {
         return (def.label as any)[currentLang] || (def.label as any)['de'] || catId;
@@ -189,17 +192,25 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     const counts: Record<string, number> = {};
     const ignoreList = APPENDIX_ONLY_INTERESTS || [];
     places.forEach((p: any) => {
-      const cat = p.category || 'Sonstiges';
+      let cat = p.category || 'Sonstiges';
+      if (p.visited && cat !== 'hotel') cat = 'custom_diary';
       if (!ignoreList.includes(cat) || cat === 'hotel') { 
           counts[cat] = (counts[cat] || 0) + 1;
       }
     });
-    return Object.keys(counts).sort().map(cat => ({
+    const opts = Object.keys(counts).sort().map(cat => ({
         id: cat,
         label: resolveCategoryLabel(cat),
         count: counts[cat]
     }));
-  }, [places]);
+    
+    const customDiaryIndex = opts.findIndex(o => o.id === 'custom_diary');
+    if (customDiaryIndex > -1) {
+        const [v] = opts.splice(customDiaryIndex, 1);
+        opts.unshift(v);
+    }
+    return opts;
+  }, [places, currentLang, t]);
 
   const tourOptions = useMemo(() => {
       const tourGuide = (analysis as any)?.tourGuide;
@@ -307,7 +318,10 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
         const rating = p.rating || 0;
         const currentPrioVal = getRealPriorityValue(p);
         const currentIsReserve = (p.userPriority === -1) || (duration < minDuration) || (rating > 0 && rating < minRating);
-        const currentCat = p.category || 'Sonstiges';
+        let currentCat = p.category || 'Sonstiges';
+        if (p.visited && currentCat !== 'hotel') {
+            currentCat = 'custom_diary';
+        }
         const currentName = p.name || '';
 
         // If NOT in planning mode, always return fresh data
@@ -569,4 +583,4 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     </div>
   );
 };
-// Zeilenanzahl: 588
+// Zeilenanzahl: 602

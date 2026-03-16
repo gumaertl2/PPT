@@ -444,7 +444,13 @@
     "conflict_modal_desc": "Your time budget is too tight. The AI could not fit the following high-priority places into the itinerary:",
     "conflict_modal_accept": "Accept plan anyway",
     "conflict_modal_reject": "Discard & adjust",
-    "remove_flex_day": "Remove exception"
+    "remove_flex_day": "Remove exception",
+    "show_on_our_map": "Show on our map",
+    "open_google_maps": "Open in Google Maps",
+    "search_guide": "Search in Guide: {{award}}",
+    "open_guide": "Open Guide Entry",
+    "website": "Open Website",
+    "web_search": "Web Search: {{query}}"
   },
   "route": {
     "no_results": "No route proposals available.",
@@ -493,7 +499,11 @@
     "personal_note_placeholder": "My personal note...",
     "click_to_edit": "Click to edit",
     "delete_confirm": "Really delete this diary entry?",
-    "default_title": "My Experience"
+    "default_title": "My Experience",
+    "jump_to_map": "To Map",
+    "jump_to_map_tooltip": "Show on our map",
+    "jump_to_guide": "To Guide",
+    "jump_to_guide_tooltip": "View details in Guide"
   },
   "itinerary": {
     "remaining_nights_open": "{{count}} nights still open.",

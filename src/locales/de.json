@@ -443,7 +443,13 @@
     "conflict_modal_desc": "Dein vorgegebenes Zeitbudget ist zu knapp. Die KI konnte folgende hochpriorisierte Orte nicht im Tagesplan unterbringen:",
     "conflict_modal_accept": "Plan trotzdem übernehmen",
     "conflict_modal_reject": "Plan verwerfen & anpassen",
-    "remove_flex_day": "Ausnahmeregel entfernen"
+    "remove_flex_day": "Ausnahmeregel entfernen",
+    "show_on_our_map": "Auf unserer Karte zeigen",
+    "open_google_maps": "Auf Google Maps öffnen",
+    "search_guide": "Suche im Guide: {{award}}",
+    "open_guide": "Zum Guide Eintrag",
+    "website": "Zur Website",
+    "web_search": "Web-Suche: {{query}}"
   },
   "route": {
     "no_results": "Keine Routenvorschläge verfügbar.",
@@ -492,7 +498,11 @@
     "personal_note_placeholder": "Meine persönliche Notiz...",
     "click_to_edit": "Klicken zum Bearbeiten",
     "delete_confirm": "Diesen Tagebucheintrag wirklich löschen?",
-    "default_title": "Mein Erlebnis"
+    "default_title": "Mein Erlebnis",
+    "jump_to_map": "Zur Karte",
+    "jump_to_map_tooltip": "Auf unserer Karte zeigen",
+    "jump_to_guide": "Zum Guide",
+    "jump_to_guide_tooltip": "Details im Guide ansehen"
   },
   "itinerary": {
     "remaining_nights_open": "Es sind noch {{count}} Nächte offen.",
