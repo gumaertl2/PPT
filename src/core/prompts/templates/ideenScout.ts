@@ -1,6 +1,6 @@
+// 16.03.2026 18:00 - FIX: Added "Strict Naming" rule to prevent the AI from generating conversational/descriptive POI names (e.g. "Zeitgenössische Kunst im...").
 // 04.02.2026 13:00 - FIX: Enforce Wildcard "Wow-Effect" & Quantity.
 // - Updated Mandatory Rules to strictly enforce Vibe-Independence for Wildcards.
-// - Synced fallback instructions with Preparer logic (2 ideas per list).
 // src/core/prompts/templates/ideenScout.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -35,7 +35,6 @@ export const buildIdeenScoutPrompt = (
   }
 
   // Fallback: Use function parameters for chunk info if not present in payload
-  // This satisfies the TS usage check for currentChunk & totalChunks
   if (!chunkInfo && totalChunks > 1) {
       chunkInfo = ` (Block ${currentChunk}/${totalChunks})`;
   }
@@ -85,13 +84,14 @@ ${taskInstructions}
 - **Rule 1 (No Duplicates):** Strictly respect the "ALREADY PLANNED" list for each location.
 - **Rule 2 (Geo-Data):** You MUST provide Lat/Lng coordinates for every idea (Critical for Map Pins).
 - **Rule 3 (Wildcard):** The Wildcard MUST be completely INDEPENDENT of the user's profile/vibe. It must be a "Wow-Idea", a local secret, or something unique.
+- **Rule 4 (Strict Naming):** The \`name\` field MUST contain ONLY the official, raw name of the place (e.g., "Centro de Arte Juan Ismael"). Do NOT prepend descriptions like "Visit", "Art at", or "Zeitgenössische Kunst im". The name must be perfectly searchable on Google Maps or OpenStreetMap.
 
 # OUTPUT SCHEMA
 Return a SINGLE valid JSON object.`;
 
   // 5. SCHEMA
   const ideaSchema = {
-      "name": "String",
+      "name": "String (CRITICAL: Official POI name ONLY. No descriptive prefixes.)",
       "description": "String (Why is this a great idea?)",
       "category": "String (e.g. Nature, Culture, Secret)",
       "estimated_duration_minutes": "Integer",
@@ -123,4 +123,4 @@ Return a SINGLE valid JSON object.`;
     .withSelfCheck(['research', 'planning'])
     .build();
 };
-// Lines: 116
+// Lines: 119

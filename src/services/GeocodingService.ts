@@ -1,8 +1,7 @@
-// 08.02.2026 12:00 - FIX: Direct import from 'models' to avoid Barrel-File binding errors.
-// 08.02.2026 11:20 - FEAT: Updated to respect 'coordinatesValidated' flag and optimize API usage.
+// 16.03.2026 17:45 - REFACTOR: Removed dangerous Regex name parsing. Implemented 'Comma-Diet' (Street + City) for highly robust OSM Nominatim queries.
+// 16.03.2026 16:45 - FEAT: Implemented Multi-Step Fallback Strategy (Claude Idea 2).
 // src/services/GeocodingService.ts
 
-// FIX: Direct import from models.ts to resolve "Binding name 'Place' is not found"
 import type { Place } from '../core/types/models';
 
 const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org/search';
@@ -20,7 +19,7 @@ interface NominatimResult {
 
 export const GeocodingService = {
   /**
-   * Holt exakte Koordinaten für einen Suchbegriff (Name + Stadt/Land).
+   * Holt exakte Koordinaten für einen Suchbegriff.
    * Nutzt OpenStreetMap Nominatim.
    */
   async getCoordinates(query: string): Promise<{ lat: number; lng: number } | null> {
@@ -32,12 +31,10 @@ export const GeocodingService = {
       url.searchParams.append('addressdetails', '1');
 
       // WICHTIG: Rate Limiting beachten (OSM Policy)
-      
       const response = await fetch(url.toString(), {
         method: 'GET',
         headers: {
-          'Accept-Language': 'de', // Bevorzuge deutsche Ergebnisse
-          // OSM verlangt einen User-Agent zur Identifizierung
+          'Accept-Language': 'de,en', 
           'User-Agent': 'Papatours-App/1.0 (internal-dev-build)' 
         }
       });
@@ -66,7 +63,7 @@ export const GeocodingService = {
 
   /**
    * Korrigiert eine Liste von Places nacheinander (Batch-Processing).
-   * Prüft 'coordinatesValidated' flag um unnötige Requests zu vermeiden.
+   * Nutzt eine intelligente Multi-Step Fallback Strategie, die auf OSM Nominatim optimiert ist.
    */
   async enrichPlacesWithCoordinates(
       places: Place[], 
@@ -75,7 +72,7 @@ export const GeocodingService = {
       
     const updatedPlaces = [...places];
     let hasChanges = false;
-    let requestCount = 0; // Zähler für echte API Calls
+    let requestCount = 0; 
 
     const totalToProcess = updatedPlaces.filter(p => !p.coordinatesValidated).length;
     let processedCount = 0;
@@ -84,41 +81,82 @@ export const GeocodingService = {
         return { updatedPlaces, hasChanges: false };
     }
 
-    console.log(`[Geo] Starting validation for ${totalToProcess} places...`);
+    console.log(`[Geo] Starting smart validation for ${totalToProcess} places...`);
 
     for (let i = 0; i < updatedPlaces.length; i++) {
       const place = updatedPlaces[i];
       
-      // Skip if already validated
       if (place.coordinatesValidated) continue;
 
-      const query = place.address || `${place.name} ${place.vicinity || ''}`;
+      let coords: {lat: number, lng: number} | null = null;
       
-      if (query && query.length > 3) {
-        // Mindestens 1.1 Sekunde warten zwischen Calls, wenn wir bereits einen Request gemacht haben
-        if (requestCount > 0) await delay(1100); 
+      const name = place.name || '';
+      const officialName = place.official_name || '';
+      const city = place.city || '';
+      const address = place.address && !place.address.toLowerCase().includes('unknown') ? place.address : '';
 
-        const coords = await this.getCoordinates(query);
-        requestCount++;
-        
-        if (coords) {
+      const queriesToTry: string[] = [];
+
+      // OSM HACK: Die "Komma-Diät"
+      // Aus "C. Almirante Lallermand, 30, 35600 Puerto del Rosario, Fuerteventura"
+      // machen wir "C. Almirante Lallermand, 30, Puerto del Rosario"
+      if (address && city) {
+          const addressParts = address.split(',');
+          // Nimmt den ersten Teil (meist Straße + Nr) und hängt die Stadt an
+          const streetPart = addressParts[0].trim();
+          if (streetPart && !streetPart.includes(city)) {
+              queriesToTry.push(`${streetPart}, ${city}`);
+          }
+      }
+
+      // Versuch 2: Die komplette, rohe Adresse
+      if (address) {
+          queriesToTry.push(address);
+      }
+
+      // Versuch 3: Offizieller Name + Stadt (besser als der generierte KI-Name)
+      if (officialName && city) {
+          queriesToTry.push(`${officialName}, ${city}`);
+      }
+
+      // Versuch 4: Name + Stadt
+      if (name && city) {
+          queriesToTry.push(`${name}, ${city}`);
+      }
+
+      // Leere oder zu kurze Queries filtern & Duplikate entfernen
+      const uniqueQueries = [...new Set(queriesToTry)].filter(q => q.length > 3);
+
+      for (const query of uniqueQueries) {
+          if (requestCount > 0) await delay(1100); // 1.1s Pause für Nominatim Policy
+          
+          console.log(`[Geo] Testing query: "${query}"`);
+          coords = await this.getCoordinates(query);
+          requestCount++;
+          
+          if (coords) {
+              console.log(`[Geo] Success! Found match for "${name}" using query: "${query}"`);
+              break; 
+          }
+      }
+      
+      if (coords) {
+          // Bessere Koordinaten gefunden -> Überschreiben
           updatedPlaces[i] = {
             ...place,
-            location: coords, // Überschreibe Gemini-Schätzung mit echten Daten
-            coordinatesValidated: true // Mark as validated
+            location: coords, 
+            coordinatesValidated: true 
           };
           hasChanges = true;
-          console.log(`[Geo] Fixed: ${place.name} -> ${coords.lat}, ${coords.lng}`);
-        } else {
-            // Auch wenn wir nichts finden, markieren wir es als "versucht/validiert",
-            // damit wir nicht endlos anfragen. (Optional: separates Flag 'validationFailed')
-            updatedPlaces[i] = {
-                ...place,
-                coordinatesValidated: true 
-            };
-            hasChanges = true; // State change even if coords didn't change (flag update)
-            console.log(`[Geo] No result for: ${query} (Marked as validated to prevent retry)`);
-        }
+      } else {
+          // Nichts gefunden -> WICHTIG: Wir behalten die alten (KI) Koordinaten!
+          // Wir setzen nur das Flag auf true, damit wir es nicht bei jedem Start neu versuchen.
+          updatedPlaces[i] = {
+              ...place,
+              coordinatesValidated: true 
+          };
+          hasChanges = true; 
+          console.log(`[Geo] Failed: No OSM result for "${name}" after ${uniqueQueries.length} attempts. Keeping original coordinates.`);
       }
       
       processedCount++;
@@ -128,4 +166,4 @@ export const GeocodingService = {
     return { updatedPlaces, hasChanges };
   }
 };
-// --- END OF FILE 115 Zeilen ---
+// --- END OF FILE 137 Zeilen ---

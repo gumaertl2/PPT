@@ -1,3 +1,4 @@
+// 16.03.2026 16:30 - FEAT: Upgraded Merge Utility to safely inject/merge Diary entries (visited, userNote, rating) when duplicates are found.
 // 23.02.2026 16:30 - FEAT: Added Fuzzy Matching (Sørensen-Dice) for robust duplicate detection (>80%).
 // 23.02.2026 15:45 - FEAT: Smart Merge Utility to combine places from a donor project without duplicates.
 // src/core/utils/projectMerger.ts
@@ -7,6 +8,7 @@ import type { TripProject, Place } from '../types';
 export interface MergeStats {
   addedCount: number;
   skippedCount: number;
+  updatedCount: number; // NEU: Zählt gerettete Tagebucheinträge
 }
 
 // --- FUZZY MATCHING (Sørensen-Dice Coefficient) ---
@@ -44,12 +46,13 @@ const calculateSimilarity = (str1: string, str2: string): number => {
 export const mergeProjects = (master: TripProject, donor: any): { updatedProject: TripProject; stats: MergeStats } => {
   let addedCount = 0;
   let skippedCount = 0;
+  let updatedCount = 0;
   const SIMILARITY_THRESHOLD = 0.8; // 80% Match
 
   const updatedProject: TripProject = JSON.parse(JSON.stringify(master));
   
   if (!donor || !donor.data || !donor.data.places) {
-      return { updatedProject, stats: { addedCount, skippedCount } };
+      return { updatedProject, stats: { addedCount, skippedCount, updatedCount } };
   }
 
   const masterPlaces = Object.values(updatedProject.data.places);
@@ -58,32 +61,79 @@ export const mergeProjects = (master: TripProject, donor: any): { updatedProject
   donorPlaces.forEach((donorPlace) => {
     if (donorPlace.category === 'internal') return;
 
+    let matchedMasterPlace: Place | undefined = undefined;
+
     const isDuplicate = masterPlaces.some(masterPlace => {
       // 1. Exact ID match
-      if (masterPlace.id === donorPlace.id) return true;
+      if (masterPlace.id === donorPlace.id) {
+          matchedMasterPlace = masterPlace;
+          return true;
+      }
       
       // 2. Fuzzy match on primary name
       const mName = masterPlace.name || '';
       const dName = donorPlace.name || '';
-      if (calculateSimilarity(mName, dName) >= SIMILARITY_THRESHOLD) return true;
+      if (calculateSimilarity(mName, dName) >= SIMILARITY_THRESHOLD) {
+          matchedMasterPlace = masterPlace;
+          return true;
+      }
 
       // 3. Fuzzy match on official name
       const mOfficial = masterPlace.official_name || '';
       const dOfficial = donorPlace.official_name || '';
-      if (mOfficial && dOfficial && calculateSimilarity(mOfficial, dOfficial) >= SIMILARITY_THRESHOLD) return true;
+      if (mOfficial && dOfficial && calculateSimilarity(mOfficial, dOfficial) >= SIMILARITY_THRESHOLD) {
+          matchedMasterPlace = masterPlace;
+          return true;
+      }
 
       return false;
     });
 
     if (!isDuplicate) {
+      // Völlig neuer Ort -> Einfach hinzufügen
       updatedProject.data.places[donorPlace.id] = donorPlace;
       masterPlaces.push(donorPlace); 
       addedCount++;
-    } else {
-      skippedCount++;
+    } else if (matchedMasterPlace) {
+      // Ist ein Duplikat -> Rette Tagebuch- und Besuchsdaten!
+      let wasUpdated = false;
+
+      // 1. Besucht-Status und Datum übernehmen
+      if (donorPlace.visited && !matchedMasterPlace.visited) {
+          matchedMasterPlace.visited = true;
+          matchedMasterPlace.visitedAt = donorPlace.visitedAt;
+          wasUpdated = true;
+      } else if (donorPlace.visited && matchedMasterPlace.visited && donorPlace.visitedAt && matchedMasterPlace.visitedAt) {
+          // Falls beide besucht sind, nimm das neuere Datum
+          if (new Date(donorPlace.visitedAt).getTime() > new Date(matchedMasterPlace.visitedAt).getTime()) {
+              matchedMasterPlace.visitedAt = donorPlace.visitedAt;
+              wasUpdated = true;
+          }
+      }
+
+      // 2. Tagebuch-Notiz übernehmen (falls Spender mehr Text hat)
+      const donorNoteLen = donorPlace.userNote ? donorPlace.userNote.length : 0;
+      const masterNoteLen = matchedMasterPlace.userNote ? matchedMasterPlace.userNote.length : 0;
+      if (donorNoteLen > masterNoteLen) {
+          matchedMasterPlace.userNote = donorPlace.userNote;
+          wasUpdated = true;
+      }
+
+      // 3. Sterne-Bewertung übernehmen
+      if (donorPlace.userRating && (!matchedMasterPlace.userRating || donorPlace.userRating > matchedMasterPlace.userRating)) {
+          matchedMasterPlace.userRating = donorPlace.userRating;
+          wasUpdated = true;
+      }
+
+      if (wasUpdated) {
+          updatedProject.data.places[matchedMasterPlace.id] = matchedMasterPlace;
+          updatedCount++;
+      } else {
+          skippedCount++;
+      }
     }
   });
 
-  return { updatedProject, stats: { addedCount, skippedCount } };
+  return { updatedProject, stats: { addedCount, skippedCount, updatedCount } };
 };
-// --- END OF FILE 81 Zeilen ---
+// --- END OF FILE 127 Zeilen ---
