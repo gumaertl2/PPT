@@ -1,6 +1,5 @@
-// 16.03.2026 16:00 - UX: Passed visited status to createSmartIcon to highlight visited sights on the map.
+// 16.03.2026 19:45 - UX: Fixed Map Marker Logic. Day numbers are only shown if uiState.sortMode is strictly 'day'.
 // 27.02.2026 10:25 - FEAT: Passed unfiltered place list to MapLegend to enable global map filtering.
-// 27.02.2026 09:40 - REFACTOR: Removed automatic background Live-Check from MapView to prevent unnecessary API usage.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -39,8 +38,6 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
     : [48.1351, 11.5820]; 
 
   const allPlacesFromStore = useMemo(() => Object.values(project.data.places), [project.data.places]);
-  
-  // FIX: Wir übergeben der Legende IMMER alle Orte mit Koordinaten, damit die Filter-Buttons nicht verschwinden.
   const allValidPlacesForLegend = useMemo(() => (allPlacesFromStore as Place[]).filter(p => p.location && p.location.lat && p.location.lng), [allPlacesFromStore]);
 
   const scheduledPlaces = useMemo(() => {
@@ -220,7 +217,9 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
                           place.category?.toLowerCase().includes('hotel') ||
                           place.category?.toLowerCase().includes('accommodation');
 
-          const dayNumber = scheduledPlaces.get(place.id);
+          // UX FIX: The day number (large marker) is ONLY applied if the user is sorting/filtering by 'day'
+          const dayNumber = uiState.sortMode === 'day' ? scheduledPlaces.get(place.id) : undefined;
+          
           const markerColor = getCategoryColor(place.category, place);
           const isFixed = !!place.isFixed;
           const userPrio = place.userPriority ?? 0;
@@ -251,8 +250,9 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
                             {place.category === 'special' ? (place.details?.specialType === 'sunny' ? 'Sonnentag ☀️' : 'Regentag 🌧️') : (place.category || 'Ort')}
                           </span>
                       </div>
-                      {dayNumber && (
-                          <span className="text-[10px] font-bold text-white px-1.5 py-0.5 rounded shadow-sm" style={{ backgroundColor: DAY_COLORS[(dayNumber - 1) % DAY_COLORS.length] }}>📅 Tag {dayNumber}</span>
+                      {/* Even if sortMode isn't 'day', we can still show the day info inside the popup if it exists */}
+                      {scheduledPlaces.get(place.id) && (
+                          <span className="text-[10px] font-bold text-white px-1.5 py-0.5 rounded shadow-sm" style={{ backgroundColor: DAY_COLORS[(scheduledPlaces.get(place.id)! - 1) % DAY_COLORS.length] }}>📅 Tag {scheduledPlaces.get(place.id)}</span>
                       )}
                       {isHotel && <span className="text-[10px] font-bold bg-slate-900 text-white px-1.5 py-0.5 rounded">🏨 Unterkunft</span>}
                   </div>
@@ -283,7 +283,8 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
                         let targetSortMode = uiState.sortMode || 'category';
                         let targetFilter = uiState.categoryFilter || [];
                         if ((targetSortMode as string) === 'day') {
-                            const isVisibleInCurrentView = dayNumber && (targetFilter.length === 0 || targetFilter.some(f => f.includes(String(dayNumber))));
+                            const dayNum = scheduledPlaces.get(place.id);
+                            const isVisibleInCurrentView = dayNum && (targetFilter.length === 0 || targetFilter.some(f => f.includes(String(dayNum))));
                             if (!isVisibleInCurrentView) { targetSortMode = 'category' as any; targetFilter = []; }
                         }
                         if (isFullscreen) setIsFullscreen(false);

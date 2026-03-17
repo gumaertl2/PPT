@@ -1,9 +1,5 @@
-// 16.03.2026 14:00 - FIX: Smart Search Routing now also allows searching while inside the 'plan' (Diary) view without jumping to 'sights'.
-// 24.02.2026 11:55 - FEAT: Added Quick Guide button and modal to CockpitHeader for direct access.
-// 22.02.2026 17:35 - FIX: Made the global search input visible and responsive on mobile portrait screens.
-// 21.02.2026 13:30 - FEAT: Added state and integration for the new TripFinanceModal.
-// 21.02.2026 01:00 - FIX: Smart Search Routing. Prevents forcing the user into 'sights' view when searching while inside the 'info' view.
-// 20.02.2026 23:50 - FIX: Restored the "Double-Tap" Filter shortcut on the Guide button.
+// 16.03.2026 19:45 - UX: Global Filter Button no longer forces viewMode change. Added <SightFilterModal /> to root.
+// 16.03.2026 19:15 - UX: Added 'Double-Tap' shortcut to the PLAN button to quickly jump to Guide and open the filter. Made Filter icon amber when visitedFilter is active.
 // src/features/Cockpit/Layout/CockpitHeader.tsx
 
 import React, { useState, useRef } from 'react';
@@ -28,12 +24,13 @@ import PrintModal from '../PrintModal';
 import { AdHocFoodModal } from '../AdHocFoodModal'; 
 import { SafeExitModal } from '../SafeExitModal'; 
 import { ActionsMenu } from './ActionsMenu'; 
-import { TripFinanceModal } from '../TripFinanceModal'; // NEW
+import { TripFinanceModal } from '../TripFinanceModal'; 
 import type { CockpitViewMode, PrintConfig } from '../../../core/types'; 
 import { useTripGeneration } from '../../../hooks/useTripGeneration';
 import { InfoModal } from '../../Welcome/InfoModal'; 
 import { description } from '../../../data/Texts/description';
 import { quickGuide } from '../../../data/Texts/quickguide';
+import { SightFilterModal } from '../SightFilterModal'; // NEU: Importiere das globale Filter-Modal
 
 interface CockpitHeaderProps {
   viewMode: CockpitViewMode;
@@ -66,24 +63,23 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     setUIState
   } = useTripStore();
   
-  // Local State
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false); 
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false); 
   const [isAdHocModalOpen, setIsAdHocModalOpen] = useState(false); 
   const [showExitModal, setShowExitModal] = useState(false); 
   const [showManualModal, setShowManualModal] = useState(false); 
-  const [isFinanceModalOpen, setIsFinanceModalOpen] = useState(false); // NEW
+  const [isFinanceModalOpen, setIsFinanceModalOpen] = useState(false); 
   const [showQuickGuide, setShowQuickGuide] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const isFilterActive = uiState.searchTerm || uiState.categoryFilter.length > 0;
+
+  // UX FIX: Leuchtet auf, wenn Text-Suche, Kategorie-Filter ODER Besucht-Filter aktiv ist
+  const isFilterActive = uiState.searchTerm || uiState.categoryFilter.length > 0 || uiState.visitedFilter !== 'all';
 
   const currentLang = (i18n.language.substring(0, 2) === 'en' ? 'en' : 'de') as 'de' | 'en';
   const manualContent = description[currentLang] || description['de'];
   const quickGuideContent = quickGuide[currentLang] || quickGuide['de'];
-
-  // --- ACTIONS LOGIC ---
 
   const handleLoadClick = () => {
     fileInputRef.current?.click();
@@ -166,7 +162,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
       <header className="bg-white border-b border-slate-200 fixed top-0 left-0 w-full h-16 z-[999] shadow-sm transform-none">
         <div className="max-w-4xl mx-auto px-2 sm:px-4 h-full flex items-center justify-between gap-1 sm:gap-4">
           
-          {/* LEFT GROUP */}
           <div className="flex items-center gap-0.5 sm:gap-2 flex-1 min-w-0">
             
             <button 
@@ -179,7 +174,15 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
             
             <div className="flex items-center gap-0.5 sm:gap-1 overflow-x-auto no-scrollbar mask-gradient pr-1 shrink min-w-0">
                  <button 
-                    onClick={() => setViewMode('plan')} 
+                    onClick={() => {
+                        // UX FIX: Doppelklick öffnet Guide + Filter
+                        if (viewMode === 'plan') {
+                            setViewMode('sights');
+                            if (!isSightFilterOpen) toggleSightFilter();
+                        } else {
+                            setViewMode('plan');
+                        }
+                    }} 
                     className={`flex flex-col items-center px-1.5 sm:px-2 py-1 rounded transition-colors shrink-0 ${
                        viewMode === 'plan' 
                          ? 'text-blue-600 bg-blue-50' 
@@ -248,11 +251,11 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
 
                  <button 
                    onClick={() => {
-                     if (viewMode !== 'sights') setViewMode('sights');
+                     // FIX: Öffnet NUR den Filter, löst aber keinen Ansichts-Sprung mehr aus!
                      toggleSightFilter();
                    }}
                    className={`flex flex-col items-center px-1.5 sm:px-2 py-1 rounded transition-colors shrink-0 ${
-                     isSightFilterOpen && viewMode === 'sights'
+                     isSightFilterOpen
                        ? 'text-blue-600 bg-blue-50'
                        : isFilterActive ? 'text-amber-500 hover:bg-amber-50' : 'text-slate-500 hover:bg-slate-100'
                    }`}
@@ -263,7 +266,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                  </button>
             </div>
 
-             {/* FIX: Removed 'hidden sm:flex' to make search input visible on mobile. Adjusted widths for small screens. */}
              <div className="relative flex items-center ml-0.5 sm:ml-1 group shrink-0">
                 <Search className="absolute left-1.5 sm:left-2 w-3 h-3 text-slate-400 pointer-events-none" />
                 <input 
@@ -289,9 +291,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
              </div>
           </div>
           
-          {/* RIGHT GROUP */}
           <div className="flex items-center gap-0.5 sm:gap-2 flex-shrink-0">
-              
               <button 
                 onClick={() => setShowQuickGuide(true)}
                 className="flex flex-col items-center px-1.5 sm:px-2 py-1 text-slate-500 hover:bg-amber-50 hover:text-amber-600 rounded transition-colors shrink-0"
@@ -327,13 +327,15 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                 onOpenPrint={() => setIsPrintModalOpen(true)}
                 onOpenAdHoc={() => setIsAdHocModalOpen(true)}
                 onOpenSettings={() => setShowSettingsModal(true)}
-                onOpenFinance={() => setIsFinanceModalOpen(true)} // NEW
+                onOpenFinance={() => setIsFinanceModalOpen(true)} 
               />
-
           </div>
         </div>
       </header>
       
+      {/* NEU: Globales Rendering des Filter-Modals, damit es in JEDER Ansicht überlagern kann */}
+      <SightFilterModal />
+
       <SettingsModal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} />
       <ExportModal isOpen={isExportModalOpen} onClose={() => setIsExportModalOpen(false)} />
       <PrintModal isOpen={isPrintModalOpen} onClose={() => setIsPrintModalOpen(false)} onConfirm={handlePrintConfirm} />
@@ -358,4 +360,4 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
   );
 };
 
-// --- END OF FILE 374 Zeilen ---
+// --- END OF FILE 382 Zeilen ---

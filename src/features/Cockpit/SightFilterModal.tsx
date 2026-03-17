@@ -1,55 +1,144 @@
-// 25.02.2026 13:15 - FEAT: Added 'Priority' tab to view switcher and filter logic.
-// 23.02.2026 11:00 - FIX: Fully integrated i18n for view switcher buttons.
+// 16.03.2026 20:00 - HOTFIX: Moved early return below all useMemo hooks to fix React 'Rules of Hooks' violation.
+// 16.03.2026 19:45 - REFACTOR: Converted to a global Smart Component. Extracts its own options to prevent view jumping.
+// 16.03.2026 19:15 - FIX: Renamed 'Visited' filter labels for better UX and added strict i18n fallbacks.
 // src/features/Cockpit/SightFilterModal.tsx
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTripStore } from '../../store/useTripStore';
+import { INTEREST_DATA } from '../../data/interests'; 
+import { APPENDIX_ONLY_INTERESTS } from '../../data/constants';
 import { 
   Filter, X, List, Grid, FileText, Tags, Map as MapIcon, 
-  Calendar, ArrowDownAZ, Search, Briefcase, Star
+  Calendar, ArrowDownAZ, Search, Briefcase, Star, CheckCircle
 } from 'lucide-react';
 
-interface FilterOption {
-  id: string;
-  label: string;
-  count: number;
-}
+const getRealPriorityValue = (p: any): number => {
+    if (p.isFixed) return 4;               
+    if (p.userPriority === 1) return 3;    
+    if (p.userPriority === 2) return 2;    
+    if (p.userPriority === -1) return 0;   
+    return 1;                              
+};
 
-interface SightFilterModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  categoryOptions: FilterOption[];
-  tourOptions: FilterOption[];
-  dayOptions: FilterOption[];
-  priorityOptions: FilterOption[]; // NEU
-  activeSortMode: string;
-  onSortModeChange: (mode: string) => void;
-  showPlanningMode: boolean;
-  onTogglePlanningMode: () => void;
-}
+export const SightFilterModal: React.FC = () => {
+  // 1. ALLE REACT HOOKS MÜSSEN GANZ OBEN STEHEN (Regel von React)
+  const { t, i18n } = useTranslation();
+  const { project, uiState, setUIState, isSightFilterOpen, toggleSightFilter } = useTripStore();
+  
+  const currentLang = i18n.language.substring(0, 2) === 'en' ? 'en' : 'de';
 
-export const SightFilterModal: React.FC<SightFilterModalProps> = ({
-  isOpen,
-  onClose,
-  categoryOptions,
-  tourOptions,
-  dayOptions,
-  priorityOptions,
-  activeSortMode,
-  onSortModeChange,
-  showPlanningMode,
-  onTogglePlanningMode
-}) => {
-  const { t } = useTranslation();
-  const { uiState, setUIState } = useTripStore();
+  const places = Object.values(project.data.places || {}) as any[];
+  const analysis = project.analysis;
+  const activeSortMode = uiState.sortMode || 'category';
+  const showPlanningMode = uiState.showPlanningMode || false;
 
-  if (!isOpen) return null;
+  const resolveCategoryLabel = (catId: string): string => {
+    if (!catId) return "";
+    if (catId === 'custom_diary') return `📔 ${t('diary.title', { defaultValue: currentLang === 'en' ? 'Live Diary' : 'Eigenes Reisetagebuch' })}`;
+    const def = INTEREST_DATA[catId];
+    if (def && def.label) {
+        return (def.label as any)[currentLang] || (def.label as any)['de'] || catId;
+    }
+    if (catId === 'hotel') return t('interests.hotel', { defaultValue: 'Hotels' });
+    return catId.charAt(0).toUpperCase() + catId.slice(1).replace(/_/g, ' ');
+  };
+
+  const categoryOptions = useMemo(() => {
+    const counts: Record<string, number> = {};
+    const ignoreList = APPENDIX_ONLY_INTERESTS || [];
+    places.forEach((p: any) => {
+      if (uiState.visitedFilter === 'visited' && !p.visited) return;
+      if (uiState.visitedFilter === 'unvisited' && p.visited) return;
+
+      const cat = p.category || 'Sonstiges';
+      if (!ignoreList.includes(cat) || cat === 'hotel') { 
+          counts[cat] = (counts[cat] || 0) + 1;
+      }
+    });
+    
+    return Object.keys(counts).sort().map(cat => ({
+        id: cat,
+        label: resolveCategoryLabel(cat),
+        count: counts[cat]
+    }));
+  }, [places, uiState.visitedFilter, currentLang, t]);
+
+  const tourOptions = useMemo(() => {
+      const tourGuide = (analysis as any)?.tourGuide;
+      const tours = (tourGuide?.guide?.tours || []) as any[];
+      
+      const mappedTours = tours.map((tour: any) => {
+          const count = (tour.suggested_order_ids || []).filter((id: string) => {
+              const p = places.find(pl => pl.id === id);
+              if (!p) return false;
+              if (uiState.visitedFilter === 'visited' && !p.visited) return false;
+              if (uiState.visitedFilter === 'unvisited' && p.visited) return false;
+              return true;
+          }).length;
+
+          return {
+              id: tour.tour_title || "Tour", 
+              label: tour.tour_title || "Tour",
+              count: count,
+              placeIds: tour.suggested_order_ids || []
+          };
+      }).filter((t: any) => t.count > 0);
+
+      const specialPlaces = places.filter((p: any) => p.category === 'special');
+      if (specialPlaces.length > 0) {
+          mappedTours.push({
+              id: 'tour_special', 
+              label: t('sights.tour_special', { defaultValue: 'Tour: Sondertage & Ideen' }),
+              count: specialPlaces.length,
+              placeIds: specialPlaces.map((p: any) => p.id)
+          });
+      }
+
+      return mappedTours;
+  }, [analysis, places, uiState.visitedFilter, t]);
+
+  const dayOptions = useMemo(() => {
+      const itineraryDays = project.itinerary?.days || [];
+      return itineraryDays.map((day: any, index: number) => {
+          let count = 0;
+          const activities = day.activities || day.aktivitaeten || [];
+          if (activities.length > 0) {
+              count = activities.filter((akt: any) => {
+                  const p = places.find(pl => pl.id === (akt.id || akt.original_sight_id));
+                  if (!p) return false;
+                  if (uiState.visitedFilter === 'visited' && !p.visited) return false;
+                  if (uiState.visitedFilter === 'unvisited' && p.visited) return false;
+                  return true;
+              }).length;
+          }
+          const label = `${t('sights.day', {defaultValue: 'Tag'})} ${index + 1}`;
+          return { id: label, label: label, count: count, dayIndex: index };
+      }).filter((d: any) => d.count > 0);
+  }, [project.itinerary, places, uiState.visitedFilter, t]);
+
+  const priorityOptions = useMemo(() => {
+    const counts: Record<string, number> = { '4': 0, '3': 0, '2': 0, '1': 0, '0': 0 };
+    places.forEach((p: any) => {
+        if (uiState.visitedFilter === 'visited' && !p.visited) return;
+        if (uiState.visitedFilter === 'unvisited' && p.visited) return;
+        counts[String(getRealPriorityValue(p))]++;
+    });
+    return [
+        { id: '4', label: t('sights.must_see', { defaultValue: '⭐️ Muss ich sehen (Fix)' }), count: counts['4'] },
+        { id: '3', label: t('sights.prio_1', { defaultValue: '🥇 Prio 1' }), count: counts['3'] },
+        { id: '2', label: t('sights.prio_2', { defaultValue: '🥈 Prio 2' }), count: counts['2'] },
+        { id: '1', label: t('sights.no_prio', { defaultValue: '⚪️ Ohne Prio' }), count: counts['1'] },
+        { id: '0', label: t('sights.ignored', { defaultValue: '❌ Ignoriert' }), count: counts['0'] }
+    ].filter(o => o.count > 0);
+  }, [places, uiState.visitedFilter, t]);
+
+  // 2. EARLY RETURN DARF ERST NACH DEN HOOKS KOMMEN
+  if (!isSightFilterOpen) return null;
 
   const hasTours = tourOptions.length > 0;
   const hasDays = dayOptions.length > 0;
 
-  // Bestimmt, welche Filter-Chips angezeigt werden
   const activeFilterOptions = activeSortMode === 'tour' ? tourOptions 
                             : activeSortMode === 'day' ? dayOptions 
                             : activeSortMode === 'priority' ? priorityOptions
@@ -68,6 +157,16 @@ export const SightFilterModal: React.FC<SightFilterModalProps> = ({
     setUIState({ categoryFilter: [] });
   };
 
+  const onSortModeChange = (mode: string) => {
+      setUIState({ sortMode: mode as any, categoryFilter: [] });
+  };
+  
+  const onTogglePlanningMode = () => {
+      setUIState({ showPlanningMode: !showPlanningMode });
+  };
+
+  const onClose = toggleSightFilter;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
        <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
@@ -75,7 +174,7 @@ export const SightFilterModal: React.FC<SightFilterModalProps> = ({
           <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50">
              <h3 className="font-bold text-gray-800 flex items-center gap-2">
                <Filter className="w-5 h-5 text-blue-600" />
-               {t('sights.adjust_view', { defaultValue: 'Ansicht anpassen' })}
+               {t('sights.adjust_view', { defaultValue: currentLang === 'en' ? 'Adjust View' : 'Ansicht anpassen' })}
              </h3>
              <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded-full transition-colors">
                <X className="w-5 h-5 text-gray-500" />
@@ -84,9 +183,40 @@ export const SightFilterModal: React.FC<SightFilterModalProps> = ({
 
           <div className="p-5 space-y-5 overflow-y-auto">
              
-             {/* A. DETAIL LEVEL */}
+             {/* A. VISITED FILTER */}
              <div>
-                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">{t('sights.detail_level', { defaultValue: 'Detailgrad' })}</label>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500" /> {t('sights.visited_status', { defaultValue: currentLang === 'en' ? 'Visit Status' : 'Besuchsstatus' })}</label>
+                <div className="flex gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+                  <button 
+                    onClick={() => setUIState({ visitedFilter: 'all' })}
+                    className={`flex-1 py-2 px-2 rounded-lg text-xs font-bold transition-all ${
+                      uiState.visitedFilter === 'all' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                    }`}
+                  >
+                    {t('sights.visited_all', { defaultValue: currentLang === 'en' ? 'All' : 'Alle' })}
+                  </button>
+                  <button 
+                    onClick={() => setUIState({ visitedFilter: 'unvisited' })}
+                    className={`flex-1 py-2 px-2 rounded-lg text-xs font-bold transition-all ${
+                      uiState.visitedFilter === 'unvisited' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                    }`}
+                  >
+                    {t('sights.visited_unvisited', { defaultValue: currentLang === 'en' ? 'Unvisited' : 'Nicht besuchte' })}
+                  </button>
+                  <button 
+                    onClick={() => setUIState({ visitedFilter: 'visited' })}
+                    className={`flex-1 py-2 px-2 rounded-lg text-xs font-bold transition-all ${
+                      uiState.visitedFilter === 'visited' ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                    }`}
+                  >
+                    {t('sights.visited_done', { defaultValue: currentLang === 'en' ? 'Visited' : 'Besuchte' })}
+                  </button>
+                </div>
+             </div>
+
+             {/* B. DETAIL LEVEL */}
+             <div>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">{t('sights.detail_level', { defaultValue: currentLang === 'en' ? 'Detail Level' : 'Detailgrad' })}</label>
                 <div className="flex gap-2">
                   <button 
                     onClick={() => setUIState({ detailLevel: 'kompakt' })}
@@ -94,7 +224,7 @@ export const SightFilterModal: React.FC<SightFilterModalProps> = ({
                       uiState.detailLevel === 'kompakt' ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
                     }`}
                   >
-                    <List className="w-3.5 h-3.5" /> {t('sights.compact', { defaultValue: 'Kompakt' })}
+                    <List className="w-3.5 h-3.5" /> {t('sights.compact', { defaultValue: currentLang === 'en' ? 'Compact' : 'Kompakt' })}
                   </button>
                   <button 
                     onClick={() => setUIState({ detailLevel: 'standard' })}
@@ -115,9 +245,9 @@ export const SightFilterModal: React.FC<SightFilterModalProps> = ({
                 </div>
              </div>
 
-             {/* B. VIEW SWITCHER (5 Columns now) */}
+             {/* C. VIEW SWITCHER */}
              <div>
-                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">{t('sights.group_sort', { defaultValue: 'Gruppieren & Sortieren nach' })}</label>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">{t('sights.group_sort', { defaultValue: currentLang === 'en' ? 'Group & Sort By' : 'Gruppieren & Sortieren nach' })}</label>
                 <div className="grid grid-cols-5 gap-1.5">
                     <button
                        onClick={() => onSortModeChange('category')}
@@ -173,17 +303,17 @@ export const SightFilterModal: React.FC<SightFilterModalProps> = ({
                 </div>
              </div>
 
-             {/* C. DYNAMIC FILTER CHIPS */}
+             {/* D. DYNAMIC FILTER CHIPS */}
              {activeSortMode !== 'alphabetical' && (
                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 animate-in fade-in slide-in-from-top-1">
                     <div className="flex justify-between items-center mb-2">
-                       <label className="text-[10px] font-bold text-gray-500 uppercase">{t('sights.filter_selection', { defaultValue: 'Auswahl' })}</label>
+                       <label className="text-[10px] font-bold text-gray-500 uppercase">{t('sights.filter_selection', { defaultValue: currentLang === 'en' ? 'Selection' : 'Auswahl' })}</label>
                        {uiState.categoryFilter.length > 0 && (
                           <button 
                             onClick={handleResetFilters}
                             className="text-xs font-bold text-blue-600 hover:underline"
                           >
-                            {t('sights.reset_filter', { defaultValue: 'Alle anzeigen' })}
+                            {t('sights.reset_filter', { defaultValue: currentLang === 'en' ? 'Show All' : 'Alle anzeigen' })}
                           </button>
                        )}
                     </div>
@@ -209,26 +339,21 @@ export const SightFilterModal: React.FC<SightFilterModalProps> = ({
                        })}
                        {activeFilterOptions.length === 0 && (
                            <p className="text-xs text-gray-400 italic w-full text-center py-2">
-                             {t('sights.no_filters_available', { defaultValue: 'Keine Filter verfügbar.' })}
+                             {t('sights.no_filters_available', { defaultValue: currentLang === 'en' ? 'No results for this status.' : 'Mit diesem Status gibt es hier keine Ergebnisse.' })}
                            </p>
                        )}
                     </div>
                 </div>
              )}
-             {activeSortMode === 'alphabetical' && (
-                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-center text-xs text-gray-500 italic">
-                     {t('sights.sort_alpha_desc', { defaultValue: 'Sortiert alle Orte alphabetisch von A bis Z.' })}
-                 </div>
-             )}
 
-             {/* D. SEARCH */}
+             {/* E. SEARCH */}
              <div>
-                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">{t('sights.search', { defaultValue: 'Suche' })}</label>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">{t('sights.search', { defaultValue: currentLang === 'en' ? 'Search' : 'Suche' })}</label>
                 <div className="relative">
                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                    <input 
                       type="text" 
-                      placeholder={t('sights.search_placeholder', { defaultValue: 'Name oder Kategorie...' })}
+                      placeholder={t('sights.search_placeholder', { defaultValue: currentLang === 'en' ? 'Name or Category...' : 'Name oder Kategorie...' })}
                       value={uiState.searchTerm}
                       onChange={(e) => setUIState({ searchTerm: e.target.value })}
                       className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
@@ -236,12 +361,12 @@ export const SightFilterModal: React.FC<SightFilterModalProps> = ({
                 </div>
              </div>
 
-             {/* E. PLANNING MODE TOGGLE */}
+             {/* F. PLANNING MODE TOGGLE */}
              <div className="bg-blue-50 p-3.5 rounded-lg border border-blue-100">
                 <div className="flex items-center justify-between">
                    <label className="text-sm font-bold text-blue-900 flex items-center gap-2">
                      <Briefcase className="w-4 h-4" />
-                     {t('sights.planning_mode', { defaultValue: 'Planungsmodus' })}
+                     {t('sights.planning_mode', { defaultValue: currentLang === 'en' ? 'Planning Mode' : 'Planungsmodus' })}
                    </label>
                    <button 
                      onClick={onTogglePlanningMode}
@@ -251,7 +376,7 @@ export const SightFilterModal: React.FC<SightFilterModalProps> = ({
                    </button>
                 </div>
                 <p className="text-[10px] text-blue-700 mt-1.5 leading-snug">
-                   {t('sights.planning_mode_desc', { defaultValue: 'Aktivieren Sie dies, um Budget, Prioritäten und die Reserve-Liste anzuzeigen.' })}
+                   {t('sights.planning_mode_desc', { defaultValue: currentLang === 'en' ? 'Enable this to view budget, priorities and the reserve list.' : 'Aktivieren Sie dies, um Budget, Prioritäten und die Reserve-Liste anzuzeigen.' })}
                 </p>
              </div>
 
@@ -262,11 +387,11 @@ export const SightFilterModal: React.FC<SightFilterModalProps> = ({
                onClick={onClose}
                className="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-sm"
              >
-               {t('sights.apply', { defaultValue: 'Übernehmen' })}
+               {t('sights.apply', { defaultValue: currentLang === 'en' ? 'Apply' : 'Übernehmen' })}
              </button>
           </div>
        </div>
     </div>
   );
 };
-// --- END OF FILE 274 Zeilen ---
+// --- END OF FILE 319 Zeilen ---

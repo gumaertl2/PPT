@@ -1,5 +1,5 @@
+// 16.03.2026 19:00 - REFACTOR: Removed 'custom_diary' category hacks. Implemented native independent 'visitedFilter'.
 // 16.03.2026 17:15 - FIX: Added alert catch block to handle API Rate Limit / Invalid Key errors smoothly in UI.
-// 16.03.2026 17:00 - FIX: Granted 'Dual Citizenship' to visited places.
 // src/features/Cockpit/SightsView.tsx
 
 import React, { useMemo, useEffect, useState, useRef } from 'react';
@@ -98,6 +98,7 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
   
   const resolveCategoryLabel = (catId: string): string => {
     if (!catId) return "";
+    if (catId === 'custom_diary') return `📔 ${t('diary.title', { defaultValue: 'Eigenes Reisetagebuch' })}`;
     const def = INTEREST_DATA[catId];
     if (def && def.label) {
         return (def.label as any)[currentLang] || (def.label as any)['de'] || catId;
@@ -181,26 +182,36 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     const counts: Record<string, number> = {};
     const ignoreList = APPENDIX_ONLY_INTERESTS || [];
     places.forEach((p: any) => {
+      // NEW: Respect the new independent visited Filter!
+      if (uiState.visitedFilter === 'visited' && !p.visited) return;
+      if (uiState.visitedFilter === 'unvisited' && p.visited) return;
+
       const cat = p.category || 'Sonstiges';
       if (!ignoreList.includes(cat) || cat === 'hotel') { 
           counts[cat] = (counts[cat] || 0) + 1;
       }
     });
+    
     return Object.keys(counts).sort().map(cat => ({
         id: cat,
         label: resolveCategoryLabel(cat),
         count: counts[cat]
     }));
-  }, [places]);
+  }, [places, uiState.visitedFilter, currentLang, t]);
 
   const tourOptions = useMemo(() => {
       const tourGuide = (analysis as any)?.tourGuide;
       const tours = (tourGuide?.guide?.tours || []) as any[];
       
       const mappedTours = tours.map((tour: any) => {
-          const count = (tour.suggested_order_ids || []).filter((id: string) => 
-              places.some((p: any) => p.id === id)
-          ).length;
+          const count = (tour.suggested_order_ids || []).filter((id: string) => {
+              const p = places.find(pl => pl.id === id);
+              if (!p) return false;
+              if (uiState.visitedFilter === 'visited' && !p.visited) return false;
+              if (uiState.visitedFilter === 'unvisited' && p.visited) return false;
+              return true;
+          }).length;
+
           return {
               id: tour.tour_title || "Tour", 
               label: tour.tour_title || "Tour",
@@ -220,7 +231,7 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
       }
 
       return mappedTours;
-  }, [analysis, places, t]);
+  }, [analysis, places, uiState.visitedFilter, t]);
 
   const dayOptions = useMemo(() => {
       const itineraryDays = project.itinerary?.days || [];
@@ -228,18 +239,24 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
           let count = 0;
           const activities = day.activities || day.aktivitaeten || [];
           if (activities.length > 0) {
-              count = activities.filter((akt: any) => 
-                    places.some((p: any) => p.id === (akt.id || akt.original_sight_id))
-              ).length;
+              count = activities.filter((akt: any) => {
+                  const p = places.find(pl => pl.id === (akt.id || akt.original_sight_id));
+                  if (!p) return false;
+                  if (uiState.visitedFilter === 'visited' && !p.visited) return false;
+                  if (uiState.visitedFilter === 'unvisited' && p.visited) return false;
+                  return true;
+              }).length;
           }
           const label = `${t('sights.day', {defaultValue: 'Tag'})} ${index + 1}`;
           return { id: label, label: label, count: count, dayIndex: index };
       }).filter((d: any) => d.count > 0);
-  }, [project.itinerary, places, t]);
+  }, [project.itinerary, places, uiState.visitedFilter, t]);
 
   const priorityOptions = useMemo(() => {
     const counts: Record<string, number> = { '4': 0, '3': 0, '2': 0, '1': 0, '0': 0 };
     places.forEach((p: any) => {
+        if (uiState.visitedFilter === 'visited' && !p.visited) return;
+        if (uiState.visitedFilter === 'unvisited' && p.visited) return;
         counts[String(getRealPriorityValue(p))]++;
     });
     return [
@@ -249,7 +266,7 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
         { id: '1', label: t('sights.no_prio', { defaultValue: '⚪️ Ohne Prio' }), count: counts['1'] },
         { id: '0', label: t('sights.ignored', { defaultValue: '❌ Ignoriert' }), count: counts['0'] }
     ].filter(o => o.count > 0);
-  }, [places, t]);
+  }, [places, uiState.visitedFilter, t]);
 
   const handleViewModeChange = (mode: string) => {
       setUIState({ sortMode: mode as any, categoryFilter: [] });
@@ -297,7 +314,7 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
         const rating = p.rating || 0;
         const currentPrioVal = getRealPriorityValue(p);
         const currentIsReserve = (p.userPriority === -1) || (duration < minDuration) || (rating > 0 && rating < minRating);
-        const currentCat = p.category || 'Sonstiges';
+        const currentCat = p.category || 'Sonstiges'; // STRICT: Keine "custom_diary" Maske mehr!
         const currentName = p.name || '';
 
         if (!showPlanningMode) {
@@ -312,6 +329,10 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     };
 
     uniquePlaces.forEach((p: any) => {
+      // 1. VISITED FILTER APPLY
+      if (uiState.visitedFilter === 'visited' && !p.visited) return;
+      if (uiState.visitedFilter === 'unvisited' && p.visited) return;
+
       const meta = getMeta(p);
       const cat = meta.cat;
       const originalCat = p.category || 'Sonstiges'; 
@@ -369,7 +390,7 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     };
 
     return { main: mainList.sort(sortFn), special: specialList.sort(sortFn) };
-  }, [places, uiState.searchTerm, uiState.categoryFilter, activeSortMode, uiState.selectedCategory, uiState.isPrintMode, overrideSortMode, userInputs.searchSettings, tourOptions, project.itinerary, t, showPlanningMode]);
+  }, [places, uiState.searchTerm, uiState.categoryFilter, activeSortMode, uiState.selectedCategory, uiState.isPrintMode, overrideSortMode, userInputs.searchSettings, tourOptions, project.itinerary, t, showPlanningMode, uiState.visitedFilter]);
 
   const handleBatchLiveCheck = async () => {
       if (isLiveChecking) return;
@@ -396,7 +417,6 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
           });
       } catch (err: any) {
           console.error("Batch Live Check failed", err);
-          // FIX: Alert user if API is overloaded or Key is invalid
           const errMsg = err?.message || String(err);
           if (errMsg.includes('429') || errMsg.includes('Rate Limit') || errMsg.includes('400')) {
               alert(t('sights.error_api_limit', { defaultValue: 'Der Server ist momentan überlastet oder der API-Key ist ungültig. Bitte überprüfe deine Google Cloud Einstellungen oder versuche es später noch einmal.' }));
@@ -546,19 +566,7 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
         </>
       )}
 
-      <SightFilterModal 
-        isOpen={isSightFilterOpen} 
-        onClose={toggleSightFilter} 
-        categoryOptions={categoryOptions} 
-        tourOptions={tourOptions} 
-        dayOptions={dayOptions} 
-        priorityOptions={priorityOptions} 
-        activeSortMode={activeSortMode} 
-        onSortModeChange={handleViewModeChange} 
-        showPlanningMode={showPlanningMode} 
-        onTogglePlanningMode={() => setUIState({ showPlanningMode: !showPlanningMode })} 
-      />
-    </div>
+          </div>
   );
 };
-// Zeilenanzahl: 597
+// Zeilenanzahl: 593

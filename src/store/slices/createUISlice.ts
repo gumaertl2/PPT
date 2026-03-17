@@ -1,5 +1,5 @@
+// 16.03.2026 19:00 - FEAT: Added 'visitedFilter' to UIState for a dedicated Visited/Unvisited toggle.
 // 27.02.2026 19:00 - FEAT: Added Intercept States (pendingDayPlan, plannerConflicts) for Human-in-the-Loop DayPlanner.
-// 26.02.2026 12:05 - FEAT: Added 'mapLayer' to support different map styles.
 // src/store/slices/createUISlice.ts
 
 import type { StateCreator } from 'zustand';
@@ -38,6 +38,7 @@ export interface UIState {
   mapMode: 'live' | 'offline'; 
   isMapManagerOpen: boolean; 
   mapLayer: 'standard' | 'topo' | 'cycle' | 'satellite';
+  visitedFilter: 'all' | 'visited' | 'unvisited'; // NEU: Unabhängiger Schalter für "Besucht"
 }
 
 export type AppView = 'welcome' | 'wizard' | 'results' | 'analysis_review';
@@ -76,7 +77,6 @@ export interface UISlice {
   removeNotification: (id: string) => void; 
   updateNotification: (id: string, updates: Partial<AppNotification>) => void;
 
-  // NEW: Planner Intercept States
   showConflictModal: boolean;
   plannerConflicts: any[];
   pendingDayPlan: any | null;
@@ -99,7 +99,8 @@ const initialUIState: UIState = {
   showPlanningMode: false,
   mapMode: 'live',
   isMapManagerOpen: false,
-  mapLayer: 'standard'
+  mapLayer: 'standard',
+  visitedFilter: 'all' // NEU: Initialer Zustand ist "Alle anzeigen"
 };
 
 export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => ({
@@ -133,7 +134,8 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
       ...state.uiState,
       searchTerm: '',
       categoryFilter: [],
-      selectedPlaceId: null
+      selectedPlaceId: null,
+      visitedFilter: 'all'
     }
   })),
 
@@ -201,7 +203,6 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
     notifications: state.notifications.map((n: AppNotification) => n.id === id ? { ...n, ...updates } : n)
   })),
 
-  // NEW: Planner Intercept Logic
   showConflictModal: false,
   plannerConflicts: [],
   pendingDayPlan: null,
@@ -214,7 +215,6 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
 
   resolvePlannerConflict: (accept) => set((state: any) => {
       if (accept && state.pendingDayPlan) {
-          // Push draft to SSOT
           return {
               showConflictModal: false,
               plannerConflicts: [],
@@ -228,7 +228,6 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
               pendingDayPlan: null
           };
       } else {
-          // Reject draft
           return {
               showConflictModal: false,
               plannerConflicts: [],
@@ -237,4 +236,4 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
       }
   })
 });
-// --- END OF FILE 259 Zeilen ---
+// --- END OF FILE 261 Zeilen ---
