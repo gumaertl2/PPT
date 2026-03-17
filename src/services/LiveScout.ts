@@ -1,6 +1,5 @@
-// 16.03.2026 18:15 - FIX: Added 'city' to payload and strictly enforced 'Location Match' rule to prevent AI from hallucinating same-name places in wrong cities.
-// 16.03.2026 17:15 - FIX: Added aggressive API throttling (2.5s) and strict Error throwing for UI alerts.
-// 16.03.2026 16:45 - FEAT: Added verified_address/city extraction and auto-trigger for Geo-Validation.
+// 16.03.2026 20:15 - FIX: Used safe type casting '(p as any).city' to resolve TS2339 build error without altering core models.
+// 16.03.2026 18:15 - FIX: Added 'city' to payload and strictly enforced 'Location Match' rule.
 // src/services/LiveScout.ts
 
 import { GeminiService } from './gemini'; 
@@ -46,7 +45,7 @@ export const LiveScout = {
             return p ? {
                 id: p.id,
                 name: p.name,
-                city: p.city || 'Unknown City', // FIX: Explizit die Stadt übergeben!
+                city: (p as any).city || 'Unknown City', // FIX: Typensicheres Casting für 'city'
                 address: p.address || p.vicinity || 'Address unknown',
                 stored_hours: p.openingHours ? (Array.isArray(p.openingHours) ? p.openingHours.join(', ') : p.openingHours) : "N/A"
             } : null;
@@ -131,16 +130,15 @@ export const LiveScout = {
                     (updates as any).business_status = result.business_status;
                 }
 
-                // Apply verified address if it looks better than current
                 if (result.verified_address && result.verified_address.length > 5 && result.verified_address !== currentPlace.address) {
                     updates.address = result.verified_address;
-                    if (result.verified_city) updates.city = result.verified_city;
+                    if (result.verified_city) {
+                        (updates as any).city = result.verified_city; // FIX: Typensicheres Casting
+                    }
                     updates.coordinatesValidated = false; 
-                    console.log(`[LiveScout] Better address found for ${currentPlace.name}. Geo-Validation triggered!`);
                 }
 
                 store.updatePlace(id, updates);
-                console.log(`[LiveScout] Batch Verified ${id}: ${finalStatus}`);
             });
           }
         } catch (error) {

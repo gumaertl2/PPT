@@ -1,11 +1,10 @@
+// 16.03.2026 20:15 - CLEANUP: Removed unused variables, options, and modal imports after extracting SightFilterModal to the global layout.
 // 16.03.2026 19:00 - REFACTOR: Removed 'custom_diary' category hacks. Implemented native independent 'visitedFilter'.
-// 16.03.2026 17:15 - FIX: Added alert catch block to handle API Rate Limit / Invalid Key errors smoothly in UI.
 // src/features/Cockpit/SightsView.tsx
 
 import React, { useMemo, useEffect, useState, useRef } from 'react';
 import { useTripStore } from '../../store/useTripStore';
 import { SightCard } from './SightCard';
-import { SightFilterModal } from './SightFilterModal'; 
 import { useTranslation } from 'react-i18next';
 import { INTEREST_DATA } from '../../data/interests'; 
 import { APPENDIX_ONLY_INTERESTS } from '../../data/constants';
@@ -55,9 +54,7 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
   const { 
     project, 
     uiState, 
-    setUIState, 
-    isSightFilterOpen, 
-    toggleSightFilter 
+    setUIState 
   } = useTripStore();
   
   const [isLocating, setIsLocating] = useState(false);
@@ -178,27 +175,7 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     return { total: totalBudget, used: totalMinutes, remaining: totalBudget - totalMinutes };
   }, [userInputs, places]);
 
-  const categoryOptions = useMemo(() => {
-    const counts: Record<string, number> = {};
-    const ignoreList = APPENDIX_ONLY_INTERESTS || [];
-    places.forEach((p: any) => {
-      // NEW: Respect the new independent visited Filter!
-      if (uiState.visitedFilter === 'visited' && !p.visited) return;
-      if (uiState.visitedFilter === 'unvisited' && p.visited) return;
-
-      const cat = p.category || 'Sonstiges';
-      if (!ignoreList.includes(cat) || cat === 'hotel') { 
-          counts[cat] = (counts[cat] || 0) + 1;
-      }
-    });
-    
-    return Object.keys(counts).sort().map(cat => ({
-        id: cat,
-        label: resolveCategoryLabel(cat),
-        count: counts[cat]
-    }));
-  }, [places, uiState.visitedFilter, currentLang, t]);
-
+  // tourOptions remains because it is needed for tour sorting inside filteredLists
   const tourOptions = useMemo(() => {
       const tourGuide = (analysis as any)?.tourGuide;
       const tours = (tourGuide?.guide?.tours || []) as any[];
@@ -232,45 +209,6 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
 
       return mappedTours;
   }, [analysis, places, uiState.visitedFilter, t]);
-
-  const dayOptions = useMemo(() => {
-      const itineraryDays = project.itinerary?.days || [];
-      return itineraryDays.map((day: any, index: number) => {
-          let count = 0;
-          const activities = day.activities || day.aktivitaeten || [];
-          if (activities.length > 0) {
-              count = activities.filter((akt: any) => {
-                  const p = places.find(pl => pl.id === (akt.id || akt.original_sight_id));
-                  if (!p) return false;
-                  if (uiState.visitedFilter === 'visited' && !p.visited) return false;
-                  if (uiState.visitedFilter === 'unvisited' && p.visited) return false;
-                  return true;
-              }).length;
-          }
-          const label = `${t('sights.day', {defaultValue: 'Tag'})} ${index + 1}`;
-          return { id: label, label: label, count: count, dayIndex: index };
-      }).filter((d: any) => d.count > 0);
-  }, [project.itinerary, places, uiState.visitedFilter, t]);
-
-  const priorityOptions = useMemo(() => {
-    const counts: Record<string, number> = { '4': 0, '3': 0, '2': 0, '1': 0, '0': 0 };
-    places.forEach((p: any) => {
-        if (uiState.visitedFilter === 'visited' && !p.visited) return;
-        if (uiState.visitedFilter === 'unvisited' && p.visited) return;
-        counts[String(getRealPriorityValue(p))]++;
-    });
-    return [
-        { id: '4', label: t('sights.must_see', { defaultValue: '⭐️ Muss ich sehen (Fix)' }), count: counts['4'] },
-        { id: '3', label: t('sights.prio_1', { defaultValue: '🥇 Prio 1' }), count: counts['3'] },
-        { id: '2', label: t('sights.prio_2', { defaultValue: '🥈 Prio 2' }), count: counts['2'] },
-        { id: '1', label: t('sights.no_prio', { defaultValue: '⚪️ Ohne Prio' }), count: counts['1'] },
-        { id: '0', label: t('sights.ignored', { defaultValue: '❌ Ignoriert' }), count: counts['0'] }
-    ].filter(o => o.count > 0);
-  }, [places, uiState.visitedFilter, t]);
-
-  const handleViewModeChange = (mode: string) => {
-      setUIState({ sortMode: mode as any, categoryFilter: [] });
-  };
 
   const filteredLists = useMemo(() => {
     const mainList: any[] = [];
@@ -314,7 +252,7 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
         const rating = p.rating || 0;
         const currentPrioVal = getRealPriorityValue(p);
         const currentIsReserve = (p.userPriority === -1) || (duration < minDuration) || (rating > 0 && rating < minRating);
-        const currentCat = p.category || 'Sonstiges'; // STRICT: Keine "custom_diary" Maske mehr!
+        const currentCat = p.category || 'Sonstiges';
         const currentName = p.name || '';
 
         if (!showPlanningMode) {
@@ -329,7 +267,6 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     };
 
     uniquePlaces.forEach((p: any) => {
-      // 1. VISITED FILTER APPLY
       if (uiState.visitedFilter === 'visited' && !p.visited) return;
       if (uiState.visitedFilter === 'unvisited' && p.visited) return;
 
@@ -565,8 +502,7 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
             )}
         </>
       )}
-
-          </div>
+    </div>
   );
 };
-// Zeilenanzahl: 593
+// --- END OF FILE 589 Zeilen ---
