@@ -1,5 +1,5 @@
+// 16.03.2026 21:00 - UX: Fixed double-click routing. Toggling the filter via Plan or Map button no longer forces a view change.
 // 16.03.2026 19:45 - UX: Global Filter Button no longer forces viewMode change. Added <SightFilterModal /> to root.
-// 16.03.2026 19:15 - UX: Added 'Double-Tap' shortcut to the PLAN button to quickly jump to Guide and open the filter. Made Filter icon amber when visitedFilter is active.
 // src/features/Cockpit/Layout/CockpitHeader.tsx
 
 import React, { useState, useRef } from 'react';
@@ -30,7 +30,7 @@ import { useTripGeneration } from '../../../hooks/useTripGeneration';
 import { InfoModal } from '../../Welcome/InfoModal'; 
 import { description } from '../../../data/Texts/description';
 import { quickGuide } from '../../../data/Texts/quickguide';
-import { SightFilterModal } from '../SightFilterModal'; // NEU: Importiere das globale Filter-Modal
+import { SightFilterModal } from '../SightFilterModal'; 
 
 interface CockpitHeaderProps {
   viewMode: CockpitViewMode;
@@ -74,7 +74,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // UX FIX: Leuchtet auf, wenn Text-Suche, Kategorie-Filter ODER Besucht-Filter aktiv ist
   const isFilterActive = uiState.searchTerm || uiState.categoryFilter.length > 0 || uiState.visitedFilter !== 'all';
 
   const currentLang = (i18n.language.substring(0, 2) === 'en' ? 'en' : 'de') as 'de' | 'en';
@@ -175,9 +174,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
             <div className="flex items-center gap-0.5 sm:gap-1 overflow-x-auto no-scrollbar mask-gradient pr-1 shrink min-w-0">
                  <button 
                     onClick={() => {
-                        // UX FIX: Doppelklick öffnet Guide + Filter
                         if (viewMode === 'plan') {
-                            setViewMode('sights');
                             if (!isSightFilterOpen) toggleSightFilter();
                         } else {
                             setViewMode('plan');
@@ -196,13 +193,9 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
 
                  <button 
                    onClick={() => {
-                     if (viewMode === 'sights') {
-                       if (uiState.viewMode === 'map') {
-                         setUIState({ viewMode: 'list' });
-                       } else {
-                         window.scrollTo({ top: 0, behavior: 'smooth' });
-                         toggleSightFilter();
-                       }
+                     if (viewMode === 'sights' && uiState.viewMode !== 'map') {
+                       if (!isSightFilterOpen) toggleSightFilter();
+                       window.scrollTo({ top: 0, behavior: 'smooth' });
                      } else {
                        setViewMode('sights');
                        setUIState({ viewMode: 'list' });
@@ -235,8 +228,12 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
 
                  <button 
                    onClick={() => {
-                     setViewMode('sights');
-                     setUIState({ viewMode: 'map', selectedPlaceId: null });
+                     if (viewMode === 'sights' && uiState.viewMode === 'map') {
+                         if (!isSightFilterOpen) toggleSightFilter();
+                     } else {
+                         setViewMode('sights');
+                         setUIState({ viewMode: 'map', selectedPlaceId: null });
+                     }
                    }}
                    className={`flex flex-col items-center px-1.5 sm:px-2 py-1 rounded transition-colors shrink-0 ${
                      viewMode === 'sights' && uiState.viewMode === 'map'
@@ -251,7 +248,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
 
                  <button 
                    onClick={() => {
-                     // FIX: Öffnet NUR den Filter, löst aber keinen Ansichts-Sprung mehr aus!
                      toggleSightFilter();
                    }}
                    className={`flex flex-col items-center px-1.5 sm:px-2 py-1 rounded transition-colors shrink-0 ${
@@ -333,7 +329,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
         </div>
       </header>
       
-      {/* NEU: Globales Rendering des Filter-Modals, damit es in JEDER Ansicht überlagern kann */}
       <SightFilterModal />
 
       <SettingsModal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} />
@@ -360,4 +355,4 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
   );
 };
 
-// --- END OF FILE 382 Zeilen ---
+// --- END OF FILE 375 Zeilen ---

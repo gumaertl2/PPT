@@ -1,8 +1,5 @@
+// 16.03.2026 21:00 - FEAT: Applied active uiState.categoryFilter logic to the diary entries. 
 // 16.03.2026 16:15 - FIX: Removed unused 'Search' icon import to resolve TS6133 build error.
-// 16.03.2026 15:45 - REFACTOR: Removed inline language hacks. Switched to strict i18n keys for deep links and tooltips.
-// 16.03.2026 15:15 - FIX: Smart Google Maps routing (Name+Address instead of Lat/Lng for sights).
-// 16.03.2026 14:45 - FEAT: Added deep links (Sprungbretter) to seamlessly navigate from Diary entries to the Map or Guide view.
-// 16.03.2026 14:15 - FEAT: Upgraded diary edit mode to support editing Title, Date/Time, Note and GPS tracking.
 // src/features/Cockpit/PlanView.tsx
 
 import React, { useMemo, useState } from 'react';
@@ -27,7 +24,6 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
   const routeAnalysis = analysis.routeArchitect;
   const travelerNames = travelers.travelerNames || '';
 
-  // Full Edit Mode States
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editNote, setEditNote] = useState('');
@@ -203,22 +199,64 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
           }
           return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}`;
       }
-      // For real sights, use official name and address to trigger the proper Maps POI profile
       const query = [place.official_name || place.name, place.address || place.city].filter(Boolean).join(', ');
       return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
   };
 
   const renderVisitedDiary = () => {
+    const activeFilters = uiState.categoryFilter || [];
+    const sortMode = uiState.sortMode || 'category';
+
     const allVisited = Object.values(data?.places || {})
         .filter((p: any) => p.visited && p.visitedAt);
         
     const visitedPlaces = allVisited
         .filter((p: any) => {
-            if (!globalSearchTerm) return true;
-            const term = globalSearchTerm.toLowerCase();
-            const nameMatch = (p.name || '').toLowerCase().includes(term);
-            const noteMatch = (p.userNote || '').toLowerCase().includes(term);
-            return nameMatch || noteMatch;
+            if (uiState.visitedFilter === 'unvisited') return false;
+
+            if (globalSearchTerm) {
+                const term = globalSearchTerm.toLowerCase();
+                const nameMatch = (p.name || '').toLowerCase().includes(term);
+                const noteMatch = (p.userNote || '').toLowerCase().includes(term);
+                if (!nameMatch && !noteMatch) return false;
+            }
+
+            if (activeFilters.length > 0) {
+                const originalCat = p.category || 'Sonstiges';
+
+                if (sortMode === 'category') {
+                    if (!activeFilters.includes(originalCat)) return false;
+                } else if (sortMode === 'priority') {
+                    const pVal = p.isFixed ? 4 : p.userPriority === 1 ? 3 : p.userPriority === 2 ? 2 : p.userPriority === -1 ? 0 : 1;
+                    if (!activeFilters.includes(String(pVal))) return false;
+                } else if (sortMode === 'day') {
+                    let scheduledDay = -1;
+                    project.itinerary?.days?.forEach((day: any, index: number) => {
+                        if (day.activities?.some((act: any) => (act.id || act.original_sight_id) === p.id)) {
+                            scheduledDay = index + 1;
+                        }
+                    });
+                    const labelTranslated = `${t('sights.day', {defaultValue: 'Tag'})} ${scheduledDay}`;
+                    const isSelected = activeFilters.includes(`Tag ${scheduledDay}`) || activeFilters.includes(`Day ${scheduledDay}`) || activeFilters.includes(labelTranslated);
+                    if (!isSelected) return false;
+                } else if (sortMode === 'tour') {
+                    const tourGuide = (analysis as any)?.tourGuide;
+                    const tours = (tourGuide?.guide?.tours || []) as any[];
+                    let inSelectedTour = false;
+                    tours.forEach((tour: any) => {
+                        const title = tour.tour_title || "Tour";
+                        if (activeFilters.includes(title) && tour.suggested_order_ids?.includes(p.id)) {
+                            inSelectedTour = true;
+                        }
+                    });
+                    if (activeFilters.includes('tour_special') && originalCat === 'special') {
+                        inSelectedTour = true;
+                    }
+                    if (!inSelectedTour) return false;
+                }
+            }
+
+            return true;
         })
         .sort((a: any, b: any) => new Date(a.visitedAt).getTime() - new Date(b.visitedAt).getTime());
 
@@ -276,8 +314,8 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
 
             {visitedPlaces.length === 0 && !isAddingCustom && (
                 <div className="text-center py-8 text-slate-400 text-sm italic">
-                    {globalSearchTerm 
-                        ? t('diary.no_search_results', { defaultValue: 'Keine Einträge für diese Suche gefunden.' })
+                    {globalSearchTerm || activeFilters.length > 0 || uiState.visitedFilter === 'unvisited'
+                        ? t('diary.no_search_results', { defaultValue: 'Keine Einträge für diesen Filter gefunden.' })
                         : t('diary.empty_state', { defaultValue: 'Noch keine Einträge. Checke bei Orten ein oder erstelle einen eigenen Eintrag!' })
                     }
                 </div>
@@ -309,7 +347,7 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                                                     key={star} 
                                                     onClick={(e) => { e.stopPropagation(); updatePlace(place.id, { userRating: star === rating ? 0 : star }); }}
                                                     className={`transition-transform hover:scale-110 p-0.5 ${star <= rating ? 'text-amber-400' : 'text-slate-200 hover:text-amber-200'}`}
-                                                    title={`${star} Star${star > 1 ? 's' : ''}`}
+                                                    title={`${star} Stern${star > 1 ? 'e' : ''}`}
                                                 >
                                                     <Star size={14} className={star <= rating ? "fill-current" : ""} />
                                                 </button>
@@ -334,12 +372,10 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                                         {isCustomEntry ? <PenLine size={10} className="text-indigo-400" /> : <MapIcon size={10} className="text-emerald-400" />} {categoryLabel}
                                     </span>
                                     
-                                    {/* SMART GOOGLE MAPS LINK */}
                                     {(place.location?.lat || place.address) && (
                                         <a href={getGoogleMapsUrl(place)} target="_blank" rel="noopener noreferrer" className="mr-2 flex items-center gap-0.5 text-blue-500 hover:text-blue-700 transition-colors hover:underline" title={t('sights.open_google_maps', { defaultValue: 'Auf Google Maps öffnen' })}><MapPin size={10}/> Maps</a>
                                     )}
                                     
-                                    {/* DEEP LINKS (SPRUNGNRETT) - STRICT I18N */}
                                     {setViewMode && place.location && (
                                         <button onClick={() => { setUIState({ viewMode: 'map', selectedPlaceId: place.id }); setViewMode('sights'); }} className="mr-2 flex items-center gap-0.5 text-indigo-500 hover:text-indigo-700 transition-colors" title={t('diary.jump_to_map_tooltip', { defaultValue: 'Auf unserer Karte zeigen' })}><MapIcon size={10} /> {t('diary.jump_to_map', {defaultValue: 'Zur Karte'})}</button>
                                     )}
@@ -406,4 +442,4 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
     </div>
   );
 };
-// Zeilenanzahl: 355
+// Zeilenanzahl: 388
