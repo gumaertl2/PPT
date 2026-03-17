@@ -1,5 +1,5 @@
+// 17.03.2026 14:00 - UX: Renamed 'Plan' button to 'Diary' (Tagebuch) to reflect its true nature as a travel tracker. Fully I18N compatible.
 // 16.03.2026 21:00 - UX: Fixed double-click routing. Toggling the filter via Plan or Map button no longer forces a view change.
-// 16.03.2026 19:45 - UX: Global Filter Button no longer forces viewMode change. Added <SightFilterModal /> to root.
 // src/features/Cockpit/Layout/CockpitHeader.tsx
 
 import React, { useState, useRef } from 'react';
@@ -185,10 +185,10 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                          ? 'text-blue-600 bg-blue-50' 
                          : 'text-slate-500 hover:bg-slate-100'
                     }`}
-                    title={t('wizard.toolbar.plan')}
+                    title={t('wizard.toolbar.diary', { defaultValue: currentLang === 'en' ? 'Diary' : 'Tagebuch' })}
                  >
                    <Edit3 className="w-4 h-4 lg:w-5 lg:h-5 mb-0.5" />
-                   <span className="text-[10px] font-bold uppercase tracking-wide hidden xl:inline">{t('wizard.toolbar.plan')}</span>
+                   <span className="text-[10px] font-bold uppercase tracking-wide hidden xl:inline">{t('wizard.toolbar.diary', { defaultValue: currentLang === 'en' ? 'Diary' : 'Tagebuch' })}</span>
                  </button>
 
                  <button 

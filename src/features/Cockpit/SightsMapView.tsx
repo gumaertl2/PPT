@@ -1,5 +1,5 @@
-// 16.03.2026 19:45 - UX: Fixed Map Marker Logic. Day numbers are only shown if uiState.sortMode is strictly 'day'.
-// 27.02.2026 10:25 - FEAT: Passed unfiltered place list to MapLegend to enable global map filtering.
+// 17.03.2026 14:00 - FEAT: Added Live-Tracker logic to map. If visitedFilter === 'visited', map pins show absolute sequence numbers instead of days.
+// 16.03.2026 19:45 - UX: Fixed Map Marker Logic.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -39,6 +39,21 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
 
   const allPlacesFromStore = useMemo(() => Object.values(project.data.places), [project.data.places]);
   const allValidPlacesForLegend = useMemo(() => (allPlacesFromStore as Place[]).filter(p => p.location && p.location.lat && p.location.lng), [allPlacesFromStore]);
+
+  // LIVE-TRACKER LOGIC: Wenn wir auf "Besuchte" filtern, berechnen wir die echten fortlaufenden Nummern (1, 2, 3...)
+  const visitedSequence = useMemo(() => {
+      const map = new Map<string, number>();
+      if (uiState.visitedFilter === 'visited') {
+          const visited = allPlacesFromStore
+              .filter(p => p.visited && p.visitedAt)
+              .sort((a, b) => new Date(a.visitedAt!).getTime() - new Date(b.visitedAt!).getTime());
+          
+          visited.forEach((p, index) => {
+              map.set(p.id, index + 1);
+          });
+      }
+      return map;
+  }, [allPlacesFromStore, uiState.visitedFilter]);
 
   const scheduledPlaces = useMemo(() => {
       const map = new Map<string, number>();
@@ -217,8 +232,13 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
                           place.category?.toLowerCase().includes('hotel') ||
                           place.category?.toLowerCase().includes('accommodation');
 
-          // UX FIX: The day number (large marker) is ONLY applied if the user is sorting/filtering by 'day'
-          const dayNumber = uiState.sortMode === 'day' ? scheduledPlaces.get(place.id) : undefined;
+          // LIVE-TRACKER: Wir übergeben die Sequenznummer, falls besucht. Sonst den Plan-Tag, falls Tag-Sortierung aktiv.
+          let badgeNumber = undefined;
+          if (uiState.visitedFilter === 'visited') {
+              badgeNumber = visitedSequence.get(place.id);
+          } else if (uiState.sortMode === 'day') {
+              badgeNumber = scheduledPlaces.get(place.id);
+          }
           
           const markerColor = getCategoryColor(place.category, place);
           const isFixed = !!place.isFixed;
@@ -234,8 +254,8 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
             <Marker 
               key={place.id} 
               position={[place.location!.lat, place.location!.lng]}
-              icon={createSmartIcon(markerColor, isSelected, dayNumber, isHotel, userPrio, isFixed, !!place.visited)}
-              zIndexOffset={isSelected ? 1000 : (isHotel ? 900 : (dayNumber ? 500 : baseZ))} 
+              icon={createSmartIcon(markerColor, isSelected, badgeNumber, isHotel, userPrio, isFixed, !!place.visited)}
+              zIndexOffset={isSelected ? 1000 : (isHotel ? 900 : (badgeNumber ? 500 : baseZ))} 
               ref={(ref) => { markerRefs.current[place.id] = ref; }}
               eventHandlers={{ click: () => setUIState({ selectedPlaceId: place.id }) }}
             >
@@ -250,10 +270,14 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
                             {place.category === 'special' ? (place.details?.specialType === 'sunny' ? 'Sonnentag ☀️' : 'Regentag 🌧️') : (place.category || 'Ort')}
                           </span>
                       </div>
-                      {/* Even if sortMode isn't 'day', we can still show the day info inside the popup if it exists */}
-                      {scheduledPlaces.get(place.id) && (
+                      
+                      {/* POPUP: Zeigt Reisetag an, falls es ein Tagebuch-Eintrag ist */}
+                      {uiState.visitedFilter === 'visited' && badgeNumber ? (
+                          <span className="text-[10px] font-bold text-white px-1.5 py-0.5 rounded shadow-sm bg-emerald-500">✅ {badgeNumber}. Station</span>
+                      ) : scheduledPlaces.get(place.id) ? (
                           <span className="text-[10px] font-bold text-white px-1.5 py-0.5 rounded shadow-sm" style={{ backgroundColor: DAY_COLORS[(scheduledPlaces.get(place.id)! - 1) % DAY_COLORS.length] }}>📅 Tag {scheduledPlaces.get(place.id)}</span>
-                      )}
+                      ) : null}
+
                       {isHotel && <span className="text-[10px] font-bold bg-slate-900 text-white px-1.5 py-0.5 rounded">🏨 Unterkunft</span>}
                   </div>
                   
@@ -305,4 +329,4 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
     </div>
   );
 };
-// --- END OF FILE 211 Zeilen ---
+// --- END OF FILE 228 Zeilen ---

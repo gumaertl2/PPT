@@ -1,5 +1,5 @@
-// 16.03.2026 20:15 - CLEANUP: Removed unused variables, options, and modal imports after extracting SightFilterModal to the global layout.
-// 16.03.2026 19:00 - REFACTOR: Removed 'custom_diary' category hacks. Implemented native independent 'visitedFilter'.
+// 17.03.2026 14:00 - FEAT: Added 'getRealDay' logic to Day-Filters to mirror the new Live-Diary real-day filtering when visitedFilter === 'visited'.
+// 16.03.2026 20:15 - CLEANUP: Removed unused variables, options, and modal imports.
 // src/features/Cockpit/SightsView.tsx
 
 import React, { useMemo, useEffect, useState, useRef } from 'react';
@@ -45,6 +45,14 @@ const getRealPriorityValue = (p: any): number => {
     if (p.userPriority === 2) return 2;    
     if (p.userPriority === -1) return 0;   
     return 1;                              
+};
+
+const getRealDay = (dateStr: string, startStr: string) => {
+    if (!startStr) return 1;
+    const start = new Date(startStr); start.setHours(0,0,0,0);
+    const visit = new Date(dateStr); visit.setHours(0,0,0,0);
+    const diff = visit.getTime() - start.getTime();
+    return Math.floor(diff / 86400000) + 1;
 };
 
 export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?: DetailLevel }> = ({ overrideSortMode, overrideDetailLevel }) => {
@@ -175,7 +183,6 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     return { total: totalBudget, used: totalMinutes, remaining: totalBudget - totalMinutes };
   }, [userInputs, places]);
 
-  // tourOptions remains because it is needed for tour sorting inside filteredLists
   const tourOptions = useMemo(() => {
       const tourGuide = (analysis as any)?.tourGuide;
       const tours = (tourGuide?.guide?.tours || []) as any[];
@@ -233,18 +240,34 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     let otherDayPlaceIds = new Set<string>();
 
     if (sortMode === 'day' && activeFilters.length > 0) {
-        const itineraryDays = project.itinerary?.days || [];
-        itineraryDays.forEach((day: any, index: number) => {
-            const labelTranslated = `${t('sights.day', {defaultValue: 'Tag'})} ${index + 1}`;
-            const isSelected = activeFilters.includes(`Tag ${index+1}`) || activeFilters.includes(`Day ${index+1}`) || activeFilters.includes(labelTranslated);
-            (day.activities || day.aktivitaeten || []).forEach((act: any) => {
-                const id = act.id || act.original_sight_id;
-                if (id) {
-                    if (isSelected) selectedDayPlaceIds.add(id);
-                    else otherDayPlaceIds.add(id);
+        if (uiState.visitedFilter === 'visited') {
+            // Echte Reisetage
+            uniquePlaces.forEach(p => {
+                if (p.visited && p.visitedAt) {
+                    const realDay = getRealDay(p.visitedAt, project.userInputs.dates?.start || new Date().toISOString());
+                    const labelTranslated = `${t('sights.day', {defaultValue: 'Tag'})} ${realDay}`;
+                    const isSelected = activeFilters.includes(`Tag ${realDay}`) || activeFilters.includes(`Day ${realDay}`) || activeFilters.includes(labelTranslated);
+                    if (isSelected) selectedDayPlaceIds.add(p.id);
+                    else otherDayPlaceIds.add(p.id);
+                } else {
+                    otherDayPlaceIds.add(p.id);
                 }
             });
-        });
+        } else {
+            // Plan-Tage
+            const itineraryDays = project.itinerary?.days || [];
+            itineraryDays.forEach((day: any, index: number) => {
+                const labelTranslated = `${t('sights.day', {defaultValue: 'Tag'})} ${index + 1}`;
+                const isSelected = activeFilters.includes(`Tag ${index+1}`) || activeFilters.includes(`Day ${index+1}`) || activeFilters.includes(labelTranslated);
+                (day.activities || day.aktivitaeten || []).forEach((act: any) => {
+                    const id = act.id || act.original_sight_id;
+                    if (id) {
+                        if (isSelected) selectedDayPlaceIds.add(id);
+                        else otherDayPlaceIds.add(id);
+                    }
+                });
+            });
+        }
     }
 
     const getMeta = (p: any) => {
@@ -505,4 +528,4 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     </div>
   );
 };
-// --- END OF FILE 589 Zeilen ---
+// --- END OF FILE 613 Zeilen ---

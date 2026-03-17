@@ -1,6 +1,5 @@
+// 17.03.2026 14:00 - FEAT: Updated dayOptions calculation to use REAL travel days when visitedFilter is set to 'visited'.
 // 16.03.2026 20:00 - HOTFIX: Moved early return below all useMemo hooks to fix React 'Rules of Hooks' violation.
-// 16.03.2026 19:45 - REFACTOR: Converted to a global Smart Component. Extracts its own options to prevent view jumping.
-// 16.03.2026 19:15 - FIX: Renamed 'Visited' filter labels for better UX and added strict i18n fallbacks.
 // src/features/Cockpit/SightFilterModal.tsx
 
 import React, { useMemo } from 'react';
@@ -21,8 +20,16 @@ const getRealPriorityValue = (p: any): number => {
     return 1;                              
 };
 
+// Helfer für echte Reisetage
+const getRealDay = (dateStr: string, startStr: string) => {
+    if (!startStr) return 1;
+    const start = new Date(startStr); start.setHours(0,0,0,0);
+    const visit = new Date(dateStr); visit.setHours(0,0,0,0);
+    const diff = visit.getTime() - start.getTime();
+    return Math.floor(diff / 86400000) + 1;
+};
+
 export const SightFilterModal: React.FC = () => {
-  // 1. ALLE REACT HOOKS MÜSSEN GANZ OBEN STEHEN (Regel von React)
   const { t, i18n } = useTranslation();
   const { project, uiState, setUIState, isSightFilterOpen, toggleSightFilter } = useTripStore();
   
@@ -99,6 +106,22 @@ export const SightFilterModal: React.FC = () => {
   }, [analysis, places, uiState.visitedFilter, t]);
 
   const dayOptions = useMemo(() => {
+      // NEU: Wenn "Nur Besuchte" aktiv ist, erzeugen wir ECHTE Reisetage im Filter!
+      if (uiState.visitedFilter === 'visited') {
+          const visited = places.filter(p => p.visited && p.visitedAt);
+          const counts: Record<number, number> = {};
+          visited.forEach(p => {
+              const realDay = getRealDay(p.visitedAt, project.userInputs.dates?.start || new Date().toISOString());
+              counts[realDay] = (counts[realDay] || 0) + 1;
+          });
+          return Object.keys(counts).map(dayStr => {
+              const d = parseInt(dayStr);
+              const label = `${t('sights.day', {defaultValue: 'Tag'})} ${d}`;
+              return { id: label, label: label, count: counts[d], dayIndex: d - 1 };
+          }).sort((a, b) => a.dayIndex - b.dayIndex);
+      }
+
+      // STANDARD: Plan-Tage
       const itineraryDays = project.itinerary?.days || [];
       return itineraryDays.map((day: any, index: number) => {
           let count = 0;
@@ -107,7 +130,6 @@ export const SightFilterModal: React.FC = () => {
               count = activities.filter((akt: any) => {
                   const p = places.find(pl => pl.id === (akt.id || akt.original_sight_id));
                   if (!p) return false;
-                  if (uiState.visitedFilter === 'visited' && !p.visited) return false;
                   if (uiState.visitedFilter === 'unvisited' && p.visited) return false;
                   return true;
               }).length;
@@ -115,7 +137,7 @@ export const SightFilterModal: React.FC = () => {
           const label = `${t('sights.day', {defaultValue: 'Tag'})} ${index + 1}`;
           return { id: label, label: label, count: count, dayIndex: index };
       }).filter((d: any) => d.count > 0);
-  }, [project.itinerary, places, uiState.visitedFilter, t]);
+  }, [project.itinerary, project.userInputs.dates, places, uiState.visitedFilter, t]);
 
   const priorityOptions = useMemo(() => {
     const counts: Record<string, number> = { '4': 0, '3': 0, '2': 0, '1': 0, '0': 0 };
@@ -133,7 +155,6 @@ export const SightFilterModal: React.FC = () => {
     ].filter(o => o.count > 0);
   }, [places, uiState.visitedFilter, t]);
 
-  // 2. EARLY RETURN DARF ERST NACH DEN HOOKS KOMMEN
   if (!isSightFilterOpen) return null;
 
   const hasTours = tourOptions.length > 0;
@@ -288,7 +309,8 @@ export const SightFilterModal: React.FC = () => {
                        } ${!hasDays ? 'opacity-40 cursor-not-allowed' : ''}`}
                     >
                         <Calendar className="w-4 h-4 mb-1" />
-                        <span>Tag</span>
+                        {/* Beschriftung anpassen, falls wir ECHTE Reisetage filtern */}
+                        <span>{uiState.visitedFilter === 'visited' ? 'Echte Tage' : 'Tag'}</span>
                     </button>
 
                     <button
@@ -394,4 +416,4 @@ export const SightFilterModal: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 319 Zeilen ---
+// --- END OF FILE 333 Zeilen ---
