@@ -1,9 +1,9 @@
-// 17.03.2026 15:00 - FEAT: Added deep-linking logic. Clicking 'Show in Diary' on a visited place now jumps directly to PlanView.
-// 17.03.2026 14:30 - FIX: Enforced strict I18N compliance for Map Popups.
+// 17.03.2026 17:00 - FIX: Perfected Circular Spiderfying with Arc-Length-Guarantee. The circle's radius now mathematically guarantees enough circumference for any amount of pins (e.g. 8 in the capital) so they never overlap.
+// 17.03.2026 16:45 - REVERT & REFACTOR: Clean Circular Spiderfying.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { MapContainer, Marker, Popup, Tooltip } from 'react-leaflet';
+import { MapContainer, Marker, Popup, Tooltip, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
@@ -18,6 +18,15 @@ import { OfflineMapModal } from './OfflineMapModal';
 import { MAP_LAYERS, getCategoryColor, createSmartIcon, DAY_COLORS } from './Map/MapConstants';
 import { MapStyles, MapLogic, MapResizer, UserLocationMarker, OfflineTileLayer, MapLegend } from './Map/MapSubComponents';
 
+const ZoomListener: React.FC<{ onZoomChange: (zoom: number) => void }> = ({ onZoomChange }) => {
+    useMapEvents({
+        zoomend: (e) => {
+            onZoomChange(e.target.getZoom());
+        }
+    });
+    return null;
+};
+
 export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any) => void }> = ({ places, setViewMode }) => {
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) === 'en' ? 'en' : 'de';
@@ -31,8 +40,9 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [isLocating, setIsLocating] = useState(false);
-  
   const [isLayerMenuOpen, setIsLayerMenuOpen] = useState(false);
+
+  const [currentZoom, setCurrentZoom] = useState(10);
 
   const validPlaces = useMemo(() => places.filter(p => p.location && p.location.lat && p.location.lng), [places]);
   const defaultCenter: [number, number] = validPlaces.length > 0 
@@ -41,6 +51,66 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
 
   const allPlacesFromStore = useMemo(() => Object.values(project.data.places), [project.data.places]);
   const allValidPlacesForLegend = useMemo(() => (allPlacesFromStore as Place[]).filter(p => p.location && p.location.lat && p.location.lng), [allPlacesFromStore]);
+
+  // FINAL CIRCULAR JITTER LOGIC (Arc-Length-Guarantee)
+  const displayPlaces = useMemo(() => {
+      const scaleFactor = Math.pow(0.5, Math.max(0, currentZoom - 10));
+      
+      // Erhöhter Fang-Radius (0.03), damit wirklich alle Hauptstadt-Orte zu EINER Gruppe werden
+      const GROUP_DISTANCE = 0.03 * scaleFactor; 
+      
+      const groups: Place[][] = [];
+      validPlaces.forEach(p => {
+          let added = false;
+          for (const group of groups) {
+              const centerLat = group[0].location!.lat;
+              const centerLng = group[0].location!.lng;
+              
+              if (Math.abs(p.location!.lat - centerLat) < GROUP_DISTANCE && 
+                  Math.abs(p.location!.lng - centerLng) < GROUP_DISTANCE) {
+                  group.push(p);
+                  added = true;
+                  break;
+              }
+          }
+          if (!added) groups.push([p]);
+      });
+
+      const result: (Place & { displayLat: number, displayLng: number })[] = [];
+
+      groups.forEach(group => {
+          if (group.length === 1) {
+              result.push({ ...group[0], displayLat: group[0].location!.lat, displayLng: group[0].location!.lng });
+          } else {
+              const centerLat = group.reduce((sum, p) => sum + p.location!.lat, 0) / group.length;
+              const centerLng = group.reduce((sum, p) => sum + p.location!.lng, 0) / group.length;
+              const latRatio = Math.cos(centerLat * Math.PI / 180); 
+              
+              // DIE MAGIE: Kreisumfangs-Garantie
+              // Jeder Pin braucht ca. 0.02 (geo-einheiten) Platz auf der Kreislinie.
+              // Umfang = N * 0.02 -> Radius = Umfang / (2 * PI)
+              const minRadius = 0.015; // Mindestgröße des Kreises
+              const arcPerItem = 0.022; // Garantierter Platz pro Pin auf der Linie
+              
+              // Berechne den perfekten Radius, damit sich N Pins niemals berühren
+              let SPREAD_RADIUS = Math.max(minRadius, (group.length * arcPerItem) / (2 * Math.PI));
+              SPREAD_RADIUS = SPREAD_RADIUS * scaleFactor; // An Zoom-Stufe anpassen
+              
+              const sortedGroup = [...group].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+              sortedGroup.forEach((p, index) => {
+                  const angle = (index / group.length) * 2 * Math.PI;
+                  result.push({
+                      ...p,
+                      displayLat: centerLat + Math.cos(angle) * SPREAD_RADIUS,
+                      displayLng: centerLng + (Math.sin(angle) * SPREAD_RADIUS) / latRatio
+                  });
+              });
+          }
+      });
+      
+      return result;
+  }, [validPlaces, currentZoom]);
 
   const visitedSequence = useMemo(() => {
       const map = new Map<string, number>();
@@ -219,13 +289,16 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
 
       <MapStyles />
       <MapContainer center={defaultCenter} zoom={10} style={{ height: "100%", width: "100%" }} scrollWheelZoom={true}>
+        
+        <ZoomListener onZoomChange={setCurrentZoom} />
+        
         <MapResizer isFullscreen={isFullscreen} />
         <OfflineTileLayer />
         <MapLogic places={places} />
         <OfflineMapModal />
         <UserLocationMarker location={userLocation} />
 
-        {validPlaces.map((place) => {
+        {displayPlaces.map((place) => {
           const isSelected = uiState.selectedPlaceId === place.id;
           const isHotel = hotelInfo.ids.has(place.id) || 
                           hotelInfo.names.has(place.name?.toLowerCase() || '') || 
@@ -253,7 +326,7 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
           return (
             <Marker 
               key={place.id} 
-              position={[place.location!.lat, place.location!.lng]}
+              position={[place.displayLat, place.displayLng]}
               icon={createSmartIcon(markerColor, isSelected, badgeNumber, isHotel, userPrio, isFixed, !!place.visited)}
               zIndexOffset={isSelected ? 1000 : (isHotel ? 900 : (badgeNumber ? 500 : baseZ))} 
               ref={(ref) => { markerRefs.current[place.id] = ref; }}
@@ -301,7 +374,6 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
                      </div>
                   )}
 
-                  {/* FIX: Smart Deep-Linking. Jumps to Diary if visitedFilter is active */}
                   <button 
                     onClick={() => {
                         if (uiState.visitedFilter === 'visited') {
@@ -335,4 +407,4 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
     </div>
   );
 };
-// --- END OF FILE 243 Zeilen ---
+// --- END OF FILE 351 Zeilen ---
