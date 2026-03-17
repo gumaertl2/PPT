@@ -1,8 +1,8 @@
-// 17.03.2026 14:30 - FIX: Enforced strict I18N compliance for 'Reisetag'.
-// 17.03.2026 14:15 - HOTFIX: Resolved TS2769 'string | undefined' overload error.
+// 17.03.2026 15:10 - HOTFIX: Fixed JSX comment syntax error inside return statement.
+// 17.03.2026 15:00 - FEAT: Added deep-linking auto-scroller. Highlight animation when navigating from map to a specific diary entry.
 // src/features/Cockpit/PlanView.tsx
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
 import { 
@@ -42,6 +42,20 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
   const [pendingExpense, setPendingExpense] = useState<{title: string, location: any} | null>(null);
 
   const isRoundtripContext = ['roundtrip', 'mobil'].includes(logistics.mode);
+
+  useEffect(() => {
+    if (uiState.selectedPlaceId) {
+      setTimeout(() => {
+        const element = document.getElementById(`diary-entry-${uiState.selectedPlaceId}`);
+        if (element) {
+          const y = element.getBoundingClientRect().top + window.scrollY - 100;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+          element.classList.add('ring-4', 'ring-emerald-400', 'ring-offset-2', 'transition-all', 'duration-500');
+          setTimeout(() => element.classList.remove('ring-4', 'ring-emerald-400', 'ring-offset-2'), 3000);
+        }
+      }, 150);
+    }
+  }, [uiState.selectedPlaceId]);
 
   const highlightText = (text: string, highlight: string) => {
       if (!highlight.trim() || !text) return text;
@@ -359,8 +373,9 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                                 const categoryLabel = isCustomEntry ? t('diary.custom_entry_label', { defaultValue: 'Eigener Eintrag' }) : (INTEREST_DATA[place.category] ? resolveLabel(INTEREST_DATA[place.category]) : place.category);
                                 const rating = place.userRating || 0;
 
+                                // FIX: ID appended for deep-linking
                                 return (
-                                    <div key={place.id} className="relative pl-14 py-2">
+                                    <div key={place.id} id={`diary-entry-${place.id}`} className="relative pl-14 py-2">
                                         <div className="absolute left-[15px] top-5 w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] font-black shadow-sm ring-4 ring-white z-10">
                                             {place._seq}
                                         </div>

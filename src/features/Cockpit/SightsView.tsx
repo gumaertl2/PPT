@@ -1,5 +1,5 @@
-// 17.03.2026 14:00 - FEAT: Added 'getRealDay' logic to Day-Filters to mirror the new Live-Diary real-day filtering when visitedFilter === 'visited'.
-// 16.03.2026 20:15 - CLEANUP: Removed unused variables, options, and modal imports.
+// 17.03.2026 15:00 - FEAT: Handed down setViewMode to SightsMapView to enable jumping to Diary.
+// 17.03.2026 14:00 - FEAT: Added 'getRealDay' logic.
 // src/features/Cockpit/SightsView.tsx
 
 import React, { useMemo, useEffect, useState, useRef } from 'react';
@@ -8,7 +8,7 @@ import { SightCard } from './SightCard';
 import { useTranslation } from 'react-i18next';
 import { INTEREST_DATA } from '../../data/interests'; 
 import { APPENDIX_ONLY_INTERESTS } from '../../data/constants';
-import type { LanguageCode, Place, DetailLevel } from '../../core/types';
+import type { LanguageCode, Place, DetailLevel, CockpitViewMode } from '../../core/types';
 import { SightsMapView } from './SightsMapView';
 import { DayPlannerView } from './DayPlannerView'; 
 import { LiveScout } from '../../services/LiveScout'; 
@@ -55,7 +55,8 @@ const getRealDay = (dateStr: string, startStr: string) => {
     return Math.floor(diff / 86400000) + 1;
 };
 
-export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?: DetailLevel }> = ({ overrideSortMode, overrideDetailLevel }) => {
+// FIX: Added setViewMode to Props
+export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?: DetailLevel, setViewMode?: (mode: CockpitViewMode) => void }> = ({ overrideSortMode, overrideDetailLevel, setViewMode }) => {
   const { t, i18n } = useTranslation(); 
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
 
@@ -241,7 +242,6 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
 
     if (sortMode === 'day' && activeFilters.length > 0) {
         if (uiState.visitedFilter === 'visited') {
-            // Echte Reisetage
             uniquePlaces.forEach(p => {
                 if (p.visited && p.visitedAt) {
                     const realDay = getRealDay(p.visitedAt, project.userInputs.dates?.start || new Date().toISOString());
@@ -254,7 +254,6 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
                 }
             });
         } else {
-            // Plan-Tage
             const itineraryDays = project.itinerary?.days || [];
             itineraryDays.forEach((day: any, index: number) => {
                 const labelTranslated = `${t('sights.day', {defaultValue: 'Tag'})} ${index + 1}`;
@@ -489,8 +488,9 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
         </div>
       )}
 
+      {/* FIX: Handed setViewMode down to map */}
       {uiState.viewMode === 'map' && !overrideSortMode ? (
-        <div className="mb-8 print:hidden"><SightsMapView places={[...filteredLists.main, ...filteredLists.special] as Place[]} /></div>
+        <div className="mb-8 print:hidden"><SightsMapView places={[...filteredLists.main, ...filteredLists.special] as Place[]} setViewMode={setViewMode} /></div>
       ) : isDayMode ? (
         <div className="mb-8"><DayPlannerView places={places} showPlanningMode={showPlanningMode} overrideDetailLevel={overrideDetailLevel} /></div>
       ) : (
@@ -528,4 +528,4 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     </div>
   );
 };
-// --- END OF FILE 613 Zeilen ---
+// --- END OF FILE 615 Zeilen ---

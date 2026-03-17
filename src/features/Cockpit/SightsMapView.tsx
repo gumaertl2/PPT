@@ -1,5 +1,5 @@
-// 17.03.2026 14:30 - FIX: Enforced strict I18N compliance for Map Popups (Station, Accommodation, Day, Fixed Appointment).
-// 17.03.2026 14:00 - FEAT: Added Live-Tracker logic to map.
+// 17.03.2026 15:00 - FEAT: Added deep-linking logic. Clicking 'Show in Diary' on a visited place now jumps directly to PlanView.
+// 17.03.2026 14:30 - FIX: Enforced strict I18N compliance for Map Popups.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -18,7 +18,7 @@ import { OfflineMapModal } from './OfflineMapModal';
 import { MAP_LAYERS, getCategoryColor, createSmartIcon, DAY_COLORS } from './Map/MapConstants';
 import { MapStyles, MapLogic, MapResizer, UserLocationMarker, OfflineTileLayer, MapLegend } from './Map/MapSubComponents';
 
-export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
+export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any) => void }> = ({ places, setViewMode }) => {
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) === 'en' ? 'en' : 'de';
   
@@ -301,21 +301,28 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
                      </div>
                   )}
 
+                  {/* FIX: Smart Deep-Linking. Jumps to Diary if visitedFilter is active */}
                   <button 
                     onClick={() => {
-                        let targetSortMode = uiState.sortMode || 'category';
-                        let targetFilter = uiState.categoryFilter || [];
-                        if ((targetSortMode as string) === 'day') {
-                            const dayNum = scheduledPlaces.get(place.id);
-                            const isVisibleInCurrentView = dayNum && (targetFilter.length === 0 || targetFilter.some(f => f.includes(String(dayNum))));
-                            if (!isVisibleInCurrentView) { targetSortMode = 'category' as any; targetFilter = []; }
+                        if (uiState.visitedFilter === 'visited') {
+                            if (isFullscreen) setIsFullscreen(false);
+                            setUIState({ selectedPlaceId: place.id });
+                            if (setViewMode) setViewMode('plan');
+                        } else {
+                            let targetSortMode = uiState.sortMode || 'category';
+                            let targetFilter = uiState.categoryFilter || [];
+                            if ((targetSortMode as string) === 'day') {
+                                const dayNum = scheduledPlaces.get(place.id);
+                                const isVisibleInCurrentView = dayNum && (targetFilter.length === 0 || targetFilter.some(f => f.includes(String(dayNum))));
+                                if (!isVisibleInCurrentView) { targetSortMode = 'category' as any; targetFilter = []; }
+                            }
+                            if (isFullscreen) setIsFullscreen(false);
+                            setUIState({ viewMode: 'list', selectedPlaceId: place.id, sortMode: targetSortMode, categoryFilter: targetFilter });
                         }
-                        if (isFullscreen) setIsFullscreen(false);
-                        setUIState({ viewMode: 'list', selectedPlaceId: place.id, sortMode: targetSortMode, categoryFilter: targetFilter });
                     }}
                     className="w-full mt-1 flex items-center justify-center gap-2 bg-slate-900 text-white py-2 rounded-lg text-xs font-bold hover:bg-black transition-colors shadow-sm"
                   >
-                    <ExternalLink size={12} /> {t('map.show_in_guide', { defaultValue: currentLang === 'en' ? 'Show in Guide' : 'Im Reiseführer zeigen' })}
+                    <ExternalLink size={12} /> {uiState.visitedFilter === 'visited' ? t('map.show_in_diary', { defaultValue: currentLang === 'en' ? 'Show in Diary' : 'Im Tagebuch zeigen' }) : t('map.show_in_guide', { defaultValue: currentLang === 'en' ? 'Show in Guide' : 'Im Reiseführer zeigen' })}
                   </button>
                 </div>
               </Popup>
@@ -328,4 +335,4 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
     </div>
   );
 };
-// --- END OF FILE 228 Zeilen ---
+// --- END OF FILE 243 Zeilen ---

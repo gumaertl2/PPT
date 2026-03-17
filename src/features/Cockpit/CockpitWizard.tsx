@@ -1,6 +1,5 @@
-// 16.03.2026 14:45 - FEAT: Passed setViewMode down to PlanView to enable deep-linking (Sprungbretter) from Diary to Guide/Map.
-// 27.02.2026 19:00 - FEAT: Embedded PlannerConflictModal into CockpitWizard to handle AI interception callbacks.
-// 24.02.2026 13:50 - FIX: Removed unused handleBack and cleaned up props for ReviewStep to resolve build errors.
+// 17.03.2026 15:00 - FEAT: Passed setViewMode to SightsView to enable deep-linking from Map to Diary.
+// 16.03.2026 14:45 - FEAT: Passed setViewMode down to PlanView.
 // src/features/Cockpit/CockpitWizard.tsx
 
 import { useState } from 'react';
@@ -9,7 +8,6 @@ import { useTripStore } from '../../store/useTripStore';
 import { useTripGeneration } from '../../hooks/useTripGeneration';
 import type { WorkflowStepId, CockpitViewMode } from '../../core/types'; 
 
-// Components
 import { AnalysisReviewView } from './AnalysisReviewView';
 import { RouteReviewView } from './RouteReviewView';
 import { SightsView } from './SightsView';
@@ -21,15 +19,12 @@ import { CatalogModal } from '../Welcome/CatalogModal';
 import { ManualPromptModal } from './ManualPromptModal'; 
 import { WorkflowSelectionModal } from '../Workflow/WorkflowSelectionModal';
 import { PrintReport } from './PrintReport'; 
-import { PlannerConflictModal } from './PlannerConflictModal'; // FEAT: Imported new modal
+import { PlannerConflictModal } from './PlannerConflictModal'; 
 
-// Layout Components
 import { CockpitHeader } from './Layout/CockpitHeader'; 
 
-// Icons
 import { Map as MapIcon, Users, Search, Edit3, FileText, CheckCircle } from 'lucide-react';
 
-// Steps
 import { LogisticsStep } from './steps/LogisticsStep';
 import { TravelerStep } from './steps/TravelerStep';
 import { InterestsStep } from './steps/InterestsStep';
@@ -37,7 +32,6 @@ import { DatesStep } from './steps/DatesStep';
 import { MiscStep } from './steps/MiscStep';
 import { ReviewStep } from './steps/ReviewStep';
 
-// Data
 import { HELP_TEXTS } from '../../data/staticData';
 import type { LanguageCode } from '../../core/types';
 
@@ -51,7 +45,7 @@ export const CockpitWizard = () => {
       isWorkflowModalOpen, 
       setWorkflowModalOpen,
       uiState,
-      setUIState // Added to manipulate view state on intercept
+      setUIState
   } = useTripStore(); 
   
   const { userInputs } = project;
@@ -254,7 +248,7 @@ export const CockpitWizard = () => {
         ) : viewMode === 'routeArchitect' ? (
           <RouteReviewView onNext={handleContinueFromRoute} />
         ) : viewMode === 'sights' ? (
-          <SightsView /> 
+          <SightsView setViewMode={setViewMode} /> 
         ) : viewMode === 'info' ? (
           <InfoView /> 
         ) : viewMode === 'plan' ? ( 
@@ -298,7 +292,6 @@ export const CockpitWizard = () => {
         onCancel={handleRerunCancel}
       />
       
-      {/* FEAT: Human-in-the-Loop Intercept Modal */}
       <PlannerConflictModal 
         onReject={() => {
             setUIState({ showPlanningMode: true, sortMode: 'priority' });
