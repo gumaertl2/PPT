@@ -1,5 +1,5 @@
-// 17.03.2026 14:00 - FEAT: Added Live-Tracker logic to map. If visitedFilter === 'visited', map pins show absolute sequence numbers instead of days.
-// 16.03.2026 19:45 - UX: Fixed Map Marker Logic.
+// 17.03.2026 14:30 - FIX: Enforced strict I18N compliance for Map Popups (Station, Accommodation, Day, Fixed Appointment).
+// 17.03.2026 14:00 - FEAT: Added Live-Tracker logic to map.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -19,7 +19,9 @@ import { MAP_LAYERS, getCategoryColor, createSmartIcon, DAY_COLORS } from './Map
 import { MapStyles, MapLogic, MapResizer, UserLocationMarker, OfflineTileLayer, MapLegend } from './Map/MapSubComponents';
 
 export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const currentLang = i18n.language.substring(0, 2) === 'en' ? 'en' : 'de';
+  
   const { uiState, setUIState, project, setProject, updatePlace } = useTripStore(); 
   const markerRefs = useRef<Record<string, L.Marker | null>>({});
 
@@ -40,7 +42,6 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
   const allPlacesFromStore = useMemo(() => Object.values(project.data.places), [project.data.places]);
   const allValidPlacesForLegend = useMemo(() => (allPlacesFromStore as Place[]).filter(p => p.location && p.location.lat && p.location.lng), [allPlacesFromStore]);
 
-  // LIVE-TRACKER LOGIC: Wenn wir auf "Besuchte" filtern, berechnen wir die echten fortlaufenden Nummern (1, 2, 3...)
   const visitedSequence = useMemo(() => {
       const map = new Map<string, number>();
       if (uiState.visitedFilter === 'visited') {
@@ -232,7 +233,6 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
                           place.category?.toLowerCase().includes('hotel') ||
                           place.category?.toLowerCase().includes('accommodation');
 
-          // LIVE-TRACKER: Wir übergeben die Sequenznummer, falls besucht. Sonst den Plan-Tag, falls Tag-Sortierung aktiv.
           let badgeNumber = undefined;
           if (uiState.visitedFilter === 'visited') {
               badgeNumber = visitedSequence.get(place.id);
@@ -267,18 +267,17 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
                       <div className="flex items-center gap-2">
                           <div className="w-2 h-2 rounded" style={{ backgroundColor: markerColor }} />
                           <span className="text-[10px] uppercase font-bold text-slate-400">
-                            {place.category === 'special' ? (place.details?.specialType === 'sunny' ? 'Sonnentag ☀️' : 'Regentag 🌧️') : (place.category || 'Ort')}
+                            {place.category === 'special' ? (place.details?.specialType === 'sunny' ? (currentLang === 'en' ? 'Sunny Day ☀️' : 'Sonnentag ☀️') : (currentLang === 'en' ? 'Rainy Day 🌧️' : 'Regentag 🌧️')) : (place.category || (currentLang === 'en' ? 'Place' : 'Ort'))}
                           </span>
                       </div>
                       
-                      {/* POPUP: Zeigt Reisetag an, falls es ein Tagebuch-Eintrag ist */}
                       {uiState.visitedFilter === 'visited' && badgeNumber ? (
-                          <span className="text-[10px] font-bold text-white px-1.5 py-0.5 rounded shadow-sm bg-emerald-500">✅ {badgeNumber}. Station</span>
+                          <span className="text-[10px] font-bold text-white px-1.5 py-0.5 rounded shadow-sm bg-emerald-500">✅ {currentLang === 'en' ? 'Stop' : 'Station'} {badgeNumber}</span>
                       ) : scheduledPlaces.get(place.id) ? (
-                          <span className="text-[10px] font-bold text-white px-1.5 py-0.5 rounded shadow-sm" style={{ backgroundColor: DAY_COLORS[(scheduledPlaces.get(place.id)! - 1) % DAY_COLORS.length] }}>📅 Tag {scheduledPlaces.get(place.id)}</span>
+                          <span className="text-[10px] font-bold text-white px-1.5 py-0.5 rounded shadow-sm" style={{ backgroundColor: DAY_COLORS[(scheduledPlaces.get(place.id)! - 1) % DAY_COLORS.length] }}>📅 {t('sights.day', { defaultValue: currentLang === 'en' ? 'Day' : 'Tag' })} {scheduledPlaces.get(place.id)}</span>
                       ) : null}
 
-                      {isHotel && <span className="text-[10px] font-bold bg-slate-900 text-white px-1.5 py-0.5 rounded">🏨 Unterkunft</span>}
+                      {isHotel && <span className="text-[10px] font-bold bg-slate-900 text-white px-1.5 py-0.5 rounded">🏨 {t('interests.hotel', { defaultValue: currentLang === 'en' ? 'Accommodation' : 'Unterkunft' })}</span>}
                   </div>
                   
                   <h3 className="font-bold text-slate-900 text-sm mb-1 mt-1">{place.name}</h3>
@@ -293,7 +292,7 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
 
                   {isFixed && (
                      <div className="flex flex-col gap-1 bg-purple-50 px-2 py-1.5 rounded-md text-xs mt-1 mb-2 border border-purple-100 no-print animate-in slide-in-from-top-1">
-                        <span className="font-bold text-purple-800 flex items-center gap-1"><CalendarClock className="w-3.5 h-3.5" /> Fixtermin</span>
+                        <span className="font-bold text-purple-800 flex items-center gap-1"><CalendarClock className="w-3.5 h-3.5" /> {currentLang === 'en' ? 'Fixed Appointment' : 'Fixtermin'}</span>
                         <div className="flex gap-1 items-center">
                            <input type="date" value={place.fixedDate || ''} min={tripStart} max={tripEnd} onChange={(e) => updatePlace(place.id, { fixedDate: e.target.value })} className="bg-white border border-purple-200 rounded px-1 py-0.5 text-[10px] w-full focus:ring-1 focus:ring-purple-500 outline-none" title="Datum" />
                            <input type="time" value={place.fixedTime || ''} onChange={(e) => updatePlace(place.id, { fixedTime: e.target.value })} className="bg-white border border-purple-200 rounded px-1 py-0.5 text-[10px] focus:ring-1 focus:ring-purple-500 outline-none" title="Uhrzeit" />
@@ -316,7 +315,7 @@ export const SightsMapView: React.FC<{ places: Place[] }> = ({ places }) => {
                     }}
                     className="w-full mt-1 flex items-center justify-center gap-2 bg-slate-900 text-white py-2 rounded-lg text-xs font-bold hover:bg-black transition-colors shadow-sm"
                   >
-                    <ExternalLink size={12} /> Im Reiseführer zeigen
+                    <ExternalLink size={12} /> {t('map.show_in_guide', { defaultValue: currentLang === 'en' ? 'Show in Guide' : 'Im Reiseführer zeigen' })}
                   </button>
                 </div>
               </Popup>

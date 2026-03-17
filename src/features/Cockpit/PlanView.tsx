@@ -1,5 +1,5 @@
-// 17.03.2026 14:00 - FEAT: Transformed Diary into a true Travel Tracker. Added absolute sequential numbering, real-day grouping, and header lines.
-// 16.03.2026 21:00 - FEAT: Applied active uiState.categoryFilter logic to the diary entries. 
+// 17.03.2026 14:30 - FIX: Enforced strict I18N compliance for 'Reisetag'.
+// 17.03.2026 14:15 - HOTFIX: Resolved TS2769 'string | undefined' overload error.
 // src/features/Cockpit/PlanView.tsx
 
 import React, { useMemo, useState } from 'react';
@@ -62,7 +62,6 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
     return (item.label as any)[currentLang] || (item.label as any)['de'] || '';
   };
 
-  // Hilfsfunktion: Berechnet den echten Reisetag relativ zum Startdatum
   const getRealDay = (dateStr: string, startStr: string) => {
       if (!startStr) return 1;
       const start = new Date(startStr); start.setHours(0,0,0,0);
@@ -216,15 +215,12 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
     const activeFilters = uiState.categoryFilter || [];
     const sortMode = uiState.sortMode || 'category';
 
-    // 1. Hole alle besuchten Orte und sortiere sie chronologisch (für absolute Sequenz-Nummern)
     const allVisited = Object.values(data?.places || {})
         .filter((p: any) => p.visited && p.visitedAt)
         .sort((a: any, b: any) => new Date(a.visitedAt).getTime() - new Date(b.visitedAt).getTime());
         
-    // 2. Vergib die absolute, fortlaufende Nummer der Reise-Historie
-    const sequencedPlaces = allVisited.map((p, index) => ({ ...p, _seq: index + 1 }));
+    const sequencedPlaces = allVisited.map((p: any, index) => ({ ...p, _seq: index + 1 }));
 
-    // 3. Wende die Filter an (Suche, Kategorie, Echter Tag)
     const filteredPlaces = sequencedPlaces.filter((p: any) => {
         if (uiState.visitedFilter === 'unvisited') return false;
 
@@ -244,8 +240,7 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                 const pVal = p.isFixed ? 4 : p.userPriority === 1 ? 3 : p.userPriority === 2 ? 2 : p.userPriority === -1 ? 0 : 1;
                 if (!activeFilters.includes(String(pVal))) return false;
             } else if (sortMode === 'day') {
-                // NEU: Filtere nach dem ECHTEN Reisetag
-                const realDay = getRealDay(p.visitedAt, project.userInputs.dates?.start || new Date().toISOString());
+                const realDay = getRealDay(p.visitedAt as string, project.userInputs.dates?.start || new Date().toISOString());
                 const labelTranslated = `${t('sights.day', {defaultValue: 'Tag'})} ${realDay}`;
                 const isSelected = activeFilters.includes(`Tag ${realDay}`) || activeFilters.includes(`Day ${realDay}`) || activeFilters.includes(labelTranslated);
                 if (!isSelected) return false;
@@ -269,13 +264,13 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
         return true;
     });
 
-    // 4. Gruppiere die gefilterten Ergebnisse nach Datum (für die schönen Trennlinien)
-    const groupedPlaces = filteredPlaces.reduce((acc, place) => {
-        const dateKey = new Date(place.visitedAt).toISOString().split('T')[0];
+    const groupedPlaces = filteredPlaces.reduce((acc: Record<string, any[]>, place: any) => {
+        const safeDate = place.visitedAt ? (place.visitedAt as string) : new Date().toISOString();
+        const dateKey = new Date(safeDate).toISOString().split('T')[0];
         if (!acc[dateKey]) acc[dateKey] = [];
         acc[dateKey].push(place);
         return acc;
-    }, {} as Record<string, any[]>);
+    }, {});
 
     return (
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-emerald-100 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -339,7 +334,6 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
             )}
 
             <div className="space-y-1 relative">
-                {/* Eine durchgehende vertikale Linie für die Chronologie */}
                 {filteredPlaces.length > 0 && <div className="absolute top-8 bottom-4 left-[27px] w-0.5 bg-emerald-100 z-0"></div>}
 
                 {Object.keys(groupedPlaces).sort().map((dateKey) => {
@@ -350,26 +344,23 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
 
                     return (
                         <div key={dateKey} className="relative z-10 pb-4">
-                            {/* Tages-Header / Querstrich */}
                             <div className="flex items-center gap-4 my-6">
                                 <div className="h-px bg-emerald-200 flex-1"></div>
                                 <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 shadow-sm flex items-center gap-2">
-                                    {t('diary.real_day', { defaultValue: 'Reisetag' })} {realDay} <span className="text-emerald-600/60 font-medium">|</span> {dateStr}
+                                    {t('diary.real_day', { defaultValue: currentLang === 'en' ? 'Travel Day' : 'Reisetag' })} {realDay} <span className="text-emerald-600/60 font-medium">|</span> {dateStr}
                                 </span>
                                 <div className="h-px bg-emerald-200 flex-1"></div>
                             </div>
 
-                            {/* Einträge für diesen Tag */}
                             {placesForThisDay.map((place: any) => {
-                                const dateObj = new Date(place.visitedAt);
-                                const timeStr = new Intl.DateTimeFormat(currentLang === 'de' ? 'de-DE' : 'en-US', { hour: '2-digit', minute: '2-digit' }).format(dateObj);
+                                const safeTimeDate = place.visitedAt ? new Date(place.visitedAt as string) : new Date();
+                                const timeStr = new Intl.DateTimeFormat(currentLang === 'de' ? 'de-DE' : 'en-US', { hour: '2-digit', minute: '2-digit' }).format(safeTimeDate);
                                 const isCustomEntry = place.category === 'custom_diary';
                                 const categoryLabel = isCustomEntry ? t('diary.custom_entry_label', { defaultValue: 'Eigener Eintrag' }) : (INTEREST_DATA[place.category] ? resolveLabel(INTEREST_DATA[place.category]) : place.category);
                                 const rating = place.userRating || 0;
 
                                 return (
                                     <div key={place.id} className="relative pl-14 py-2">
-                                        {/* Dynamische Sequenz-Nummer (1, 2, 3...) anstatt Punkt */}
                                         <div className="absolute left-[15px] top-5 w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] font-black shadow-sm ring-4 ring-white z-10">
                                             {place._seq}
                                         </div>

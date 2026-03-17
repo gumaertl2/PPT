@@ -1,5 +1,5 @@
+// 17.03.2026 14:30 - FIX: Enforced strict I18N compliance for 'Real Days' (Echte Tage) and other day labels.
 // 17.03.2026 14:00 - FEAT: Updated dayOptions calculation to use REAL travel days when visitedFilter is set to 'visited'.
-// 16.03.2026 20:00 - HOTFIX: Moved early return below all useMemo hooks to fix React 'Rules of Hooks' violation.
 // src/features/Cockpit/SightFilterModal.tsx
 
 import React, { useMemo } from 'react';
@@ -20,7 +20,6 @@ const getRealPriorityValue = (p: any): number => {
     return 1;                              
 };
 
-// Helfer für echte Reisetage
 const getRealDay = (dateStr: string, startStr: string) => {
     if (!startStr) return 1;
     const start = new Date(startStr); start.setHours(0,0,0,0);
@@ -47,7 +46,7 @@ export const SightFilterModal: React.FC = () => {
     if (def && def.label) {
         return (def.label as any)[currentLang] || (def.label as any)['de'] || catId;
     }
-    if (catId === 'hotel') return t('interests.hotel', { defaultValue: 'Hotels' });
+    if (catId === 'hotel') return t('interests.hotel', { defaultValue: currentLang === 'en' ? 'Hotels' : 'Hotels' });
     return catId.charAt(0).toUpperCase() + catId.slice(1).replace(/_/g, ' ');
   };
 
@@ -96,17 +95,16 @@ export const SightFilterModal: React.FC = () => {
       if (specialPlaces.length > 0) {
           mappedTours.push({
               id: 'tour_special', 
-              label: t('sights.tour_special', { defaultValue: 'Tour: Sondertage & Ideen' }),
+              label: t('sights.tour_special', { defaultValue: currentLang === 'en' ? 'Tour: Special Days & Ideas' : 'Tour: Sondertage & Ideen' }),
               count: specialPlaces.length,
               placeIds: specialPlaces.map((p: any) => p.id)
           });
       }
 
       return mappedTours;
-  }, [analysis, places, uiState.visitedFilter, t]);
+  }, [analysis, places, uiState.visitedFilter, currentLang, t]);
 
   const dayOptions = useMemo(() => {
-      // NEU: Wenn "Nur Besuchte" aktiv ist, erzeugen wir ECHTE Reisetage im Filter!
       if (uiState.visitedFilter === 'visited') {
           const visited = places.filter(p => p.visited && p.visitedAt);
           const counts: Record<number, number> = {};
@@ -116,12 +114,11 @@ export const SightFilterModal: React.FC = () => {
           });
           return Object.keys(counts).map(dayStr => {
               const d = parseInt(dayStr);
-              const label = `${t('sights.day', {defaultValue: 'Tag'})} ${d}`;
+              const label = `${t('sights.day', {defaultValue: currentLang === 'en' ? 'Day' : 'Tag'})} ${d}`;
               return { id: label, label: label, count: counts[d], dayIndex: d - 1 };
           }).sort((a, b) => a.dayIndex - b.dayIndex);
       }
 
-      // STANDARD: Plan-Tage
       const itineraryDays = project.itinerary?.days || [];
       return itineraryDays.map((day: any, index: number) => {
           let count = 0;
@@ -134,10 +131,10 @@ export const SightFilterModal: React.FC = () => {
                   return true;
               }).length;
           }
-          const label = `${t('sights.day', {defaultValue: 'Tag'})} ${index + 1}`;
+          const label = `${t('sights.day', {defaultValue: currentLang === 'en' ? 'Day' : 'Tag'})} ${index + 1}`;
           return { id: label, label: label, count: count, dayIndex: index };
       }).filter((d: any) => d.count > 0);
-  }, [project.itinerary, project.userInputs.dates, places, uiState.visitedFilter, t]);
+  }, [project.itinerary, project.userInputs.dates, places, uiState.visitedFilter, currentLang, t]);
 
   const priorityOptions = useMemo(() => {
     const counts: Record<string, number> = { '4': 0, '3': 0, '2': 0, '1': 0, '0': 0 };
@@ -147,13 +144,13 @@ export const SightFilterModal: React.FC = () => {
         counts[String(getRealPriorityValue(p))]++;
     });
     return [
-        { id: '4', label: t('sights.must_see', { defaultValue: '⭐️ Muss ich sehen (Fix)' }), count: counts['4'] },
-        { id: '3', label: t('sights.prio_1', { defaultValue: '🥇 Prio 1' }), count: counts['3'] },
-        { id: '2', label: t('sights.prio_2', { defaultValue: '🥈 Prio 2' }), count: counts['2'] },
-        { id: '1', label: t('sights.no_prio', { defaultValue: '⚪️ Ohne Prio' }), count: counts['1'] },
-        { id: '0', label: t('sights.ignored', { defaultValue: '❌ Ignoriert' }), count: counts['0'] }
+        { id: '4', label: t('sights.must_see', { defaultValue: currentLang === 'en' ? '⭐️ Must See (Fixed)' : '⭐️ Muss ich sehen (Fix)' }), count: counts['4'] },
+        { id: '3', label: t('sights.prio_1', { defaultValue: currentLang === 'en' ? '🥇 Prio 1' : '🥇 Prio 1' }), count: counts['3'] },
+        { id: '2', label: t('sights.prio_2', { defaultValue: currentLang === 'en' ? '🥈 Prio 2' : '🥈 Prio 2' }), count: counts['2'] },
+        { id: '1', label: t('sights.no_prio', { defaultValue: currentLang === 'en' ? '⚪️ No Prio' : '⚪️ Ohne Prio' }), count: counts['1'] },
+        { id: '0', label: t('sights.ignored', { defaultValue: currentLang === 'en' ? '❌ Ignored' : '❌ Ignoriert' }), count: counts['0'] }
     ].filter(o => o.count > 0);
-  }, [places, uiState.visitedFilter, t]);
+  }, [places, uiState.visitedFilter, currentLang, t]);
 
   if (!isSightFilterOpen) return null;
 
@@ -204,7 +201,6 @@ export const SightFilterModal: React.FC = () => {
 
           <div className="p-5 space-y-5 overflow-y-auto">
              
-             {/* A. VISITED FILTER */}
              <div>
                 <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500" /> {t('sights.visited_status', { defaultValue: currentLang === 'en' ? 'Visit Status' : 'Besuchsstatus' })}</label>
                 <div className="flex gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
@@ -235,7 +231,6 @@ export const SightFilterModal: React.FC = () => {
                 </div>
              </div>
 
-             {/* B. DETAIL LEVEL */}
              <div>
                 <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">{t('sights.detail_level', { defaultValue: currentLang === 'en' ? 'Detail Level' : 'Detailgrad' })}</label>
                 <div className="flex gap-2">
@@ -266,7 +261,6 @@ export const SightFilterModal: React.FC = () => {
                 </div>
              </div>
 
-             {/* C. VIEW SWITCHER */}
              <div>
                 <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">{t('sights.group_sort', { defaultValue: currentLang === 'en' ? 'Group & Sort By' : 'Gruppieren & Sortieren nach' })}</label>
                 <div className="grid grid-cols-5 gap-1.5">
@@ -309,8 +303,7 @@ export const SightFilterModal: React.FC = () => {
                        } ${!hasDays ? 'opacity-40 cursor-not-allowed' : ''}`}
                     >
                         <Calendar className="w-4 h-4 mb-1" />
-                        {/* Beschriftung anpassen, falls wir ECHTE Reisetage filtern */}
-                        <span>{uiState.visitedFilter === 'visited' ? 'Echte Tage' : 'Tag'}</span>
+                        <span>{uiState.visitedFilter === 'visited' ? t('sights.real_days', { defaultValue: currentLang === 'en' ? 'Real Days' : 'Echte Tage' }) : t('sights.day', { defaultValue: currentLang === 'en' ? 'Day' : 'Tag' })}</span>
                     </button>
 
                     <button
@@ -325,7 +318,6 @@ export const SightFilterModal: React.FC = () => {
                 </div>
              </div>
 
-             {/* D. DYNAMIC FILTER CHIPS */}
              {activeSortMode !== 'alphabetical' && (
                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 animate-in fade-in slide-in-from-top-1">
                     <div className="flex justify-between items-center mb-2">
@@ -368,7 +360,6 @@ export const SightFilterModal: React.FC = () => {
                 </div>
              )}
 
-             {/* E. SEARCH */}
              <div>
                 <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">{t('sights.search', { defaultValue: currentLang === 'en' ? 'Search' : 'Suche' })}</label>
                 <div className="relative">
@@ -383,7 +374,6 @@ export const SightFilterModal: React.FC = () => {
                 </div>
              </div>
 
-             {/* F. PLANNING MODE TOGGLE */}
              <div className="bg-blue-50 p-3.5 rounded-lg border border-blue-100">
                 <div className="flex items-center justify-between">
                    <label className="text-sm font-bold text-blue-900 flex items-center gap-2">
