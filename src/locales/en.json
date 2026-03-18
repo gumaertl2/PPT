@@ -532,25 +532,29 @@
     "step2_btn": "Open Google My Maps",
     "step3_text": "Choose your Google Sheet on import. Use the \"Name\" or \"Address\" column for position and \"Name\" as title."
   },
-  "print": {
-    "title": "Print Configurator",
-    "subtitle": "Compose your individual trip report",
-    "detail_level": "Detail Depth",
-    "sections_label": "Choose Sections",
-    "footer_tip": "Tip: Save as PDF to take it with you digitally.",
-    "btn_start": "Start Printing",
-    "section_days": "Travel Guide: Days (Chronological)",
-    "section_diary": "My Travel Diary",
-    "no_diary_entries": "No diary entries yet.",
-    "sections": {
-      "briefing": "Briefing & Strategy",
-      "analysis": "Foundation & Analysis",
-      "days": "Travel Guide (Days)",
-      "tours": "Travel Guide (Tours)",
-      "categories": "Travel Guide (Categories)",
-      "infos": "Travel Info A-Z",
-      "diary": "Travel Diary"
-    }
+"print": {
+  "title": "PDF Print & Export",
+  "subtitle": "Choose which content to include in the PDF",
+  "detail_level": "Text Detail Level",
+  "sections_label": "Document Content",
+  "btn_start": "Print",
+  "generating_pdf": "Generating PDF... Loading maps...",
+  "no_diary_entries": "No diary entries yet.",
+  "section_diary": "My Travel Diary",
+  "section_diary_map": "My Travel Diary (Map)",
+  "section_diary_text": "My Travel Diary (Entries)",
+  "section_days": "Travel Guide: Days (Chronological)",
+  "footer_tip": "Tip: Choose 'Save as PDF' in your browser's print dialog.",
+  "sections": {
+    "briefing": "Briefing & Strategy",
+    "analysis": "Foundation & Analysis",
+    "days": "Travel Guide (Days)",
+    "tours": "Travel Guide (Tours)",
+    "categories": "Travel Guide (Categories)",
+    "infos": "Travel Info A-Z",
+    "diaryMap": "Diary (Map only)",
+    "diaryText": "Diary (Text only)"
+  }
   },
   "adhoc_food": {
     "title": "Ad-Hoc Restaurant Search",

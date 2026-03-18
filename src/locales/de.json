@@ -531,25 +531,29 @@
     "step2_btn": "Google My Maps öffnen",
     "step3_text": "Wähle beim Import dein Google Sheet aus. Nutze die Spalte \"Name\" oder \"Adresse\" für die Position und \"Name\" als Titel."
   },
-  "print": {
-    "title": "Druck-Konfigurator",
-    "subtitle": "Stelle deinen individuellen Reisebericht zusammen",
-    "detail_level": "Detailtiefe",
-    "sections_label": "Sektionen wählen",
-    "footer_tip": "Tipp: Speichere den Ausdruck als PDF, um ihn digital mitzunehmen.",
-    "btn_start": "Druck starten",
-    "section_days": "Reiseführer: Tage (Chronologisch)",
-    "section_diary": "Mein Reisetagebuch",
-    "no_diary_entries": "Noch keine Einträge im Tagebuch vorhanden.",
-    "sections": {
-      "briefing": "Briefing & Strategie",
-      "analysis": "Fundament & Analyse",
-      "days": "Reiseführer (Tage)",
-      "tours": "Reiseführer (Touren)",
-      "categories": "Reiseführer (Kategorien)",
-      "infos": "Reise-Infos A-Z",
-      "diary": "Reisetagebuch"
-    }
+ "print": {
+  "title": "PDF Druck & Export",
+  "subtitle": "Wähle aus, welche Inhalte im PDF enthalten sein sollen",
+  "detail_level": "Detailtiefe der Texte",
+  "sections_label": "Dokumenten-Inhalte",
+  "btn_start": "Drucken",
+  "generating_pdf": "PDF wird aufgebaut... Karten werden geladen...",
+  "no_diary_entries": "Noch keine Einträge im Tagebuch vorhanden.",
+  "section_diary": "Mein Reisetagebuch",
+  "section_diary_map": "Mein Reisetagebuch (Karte)",
+  "section_diary_text": "Mein Reisetagebuch (Einträge)",
+  "section_days": "Reiseführer: Tage (Chronologisch)",
+  "footer_tip": "Tipp: Wähle im Druckerdialog deines Browsers 'Als PDF speichern'.",
+  "sections": {
+    "briefing": "Briefing & Strategie",
+    "analysis": "Fundament & Analyse",
+    "days": "Reiseführer (Tage)",
+    "tours": "Reiseführer (Touren)",
+    "categories": "Reiseführer (Kategorien)",
+    "infos": "Reise-Infos A-Z",
+    "diaryMap": "Tagebuch (Nur Karte)",
+    "diaryText": "Tagebuch (Nur Text)"
+  }
   },
   "adhoc_food": {
     "title": "Ad-Hoc Restaurant-Suche",

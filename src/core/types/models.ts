@@ -1,6 +1,5 @@
-// 27.02.2026 13:55 - FEAT: Added 'TransferPlannerResult' interface and injected it into TripProject analysis SSOT.
-// 27.02.2026 13:45 - FEAT: Added 'localMobility' to TripUserProfile.logistics for realistic transfer checks.
-// 23.02.2026 15:15 - FIX: Added 'official_name' to Place interface.
+// 18.03.2026 18:30 - FEAT: Split 'diary' print config into 'diary' (text) and 'diaryMap' (map) for flexible portrait/landscape printing.
+// 27.02.2026 13:55 - FEAT: Added 'TransferPlannerResult' interface.
 // src/core/types/models.ts
 
 import type { LanguageCode, Expense, CurrencyConfig } from './shared';
@@ -215,7 +214,6 @@ export interface IdeenScoutResult {
     }>;
 }
 
-// NEW: Transfer Planner Result Definition
 export interface TransferPlannerResult {
     _thought_process?: string;
     transfers: Array<{
@@ -304,7 +302,6 @@ export interface ChunkingContext {
   stations: string[];  
 }
 
-// Print Config
 export type DetailLevel = 'compact' | 'standard' | 'details';
 
 export interface PrintConfig {
@@ -317,6 +314,7 @@ export interface PrintConfig {
     categories: boolean;
     infos: boolean;
     diary: boolean; 
+    diaryMap: boolean; // FIX: New distinct toggle for Diary Map
   };
   layout: 'standard' | 'compact';
   showImages: boolean;
@@ -340,7 +338,7 @@ export interface TripProject {
     tourGuide?: TourGuideResult | null;
     ideenScout?: IdeenScoutResult | null;
     infoAutor?: InfoAutorResult | null; 
-    transferPlanner?: TransferPlannerResult | null; // FEAT: Added TransferPlanner
+    transferPlanner?: TransferPlannerResult | null; 
   };
   data: {
     places: Record<string, Place>; 
@@ -353,4 +351,4 @@ export interface TripProject {
     days: any[];
   };
 }
-// --- END OF FILE 368 Zeilen ---
+// --- END OF FILE 369 Zeilen ---

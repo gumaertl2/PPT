@@ -1,5 +1,5 @@
-// 17.03.2026 14:00 - UX: Renamed 'Plan' button to 'Diary' (Tagebuch) to reflect its true nature as a travel tracker. Fully I18N compatible.
-// 16.03.2026 21:00 - UX: Fixed double-click routing. Toggling the filter via Plan or Map button no longer forces a view change.
+// 18.03.2026 16:00 - FIX: Removed aggressive synchronous cleanup of printConfig to prevent Safari/Mac from rendering blank pages due to race conditions. Increased timeout to 2000ms.
+// 18.03.2026 15:00 - FIX: Added auto-cleanup logic.
 // src/features/Cockpit/Layout/CockpitHeader.tsx
 
 import React, { useState, useRef } from 'react';
@@ -104,9 +104,12 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
   const handlePrintConfirm = (config: PrintConfig) => {
     setIsPrintModalOpen(false);
     setUIState({ printConfig: config });
+    
+    // Wir warten großzügige 2 Sekunden, bis das PDF geladen ist, rufen print() auf
+    // und löschen hier NICHTS mehr, um Safari Race Conditions zu verhindern.
     setTimeout(() => {
         window.print();
-    }, 500);
+    }, 2000); 
   };
 
   const handleHomeClick = () => {
@@ -354,5 +357,4 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     </>
   );
 };
-
-// --- END OF FILE 375 Zeilen ---
+// --- END OF FILE 373 Zeilen ---
