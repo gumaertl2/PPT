@@ -1,3 +1,4 @@
+// 18.03.2026 11:15 - DOCS: Updated terminology (Plan -> Tagebuch/Diary) in the manual to reflect the new Live-Tracker feature.
 // 26.02.2026 10:45 - DOCS: Converted Technical Manual to informal "Du" to match the marketing copy.
 // 24.02.2026 19:30 - DOCS: Prepended complete Marketing & Sales Brochure to the technical manual (DE & EN).
 // src/data/Texts/description.ts
@@ -111,7 +112,7 @@ Wenn du eine neue Reise startest, führt dich ein Assistent (Wizard) durch 5 ein
 ### Phase 2: Die 4 Hauptansichten (Dein Reisebegleiter)
 Sobald die KI fertig ist, verwandelt sich die App in deinen interaktiven Reisebegleiter. Oben in der Menüleiste findest du die vier wichtigsten Schalter:
 
-📝 **1. Plan (Das Dashboard & Tagebuch)**
+📝 **1. Tagebuch (Das Dashboard & Live-Tracker)**
 Hier findest du die Zusammenfassung deiner Reise, deine Routenplanung und (ganz wichtig) dein **Live-Reisetagebuch**. 
 * **Vor Ort:** Nutze den Button "Eigener Eintrag", um spontane Erlebnisse samt deinem aktuellen GPS-Standort festzuhalten. Orte, die du besuchst und eincheckst, tauchen hier automatisch chronologisch auf.
 
@@ -262,7 +263,7 @@ When you start a new trip, an assistant (Wizard) guides you through 5 simple ste
 ### Phase 2: The 4 Main Views (Your Travel Companion)
 Once the AI is finished, the app transforms into your interactive travel companion. You'll find the four main tabs in the top menu bar:
 
-📝 **1. Plan (Dashboard & Diary)**
+📝 **1. Diary (Dashboard & Live-Tracker)**
 Here you will find the summary of your trip, your route planning, and (importantly) your **Live Travel Diary**. 
 * **On Location:** Use the "Custom Entry" button to capture spontaneous experiences along with your current GPS location. Places you visit and check into will automatically appear here chronologically.
 
@@ -309,4 +310,4 @@ In the "AI Workflows" menu, you can watch our team of digital specialists at wor
 * 💡 **Idea Scout (Special Days):** The wildcard. Provides creative alternative plans for rainy days.`
   }
 };
-// --- END OF FILE 276 Zeilen ---
+// --- END OF FILE 277 Zeilen ---

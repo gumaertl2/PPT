@@ -1,3 +1,4 @@
+// 18.03.2026 11:15 - DOCS: Updated terminology (Plan -> Tagebuch/Diary) to reflect the new Live-Tracker feature.
 // 24.02.2026 12:30 - FIX: Added 'Expenses' explanation with [Wallet] icon to section 3 of the Quick Guide.
 // 24.02.2026 11:10 - FEAT: Initial creation of the Quick Guide with icon placeholders.
 // src/data/Texts/quickguide.ts
@@ -9,7 +10,7 @@ export const quickGuide = {
 Wechsle zwischen den Ansichten, um deine Reise zu verwalten:
 
 * **[Home] Home:** Zurück zum Start. Hier kannst du speichern oder neu starten.
-* **[Edit3] Plan:** Dein Dashboard & Live-Reisetagebuch.
+* **[Edit3] Tagebuch:** Dein Dashboard & Live-Reisetagebuch.
 * **[BookOpen] Guide:** Der Katalog aller Orte. Hier organisierst du Sehenswürdigkeiten, stellst die **Detailtiefe** der Texte ein und nutzt den **Planungsmodus** für Prioritäten.
 * **[Map] Karte:** Visualisiere deine Route und finde deinen Standort per GPS.
 * **[Info] Info:** Das Reise-Lexikon mit Stadtführern und Regional-Infos.
@@ -38,7 +39,7 @@ Nutze die Steuerung direkt an den Orten (SightCards):
 Switch between views to manage your trip:
 
 * **[Home] Home:** Back to start. Save your progress or start a new trip here.
-* **[Edit3] Plan:** Your dashboard & live travel diary.
+* **[Edit3] Diary:** Your dashboard & live travel diary.
 * **[BookOpen] Guide:** Catalog of all places. Organize sights, adjust **text detail depth**, and use the **planning mode** for priorities.
 * **[Map] Map:** Visualize your route and find your location via GPS.
 * **[Info] Info:** The travel encyclopedia with city guides and regional info.
@@ -63,4 +64,4 @@ Use the controls directly on the places (SightCards):
   }
 };
 
-// --- END OF FILE 70 Zeilen ---
+// --- END OF FILE 71 Zeilen ---
