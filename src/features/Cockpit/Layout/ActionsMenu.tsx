@@ -1,8 +1,5 @@
-// 24.02.2026 19:15 - REFACTOR: Moved Settings button to bottom of menu, renamed to "Setup" and changed icon.
-// 23.02.2026 16:40 - FIX: Removed unused 'onLoadClick' from destructuring to resolve TS6133.
-// 23.02.2026 16:30 - REFACTOR: Moved Smart Loader Modal to dedicated component.
-// 23.02.2026 16:05 - FEAT: Added 'Smart Loader' modal to offer Merge vs. Overwrite when loading projects.
-// 22.02.2026 12:45 - I18N: Applied translation keys to the Trip Finance button.
+// 19.03.2026 13:00 - UX: Avoid double prompting for filename if the native showSaveFilePicker is available. The system dialog takes care of the name now.
+// 24.02.2026 19:15 - REFACTOR: Moved Settings button.
 // src/features/Cockpit/Layout/ActionsMenu.tsx
 
 import React, { useState, useRef } from 'react';
@@ -21,7 +18,7 @@ import {
   FileText, 
   Terminal,
   Wallet,
-  Settings // NEU: Importiert für den Setup Button
+  Settings 
 } from 'lucide-react';
 
 import { useTripStore } from '../../../store/useTripStore';
@@ -91,23 +88,9 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
       }
   };
 
-  const handleSaveProject = () => {
-    if (uiState.currentFileName) {
-        const currentName = uiState.currentFileName.replace(/\.json$/i, '');
-        const userFileName = window.prompt("Dateiname für Speicherstand:", currentName);
-        
-        if (!userFileName) {
-            setIsOpen(false);
-            return;
-        }
-        
-        let finalName = userFileName;
-        if (!finalName.endsWith('.json')) finalName += '.json';
-        saveProject(finalName);
-        setIsOpen(false);
-        return;
-    }
-
+  const handleSaveProject = async () => {
+    setIsOpen(false);
+    
     let baseName = "Papatours_Reise";
     const { logistics } = project.userInputs;
     
@@ -128,19 +111,21 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
         .replace(/ß/g, 'ss')
         .replace(/[^a-zA-Z0-9_-]/g, '_'); 
 
-    let fileName = `${safeName}_log_${new Date().toISOString().slice(0,10)}.json`;
+    let fileName = uiState.currentFileName || `${safeName}_log_${new Date().toISOString().slice(0,10)}.json`;
 
-    const userFileName = window.prompt("Dateiname für Speicherstand:", fileName);
-    if (!userFileName) {
-        setIsOpen(false);
-        return; 
+    // FIX: Wenn der moderne Dialog im Browser nicht da ist, fragen wir wie früher per prompt
+    if (!('showSaveFilePicker' in window)) {
+        const currentName = uiState.currentFileName ? uiState.currentFileName.replace(/\.json$/i, '') : fileName;
+        const userFileName = window.prompt("Dateiname für Speicherstand:", currentName);
+        
+        if (!userFileName) return; 
+        
+        fileName = userFileName;
+        if (!fileName.endsWith('.json')) fileName += '.json';
     }
-    
-    fileName = userFileName;
-    if (!fileName.endsWith('.json')) fileName += '.json';
 
-    saveProject(fileName);
-    setIsOpen(false);
+    // Wartet ab, ob das Speichern erfolgreich war
+    await saveProject(fileName);
   };
 
   const handleResetClick = () => {
@@ -328,7 +313,6 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
             <Terminal className="w-4 h-4 text-slate-500" /> {t('wizard.actions_menu.log')}
           </button>
 
-          {/* NEU: SETUP / SETTINGS AM ENDE DES MENÜS */}
           <div className="h-px bg-slate-100 my-1"></div>
 
           <button 
@@ -364,4 +348,4 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
     </div>
   );
 };
-// --- END OF FILE 331 Zeilen ---
+// --- END OF FILE 317 Zeilen ---

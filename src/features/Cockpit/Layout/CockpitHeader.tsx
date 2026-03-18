@@ -1,5 +1,5 @@
-// 18.03.2026 16:00 - FIX: Removed aggressive synchronous cleanup of printConfig to prevent Safari/Mac from rendering blank pages due to race conditions. Increased timeout to 2000ms.
-// 18.03.2026 15:00 - FIX: Added auto-cleanup logic.
+// 19.03.2026 13:00 - UX: Adjusted handleExitSave to use the new async saveProject logic. It waits for save confirmation before resetting the app, preventing data loss if the user hits 'Cancel' in the system dialog.
+// 18.03.2026 16:00 - FIX: Removed aggressive synchronous cleanup.
 // src/features/Cockpit/Layout/CockpitHeader.tsx
 
 import React, { useState, useRef } from 'react';
@@ -105,8 +105,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     setIsPrintModalOpen(false);
     setUIState({ printConfig: config });
     
-    // Wir warten großzügige 2 Sekunden, bis das PDF geladen ist, rufen print() auf
-    // und löschen hier NICHTS mehr, um Safari Race Conditions zu verhindern.
     setTimeout(() => {
         window.print();
     }, 2000); 
@@ -123,7 +121,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
       setShowExitModal(false);
   };
 
-  const handleExitSave = () => {
+  const handleExitSave = async () => {
       let baseName = "Papatours_Reise";
       if (uiState.currentFileName) {
           baseName = uiState.currentFileName.replace(/\.json$/i, '');
@@ -131,7 +129,10 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
           const { logistics } = project.userInputs;
           if (logistics.mode === 'stationaer') {
               const dest = logistics.stationary.destination?.trim();
-              if (dest) baseName = dest;
+              const reg = logistics.stationary.region?.trim();
+              if (dest && reg) baseName = `${dest}_${reg}`;
+              else if (dest) baseName = dest;
+              else if (reg) baseName = reg;
           } else {
              const reg = logistics.roundtrip.region?.trim();
              if (reg) baseName = `Rundreise_${reg}`;
@@ -141,18 +142,26 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
       const safeName = baseName.replace(/[^a-zA-Z0-9_-]/g, '_'); 
       let fileName = safeName.endsWith('.json') ? safeName : `${safeName}.json`;
 
-      const userFileName = window.prompt("Projekt speichern unter:", fileName);
-      if (!userFileName) return;
+      // FIX: Zeige prompt nur an, wenn der moderne Sichern-Dialog im Browser NICHT da ist.
+      if (!('showSaveFilePicker' in window)) {
+          const userFileName = window.prompt("Projekt speichern unter:", fileName);
+          if (!userFileName) return;
 
-      let finalName = userFileName;
-      if (!finalName.endsWith('.json')) finalName += '.json';
+          fileName = userFileName;
+          if (!fileName.endsWith('.json')) fileName += '.json';
+      }
 
-      saveProject(finalName);
-
-      resetProject();
-      onReset();
-      setView('welcome');
-      setShowExitModal(false);
+      // Wartet ab, ob das Speichern erfolgreich war (true), 
+      // und geht nur dann in den Startbildschirm. 
+      // Klickt der User im Dialog auf "Abbrechen" (false), bleibt das Projekt offen!
+      const success = await saveProject(fileName);
+      
+      if (success) {
+          resetProject();
+          onReset();
+          setView('welcome');
+          setShowExitModal(false);
+      }
   };
 
   return (
@@ -357,4 +366,4 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     </>
   );
 };
-// --- END OF FILE 373 Zeilen ---
+// --- END OF FILE 382 Zeilen ---

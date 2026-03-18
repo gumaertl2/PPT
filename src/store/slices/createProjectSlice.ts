@@ -1,6 +1,5 @@
+// 19.03.2026 13:00 - FEAT: Implemented native File System Access API (showSaveFilePicker) to provide a real 'Save As' dialog handling overwrites smoothly on Mac/PC.
 // 23.02.2026 15:45 - FEAT: Added 'mergeProject' to integrate donor projects safely.
-// 23.02.2026 13:25 - FIX: Added missing 'updateSearchSettings' and 'updateUserInputs'.
-// 21.02.2026 15:20 - FIX: Ensured 'travelerNames' and 'expenses' map smoothly to TripProject definition.
 // src/store/slices/createProjectSlice.ts
 
 import type { StateCreator } from 'zustand';
@@ -20,7 +19,8 @@ export interface ProjectSlice {
   // Actions
   setProject: (project: TripProject) => void;
   loadProject: (fileOrProject: File | TripProject | any) => Promise<void> | void;
-  saveProject: (fileName?: string) => void;
+  // FIX: saveProject ist nun asynchron und gibt einen boolean (Erfolg) zurück
+  saveProject: (fileName?: string) => Promise<boolean>;
   resetProject: () => void;
   setLanguage: (lang: LanguageCode) => void;
   togglePlaceVisited: (placeId: string) => void; 
@@ -183,12 +183,13 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     return stats;
   },
 
-  saveProject: (customFileName?: string) => {
+  saveProject: async (customFileName?: string) => {
     const state = get();
     const projectData = JSON.stringify(state.project, null, 2);
     
     let fileName = customFileName;
 
+    // Dynamische Namensgenerierung, falls keiner mitgegeben wird
     if (!fileName) {
         let baseName = "Papatours_Reise";
         const { logistics } = state.project.userInputs;
@@ -208,22 +209,56 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
         fileName = `${safeName}_${new Date().toISOString().slice(0,10)}.json`;
     }
     
-    if (get().setUIState) {
-        get().setUIState({ currentFileName: fileName });
-    }
-    
-    const blob = new Blob([projectData], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    if (get().addNotification) {
-      get().addNotification({ type: 'success', message: 'Gespeichert.' });
+    try {
+        // Prüft, ob der moderne Sichern-Dialog im Browser/Gerät verfügbar ist
+        if ('showSaveFilePicker' in window) {
+            const handle = await (window as any).showSaveFilePicker({
+                suggestedName: fileName,
+                types: [{
+                    description: 'Papatours Reise (.json)',
+                    accept: { 'application/json': ['.json'] }
+                }]
+            });
+            const writable = await handle.createWritable();
+            await writable.write(projectData);
+            await writable.close();
+            
+            if (get().setUIState) {
+                get().setUIState({ currentFileName: handle.name });
+            }
+            if (get().addNotification) {
+              get().addNotification({ type: 'success', message: 'Gespeichert.' });
+            }
+            return true;
+        } else {
+            // Fallback für Firefox, iOS oder ältere Browser (Normaler Download)
+            if (get().setUIState) {
+                get().setUIState({ currentFileName: fileName });
+            }
+            const blob = new Blob([projectData], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            if (get().addNotification) {
+              get().addNotification({ type: 'success', message: 'Gespeichert.' });
+            }
+            return true;
+        }
+    } catch (err: any) {
+        // AbortError passiert, wenn der Nutzer im System-Dialog auf "Abbrechen" drückt
+        if (err.name !== 'AbortError') {
+             console.error('Save failed:', err);
+             if (get().addNotification) {
+                 get().addNotification({ type: 'error', message: 'Speichern fehlgeschlagen.' });
+             }
+        }
+        return false; // Speichern wurde abgebrochen
     }
   },
 
@@ -329,4 +364,4 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     };
   }),
 });
-// --- END OF FILE 313 Zeilen ---
+// --- END OF FILE 332 Zeilen ---
