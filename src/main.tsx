@@ -1,18 +1,33 @@
-/**
- * src/main.tsx
- *
- * DER MOTOR-START
- * Hier wird React gestartet und in das HTML-Element "root" injiziert.
- */
+// 17.03.2026 17:30 - FEAT: Initialized PWA Service Worker via virtual:pwa-register.
+// 13.02.2026 - Papatours V40
+// src/main.tsx
 
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App.tsx';
-import './index.css'; // Tailwind Importe
-import './services/i18n'; // WICHTIG: i18n muss VOR der App initialisiert werden
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import { App } from './App.tsx'
+import './index.css'
+import './services/i18n'
+
+// Importiere die Service Worker Registrierung vom PWA Plugin
+import { registerSW } from 'virtual:pwa-register'
+
+// Service Worker starten und Update-Logik abfangen
+const updateSW = registerSW({
+  onNeedRefresh() {
+    // Wenn du eine neue Version von Papatours baust und hochlädst, 
+    // bekommt der Nutzer automatisch diese Info.
+    if (confirm('Ein neues Update für Papatours ist verfügbar. Möchtest du jetzt aktualisieren?')) {
+      updateSW(true)
+    }
+  },
+  onOfflineReady() {
+    console.log('Papatours ist nun vollständig installiert und offline bereit!')
+  },
+})
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
   </React.StrictMode>,
-);
+)
+// --- END OF FILE 33 Zeilen ---
