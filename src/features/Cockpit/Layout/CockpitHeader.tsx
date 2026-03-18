@@ -1,5 +1,5 @@
-// 19.03.2026 13:00 - UX: Adjusted handleExitSave to use the new async saveProject logic. It waits for save confirmation before resetting the app, preventing data loss if the user hits 'Cancel' in the system dialog.
-// 18.03.2026 16:00 - FIX: Removed aggressive synchronous cleanup.
+// 19.03.2026 13:30 - UX: Updated search placeholder to clearly indicate full-text search capabilities (Keyword, place, note...).
+// 19.03.2026 13:00 - UX: Adjusted handleExitSave to use the new async saveProject logic.
 // src/features/Cockpit/Layout/CockpitHeader.tsx
 
 import React, { useState, useRef } from 'react';
@@ -142,7 +142,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
       const safeName = baseName.replace(/[^a-zA-Z0-9_-]/g, '_'); 
       let fileName = safeName.endsWith('.json') ? safeName : `${safeName}.json`;
 
-      // FIX: Zeige prompt nur an, wenn der moderne Sichern-Dialog im Browser NICHT da ist.
       if (!('showSaveFilePicker' in window)) {
           const userFileName = window.prompt("Projekt speichern unter:", fileName);
           if (!userFileName) return;
@@ -151,9 +150,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
           if (!fileName.endsWith('.json')) fileName += '.json';
       }
 
-      // Wartet ab, ob das Speichern erfolgreich war (true), 
-      // und geht nur dann in den Startbildschirm. 
-      // Klickt der User im Dialog auf "Abbrechen" (false), bleibt das Projekt offen!
       const success = await saveProject(fileName);
       
       if (success) {
@@ -285,7 +281,8 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                       }
                       setUIState({ searchTerm: e.target.value });
                   }}
-                  placeholder={t('sights.search_placeholder', { defaultValue: 'Suchen...' })}
+                  /* FIX: Neuer Platzhalter für Volltextsuche */
+                  placeholder={t('sights.search_placeholder_full', { defaultValue: currentLang === 'en' ? 'Keyword, place...' : 'Stichwort, Ort, Notiz...' })}
                   className="pl-6 sm:pl-7 pr-5 sm:pr-6 py-1.5 text-[10px] sm:text-xs border border-slate-200 rounded-full bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:bg-white w-20 focus:w-28 sm:w-24 sm:focus:w-36 transition-all duration-300 placeholder:text-slate-400"
                 />
                 {uiState.searchTerm && (
@@ -366,4 +363,4 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     </>
   );
 };
-// --- END OF FILE 382 Zeilen ---
+// --- END OF FILE 383 Zeilen ---

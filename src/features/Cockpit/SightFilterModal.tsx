@@ -1,5 +1,5 @@
-// 17.03.2026 14:30 - FIX: Enforced strict I18N compliance for 'Real Days' (Echte Tage) and other day labels.
-// 17.03.2026 14:00 - FEAT: Updated dayOptions calculation to use REAL travel days when visitedFilter is set to 'visited'.
+// 19.03.2026 13:30 - UX: Updated search placeholder to clearly indicate full-text capabilities.
+// 17.03.2026 14:30 - FIX: Enforced strict I18N compliance for 'Real Days'.
 // src/features/Cockpit/SightFilterModal.tsx
 
 import React, { useMemo } from 'react';
@@ -364,9 +364,10 @@ export const SightFilterModal: React.FC = () => {
                 <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">{t('sights.search', { defaultValue: currentLang === 'en' ? 'Search' : 'Suche' })}</label>
                 <div className="relative">
                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                   {/* FIX: Neuer Platzhalter für Volltextsuche */}
                    <input 
                       type="text" 
-                      placeholder={t('sights.search_placeholder', { defaultValue: currentLang === 'en' ? 'Name or Category...' : 'Name oder Kategorie...' })}
+                      placeholder={t('sights.search_placeholder_full', { defaultValue: currentLang === 'en' ? 'Keyword, place, note...' : 'Stichwort, Ort, Notiz...' })}
                       value={uiState.searchTerm}
                       onChange={(e) => setUIState({ searchTerm: e.target.value })}
                       className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
@@ -406,4 +407,4 @@ export const SightFilterModal: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 333 Zeilen ---
+// --- END OF FILE 334 Zeilen ---
