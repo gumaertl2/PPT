@@ -1,5 +1,5 @@
-// 19.03.2026 12:00 - FEAT: Implemented 'Pre-created Days' & 'Daily Summaries'. The diary now maps all planned days automatically, allowing users to write daily free-text summaries. Refactored Day 1 anchor to prevent negative day counting.
-// 17.03.2026 15:10 - HOTFIX: JSX comment syntax.
+// 19.03.2026 15:00 - UX: Changed Diary detail levels (+/- buttons) from global to per-day basis. Each day can now be expanded/collapsed individually.
+// 19.03.2026 14:00 - FEAT: Applied Detail-Level logic.
 // src/features/Cockpit/PlanView.tsx
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -7,7 +7,7 @@ import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
 import { 
   CheckCircle, CheckCircle2, Map as MapIcon, ExternalLink, 
-  PenLine, X, MapPin, Trash2, Clock, Navigation, Quote, ArrowRight, Banknote, Star, BookOpen
+  PenLine, X, MapPin, Trash2, Clock, Navigation, Quote, ArrowRight, Banknote, Star, BookOpen, Plus, Minus
 } from 'lucide-react';
 import type { LanguageCode, Place, CockpitViewMode } from '../../core/types';
 import { INTEREST_DATA } from '../../data/staticData';
@@ -23,6 +23,24 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
   const { logistics, travelers } = userInputs;
   const routeAnalysis = analysis.routeArchitect;
   const travelerNames = travelers.travelerNames || '';
+
+  // FEATURE: Detail-Level State (PER TAG)
+  const normalizeLevel = (level: string | undefined): 'kompakt' | 'standard' | 'details' => {
+      if (level === 'compact' || level === 'kompakt') return 'kompakt';
+      if (level === 'standard') return 'standard';
+      return 'details';
+  };
+
+  const defaultLevel = normalizeLevel(uiState.detailLevel);
+  const VIEW_LEVELS = ['kompakt', 'standard', 'details'];
+  
+  // Speichert den individuellen Zoom-Status pro Reisetag
+  const [dayDetailLevels, setDayDetailLevels] = useState<Record<string, 'kompakt' | 'standard' | 'details'>>({});
+
+  // Wenn die globale Einstellung über das Filter-Menü geändert wird, setzen wir die lokalen Overrides zurück
+  useEffect(() => {
+      setDayDetailLevels({});
+  }, [uiState.detailLevel]);
 
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -77,7 +95,6 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
     return (item.label as any)[currentLang] || (item.label as any)['de'] || '';
   };
 
-  // FIX: Verankert Tag 1 eisern am offiziellen Startdatum oder am ersten Check-in
   const firstDateMs = useMemo(() => {
       let ms = Infinity;
       if (userInputs.dates?.start) {
@@ -179,15 +196,31 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
       if (!customTitle.trim() && !customNote.trim()) return;
       const defaultTitleText = t('diary.default_title', { defaultValue: 'Mein Erlebnis' });
       const newId = `custom_${crypto.randomUUID()}`;
+      
+      const entryDate = new Date().toISOString();
+      const dateKey = entryDate.split('T')[0];
+
       const newPlace: Place = {
           id: newId, name: customTitle.trim() || defaultTitleText, category: 'custom_diary',
-          visited: true, visitedAt: new Date().toISOString(), userNote: customNote.trim(), location: customLocation || undefined
+          visited: true, visitedAt: entryDate, userNote: customNote.trim(), location: customLocation || undefined
       };
       
       setProject({ ...project, data: { ...project.data, places: { ...project.data.places, [newId]: newPlace } } });
       
       if (alsoExpense) {
           setPendingExpense({ title: customTitle.trim() || defaultTitleText, location: customLocation });
+      }
+
+      // Auto-Expand für den spezifischen Tag
+      if (customNote.trim()) {
+          setDayDetailLevels(prev => ({ ...prev, [dateKey]: 'details' }));
+      } else {
+          setDayDetailLevels(prev => {
+              if (prev[dateKey] === 'kompakt' || (!prev[dateKey] && defaultLevel === 'kompakt')) {
+                  return { ...prev, [dateKey]: 'standard' };
+              }
+              return prev;
+          });
       }
 
       setIsAddingCustom(false); setCustomTitle(''); setCustomNote(''); setCustomLocation(null);
@@ -226,13 +259,27 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
       const updates: Partial<Place> = {};
       if (editTitle.trim()) updates.name = editTitle.trim();
       updates.userNote = editNote;
+      
+      let dateKeyToExpand = new Date().toISOString().split('T')[0];
+
       if (editDate) {
-          updates.visitedAt = new Date(editDate).toISOString();
+          const isoDate = new Date(editDate).toISOString();
+          updates.visitedAt = isoDate;
+          dateKeyToExpand = isoDate.split('T')[0];
+      } else {
+          const p = project.data.places[id];
+          if (p && p.visitedAt) dateKeyToExpand = p.visitedAt.split('T')[0];
       }
+      
       updates.location = editLocation || undefined;
 
       updatePlace(id, updates);
       setEditingEntryId(null);
+
+      // Auto-Expand für den bearbeiteten Tag
+      if (editNote.trim()) {
+          setDayDetailLevels(prev => ({ ...prev, [dateKeyToExpand]: 'details' }));
+      }
   };
 
   const getGoogleMapsUrl = (place: any) => {
@@ -307,7 +354,6 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
         return acc;
     }, {});
 
-    // FEAT: Kreiert alle Tage automatisch (vom geplanten Start bis zum Ende)
     const allDatesSet = new Set<string>();
     const hasFilter = globalSearchTerm || activeFilters.length > 0 || uiState.visitedFilter === 'unvisited';
 
@@ -342,10 +388,15 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
 
     return (
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-emerald-100 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="flex items-center justify-between mb-6 border-b border-slate-50 pb-4">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 border-b border-slate-50 pb-4 gap-4">
                 <div className="flex items-center gap-3">
                     <div className="p-2.5 bg-emerald-100 text-emerald-600 rounded-xl shrink-0"><CheckCircle size={24} /></div>
-                    <div><h2 className="text-xl font-bold text-slate-900">{t('diary.title', { defaultValue: 'Live-Reisetagebuch' })}</h2><p className="text-sm text-slate-500">{t('diary.subtitle', { defaultValue: 'Deine besuchten Orte.' })}</p></div>
+                    <div>
+                        <div className="flex items-center gap-3">
+                            <h2 className="text-xl font-bold text-slate-900">{t('diary.title', { defaultValue: 'Live-Reisetagebuch' })}</h2>
+                        </div>
+                        <p className="text-sm text-slate-500">{t('diary.subtitle', { defaultValue: 'Deine besuchten Orte.' })}</p>
+                    </div>
                 </div>
                 
                 <div className="hidden sm:flex items-center gap-2">
@@ -410,10 +461,27 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                     const dateObj = new Date(dateKey);
                     const dateStr = new Intl.DateTimeFormat(currentLang === 'de' ? 'de-DE' : 'en-US', { weekday: 'long', day: '2-digit', month: 'long' }).format(dateObj);
 
+                    // Lese spezifischen Level für diesen Tag
+                    const currentDayLevel = dayDetailLevels[dateKey] || defaultLevel;
+                    const currentLevelIndex = VIEW_LEVELS.indexOf(currentDayLevel);
+                    const canStepDown = currentLevelIndex > 0;
+                    const canStepUp = currentLevelIndex < VIEW_LEVELS.length - 1;
+                    
+                    const handleStepUp = () => {
+                      if (canStepUp) setDayDetailLevels(prev => ({ ...prev, [dateKey]: VIEW_LEVELS[currentLevelIndex + 1] as any }));
+                    };
+                    const handleStepDown = () => {
+                      if (canStepDown) setDayDetailLevels(prev => ({ ...prev, [dateKey]: VIEW_LEVELS[currentLevelIndex - 1] as any }));
+                    };
+
+                    const showPlaces = currentDayLevel !== 'kompakt';
+                    const showUserNotes = currentDayLevel === 'details';
+
                     return (
                         <div key={dateKey} className="relative z-10 pb-4">
-                            <div className="flex items-center gap-4 my-6">
-                                <div className="h-px bg-emerald-200 flex-1"></div>
+                            <div className="flex items-center gap-4 my-6 flex-wrap">
+                                <div className="h-px bg-emerald-200 flex-1 min-w-[20px]"></div>
+                                
                                 <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 shadow-sm flex items-center gap-2">
                                     {t('diary.real_day', { defaultValue: currentLang === 'en' ? 'Travel Day' : 'Reisetag' })} {realDay} <span className="text-emerald-600/60 font-medium">|</span> {dateStr}
                                     <button onClick={() => {
@@ -423,7 +491,15 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                                         <PenLine size={12} />
                                     </button>
                                 </span>
-                                <div className="h-px bg-emerald-200 flex-1"></div>
+
+                                {/* DETAIL-LEVEL CONTROLS (+/-) PRO TAG */}
+                                <div className="flex items-center gap-0.5 bg-white rounded p-0.5 border border-emerald-100 shadow-sm no-print">
+                                    <button onClick={handleStepDown} disabled={!canStepDown} className={`p-1 rounded transition-all ${canStepDown ? 'text-slate-500 hover:text-emerald-600 hover:bg-emerald-50' : 'text-slate-300 cursor-not-allowed'}`} title="Weniger Details"><Minus className="w-3 h-3" /></button>
+                                    <div className="flex gap-0.5 px-1 items-center">{VIEW_LEVELS.map((level, idx) => (<div key={level} className={`w-1 h-1 rounded-full ${idx <= currentLevelIndex ? 'bg-emerald-500' : 'bg-slate-200'}`} />))}</div>
+                                    <button onClick={handleStepUp} disabled={!canStepUp} className={`p-1 rounded transition-all ${canStepUp ? 'text-slate-500 hover:text-emerald-600 hover:bg-emerald-50' : 'text-slate-300 cursor-not-allowed'}`} title="Mehr Details"><Plus className="w-3 h-3" /></button>
+                                </div>
+
+                                <div className="h-px bg-emerald-200 flex-1 min-w-[20px]"></div>
                             </div>
 
                             {/* FREITEXT TAGES-ZUSAMMENFASSUNG */}
@@ -458,8 +534,8 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                                 </div>
                             ) : null}
 
-                            {/* BESUCHTE ORTE DES TAGES */}
-                            {placesForThisDay.map((place: any) => {
+                            {/* BESUCHTE ORTE DES TAGES (Wird bei "Kompakt" ausgeblendet) */}
+                            {showPlaces && placesForThisDay.map((place: any) => {
                                 const safeTimeDate = place.visitedAt ? new Date(place.visitedAt as string) : new Date();
                                 const timeStr = new Intl.DateTimeFormat(currentLang === 'de' ? 'de-DE' : 'en-US', { hour: '2-digit', minute: '2-digit' }).format(safeTimeDate);
                                 const isCustomEntry = place.category === 'custom_diary';
@@ -558,7 +634,7 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                                                         </div>
                                                     </div>
                                                 </div>
-                                            ) : place.userNote ? (
+                                            ) : (showUserNotes && place.userNote) ? (
                                                 <div className="mt-2 text-xs text-indigo-900 bg-indigo-50/50 border border-indigo-100 rounded-lg p-2.5 italic leading-relaxed shadow-sm cursor-pointer hover:bg-indigo-100/50 transition-colors relative group" onClick={() => handleOpenEdit(place)} title={t('diary.click_to_edit', { defaultValue: 'Klicken zum Bearbeiten' })}>
                                                     <PenLine className="absolute top-2 right-2 w-3 h-3 text-indigo-200 group-hover:text-indigo-400" />
                                                     {place.userNote.split('\n').map((line: string, i: number) => (<React.Fragment key={i}>{highlightText(line, globalSearchTerm)}<br/></React.Fragment>))}
@@ -583,4 +659,4 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
     </div>
   );
 };
-// --- END OF FILE 528 Zeilen ---
+// --- END OF FILE 589 Zeilen ---

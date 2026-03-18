@@ -1,5 +1,5 @@
-// 19.03.2026 12:00 - FEAT: Added 'Pre-created Days' & 'Daily Summaries' to the print layout. If a user prints the diary before adding places, it prints dotted lines for hand-written notes. Refactored Day 1 anchoring.
-// 18.03.2026 21:00 - UX: Added smart title fallback.
+// 19.03.2026 14:00 - FEAT: Added responsive Detail-Level sync for Diary Text printing. If compact: prints lines/summaries only. If standard: hides user notes. If details: full rendering.
+// 19.03.2026 12:00 - FEAT: Added 'Pre-created Days' & 'Daily Summaries' to the print layout.
 // src/features/Cockpit/PrintReport.tsx
 
 import React, { useMemo } from 'react';
@@ -58,8 +58,6 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
       return Array.from(allDatesSet).sort();
   }, [dates, visitedPlaces, project.data.content?.diarySummaries]);
 
-  // Solange du Reisedaten definiert hast, ist das Tagebuch NIE leer! 
-  // Es druckt dir sonst deine leeren Reisetage als physisches Notizbuch aus.
   const hasDiaryEntries = diaryAllDates.length > 0;
 
   if (!config) return null;
@@ -130,6 +128,12 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
   };
 
   const DiaryPrintView = () => {
+      
+      // FEATURE: Detail-Level Mapping für den Druck
+      const normalizedLevel = (config.detailLevel === 'compact' || (config.detailLevel as any) === 'kompakt') ? 'kompakt' : (config.detailLevel === 'standard' ? 'standard' : 'details');
+      const showPlaces = normalizedLevel !== 'kompakt';
+      const showUserNotes = normalizedLevel === 'details';
+
       const firstDateMs = useMemo(() => {
           let ms = Infinity;
           if (dates?.start) {
@@ -193,12 +197,12 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
                                   </div>
                               )}
                               
-                              {/* FEATURE: Gepunktete Schreiblinien für Tagebuch-Druck VOR der Reise */}
-                              {!diarySummaries[dateKey] && placesForThisDay.length === 0 && (
+                              {/* FEATURE: Schreiblinien werden auch gedruckt, wenn der User "Kompakt" druckt! */}
+                              {!diarySummaries[dateKey] && (!showPlaces || placesForThisDay.length === 0) && (
                                   <div className="h-24 border-b border-dashed border-slate-200 mt-4 mb-4 print:block hidden"></div>
                               )}
 
-                              {placesForThisDay.map((place: any) => {
+                              {showPlaces && placesForThisDay.map((place: any) => {
                                   const safeTimeDate = place.visitedAt ? new Date(place.visitedAt as string) : new Date();
                                   const timeStr = new Intl.DateTimeFormat(currentLang === 'de' ? 'de-DE' : 'en-US', { hour: '2-digit', minute: '2-digit' }).format(safeTimeDate);
                                   const isCustomEntry = place.category === 'custom_diary';
@@ -231,7 +235,7 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
                                               <span className="text-[9px] font-bold text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">{timeStr}</span>
                                           </div>
                                           
-                                          {place.userNote && (
+                                          {showUserNotes && place.userNote && (
                                               <div className="mt-1.5 text-xs text-slate-700 italic border-l-2 border-slate-200 pl-2 py-0.5 leading-relaxed">
                                                   {place.userNote.split('\n').map((line: string, i: number) => (
                                                       <React.Fragment key={i}>
@@ -356,7 +360,6 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
                   <SectionHeader title={t('print.section_diary_map', { defaultValue: 'Mein Reisetagebuch (Karte)' })} />
               )}
               
-              {/* Es gibt keinen "Leeren-Status" mehr, solange der User Reise-Daten (Dates) eingegeben hat */}
               {!hasDiaryEntries ? (
                   <p className="text-slate-500 italic mt-4">{t('print.no_diary_entries', { defaultValue: 'Noch keine Einträge im Tagebuch vorhanden.' })}</p>
               ) : (
@@ -394,4 +397,4 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
     </div>
   );
 };
-// --- END OF FILE 332 Zeilen ---
+// --- END OF FILE 350 Zeilen ---
