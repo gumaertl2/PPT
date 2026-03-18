@@ -1,10 +1,10 @@
-// 17.03.2026 17:30 - FEAT: Initialized PWA Service Worker via virtual:pwa-register.
+// 17.03.2026 17:45 - HOTFIX: Corrected App import syntax (removed curly braces) and initialized PWA Service Worker.
 // 13.02.2026 - Papatours V40
 // src/main.tsx
 
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { App } from './App.tsx'
+import App from './App.tsx'
 import './index.css'
 import './services/i18n'
 
