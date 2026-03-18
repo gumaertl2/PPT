@@ -1,5 +1,5 @@
-// 17.03.2026 15:10 - HOTFIX: Fixed JSX comment syntax error inside return statement.
-// 17.03.2026 15:00 - FEAT: Added deep-linking auto-scroller. Highlight animation when navigating from map to a specific diary entry.
+// 19.03.2026 12:00 - FEAT: Implemented 'Pre-created Days' & 'Daily Summaries'. The diary now maps all planned days automatically, allowing users to write daily free-text summaries. Refactored Day 1 anchor to prevent negative day counting.
+// 17.03.2026 15:10 - HOTFIX: JSX comment syntax.
 // src/features/Cockpit/PlanView.tsx
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -37,10 +37,11 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
   const [isFetchingGPS, setIsFetchingGPS] = useState(false);
   const [customLocation, setCustomLocation] = useState<{lat: number, lng: number} | null>(null);
   
+  const [editingSummaryDate, setEditingSummaryDate] = useState<string | null>(null);
+  const [editSummaryText, setEditSummaryText] = useState('');
+
   const globalSearchTerm = uiState.searchTerm || '';
-
   const [pendingExpense, setPendingExpense] = useState<{title: string, location: any} | null>(null);
-
   const isRoundtripContext = ['roundtrip', 'mobil'].includes(logistics.mode);
 
   useEffect(() => {
@@ -76,12 +77,35 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
     return (item.label as any)[currentLang] || (item.label as any)['de'] || '';
   };
 
-  const getRealDay = (dateStr: string, startStr: string) => {
-      if (!startStr) return 1;
-      const start = new Date(startStr); start.setHours(0,0,0,0);
-      const visit = new Date(dateStr); visit.setHours(0,0,0,0);
-      const diff = visit.getTime() - start.getTime();
+  // FIX: Verankert Tag 1 eisern am offiziellen Startdatum oder am ersten Check-in
+  const firstDateMs = useMemo(() => {
+      let ms = Infinity;
+      if (userInputs.dates?.start) {
+          ms = new Date(userInputs.dates.start).setHours(0,0,0,0);
+      }
+      const placesArr = Object.values(data?.places || {});
+      const visits = placesArr.filter((p: any) => p.visited && p.visitedAt).map((p: any) => new Date(p.visitedAt).setHours(0,0,0,0));
+      if (visits.length > 0) {
+          const earliestVisit = Math.min(...visits);
+          if (earliestVisit < ms) ms = earliestVisit;
+      }
+      if (ms === Infinity) ms = new Date().setHours(0,0,0,0);
+      return ms;
+  }, [userInputs.dates?.start, data?.places]);
+
+  const getRealDay = (dateStr: string) => {
+      const visit = new Date(dateStr);
+      visit.setHours(0,0,0,0);
+      const diff = visit.getTime() - firstDateMs;
       return Math.floor(diff / 86400000) + 1;
+  };
+
+  const handleSaveSummary = (dateKey: string) => {
+      const newContent = { ...(project.data.content || {}) };
+      if (!newContent.diarySummaries) newContent.diarySummaries = {};
+      newContent.diarySummaries[dateKey] = editSummaryText.trim();
+      setProject({ ...project, data: { ...project.data, content: newContent } });
+      setEditingSummaryDate(null);
   };
 
   const matchedRoute = useMemo(() => {
@@ -163,10 +187,7 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
       setProject({ ...project, data: { ...project.data, places: { ...project.data.places, [newId]: newPlace } } });
       
       if (alsoExpense) {
-          setPendingExpense({ 
-              title: customTitle.trim() || defaultTitleText, 
-              location: customLocation 
-          });
+          setPendingExpense({ title: customTitle.trim() || defaultTitleText, location: customLocation });
       }
 
       setIsAddingCustom(false); setCustomTitle(''); setCustomNote(''); setCustomLocation(null);
@@ -254,7 +275,7 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                 const pVal = p.isFixed ? 4 : p.userPriority === 1 ? 3 : p.userPriority === 2 ? 2 : p.userPriority === -1 ? 0 : 1;
                 if (!activeFilters.includes(String(pVal))) return false;
             } else if (sortMode === 'day') {
-                const realDay = getRealDay(p.visitedAt as string, project.userInputs.dates?.start || new Date().toISOString());
+                const realDay = getRealDay(p.visitedAt as string);
                 const labelTranslated = `${t('sights.day', {defaultValue: 'Tag'})} ${realDay}`;
                 const isSelected = activeFilters.includes(`Tag ${realDay}`) || activeFilters.includes(`Day ${realDay}`) || activeFilters.includes(labelTranslated);
                 if (!isSelected) return false;
@@ -285,6 +306,39 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
         acc[dateKey].push(place);
         return acc;
     }, {});
+
+    // FEAT: Kreiert alle Tage automatisch (vom geplanten Start bis zum Ende)
+    const allDatesSet = new Set<string>();
+    const hasFilter = globalSearchTerm || activeFilters.length > 0 || uiState.visitedFilter === 'unvisited';
+
+    if (!hasFilter) {
+        if (userInputs.dates?.start && userInputs.dates?.end) {
+            let current = new Date(userInputs.dates.start);
+            current.setHours(12, 0, 0, 0); 
+            const end = new Date(userInputs.dates.end);
+            end.setHours(12, 0, 0, 0);
+            let safeguard = 0;
+            while (current <= end && safeguard < 100) {
+                allDatesSet.add(current.toISOString().split('T')[0]);
+                current.setDate(current.getDate() + 1);
+                safeguard++;
+            }
+        }
+    }
+    
+    Object.keys(groupedPlaces).forEach(k => allDatesSet.add(k));
+
+    if (globalSearchTerm) {
+        const term = globalSearchTerm.toLowerCase();
+        Object.entries(project.data.content?.diarySummaries || {}).forEach(([k, text]) => {
+            if (typeof text === 'string' && text.toLowerCase().includes(term)) {
+                allDatesSet.add(k);
+            }
+        });
+    }
+
+    const allDates = Array.from(allDatesSet).sort();
+    const diarySummaries = project.data.content?.diarySummaries || {};
 
     return (
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-emerald-100 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -338,9 +392,9 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                 </div>
             )}
 
-            {filteredPlaces.length === 0 && !isAddingCustom && (
+            {allDates.length === 0 && !isAddingCustom && (
                 <div className="text-center py-8 text-slate-400 text-sm italic">
-                    {globalSearchTerm || activeFilters.length > 0 || uiState.visitedFilter === 'unvisited'
+                    {hasFilter
                         ? t('diary.no_search_results', { defaultValue: 'Keine Einträge für diesen Filter gefunden.' })
                         : t('diary.empty_state', { defaultValue: 'Noch keine Einträge. Checke bei Orten ein oder erstelle einen eigenen Eintrag!' })
                     }
@@ -348,11 +402,11 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
             )}
 
             <div className="space-y-1 relative">
-                {filteredPlaces.length > 0 && <div className="absolute top-8 bottom-4 left-[27px] w-0.5 bg-emerald-100 z-0"></div>}
+                {allDates.length > 0 && <div className="absolute top-8 bottom-4 left-[27px] w-0.5 bg-emerald-100 z-0"></div>}
 
-                {Object.keys(groupedPlaces).sort().map((dateKey) => {
-                    const placesForThisDay = groupedPlaces[dateKey];
-                    const realDay = getRealDay(dateKey, userInputs.dates?.start || new Date().toISOString());
+                {allDates.map((dateKey) => {
+                    const placesForThisDay = groupedPlaces[dateKey] || [];
+                    const realDay = getRealDay(dateKey);
                     const dateObj = new Date(dateKey);
                     const dateStr = new Intl.DateTimeFormat(currentLang === 'de' ? 'de-DE' : 'en-US', { weekday: 'long', day: '2-digit', month: 'long' }).format(dateObj);
 
@@ -362,10 +416,49 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                                 <div className="h-px bg-emerald-200 flex-1"></div>
                                 <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 shadow-sm flex items-center gap-2">
                                     {t('diary.real_day', { defaultValue: currentLang === 'en' ? 'Travel Day' : 'Reisetag' })} {realDay} <span className="text-emerald-600/60 font-medium">|</span> {dateStr}
+                                    <button onClick={() => {
+                                        setEditingSummaryDate(dateKey);
+                                        setEditSummaryText(diarySummaries[dateKey] || '');
+                                    }} className="ml-2 text-emerald-500 hover:text-emerald-700 transition-colors" title={t('diary.edit_summary', { defaultValue: 'Tageszusammenfassung bearbeiten' })}>
+                                        <PenLine size={12} />
+                                    </button>
                                 </span>
                                 <div className="h-px bg-emerald-200 flex-1"></div>
                             </div>
 
+                            {/* FREITEXT TAGES-ZUSAMMENFASSUNG */}
+                            {editingSummaryDate === dateKey ? (
+                                <div className="mb-6 p-4 bg-emerald-50/50 border border-emerald-200 rounded-xl animate-in fade-in slide-in-from-top-1 shadow-sm">
+                                    <label className="text-[10px] font-bold text-emerald-600 uppercase mb-2 flex items-center gap-1"><PenLine size={12}/> {t('diary.summary_title', {defaultValue: 'Tageszusammenfassung'})}</label>
+                                    <textarea 
+                                        value={editSummaryText} 
+                                        onChange={e => setEditSummaryText(e.target.value)} 
+                                        placeholder={t('diary.summary_placeholder', {defaultValue: 'Wie war dein Tag? Highlights, Wetter, Besonderes...'})}
+                                        className="w-full text-sm p-3 border border-emerald-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-300 min-h-[80px] bg-white resize-y mb-3 shadow-inner" 
+                                        autoFocus
+                                    />
+                                    <div className="flex gap-2">
+                                        <button onClick={() => setEditingSummaryDate(null)} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-bold bg-white text-slate-600 border border-slate-200 rounded-xl hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors">
+                                            <X size={14} /> {t('actions.cancel', {defaultValue: 'Abbruch'})}
+                                        </button>
+                                        <button onClick={() => handleSaveSummary(dateKey)} className="flex-[2] flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-bold bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors shadow-sm">
+                                            <CheckCircle2 size={14} /> {t('actions.save', {defaultValue: 'Speichern'})}
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : diarySummaries[dateKey] ? (
+                                <div className="mb-6 text-sm text-slate-700 bg-white border border-emerald-100 rounded-xl p-4 shadow-sm italic leading-relaxed relative group cursor-pointer hover:border-emerald-300 hover:shadow-md transition-all" onClick={() => {
+                                    setEditingSummaryDate(dateKey);
+                                    setEditSummaryText(diarySummaries[dateKey]);
+                                }} title={t('diary.click_to_edit', { defaultValue: 'Klicken zum Bearbeiten' })}>
+                                    <PenLine className="absolute top-3 right-3 w-3 h-3 text-emerald-200 group-hover:text-emerald-500 transition-colors" />
+                                    {diarySummaries[dateKey].split('\n').map((line: string, i: number) => (
+                                        <React.Fragment key={i}>{highlightText(line, globalSearchTerm)}<br/></React.Fragment>
+                                    ))}
+                                </div>
+                            ) : null}
+
+                            {/* BESUCHTE ORTE DES TAGES */}
                             {placesForThisDay.map((place: any) => {
                                 const safeTimeDate = place.visitedAt ? new Date(place.visitedAt as string) : new Date();
                                 const timeStr = new Intl.DateTimeFormat(currentLang === 'de' ? 'de-DE' : 'en-US', { hour: '2-digit', minute: '2-digit' }).format(safeTimeDate);
@@ -373,7 +466,6 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                                 const categoryLabel = isCustomEntry ? t('diary.custom_entry_label', { defaultValue: 'Eigener Eintrag' }) : (INTEREST_DATA[place.category] ? resolveLabel(INTEREST_DATA[place.category]) : place.category);
                                 const rating = place.userRating || 0;
 
-                                // FIX: ID appended for deep-linking
                                 return (
                                     <div key={place.id} id={`diary-entry-${place.id}`} className="relative pl-14 py-2">
                                         <div className="absolute left-[15px] top-5 w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] font-black shadow-sm ring-4 ring-white z-10">
@@ -491,4 +583,4 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
     </div>
   );
 };
-// --- END OF FILE 438 Zeilen ---
+// --- END OF FILE 528 Zeilen ---

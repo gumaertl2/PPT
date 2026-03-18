@@ -502,7 +502,12 @@
     "jump_to_map": "Zur Karte",
     "jump_to_map_tooltip": "Auf unserer Karte zeigen",
     "jump_to_guide": "Zum Guide",
-    "jump_to_guide_tooltip": "Details im Guide ansehen"
+    "jump_to_guide_tooltip": "Details im Guide ansehen",
+    "edit_summary": "Tageszusammenfassung bearbeiten",
+    "summary_title": "Tageszusammenfassung",
+    "summary_placeholder": "Wie war dein Tag? Highlights, Wetter, Besonderes...",
+    "no_search_results": "Keine Einträge für diesen Filter gefunden.",
+    "empty_state": "Noch keine Einträge. Checke bei Orten ein oder erstelle einen eigenen Eintrag!"
   },
   "itinerary": {
     "remaining_nights_open": "Es sind noch {{count}} Nächte offen.",

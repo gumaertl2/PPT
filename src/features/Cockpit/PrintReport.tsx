@@ -1,5 +1,5 @@
-// 18.03.2026 21:00 - UX: Added a smart title fallback for the main document header. If the project name is still the default "Neue Reise", it dynamically generates a beautiful title like "Reise nach Fuerteventura" instead of printing the dummy string.
-// 18.03.2026 19:00 - UX: Created 'isOnlyDiary' guard for conditional headers.
+// 19.03.2026 12:00 - FEAT: Added 'Pre-created Days' & 'Daily Summaries' to the print layout. If a user prints the diary before adding places, it prints dotted lines for hand-written notes. Refactored Day 1 anchoring.
+// 18.03.2026 21:00 - UX: Added smart title fallback.
 // src/features/Cockpit/PrintReport.tsx
 
 import React, { useMemo } from 'react';
@@ -31,7 +31,36 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
           .map((p: any, index: number) => ({ ...p, _seq: index + 1 }));
   }, [project.data?.places]);
 
-  const hasDiaryEntries = visitedPlaces.length > 0;
+  const diaryAllDates = useMemo(() => {
+      const allDatesSet = new Set<string>();
+      if (dates?.start && dates?.end) {
+          let current = new Date(dates.start);
+          current.setHours(12, 0, 0, 0); 
+          const end = new Date(dates.end);
+          end.setHours(12, 0, 0, 0);
+          let safeguard = 0;
+          while (current <= end && safeguard < 100) {
+              allDatesSet.add(current.toISOString().split('T')[0]);
+              current.setDate(current.getDate() + 1);
+              safeguard++;
+          }
+      }
+      
+      visitedPlaces.forEach(p => {
+          if (p.visitedAt) allDatesSet.add(new Date(p.visitedAt).toISOString().split('T')[0]);
+      });
+      
+      const summaries = project.data.content?.diarySummaries || {};
+      Object.keys(summaries).forEach(k => {
+          if (summaries[k]?.trim()) allDatesSet.add(k);
+      });
+
+      return Array.from(allDatesSet).sort();
+  }, [dates, visitedPlaces, project.data.content?.diarySummaries]);
+
+  // Solange du Reisedaten definiert hast, ist das Tagebuch NIE leer! 
+  // Es druckt dir sonst deine leeren Reisetage als physisches Notizbuch aus.
+  const hasDiaryEntries = diaryAllDates.length > 0;
 
   if (!config) return null;
 
@@ -79,7 +108,6 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
       return `${defaultTitle}${destStr ? ` - ${destStr}` : ''}${dateStr ? `, ${dateStr}` : ''}`;
   };
 
-  // NEU: Intelligenter Haupt-Titel für das gesamte Dokument, falls "Neue Reise" noch aktiv ist.
   const getMainDocumentTitle = () => {
       const name = project.meta.name;
       if (name !== 'Neue Reise' && name !== 'New Trip') {
@@ -102,13 +130,24 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
   };
 
   const DiaryPrintView = () => {
-      const firstVisitDate = new Date(visitedPlaces[0].visitedAt);
-      firstVisitDate.setHours(0,0,0,0);
+      const firstDateMs = useMemo(() => {
+          let ms = Infinity;
+          if (dates?.start) {
+              ms = new Date(dates.start).setHours(0,0,0,0);
+          }
+          const visits = visitedPlaces.map((p: any) => new Date(p.visitedAt).setHours(0,0,0,0));
+          if (visits.length > 0) {
+              const earliestVisit = Math.min(...visits);
+              if (earliestVisit < ms) ms = earliestVisit;
+          }
+          if (ms === Infinity) ms = new Date().setHours(0,0,0,0);
+          return ms;
+      }, [dates?.start, visitedPlaces]);
 
       const getRealDay = (dateStr: string) => {
           const visit = new Date(dateStr);
           visit.setHours(0,0,0,0);
-          const diff = visit.getTime() - firstVisitDate.getTime();
+          const diff = visit.getTime() - firstDateMs;
           return Math.floor(diff / 86400000) + 1;
       };
 
@@ -120,11 +159,13 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
           return acc;
       }, {});
 
+      const diarySummaries = project.data.content?.diarySummaries || {};
+
       return (
           <div className="mt-2">
               <div className="space-y-2">
-                  {Object.keys(groupedPlaces).sort().map((dateKey) => {
-                      const placesForThisDay = groupedPlaces[dateKey];
+                  {diaryAllDates.map((dateKey) => {
+                      const placesForThisDay = groupedPlaces[dateKey] || [];
                       const realDay = getRealDay(dateKey);
                       const dateObj = new Date(dateKey);
                       const dateStr = new Intl.DateTimeFormat(currentLang === 'de' ? 'de-DE' : 'en-US', {
@@ -132,7 +173,7 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
                       }).format(dateObj);
 
                       return (
-                          <div key={dateKey} className="mb-6">
+                          <div key={dateKey} className="mb-6 print:break-inside-avoid">
                               
                               <div className="flex items-center gap-4 mt-4 mb-4 print:break-after-avoid">
                                   <div className="h-px bg-slate-300 flex-1"></div>
@@ -141,6 +182,21 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
                                   </span>
                                   <div className="h-px bg-slate-300 flex-1"></div>
                               </div>
+
+                              {diarySummaries[dateKey] && (
+                                  <div className="mb-5 text-sm text-slate-700 italic border-l-2 border-slate-300 pl-3 py-1 leading-relaxed print:break-inside-avoid">
+                                      {diarySummaries[dateKey].split('\n').map((line: string, i: number) => (
+                                          <React.Fragment key={i}>
+                                              {line}<br/>
+                                          </React.Fragment>
+                                      ))}
+                                  </div>
+                              )}
+                              
+                              {/* FEATURE: Gepunktete Schreiblinien für Tagebuch-Druck VOR der Reise */}
+                              {!diarySummaries[dateKey] && placesForThisDay.length === 0 && (
+                                  <div className="h-24 border-b border-dashed border-slate-200 mt-4 mb-4 print:block hidden"></div>
+                              )}
 
                               {placesForThisDay.map((place: any) => {
                                   const safeTimeDate = place.visitedAt ? new Date(place.visitedAt as string) : new Date();
@@ -202,7 +258,6 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
       
       {/* HEADER LOGIK */}
       {!isOnlyDiary ? (
-          // Fetter Haupt-Header (nutzt jetzt die smarte getMainDocumentTitle() Logik)
           <div className="mb-12 text-center border-b border-slate-200 pb-8">
              <h1 className="text-4xl font-black text-slate-900 mb-2">{getMainDocumentTitle()}</h1>
              <p className="text-slate-500 uppercase tracking-widest text-sm">
@@ -215,7 +270,6 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
              )}
           </div>
       ) : (
-          // Schlanker Einzeiler für reinen Tagebuchdruck
           <div className="mb-4 text-center pb-2 border-b border-slate-200">
              <h1 className="text-[12pt] font-normal text-slate-900 uppercase tracking-wider">
                 {buildDynamicTitle()}
@@ -302,6 +356,7 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
                   <SectionHeader title={t('print.section_diary_map', { defaultValue: 'Mein Reisetagebuch (Karte)' })} />
               )}
               
+              {/* Es gibt keinen "Leeren-Status" mehr, solange der User Reise-Daten (Dates) eingegeben hat */}
               {!hasDiaryEntries ? (
                   <p className="text-slate-500 italic mt-4">{t('print.no_diary_entries', { defaultValue: 'Noch keine Einträge im Tagebuch vorhanden.' })}</p>
               ) : (
@@ -339,4 +394,4 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
     </div>
   );
 };
-// --- END OF FILE 319 Zeilen ---
+// --- END OF FILE 332 Zeilen ---

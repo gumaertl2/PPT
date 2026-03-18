@@ -1,5 +1,5 @@
-// 17.03.2026 15:00 - FEAT: Handed down setViewMode to SightsMapView to enable jumping to Diary.
-// 17.03.2026 14:00 - FEAT: Added 'getRealDay' logic.
+// 19.03.2026 10:00 - FIX: Ignored visitedFilter and other UI filters when isPrint is true, ensuring the full travel guide is generated even if printed from the Diary view.
+// 17.03.2026 15:00 - FEAT: Handed down setViewMode to SightsMapView.
 // src/features/Cockpit/SightsView.tsx
 
 import React, { useMemo, useEffect, useState, useRef } from 'react';
@@ -55,7 +55,6 @@ const getRealDay = (dateStr: string, startStr: string) => {
     return Math.floor(diff / 86400000) + 1;
 };
 
-// FIX: Added setViewMode to Props
 export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?: DetailLevel, setViewMode?: (mode: CockpitViewMode) => void }> = ({ overrideSortMode, overrideDetailLevel, setViewMode }) => {
   const { t, i18n } = useTranslation(); 
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
@@ -74,6 +73,9 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
   const places = Object.values(data.places || {}) as Place[];
 
   const showPlanningMode = uiState.showPlanningMode || false;
+  
+  // FIX: Wir erkennen den Druck-Modus zuverlässig
+  const isPrint = !!overrideSortMode || uiState.isPrintMode;
   const activeSortMode = overrideSortMode || (uiState.sortMode as string) || 'category';
   const isTourMode = activeSortMode === 'tour';
   const isDayMode = activeSortMode === 'day';
@@ -192,8 +194,9 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
           const count = (tour.suggested_order_ids || []).filter((id: string) => {
               const p = places.find(pl => pl.id === id);
               if (!p) return false;
-              if (uiState.visitedFilter === 'visited' && !p.visited) return false;
-              if (uiState.visitedFilter === 'unvisited' && p.visited) return false;
+              // FIX: Ignoriere visitedFilter im Druck-Modus, da sonst Touren unvollständig gedruckt werden
+              if (!isPrint && uiState.visitedFilter === 'visited' && !p.visited) return false;
+              if (!isPrint && uiState.visitedFilter === 'unvisited' && p.visited) return false;
               return true;
           }).length;
 
@@ -216,16 +219,19 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
       }
 
       return mappedTours;
-  }, [analysis, places, uiState.visitedFilter, t]);
+  }, [analysis, places, uiState.visitedFilter, t, isPrint]);
 
   const filteredLists = useMemo(() => {
     const mainList: any[] = [];
     const specialList: any[] = []; 
-    const isPrint = !!overrideSortMode || uiState.isPrintMode;
+    
+    // FIX: Wenn isPrint = true, ignorieren wir ALLE temporären Filter (Suche, Besucht, Kategorie)
     const term = isPrint ? '' : (uiState.searchTerm || '').toLowerCase();
     const activeFilters = isPrint ? [] : (uiState.categoryFilter || []); 
     const sortMode = activeSortMode;
     const selectedCategory = isPrint ? 'all' : uiState.selectedCategory;
+    const visitedFilter = isPrint ? 'all' : uiState.visitedFilter;
+    
     const ignoreList = APPENDIX_ONLY_INTERESTS || [];
     const minRating = userInputs.searchSettings?.minRating || 0;
     const minDuration = userInputs.searchSettings?.minDuration || 0;
@@ -241,7 +247,7 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     let otherDayPlaceIds = new Set<string>();
 
     if (sortMode === 'day' && activeFilters.length > 0) {
-        if (uiState.visitedFilter === 'visited') {
+        if (visitedFilter === 'visited') {
             uniquePlaces.forEach(p => {
                 if (p.visited && p.visitedAt) {
                     const realDay = getRealDay(p.visitedAt, project.userInputs.dates?.start || new Date().toISOString());
@@ -289,8 +295,9 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     };
 
     uniquePlaces.forEach((p: any) => {
-      if (uiState.visitedFilter === 'visited' && !p.visited) return;
-      if (uiState.visitedFilter === 'unvisited' && p.visited) return;
+      // FIX: uses visitedFilter (which is 'all' during print)
+      if (visitedFilter === 'visited' && !p.visited) return;
+      if (visitedFilter === 'unvisited' && p.visited) return;
 
       const meta = getMeta(p);
       const cat = meta.cat;
@@ -349,7 +356,7 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     };
 
     return { main: mainList.sort(sortFn), special: specialList.sort(sortFn) };
-  }, [places, uiState.searchTerm, uiState.categoryFilter, activeSortMode, uiState.selectedCategory, uiState.isPrintMode, overrideSortMode, userInputs.searchSettings, tourOptions, project.itinerary, t, showPlanningMode, uiState.visitedFilter]);
+  }, [places, uiState.searchTerm, uiState.categoryFilter, activeSortMode, uiState.selectedCategory, isPrint, uiState.visitedFilter, userInputs.searchSettings, tourOptions, project.itinerary, t, showPlanningMode]);
 
   const handleBatchLiveCheck = async () => {
       if (isLiveChecking) return;
@@ -488,7 +495,6 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
         </div>
       )}
 
-      {/* FIX: Handed setViewMode down to map */}
       {uiState.viewMode === 'map' && !overrideSortMode ? (
         <div className="mb-8 print:hidden"><SightsMapView places={[...filteredLists.main, ...filteredLists.special] as Place[]} setViewMode={setViewMode} /></div>
       ) : isDayMode ? (
@@ -528,4 +534,4 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     </div>
   );
 };
-// --- END OF FILE 615 Zeilen ---
+// --- END OF FILE 620 Zeilen ---

@@ -1,7 +1,5 @@
-// 22.02.2026 17:30 - FEAT: Added search filtering and yellow highlighting for the search term.
-// 22.02.2026 16:05 - FIX: Removed 'print:break-inside-avoid' from info cards to prevent PDF text cutoff on long texts. Added 'print:break-after-avoid' to header instead.
-// 06.02.2026 17:10 - FIX: Corrected File Path Header & Print Optimization.
-// 29.01.2026 12:30 - FIX: InfoView Layout Optimization. Always full text, Smart Titles, Reduced Spacing, Removed Main Header.
+// 19.03.2026 11:00 - FIX: Disabled searchTerm filtering during print to prevent empty outputs. Restructured print container classes to 'print:block print:h-auto' to prevent height cutoffs.
+// 22.02.2026 17:30 - FEAT: Added search filtering.
 // src/features/info/InfoView.tsx
 
 import React, { useState, useMemo } from 'react';
@@ -40,8 +38,9 @@ export const InfoView: React.FC = () => {
   const { t } = useTranslation();
   const { project, uiState } = useTripStore();
   
-  // Lese Suchbegriff aus dem Store
-  const searchTerm = (uiState.searchTerm || '').toLowerCase();
+  // FIX: Im Druckmodus ignorieren wir die Suchleiste, damit immer alles gedruckt wird!
+  const isPrint = !!uiState.printConfig;
+  const searchTerm = isPrint ? '' : (uiState.searchTerm || '').toLowerCase();
   
   const [debugItem, setDebugItem] = useState<any | null>(null);
   
@@ -141,7 +140,7 @@ export const InfoView: React.FC = () => {
 
     return cleanText.split('\n').map((line, index) => {
       const trimmed = line.trim();
-      if (!trimmed) return <div key={index} className="h-1" />; // Minimaler Abstand bei Leerzeilen
+      if (!trimmed) return <div key={index} className="h-1" />; 
 
       // HEADERS (### or **)
       if (trimmed.startsWith('###') || trimmed.startsWith('##')) {
@@ -221,7 +220,8 @@ export const InfoView: React.FC = () => {
   };
 
   return (
-    <div className="h-full flex flex-col bg-slate-50/50 overflow-y-auto p-4 pb-24 info-view-root print:h-auto print:overflow-visible print:bg-white print:p-0 print:pb-0">
+    // FIX: print:block hebt Flex-Einschränkungen auf, print:h-auto lässt die Sektion endlos lang werden
+    <div className="h-full flex flex-col bg-slate-50/50 overflow-y-auto p-4 pb-24 info-view-root print:block print:h-auto print:overflow-visible print:bg-white print:p-0 print:pb-0">
       
       {/* CONTENT LIST */}
       {filteredInfoItems.length === 0 ? (
@@ -311,4 +311,4 @@ export const InfoView: React.FC = () => {
     </div>
   );
 };
-// --- END OF FILE 256 Zeilen ---
+// --- END OF FILE 261 Zeilen ---

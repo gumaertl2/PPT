@@ -503,7 +503,12 @@
     "jump_to_map": "To Map",
     "jump_to_map_tooltip": "Show on our map",
     "jump_to_guide": "To Guide",
-    "jump_to_guide_tooltip": "View details in Guide"
+    "jump_to_guide_tooltip": "View details in Guide",
+    "edit_summary": "Edit Daily Summary",
+    "summary_title": "Daily Summary",
+    "summary_placeholder": "How was your day? Highlights, weather, special moments...",
+    "no_search_results": "No entries found for this filter.",
+    "empty_state": "No entries yet. Check in at places or create a custom entry!"
   },
   "itinerary": {
     "remaining_nights_open": "{{count}} nights still open.",
