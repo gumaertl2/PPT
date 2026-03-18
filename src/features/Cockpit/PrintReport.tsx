@@ -1,5 +1,5 @@
-// 18.03.2026 19:00 - UX: Created 'isOnlyDiary' guard. If true, the generic big PDF header is hidden and the sleek one-liner is used at the very top of the document, protecting pure Diary (Text) printouts from the nonsense text.
-// 18.03.2026 18:30 - FEAT: Completely separated Diary Map and Diary Text rendering.
+// 18.03.2026 21:00 - UX: Added a smart title fallback for the main document header. If the project name is still the default "Neue Reise", it dynamically generates a beautiful title like "Reise nach Fuerteventura" instead of printing the dummy string.
+// 18.03.2026 19:00 - UX: Created 'isOnlyDiary' guard for conditional headers.
 // src/features/Cockpit/PrintReport.tsx
 
 import React, { useMemo } from 'react';
@@ -77,6 +77,28 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
 
       const defaultTitle = currentLang === 'en' ? 'Travel Diary' : 'Reisetagebuch';
       return `${defaultTitle}${destStr ? ` - ${destStr}` : ''}${dateStr ? `, ${dateStr}` : ''}`;
+  };
+
+  // NEU: Intelligenter Haupt-Titel für das gesamte Dokument, falls "Neue Reise" noch aktiv ist.
+  const getMainDocumentTitle = () => {
+      const name = project.meta.name;
+      if (name !== 'Neue Reise' && name !== 'New Trip') {
+          return name;
+      }
+      
+      let destArr = [];
+      if (logistics.mode === 'stationaer') {
+          if (logistics.stationary.region) destArr.push(logistics.stationary.region);
+          if (logistics.stationary.destination) destArr.push(logistics.stationary.destination);
+      } else {
+          if (logistics.roundtrip.region) destArr.push(logistics.roundtrip.region);
+      }
+      const destStr = destArr.join(', ');
+      
+      if (destStr) {
+          return `${currentLang === 'en' ? 'Trip to' : 'Reise nach'} ${destStr}`;
+      }
+      return name;
   };
 
   const DiaryPrintView = () => {
@@ -173,8 +195,6 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
       );
   };
 
-  // FIX: Prüfe, ob NUR das Tagebuch gedruckt wird (Karte und/oder Text). 
-  // Wenn ja, blenden wir den fetten Nonsens-Header aus und nutzen nur den dynamischen Einzeiler.
   const isOnlyDiary = !config.sections.briefing && !config.sections.analysis && !config.sections.days && !config.sections.tours && !config.sections.categories && !config.sections.infos;
 
   return (
@@ -182,9 +202,9 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
       
       {/* HEADER LOGIK */}
       {!isOnlyDiary ? (
-          // Standard fetter Header für gemischte PDFs
+          // Fetter Haupt-Header (nutzt jetzt die smarte getMainDocumentTitle() Logik)
           <div className="mb-12 text-center border-b border-slate-200 pb-8">
-             <h1 className="text-4xl font-black text-slate-900 mb-2">{project.meta.name}</h1>
+             <h1 className="text-4xl font-black text-slate-900 mb-2">{getMainDocumentTitle()}</h1>
              <p className="text-slate-500 uppercase tracking-widest text-sm">
                 {new Date().toLocaleDateString()} • Papatours V40
              </p>
@@ -195,7 +215,7 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
              )}
           </div>
       ) : (
-          // Schlanker Einzeiler, wenn nur das Tagebuch gedruckt wird
+          // Schlanker Einzeiler für reinen Tagebuchdruck
           <div className="mb-4 text-center pb-2 border-b border-slate-200">
              <h1 className="text-[12pt] font-normal text-slate-900 uppercase tracking-wider">
                 {buildDynamicTitle()}
@@ -298,8 +318,6 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
         <>
            {(!isOnlyDiary || config.sections.diaryMap) && <PageBreak />}
            <section className="print-section">
-              {/* Zeige die fette Kapitel-Überschrift nur, wenn vorher Karte ODER andere Dokumente gedruckt wurden. 
-                  Druckt man NUR den Text, reicht der Titel ganz oben! */}
               {(!isOnlyDiary || config.sections.diaryMap) && (
                   <SectionHeader title={t('print.section_diary_text', { defaultValue: 'Mein Reisetagebuch (Einträge)' })} />
               )}
@@ -321,4 +339,4 @@ export const PrintReport: React.FC<PrintReportProps> = ({ config }) => {
     </div>
   );
 };
-// --- END OF FILE 301 Zeilen ---
+// --- END OF FILE 319 Zeilen ---
