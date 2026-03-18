@@ -1,5 +1,5 @@
-// 18.03.2026 18:30 - FIX: Changed container height to flexible '90vh' in print mode. This allows the map to perfectly expand and fill the paper regardless of whether the user sets the printer to portrait or landscape!
-// 18.03.2026 17:00 - FIX: Added zoomSnap={0.1} and reduced padding to 15.
+// 18.03.2026 20:30 - HOTFIX: Restored missing <MapStyles /> component in the JSX tree to fix Vercel TS6133 build error (unused import).
+// 18.03.2026 18:30 - FIX: Flexible 90vh print height.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -245,8 +245,6 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
       );
   };
 
-  // FIX: h-[85vh] on screen translates beautifully to a dynamic print height (print:h-[90vh]).
-  // This allows the map to perfectly expand and fill the paper regardless of whether the user sets the printer to portrait or landscape!
   const containerClasses = isPrintMode
     ? "h-[85vh] w-full rounded-2xl overflow-hidden border border-slate-200 relative bg-slate-50 print:h-[90vh] print:break-inside-avoid shadow-sm"
     : isFullscreen
@@ -256,6 +254,8 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
   return (
     <div className={containerClasses}>
       
+      <MapStyles /> {/* HOTFIX: Restored MapStyles to fix Vercel TS6133 Error */}
+
       {isUpdatingCoords && (
           <div className={`absolute top-4 right-20 z-[1000] bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-md border border-slate-200 flex items-center gap-3 text-xs font-medium text-slate-600 animate-in slide-in-from-top-2`}>
               <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-500" />
@@ -452,4 +452,4 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
     </div>
   );
 };
-// --- END OF FILE 418 Zeilen ---
+// --- END OF FILE 420 Zeilen ---
