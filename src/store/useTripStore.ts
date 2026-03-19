@@ -1,55 +1,57 @@
-// 20.02.2026 18:15 - FIX: Added 'view' to Autosave (persist) so the app reloads directly into the active screen (no Welcome Screen shock).
-// 20.02.2026 18:00 - FEAT: Added 'persist' middleware for Smart Autosave (Zero Data Loss).
-// 05.02.2026 18:00 - REFACTOR: Added 'WizardSlice' to Store Composition.
+// 19.03.2026 17:45 - FEAT: Added Zustand persist migration layer (version: 1) to ensure backwards compatibility with older local caches. Protects against crashes when new models (expenses, customPreferences) are introduced.
+// 27.02.2026 19:55 - FIX: Exported type for global SSOT.
 // src/store/useTripStore.ts
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware'; 
+import { persist } from 'zustand/middleware';
+import { createProjectSlice, type ProjectSlice } from './slices/createProjectSlice';
+import { createUISlice, type UISlice } from './slices/createUISlice';
+import { createWizardSlice, type WizardSlice } from './slices/createWizardSlice';
+import { createAnalysisSlice, type AnalysisSlice } from './slices/createAnalysisSlice';
+import { createSystemSlice, type SystemSlice } from './slices/createSystemSlice';
 
-// VALUES
-import { createProjectSlice } from './slices/createProjectSlice';
-import { createWizardSlice } from './slices/createWizardSlice'; 
-import { createUISlice } from './slices/createUISlice';
-import { createSystemSlice } from './slices/createSystemSlice';
-import { createAnalysisSlice } from './slices/createAnalysisSlice';
+export type TripStore = ProjectSlice & UISlice & WizardSlice & AnalysisSlice & SystemSlice;
 
-// TYPES
-import type { ProjectSlice } from './slices/createProjectSlice';
-import type { WizardSlice } from './slices/createWizardSlice'; 
-import type { UISlice } from './slices/createUISlice';
-import type { SystemSlice } from './slices/createSystemSlice';
-import type { AnalysisSlice } from './slices/createAnalysisSlice';
-
-export type { AiStrategy } from '../core/types';
-
-// Der Gesamttyp des Stores
-export type TripStore = ProjectSlice & WizardSlice & UISlice & SystemSlice & AnalysisSlice;
-
-// Der Store wird zusammengesetzt und mit 'persist' automatisch im Hintergrund gesichert!
 export const useTripStore = create<TripStore>()(
   persist(
     (...a) => ({
       ...createProjectSlice(...a),
-      ...createWizardSlice(...a), 
       ...createUISlice(...a),
-      ...createSystemSlice(...a),
+      ...createWizardSlice(...a),
       ...createAnalysisSlice(...a),
+      ...createSystemSlice(...a),
     }),
     {
-      name: 'papatours-autosave', 
+      name: 'papatours-storage',
+      version: 1, // VERSIONING ACTIVATED
       partialize: (state) => ({
-        // SMART AUTOSAVE WHITELIST: 
-        // Wir speichern nur die echten Nutzdaten und die aktuelle Ansicht.
-        // Temporäre Status (wie laufende Workflows) werden absichtlich ignoriert.
         project: state.project,
         uiState: state.uiState,
-        view: state.view, // NEW: Sichert, dass wir beim Neuladen nicht im Welcome Screen landen!
+        wizard: state.wizard,
         apiKey: state.apiKey,
-        aiSettings: state.aiSettings,
-        manualPrompt: state.manualPrompt,
-        manualStepId: state.manualStepId
+        usageStats: state.usageStats
       }),
+      // THE MIGRATION LAYER (Protects old local caches)
+      migrate: (persistedState: any, version: number) => {
+        if (version === 0) {
+          // Migration from unversioned (v0) to v1
+          if (persistedState.project) {
+             // Ensure data objects exist
+             if (!persistedState.project.data) persistedState.project.data = {};
+             if (!persistedState.project.data.expenses) persistedState.project.data.expenses = {};
+             if (!persistedState.project.data.content) persistedState.project.data.content = {};
+             
+             // Ensure userInputs exist
+             if (!persistedState.project.userInputs) persistedState.project.userInputs = {};
+             if (!persistedState.project.userInputs.customPreferences) persistedState.project.userInputs.customPreferences = {};
+             if (!persistedState.project.userInputs.searchSettings) {
+                 persistedState.project.userInputs.searchSettings = { sightsCount: 30, minRating: 4.0, minDuration: 30 };
+             }
+          }
+        }
+        return persistedState;
+      }
     }
   )
 );
-// --- END OF FILE 49 Zeilen ---
+// --- END OF FILE 48 Zeilen ---

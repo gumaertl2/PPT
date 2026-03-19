@@ -1,5 +1,5 @@
-// 19.03.2026 13:00 - FEAT: Implemented native File System Access API (showSaveFilePicker) to provide a real 'Save As' dialog handling overwrites smoothly on Mac/PC.
-// 23.02.2026 15:45 - FEAT: Added 'mergeProject' to integrate donor projects safely.
+// 19.03.2026 17:45 - FEAT: Added deep-sanitizer to 'loadProject' to ensure old JSON files are dynamically upgraded to the latest data model without crashing.
+// 19.03.2026 13:00 - FEAT: Implemented native File System Access API (showSaveFilePicker).
 // src/store/slices/createProjectSlice.ts
 
 import type { StateCreator } from 'zustand';
@@ -19,7 +19,6 @@ export interface ProjectSlice {
   // Actions
   setProject: (project: TripProject) => void;
   loadProject: (fileOrProject: File | TripProject | any) => Promise<void> | void;
-  // FIX: saveProject ist nun asynchron und gibt einen boolean (Erfolg) zurück
   saveProject: (fileName?: string) => Promise<boolean>;
   resetProject: () => void;
   setLanguage: (lang: LanguageCode) => void;
@@ -36,7 +35,6 @@ export interface ProjectSlice {
   deleteExpense: (id: string) => void;
 }
 
-// Helper für Initial State
 const createInitialProject = (): TripProject => ({
   meta: {
     id: uuidv4(),
@@ -139,9 +137,23 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
           throw new Error("Invalid input format for loadProject");
       }
       
-      if (!data.data.expenses) {
-          data.data.expenses = {};
+      // --- SANITIZER (MIGRATION LAYER FOR JSON FILES) ---
+      // Ensures old JSON files don't crash the app by filling in missing structures
+      if (!data.data) data.data = {};
+      if (!data.data.places) data.data.places = {};
+      if (!data.data.expenses) data.data.expenses = {};
+      if (!data.data.content) data.data.content = {};
+      
+      if (!data.userInputs) data.userInputs = {};
+      if (!data.userInputs.customPreferences) data.userInputs.customPreferences = {};
+      if (!data.userInputs.searchSettings) {
+          data.userInputs.searchSettings = { 
+              sightsCount: DEFAULT_SIGHTS_COUNT, 
+              minRating: DEFAULT_MIN_RATING, 
+              minDuration: DEFAULT_MIN_DURATION 
+          };
       }
+      // --------------------------------------------------
       
       set((state: any) => ({
         ...state,
@@ -189,7 +201,6 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     
     let fileName = customFileName;
 
-    // Dynamische Namensgenerierung, falls keiner mitgegeben wird
     if (!fileName) {
         let baseName = "Papatours_Reise";
         const { logistics } = state.project.userInputs;
@@ -210,7 +221,6 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     }
     
     try {
-        // Prüft, ob der moderne Sichern-Dialog im Browser/Gerät verfügbar ist
         if ('showSaveFilePicker' in window) {
             const handle = await (window as any).showSaveFilePicker({
                 suggestedName: fileName,
@@ -231,7 +241,6 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
             }
             return true;
         } else {
-            // Fallback für Firefox, iOS oder ältere Browser (Normaler Download)
             if (get().setUIState) {
                 get().setUIState({ currentFileName: fileName });
             }
@@ -251,14 +260,13 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
             return true;
         }
     } catch (err: any) {
-        // AbortError passiert, wenn der Nutzer im System-Dialog auf "Abbrechen" drückt
         if (err.name !== 'AbortError') {
              console.error('Save failed:', err);
              if (get().addNotification) {
                  get().addNotification({ type: 'error', message: 'Speichern fehlgeschlagen.' });
              }
         }
-        return false; // Speichern wurde abgebrochen
+        return false; 
     }
   },
 
@@ -364,4 +372,4 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     };
   }),
 });
-// --- END OF FILE 332 Zeilen ---
+// --- END OF FILE 344 Zeilen ---
