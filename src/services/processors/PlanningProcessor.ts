@@ -1,3 +1,4 @@
+// 19.03.2026 19:15 - FIX: Added stationary mode hotel sync and smart_limit_recommendation parsing to SSOT.
 // 27.02.2026 19:00 - FEAT: Added intelligent Intercept Switch. Prevents blind save if Prio 1/2 places are unassigned.
 // 23.02.2026 20:15 - FIX: Separated Logistics and Places state updates in chefPlaner.
 // src/services/processors/PlanningProcessor.ts
@@ -89,11 +90,13 @@ export const PlanningProcessor = {
                     return calculateSimilarity(original, corrected) > 0.70; // 70% threshold
                 };
 
-                // PART 1: UPDATE LOGISTICS (COCKPIT)
+                // PART 1: UPDATE LOGISTICS & SETTINGS (COCKPIT)
                 useTripStore.setState((state) => {
                     const logistics = JSON.parse(JSON.stringify(state.project.userInputs.logistics)); 
+                    const searchSettings = JSON.parse(JSON.stringify(state.project.userInputs.searchSettings || {}));
                     let stateChanged = false;
 
+                    // 1. Geography & Typos
                     if (corrections.inferred_country) {
                         const currentCountries = logistics.target_countries || [];
                         if (currentCountries.length === 0 || (currentCountries.length === 1 && !currentCountries[0])) {
@@ -128,19 +131,40 @@ export const PlanningProcessor = {
                         }
                     }
 
-                    if (validatedHotels.length > 0 && (logistics.mode === 'mobil' || logistics.mode === 'roundtrip') && logistics.roundtrip.stops) {
-                        logistics.roundtrip.stops.forEach((stop: any) => {
+                    // 2. Hotel Validation (Roundtrip AND Stationary)
+                    if (validatedHotels.length > 0) {
+                        if (logistics.mode === 'stationaer') {
                             const match = validatedHotels.find((vh: any) => 
-                                vh.station === stop.location || isTypo(stop.location, vh.station)
+                                vh.station === logistics.stationary.destination || isTypo(logistics.stationary.destination, vh.station)
                             );
-                            
                             if (match && match.official_name) {
-                                if (stop.hotel !== match.official_name) {
-                                    stop.hotel = match.official_name;
+                                if (logistics.stationary.hotel !== match.official_name) {
+                                    logistics.stationary.hotel = match.official_name;
                                     stateChanged = true;
                                 }
                             }
-                        });
+                        } else if ((logistics.mode === 'mobil' || logistics.mode === 'roundtrip') && logistics.roundtrip.stops) {
+                            logistics.roundtrip.stops.forEach((stop: any) => {
+                                const match = validatedHotels.find((vh: any) => 
+                                    vh.station === stop.location || isTypo(stop.location, vh.station)
+                                );
+                                if (match && match.official_name) {
+                                    if (stop.hotel !== match.official_name) {
+                                        stop.hotel = match.official_name;
+                                        stateChanged = true;
+                                    }
+                                }
+                            });
+                        }
+                    }
+
+                    // 3. Smart Limit Recommendation (Sights Count)
+                    if (data.smart_limit_recommendation?.value) {
+                        const recValue = Number(data.smart_limit_recommendation.value);
+                        if (!isNaN(recValue) && recValue > 0 && searchSettings.sightsCount !== recValue) {
+                            searchSettings.sightsCount = recValue;
+                            stateChanged = true;
+                        }
                     }
 
                     if (stateChanged) {
@@ -149,7 +173,8 @@ export const PlanningProcessor = {
                                 ...state.project,
                                 userInputs: {
                                     ...state.project.userInputs,
-                                    logistics
+                                    logistics,
+                                    searchSettings
                                 }
                             }
                         };
@@ -162,29 +187,37 @@ export const PlanningProcessor = {
                     const currentState = useTripStore.getState();
                     const currentLogistics = currentState.project.userInputs.logistics;
                     
-                    if ((currentLogistics.mode === 'mobil' || currentLogistics.mode === 'roundtrip') && currentLogistics.roundtrip.stops) {
+                    const updateHotelPlace = (match: any) => {
+                        if (match && match.official_name) {
+                            const currentPlaces = useTripStore.getState().project.data.places || {};
+                            const existingHotelId = resolvePlaceId({ name: match.official_name }, currentPlaces, false);
+                            
+                            const hotelId = existingHotelId || `hotel-${match.official_name.replace(/[^a-z0-9]/gi, '-').toLowerCase()}`;
+                            
+                            updatePlace(hotelId, {
+                                id: hotelId,
+                                name: match.official_name,
+                                official_name: match.official_name,
+                                category: 'hotel',
+                                address: match.address,
+                                city: match.station,
+                                valid: true,
+                                userPriority: 1
+                            });
+                        }
+                    };
+
+                    if (currentLogistics.mode === 'stationaer') {
+                        const match = validatedHotels.find((vh: any) => 
+                            vh.station === currentLogistics.stationary.destination || isTypo(currentLogistics.stationary.destination, vh.station)
+                        );
+                        updateHotelPlace(match);
+                    } else if ((currentLogistics.mode === 'mobil' || currentLogistics.mode === 'roundtrip') && currentLogistics.roundtrip.stops) {
                         currentLogistics.roundtrip.stops.forEach((stop: any) => {
                             const match = validatedHotels.find((vh: any) => 
                                 vh.station === stop.location || isTypo(stop.location, vh.station)
                             );
-                            
-                            if (match && match.official_name) {
-                                const currentPlaces = useTripStore.getState().project.data.places || {};
-                                const existingHotelId = resolvePlaceId({ name: match.official_name }, currentPlaces, false);
-                                
-                                const hotelId = existingHotelId || `hotel-${match.official_name.replace(/[^a-z0-9]/gi, '-').toLowerCase()}`;
-                                
-                                updatePlace(hotelId, {
-                                    id: hotelId,
-                                    name: match.official_name,
-                                    official_name: match.official_name,
-                                    category: 'hotel',
-                                    address: match.address,
-                                    city: match.station,
-                                    valid: true,
-                                    userPriority: 1
-                                });
-                            }
+                            updateHotelPlace(match);
                         });
                     }
                 }
@@ -300,4 +333,4 @@ export const PlanningProcessor = {
         }
     }
 };
-// --- END OF FILE 314 Zeilen ---
+// --- END OF FILE 338 Zeilen ---
