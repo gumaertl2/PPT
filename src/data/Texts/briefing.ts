@@ -1,3 +1,4 @@
+// 19.03.2026 18:30 - DOCS: Added Targeted Context Matrix (Persona Injection) & Store Migration Layer.
 // 26.02.2026 11:20 - DOCS: Restored full file. Added User-Disclaimer to top. Documented Visual Priority Map Shapes and UI Priority Engine.
 // 22.02.2026 14:40 - RESTRUCTURE: Integrated Smart-Currency, Trip Finance and the Diary Bridge into core architecture sections.
 // 20.02.2026 21:00 - DOCS: Updated Architecture (Smart Autosave, Live-Tagebuch, Reserve-Logik, Background Worker, Multi-City Chunking).
@@ -61,7 +62,7 @@ Der Store (\`useTripStore\`) ist ein Assembler, der folgende Slices zusammenfüg
 4.  **AnalysisSlice** (\`src/store/slices/createAnalysisSlice.ts\`):
     * Speichert Ergebnisse der KI-Tasks (z.B. ChefPlaner).
 
-*WICHTIG (Smart Autosave):* Der Store nutzt die **Zustand \`persist\` Middleware**. Alle Nutzdaten (\`project\`, \`apiKey\`) und die aktuelle Ansicht (\`view\`) werden in Echtzeit im LocalStorage gespeichert. Temporäre Status (wie \`chunkingState\` oder laufende Workflows) sind auf einer Blacklist, damit die App nach einem Reload (Tab Close) immer stabil am letzten Ort startet.
+*WICHTIG (Smart Autosave & Migration Layer):* Der Store nutzt die **Zustand \`persist\` Middleware**. Alle Nutzdaten (\`project\`, \`apiKey\`) und die aktuelle Ansicht (\`view\`) werden in Echtzeit im LocalStorage gespeichert. Temporäre Status (wie \`chunkingState\` oder laufende Workflows) sind auf einer Blacklist, damit die App nach einem Reload (Tab Close) immer stabil am letzten Ort startet. Zusätzlich nutzt das System **Zustand Versioning** (\`version: 1\`). Die \`migrate\`-Funktion fängt alte Caches beim App-Start ab und initialisiert fehlende Strukturen sicher. \`loadProject\` besitzt zudem einen Deep-Sanitizer für importierte JSONs.
 
 #### B. DATA PROCESSING LAYER (Neu seit V40.3)
 Um "God Objects" zu vermeiden, wurde die Datenverarbeitung aus der UI entfernt.
@@ -282,6 +283,13 @@ Modell-Wahl via Matrix. \`geoAnalyst\`, \`durationEstimator\`, \`foodEnricher\`,
 Kapselt \`Select -> Resolve -> Execute -> Validate\`.
 Stellt sicher, dass das "Silence Protocol" (Prompt) und der "Native JSON Mode" (API) Hand in Hand arbeiten.
 
+**E. The Targeted Context Matrix (Persona Injection)**
+Um das Token-Gewicht gering zu halten und Halluzinationen zu verhindern, nutzen wir eine strikte Verteilungslogik für Nutzer-Präferenzen (\`PersonaInjector.ts\`):
+* **Logistics Engine (TourGuide, Transfer):** Bekommen *keine* Persona.
+* **Scouts (Hotel, Food):** Bekommen zwingend **Budget** und **No-Gos**.
+* **Planners (Tagesplaner):** Bekommen zwingend das **Reisetempo (Pace)**.
+* **Writers (Chefredakteur):** Bekommen **Nationalität, Vibe und Hobbys**, aber NIEMALS das Budget.
+
 ---
 
 ## 9. File Inventory (Complete Overview)
@@ -310,6 +318,7 @@ Infrastruktur für typ-sichere KI-Interaktion.
 | :--- | :--- |
 | \`src/core/prompts/PromptBuilder.ts\` | **Factory.** Erstellt Prompts und erzwingt das "Silence Protocol" (JSON-Only). |
 | \`src/core/prompts/PayloadBuilder.ts\` | **Data Prep.** Sammelt Datenfragmente. Isoliert Agenten vom Gesamt-State. |
+| \`src/core/prompts/PersonaInjector.ts\` | **NEU:** Steuert die Targeted Context Matrix für passgenaue Prompts. |
 | \`src/core/prompts/preparers/*.ts\` | **Filters.** Eine Datei pro Agent. Filtert "Dirty Data" (z.B. \`EXCLUDED_FOR_BASIS\`). |
 
 ### C. Agent Templates (The Intelligence)

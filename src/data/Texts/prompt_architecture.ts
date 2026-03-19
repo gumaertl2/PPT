@@ -1,3 +1,4 @@
+// 19.03.2026 18:30 - DOCS: Added Targeted Context Matrix documentation.
 // 20.02.2026 21:15 - DOCS: Updated Agent behaviors (Multi-City Chunking for Food, Geo-Context Guard for InfoAutor).
 // 05.02.2026 19:30 - DOCS: SYNC WITH CODE (Inverted Search Pipeline).
 // - Updated Food Workflow to reflect "Collector -> Auditor" Strategy.
@@ -49,6 +50,15 @@ Das Herzstück der Datenverarbeitung (\`src/services/ResultProcessor.ts\`).
     * Ist es Text-Wissen? -> Ab in \`project.data.content.infos\`.
 * **State Mutation:** Führt das Update im \`useTripStore\` durch (SSOT).
 
+### E. Der \`PersonaInjector\` (Targeted Context Matrix)
+Das V40.6 Architektur-Update. Verhindert das "Lost in the Middle"-Syndrom und Halluzinationen. 
+Anstatt allen Agenten blind alle Nutzerdaten einzuimpfen, verteilt der Injector Daten rollen-spezifisch:
+* **Rolle 'basis':** Erhält Vibe, Nutzer-Notizen und No-Gos.
+* **Rolle 'scout':** Erhält zwingend das Budget, Vibe, Notizen und No-Gos.
+* **Rolle 'planner':** Erhält zwingend das Reisetempo (Pace), Notizen und No-Gos.
+* **Rolle 'writer':** Erhält Nationalität, Vibe und Leidenschaften (aber **kein Budget**).
+* **Logistics Engine:** Erhalten absichtlich *keine* Personalisierung.
+
 ---
 
 ## 2. Die Agenten: Spezifikation & Datenfluss
@@ -60,6 +70,7 @@ Das Herzstück der Datenverarbeitung (\`src/services/ResultProcessor.ts\`).
     * \`destination\`: Zielregion oder Stadt.
     * \`interests\`: Liste der aktiven Interessen-IDs (z.B. \`history\`, \`nature\`).
     * **CRITICAL FILTER:** Der Preparer filtert hier aktiv alle Service-Interessen (Restaurants, Hotels) *heraus*. Grund: Der Prompt enthält die strikte Regel "NO HOTELS/RESTAURANTS", um Halluzinationen zu vermeiden.
+    * **Persona-Injection:** Bekommt den Vibe und No-Gos, um die Atmosphäre der POIs zu steuern.
 * **Output (Code-Sync):**
     * \`candidates\`: Liste von Strings (Namen).
     * \`_thought_process\`: String (Analyse).
@@ -80,6 +91,7 @@ Das Herzstück der Datenverarbeitung (\`src/services/ResultProcessor.ts\`).
 * **Input (Via \`prepareHotelScoutPayload\`):**
     * \`logistics_mode\`: "stationaer" vs. "mobil" (Rundreise).
     * \`budget_level\`: Das gewählte Preisniveau.
+    * **Persona-Injection:** Bekommt das harte \`budget_level\` injiziert. Luxus/Budget Constraints sind zwingend.
 * **Business Logic (Im Prompt):**
     * **Modus Stationär:** Suche 1 zentrales "Base Camp".
     * **Modus Rundreise:** Suche für den *aktuellen* Stop 2-3 Optionen in direkter Nähe.
@@ -113,7 +125,7 @@ Das Herzstück der Datenverarbeitung (\`src/services/ResultProcessor.ts\`).
 **Aufgabe:** Fundamentalanalyse vor der eigentlichen Planung.
 * **Template:** \`chefPlaner.ts\`
 * **Input (Via \`prepareChefPlanerPayload\`):**
-    * Komplettes Profil: \`travelers\`, \`dates\`, \`logistics\`, \`interests\`.
+    * Komplettes Profil: \`travelers\`, \`dates\`, \`logistics\`, \`interests\` inklusive \`vibe\`, \`budget\` und \`pace\`.
 * **Output:** \`strategic_briefing\`, \`smart_limit_recommendation\`.
 
 ### F. Der "Route Architect" (Der Logistik-Meister)
@@ -157,6 +169,7 @@ Das Herzstück der Datenverarbeitung (\`src/services/ResultProcessor.ts\`).
 **Aufgabe:** Schreibt ausführliche, inspirierende Beschreibungen für ausgewählte Top-Highlights.
 * **Template:** \`chefredakteur.ts\`
 * **Output:** \`detailContent\` (Langer Text mit Zwischenüberschriften).
+    * **Persona-Injection:** Bekommt Nationalität, Hobbys und Vibe, um Fotospots oder Besonderheiten einzubauen.
 
 ---
 
