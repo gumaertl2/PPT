@@ -1,3 +1,4 @@
+// 19.03.2026 17:15 - FEAT: Enforced validation of 'vibe', 'budget', and 'pace' in the prompt instructions.
 // 23.02.2026 14:40 - PROMPT HARDENING: Forced 'validated_hotels' population to bridge the data gap for map visibility.
 // 06.02.2026 21:20 - FEATURE: Added Geography Correction (City -> Country inference).
 // src/core/prompts/templates/chefPlaner.ts
@@ -15,7 +16,7 @@ Your task is to analyze the trip inputs, fix errors, validate feasibility (Reali
   const instructions = `# PHASE 1: REALITY CHECK & SEASONAL VALIDATION
 Before planning, verify the fundamental logic:
 1. **Season vs. Destination**: Check if the travel dates make sense for the destination (e.g. no beach holiday in winter, no hiking in monsoon).
-2. **Group Dynamics**: Check if the program suits the travelers (Age, Kids, Seniors). Is the pace realistic?
+2. **Group Dynamics & Persona**: Check if the program suits the travelers (Age, Kids, Seniors). You MUST consider their specific 'vibe', 'budget', and travel 'pace' for the feasibility check and the strategic briefing.
 3. **Plausibility**: If the user wants to drive 500km/day with kids, flag it in 'plausibility_check'.
 
 # PHASE 2: CRITICAL LOGISTICS INSTRUCTIONS
@@ -84,4 +85,4 @@ Generate ALL user-facing text in **${meta.targetLanguageName}**.`;
     .withSelfCheck(['basic', 'planning'])
     .build();
 };
-// --- END OF FILE 106 Zeilen ---
+// --- END OF FILE 107 Zeilen ---

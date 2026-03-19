@@ -1,3 +1,4 @@
+// 19.03.2026 16:30 - FEAT: Inject persona directive for the writer.
 // 08.02.2026 22:00 - FIX: Prevent double slicing & enforce ID return.
 // 05.02.2026 21:40 - FIX: Surgical Insertion of Selective Logic.
 // 06.02.2026 16:35 - FEATURE: Respect 'customCategory' in Prompt Generation.
@@ -7,6 +8,7 @@
 
 import type { TripProject } from '../../types';
 import { INTEREST_DATA, VALID_POI_CATEGORIES } from '../../../data/interests'; 
+import { buildPersonaDirective } from '../PersonaInjector';
 
 const resolveInterestId = (category: string): string | undefined => {
     if (!category) return undefined;
@@ -116,7 +118,8 @@ export const prepareChefredakteurPayload = (
         context: {
             editorial_tasks: editorialTasks,
             chunk_progress: chunkInfo,
-            target_language: project.userInputs.aiOutputLanguage || lang
+            target_language: project.userInputs.aiOutputLanguage || lang,
+            persona_directive: buildPersonaDirective(project.userInputs, 'writer')
         },
         instructions: {
             role: "You are the 'Editor-in-Chief'. You turn provided facts into inspiring content.",
@@ -125,4 +128,4 @@ export const prepareChefredakteurPayload = (
         }
     };
 };
-// --- END OF FILE 145 Zeilen --- 
+// --- END OF FILE 147 Zeilen ---

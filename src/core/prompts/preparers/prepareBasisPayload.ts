@@ -1,9 +1,11 @@
-// 23.02.2026 13:25 - FIX: Added Number() coercion to 'globalTarget' to ensure prompt quantity is always numeric.
+// 19.03.2026 17:00 - FEAT: Injected 'basis' persona directive to ensure vibe and wishes drive the initial location sourcing.
+// 23.02.2026 13:25 - FIX: Added Number() coercion to 'globalTarget'.
 // 27.01.2026 16:55 - FIX: Implemented "Ratio-Slicing" for Basis Preparer.
 // src/core/prompts/preparers/prepareBasisPayload.ts
 
 import type { TripProject } from '../../types';
 import { INTEREST_DATA } from '../../../data/interests';
+import { buildPersonaDirective } from '../PersonaInjector';
 
 const EXCLUDED_FOR_BASIS = [
     'hotel', 'camping', 'accommodation', 
@@ -142,7 +144,6 @@ export const prepareBasisPayload = (project: TripProject, chunkIndex: number = 1
         activeInterests = cleanInterests.slice(startIndex, endIndex);
     }
 
-    // FIX: Coerce to Number to prevent "50" vs 50 logic issues.
     const globalTarget = Number(userInputs.searchSettings?.sightsCount || 30);
     let chunkTarget = globalTarget;
 
@@ -160,7 +161,8 @@ export const prepareBasisPayload = (project: TripProject, chunkIndex: number = 1
             already_known_places_block: existingNames,
             mandatory_appointments: validatedAppointments,
             no_gos: noGos,
-            user_supplements: `${userVibe}\n${userNotes}` 
+            user_supplements: `${userVibe}\n${userNotes}`,
+            persona_directive: buildPersonaDirective(project.userInputs, 'basis')
         },
         instructions: {
             search_radius: searchRadiusInstruction,
@@ -172,4 +174,4 @@ export const prepareBasisPayload = (project: TripProject, chunkIndex: number = 1
         }
     };
 };
-// --- END OF FILE 195 Zeilen ---
+// --- END OF FILE 196 Zeilen ---

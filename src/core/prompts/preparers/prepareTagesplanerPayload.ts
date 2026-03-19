@@ -1,9 +1,10 @@
+// 19.03.2026 17:00 - FEAT: Injected 'planner' persona directive.
 // 27.02.2026 18:15 - FEAT: Handled 'allowFlexibleDay' user selection to append [FLEX_DAY] tag for the AI.
-// 27.02.2026 15:30 - FEAT: Added exact dates list to prevent departure day bugs (-1 day error).
 // src/core/prompts/preparers/prepareTagesplanerPayload.ts
 
 import type { TripProject, Place, RouteStop } from '../../types/models';
 import { PACE_OPTIONS } from '../../../data/options';
+import { buildPersonaDirective } from '../PersonaInjector';
 
 export interface TagesplanerPayload {
   travel_dates: {
@@ -20,6 +21,7 @@ export interface TagesplanerPayload {
     geo: string; 
   };
   available_sights: string; 
+  persona_directive?: string;
   constraints: string; 
 }
 
@@ -87,14 +89,14 @@ export const prepareTagesplanerPayload = (project: TripProject): TagesplanerPayl
     .map(p => {
       const prio = p.userPriority ?? (p.userSelection?.priority || 0);
       const isFixed = p.isFixed;
-      const isFlexDayAllowed = p.userSelection?.allowFlexibleDay === true; // FEAT: Check for UI override
+      const isFlexDayAllowed = p.userSelection?.allowFlexibleDay === true; 
       const duration = p.visitDuration || p.duration || 60; 
       const geoStr = p.location ? `${p.location.lat.toFixed(4)}, ${p.location.lng.toFixed(4)}` : "0,0";
 
       let tags = `[ID: ${p.id}] [GEO: ${geoStr}] [DURATION: ${duration}m]`;
       
       if (isFlexDayAllowed) {
-          tags += ` [FLEX_DAY]`; // Give AI the permission to break boundaries
+          tags += ` [FLEX_DAY]`; 
       }
 
       if (isFixed && p.fixedDate) {
@@ -143,6 +145,7 @@ export const prepareTagesplanerPayload = (project: TripProject): TagesplanerPayl
     },
     hotel_base: hotelBase,
     available_sights: formattedSights,
+    persona_directive: buildPersonaDirective(project.userInputs, 'planner'),
     constraints: `ACCOMMODATION SCHEDULE (CRITICAL):
 ${accommodationSchedule}
 
@@ -158,4 +161,4 @@ TIME BOUNDARIES (CRITICAL):
 - Day End: ${finalEnd}`
   };
 };
-// --- END OF FILE 153 Zeilen ---
+// --- END OF FILE 155 Zeilen ---

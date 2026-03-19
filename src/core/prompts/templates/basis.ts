@@ -1,6 +1,5 @@
+// 19.03.2026 17:00 - FEAT: Added personaDirective to enforce user vibe and general notes during base selection.
 // 01.02.2026 17:30 - PROMPT HARDENING: "Anti-Service Firewall".
-// Removed loopholes for Gastronomy/Hotels to prevent "Double Bind" duplicates.
-// Strict instructions to ignore 'Foodie' vibes for this specific agent.
 // src/core/prompts/templates/basis.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -11,7 +10,6 @@ export const buildBasisPrompt = (payload: any): string => {
   const builder = new PromptBuilder();
 
   // 1. Role Definition
-  // Refined: Explicitly exclude Services from the Role description
   const role = `You are a "Chief Curator" for a premium travel guide (The "Collector"). 
   Your **sole task** is to create a qualitatively outstanding list of **SIGHTS & ACTIVITIES** (Points of Interest).
   You are STRICTLY FORBIDDEN from suggesting logistics (Hotels) or services (Restaurants).
@@ -32,7 +30,7 @@ export const buildBasisPrompt = (payload: any): string => {
   builder.withContext(contextData, "DATA BASIS & CONSTRAINTS");
 
   // 3. Instructions (Merging Dynamic Briefing with Static Protocols)
-  const promptInstructions = `# LOGISTICS & GEO CONTEXT (MANDATORY)
+  const promptInstructions = `${context.persona_directive || ''}# LOGISTICS & GEO CONTEXT (MANDATORY)
 ${instructions.search_radius}
 
 # ARCHITECT'S STRATEGY

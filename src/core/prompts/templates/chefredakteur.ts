@@ -1,3 +1,4 @@
+// 19.03.2026 16:30 - FEAT: Added Persona Injection.
 // 08.02.2026 13:30 - FIX: Added CRITICAL EXECUTION RULES to prevent skipping IDs.
 // 01.02.2026 22:00 - PROMPT HYBRID: Merged V40 Structure with Legacy Logic.
 // Retains 'findSightData' fallback & supports both Project-based and Payload-based calls.
@@ -5,6 +6,7 @@
 
 import type { TripProject, Place } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
+import { buildPersonaDirective } from '../PersonaInjector';
 
 export const buildChefredakteurPrompt = (
     projectOrPayload: TripProject | any,
@@ -19,6 +21,7 @@ export const buildChefredakteurPrompt = (
     let dataPlaces = {};
     let strategicBriefing = "";
     let chunkInfo = "";
+    let personaDirective = "";
 
     if (projectOrPayload.context && projectOrPayload.instructions) {
         // V40 Payload Mode
@@ -26,9 +29,8 @@ export const buildChefredakteurPrompt = (
         tasks = payload.context.tasks_chunk || [];
         strategicBriefing = payload.context.strategic_guideline || "";
         chunkInfo = payload.context.chunk_info || "";
-        // We assume facts are pre-packed in Payload mode, so findSightData might be less relevant,
-        // but we can try to look at 'master_data' if passed.
         dataPlaces = payload.context.master_data || {};
+        personaDirective = payload.context.persona_directive || "";
     } else {
         // Legacy Project Mode
         const project = projectOrPayload as TripProject;
@@ -37,6 +39,7 @@ export const buildChefredakteurPrompt = (
         dataPlaces = project.data.places || {};
         strategicBriefing = (project.analysis.chefPlaner as any)?.strategic_briefing?.sammler_briefing || "";
         chunkInfo = totalChunks > 1 ? ` (Block ${currentChunk}/${totalChunks})` : '';
+        personaDirective = buildPersonaDirective(project.userInputs, 'writer');
     }
 
     // Safety Check
@@ -84,7 +87,7 @@ export const buildChefredakteurPrompt = (
     };
 
     // 4. INSTRUCTIONS
-    const instructions = `# CRITICAL EXECUTION RULES
+    const instructions = `${personaDirective}# CRITICAL EXECUTION RULES
 1. **COMPLETE COVERAGE:** You MUST generate an article for EVERY single ID listed in "TASKS TO PROCESS". Do NOT skip any item.
 2. **NO OMISSIONS:** If data is missing or the place is minor, write a generic inspiring text based on the name/type. Never return an empty result.
 
@@ -150,4 +153,4 @@ Structure:
 
     return builder.build();
 };
-// --- END OF FILE 141 Zeilen ---
+// --- END OF FILE 153 Zeilen ---

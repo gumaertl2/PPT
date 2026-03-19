@@ -1,3 +1,4 @@
+// 19.03.2026 17:15 - FEAT: Injected 'vibe', 'budget', and 'pace' into context so the Architect can validate feasibility based on persona.
 // 27.02.2026 13:55 - FEAT: Injected 'localMobility' into ChefPlaner logistics briefing so the AI knows how the user travels.
 // 24.01.2026 19:30 - FEAT: New Preparer for ChefPlaner.
 // src/core/prompts/preparers/prepareChefPlanerPayload.ts
@@ -173,6 +174,9 @@ export const prepareChefPlanerPayload = (project: TripProject, feedback?: string
             interests: activeInterests, 
             custom_notes: userInputs.notes,
             custom_preferences: userInputs.customPreferences,
+            vibe: userInputs.vibe,
+            budget: userInputs.budget,
+            pace: userInputs.pace,
             target_output_language: targetLanguageName
         },
         meta: {
@@ -182,4 +186,4 @@ export const prepareChefPlanerPayload = (project: TripProject, feedback?: string
         }
     };
 };
-// --- END OF FILE 176 Zeilen ---
+// --- END OF FILE 179 Zeilen ---

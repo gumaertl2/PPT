@@ -1,7 +1,9 @@
+// 19.03.2026 16:30 - FEAT: Inject persona directive for scout.
 // 31.01.2026 20:30 - FIX: Added 'mobil' mode support (Camper Roundtrip).
 // src/core/prompts/preparers/prepareHotelScoutPayload.ts
 
 import type { TripProject } from '../../types';
+import { buildPersonaDirective } from '../PersonaInjector';
 
 export const prepareHotelScoutPayload = (
   project: TripProject, 
@@ -67,11 +69,12 @@ export const prepareHotelScoutPayload = (
       travelers: travelers,
       budget: budget,
       logistics_type: isCamper ? 'camper' : 'car', // Explicitly set camper type
-      is_roundtrip: isRoundtripMode
+      is_roundtrip: isRoundtripMode,
+      persona_directive: buildPersonaDirective(project.userInputs, 'scout')
     },
     instructions: {
       role: "Logistics Optimizer"
     }
   };
 };
-// Lines: 75
+// --- END OF FILE 78 Zeilen ---

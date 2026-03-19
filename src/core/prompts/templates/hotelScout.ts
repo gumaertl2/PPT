@@ -1,3 +1,4 @@
+// 19.03.2026 16:30 - FEAT: Enforce persona directives.
 // 28.02.2026 18:50 - FIX: Relaxed CRITICAL GEOCODING RULE to allow specific local identifiers (like Plazas) but keep blocking prose/brackets.
 // 28.02.2026 18:00 - FIX: Added CRITICAL GEOCODING RULE securely without breaking exports.
 // 02.02.2026 09:30 - FIX: Enforced explicit research for 'user_ratings_total'.
@@ -24,14 +25,15 @@ export const buildHotelScoutPrompt = (payload: any): string => {
     travelers: context.travelers,
     budget_level: context.budget, 
     vehicle: isCamper ? "Large Vehicle (Camper/RV)" : "Car",
-    trip_mode: strategyContext
+    trip_mode: strategyContext,
+    persona_directive: context.persona_directive || ""
   };
 
   const role = `You are the **Strategic Accommodation Scout**. 
   Your mission is not just to find a bed, but to find the perfect **Logistical Base** for the user's trip type.
   You are searching for: **${accommodationTerm}**.`;
 
-  const instructions = `# PHASE 1: CONSTRAINT ANALYSIS
+  const instructions = `${context.persona_directive || ''}# PHASE 1: CONSTRAINT ANALYSIS
 Check the "Vehicle" and "Budget" constraints immediately.
 1. **VEHICLE CHECK:** User drives a **${isCamper ? "CAMPER" : "CAR"}**.
    - ${isCamper ? "CRITICAL: You MUST ONLY suggest legal Campsites or RV Parks. ABSOLUTELY NO HOTELS." : "Ensure parking is available."}
@@ -85,4 +87,4 @@ Context: ${context.location_reasoning}
     .withSelfCheck(['research']) 
     .build();
 };
-// --- END OF FILE 92 Zeilen ---
+// --- END OF FILE 95 Zeilen ---

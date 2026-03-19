@@ -1,6 +1,5 @@
-// 27.02.2026 19:52 - LOGIC: Enforced strict Immersive Block Rule (4+ Hours) requiring absolute overlap of core midday hours to skip lunch breaks.
-// 27.02.2026 19:40 - UX/LOGIC: Restricted 'unassigned' reasoning strictly to Prio 1, Prio 2, and Fixed items. AI will no longer justify omitting Prio 0 (filler) places.
-// 27.02.2026 18:15 - FEAT: Introduced [FLEX_DAY] logic for AI to break boundaries and enforced translated 'reason' output.
+// 19.03.2026 17:00 - FEAT: Added personaDirective at the top to enforce constraints like pace and special wishes during orchestration.
+// 27.02.2026 19:52 - LOGIC: Enforced strict Immersive Block Rule (4+ Hours).
 // src/core/prompts/templates/initialTagesplaner.ts
 
 export interface TagesplanerPayload {
@@ -18,12 +17,13 @@ export interface TagesplanerPayload {
     geo: string;
   };
   available_sights: string; 
+  persona_directive?: string;
   constraints: string;
 }
 
 export const buildInitialTagesplanerPrompt = (payload: TagesplanerPayload): string => {
   return `
-SYSTEM INSTRUCTION: TRAVEL LOGISTICS ARCHITECT & SKELETON-ENGINE
+${payload.persona_directive || ''}SYSTEM INSTRUCTION: TRAVEL LOGISTICS ARCHITECT & SKELETON-ENGINE
 
 1. PERSONA & CORE MISSION
 Role: You are a Senior Travel Logistics Architect – a pure logistics engine. You combine the knowledge of a luxury concierge with the mathematical precision of a routing algorithm.
@@ -142,4 +142,4 @@ RETURN STRICTLY VALID JSON.
 `;
 };
 
-// Zeilenanzahl: 161
+// Zeilenanzahl: 163
