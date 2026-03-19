@@ -92,53 +92,59 @@ export const TripOrchestrator = {
 
      try {
          for (let i = 1; i <= totalChunks; i++) {
-             // --- KILL-SWITCH CHECK ---
-             if (useTripStore.getState().workflow.status !== 'generating') {
-                 console.log(`[Orchestrator] Loop for ${task} ABORTED by user.`);
-                 return null; 
+             try {
+                 // --- KILL-SWITCH CHECK ---
+                 if (useTripStore.getState().workflow.status !== 'generating') {
+                     console.log(`[Orchestrator] Loop for ${task} ABORTED by user.`);
+                     return null; 
+                 }
+
+                 console.log(`[Orchestrator] Processing Chunk ${i}/${totalChunks}...`);
+                 store.setChunkingState({ isActive: true, currentChunk: i, totalChunks: totalChunks, results: collectedResults });
+                 
+                 // UX UPDATE: Push Visual Storytelling to UI
+                 this.updateStory(task, i, totalChunks);
+
+                 let chunkCandidates = inputData;
+                 if (Array.isArray(inputData) && inputData.length > 0 && ['chefredakteur', 'anreicherer', 'details'].includes(task)) {
+                     const start = (i - 1) * limit;
+                     const end = start + limit;
+                     chunkCandidates = inputData.slice(start, end);
+                     console.log(`[Orchestrator] Sliced ${task} input to ${chunkCandidates.length} items for chunk ${i}`);
+                 }
+
+                 const prompt = PayloadBuilder.buildPrompt(task, undefined, { 
+                     chunkIndex: i, limit: limit, totalChunks: totalChunks, candidates: chunkCandidates 
+                 });
+
+                 const rawResult = await GeminiService.call(prompt, task, modelId);
+                 
+                 // Check again after long API call
+                 if (useTripStore.getState().workflow.status !== 'generating') return null;
+
+                 let validatedData = rawResult;
+                 if (schema) {
+                    const validation = schema.safeParse(rawResult);
+                    if (!validation.success) throw new Error(`KI-Antwort für Chunk ${i} ungültig.`);
+                    validatedData = validation.data;
+                 }
+                 console.log(`[Orchestrator] Incrementally saving chunk ${i}/${totalChunks}...`);
+                 ResultProcessor.process(task, validatedData);
+                 
+                 await safetyDelay(500); 
+
+                 collectedResults.push(validatedData);
+             } catch (chunkError) {
+                 console.error(`[Orchestrator] Error in Chunk ${i}/${totalChunks} for ${task}:`, chunkError);
+                 console.warn(`[Orchestrator] Skipping Chunk ${i} and continuing (Graceful Degradation).`);
+                 continue; // Überspringe diesen fehlerhaften Chunk und schütze den Rest
              }
-
-             console.log(`[Orchestrator] Processing Chunk ${i}/${totalChunks}...`);
-             store.setChunkingState({ isActive: true, currentChunk: i, totalChunks: totalChunks, results: collectedResults });
-             
-             // UX UPDATE: Push Visual Storytelling to UI
-             this.updateStory(task, i, totalChunks);
-
-             let chunkCandidates = inputData;
-             if (Array.isArray(inputData) && inputData.length > 0 && ['chefredakteur', 'anreicherer', 'details'].includes(task)) {
-                 const start = (i - 1) * limit;
-                 const end = start + limit;
-                 chunkCandidates = inputData.slice(start, end);
-                 console.log(`[Orchestrator] Sliced ${task} input to ${chunkCandidates.length} items for chunk ${i}`);
-             }
-
-             const prompt = PayloadBuilder.buildPrompt(task, undefined, { 
-                 chunkIndex: i, limit: limit, totalChunks: totalChunks, candidates: chunkCandidates 
-             });
-
-             const rawResult = await GeminiService.call(prompt, task, modelId);
-             
-             // Check again after long API call
-             if (useTripStore.getState().workflow.status !== 'generating') return null;
-
-             let validatedData = rawResult;
-             if (schema) {
-                const validation = schema.safeParse(rawResult);
-                if (!validation.success) throw new Error(`KI-Antwort für Chunk ${i} ungültig.`);
-                validatedData = validation.data;
-             }
-             console.log(`[Orchestrator] Incrementally saving chunk ${i}/${totalChunks}...`);
-             ResultProcessor.process(task, validatedData);
-             
-             await safetyDelay(500); 
-
-             collectedResults.push(validatedData);
          }
          
          return ResultMerger.merge(collectedResults, task);
 
      } catch (error) {
-         console.error(`[Orchestrator] Error in Chunk Loop for ${task}:`, error);
+         console.error(`[Orchestrator] Fatal Error in Chunk Loop for ${task}:`, error);
          throw error;
      } finally {
          console.log(`[Orchestrator] Finalizing Loop for ${task}. Resetting state.`);
@@ -291,4 +297,4 @@ export const TripOrchestrator = {
     return this._executeSingleStep(task, feedback, false, inputData, false);
   }
 };
-// --- END OF FILE 412 Lines ---
+// --- END OF FILE 420 Zeilen ---
