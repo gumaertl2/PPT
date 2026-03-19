@@ -1,7 +1,7 @@
-// 19.03.2026 16:30 - FEAT: Implemented Targeted Context Matrix. Generates role-specific persona directives to prevent context-loss in deep agent chains without overloading logistics agents.
+// 19.03.2026 16:30 - FEAT: Implemented Targeted Context Matrix. Generates role-specific persona directives.
 // src/core/prompts/PersonaInjector.ts
 
-import type { UserInputs } from '../types/models';
+import type { TripUserProfile as UserInputs } from '../types/models';
 
 export type PersonaRole = 'basis' | 'scout' | 'planner' | 'writer';
 
