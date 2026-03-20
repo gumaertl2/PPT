@@ -1,3 +1,4 @@
+// 20.03.2026 12:50 - UX: Removed line-clamp-2 from description to always show the full short description text on mobile devices.
 // 27.02.2026 19:15 - UX: Made Flex Day exception toggleable (can be removed) and fully mobile-friendly.
 // 27.02.2026 18:15 - FEAT: Added "Flex Day" Button to UI for overriding strict planner rules.
 // 27.02.2026 17:40 - FEAT: Added KI-Planungs-Konflikt warning for unassigned places.
@@ -61,7 +62,6 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
   const unassignedInfo = unassignedList.find((u: any) => u.id === data.id);
   const isFlexDayAllowed = data.userSelection?.allowFlexibleDay === true;
 
-  // UX-FIX: Toggle function instead of just setting to true
   const handleToggleFlexDay = (e: React.MouseEvent) => {
       e.stopPropagation();
       updatePlace(data.id, { 
@@ -247,7 +247,8 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
           </div>
       )}
 
-      <p className={`${isDetailed ? '' : 'line-clamp-2'} leading-snug text-xs mb-2`}>
+      {/* FIX: line-clamp-2 removed to show full description text on mobile screens */}
+      <p className="leading-snug text-xs mb-2">
         {highlightText(descriptionText)}
       </p>
       
@@ -340,4 +341,4 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
     </div>
   );
 };
-// --- END OF FILE 319 Zeilen ---
+// --- END OF FILE 318 Zeilen ---
