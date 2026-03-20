@@ -1,6 +1,5 @@
-// 20.03.2026 22:00 - UX: Added Paid By and Balance summary rows to the Table View footer for instant settlement overview.
-// 20.03.2026 17:25 - FIX: Resolved JSX fragment and createPortal nesting error.
-// 20.03.2026 17:00 - FIX: Replaced aggressive print CSS with robust block/static rules.
+// 20.03.2026 23:00 - UX: Removed horizontal sticky columns to fix mobile viewing. Added vertical scroll with sticky Top-Header and Bottom-Footer.
+// 20.03.2026 22:00 - UX: Added Paid By and Balance summary rows to the Table View footer.
 // src/features/Cockpit/TripFinanceModal.tsx
 
 import React, { useState, useMemo } from 'react';
@@ -339,7 +338,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
       const pushSubtotal = (key: string) => {
           rows.push(
               <tr key={`subtotal-${key}`} className="bg-emerald-50/60 font-bold border-y border-emerald-200/60">
-                  <td colSpan={3} className="p-3 text-right text-emerald-800 text-xs sticky left-0 bg-emerald-50/60 z-10">{t('finance.subtotal', {defaultValue: 'Zwischensumme'})}: {key}</td>
+                  <td colSpan={3} className="p-3 text-right text-emerald-800 text-xs">{t('finance.subtotal', {defaultValue: 'Zwischensumme'})}: {key}</td>
                   <td className="p-3 text-right text-emerald-700">{groupTotalBase.toFixed(2)}</td>
                   <td className="p-3"></td>
                   {allNames.map(n => <td key={`sub-${n}`} className="p-3 text-right text-emerald-800 border-l border-emerald-200/50">{groupShares[n].toFixed(2)}</td>)}
@@ -380,7 +379,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
 
           rows.push(
               <tr key={exp.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => {setActiveTab('feed'); setTimeout(() => startEdit(exp), 50)}}>
-                  <td className="p-3 text-slate-500 text-xs sticky left-0 bg-white group-hover:bg-slate-50 z-10 border-r border-slate-50">{date}</td>
+                  <td className="p-3 text-slate-500 text-xs border-r border-slate-50">{date}</td>
                   <td className="p-3 font-bold text-slate-700 truncate max-w-[150px] sm:max-w-[250px]" title={exp.title}>{exp.title}</td>
                   <td className="p-3 text-right font-medium">{exp.amount.toFixed(2)} <span className="text-[10px] text-slate-400">{exp.currency}</span></td>
                   <td className="p-3 text-right font-bold text-emerald-700">{amountBase.toFixed(2)}</td>
@@ -726,35 +725,35 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                 <Sigma className="w-4 h-4" /> {t('finance.toggle_subtotals', { defaultValue: 'Zwischensummen' })}
                             </button>
                         </div>
-                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto print:shadow-none print:border-none print:overflow-visible">
-                            <table className="w-full text-left text-sm whitespace-nowrap print:whitespace-normal">
-                                <thead className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 uppercase tracking-wider select-none print:bg-white print:border-b-2 print:border-black">
+                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-auto max-h-[55vh] sm:max-h-[65vh] print:shadow-none print:border-none print:overflow-visible print:max-h-none">
+                            <table className="w-full text-left text-sm whitespace-nowrap print:whitespace-normal relative">
+                                <thead className="sticky top-0 z-30 bg-slate-50 border-b border-slate-200 text-xs text-slate-500 uppercase tracking-wider select-none shadow-sm print:static print:bg-white print:border-b-2 print:border-black">
                                     <tr>
-                                        <th className="p-3 font-bold sticky left-0 bg-slate-50 z-10 cursor-pointer hover:bg-slate-100 group transition-colors print:static print:bg-white print:text-black" onClick={() => handleSort('timestamp')}>
+                                        <th className="p-3 font-bold bg-slate-50 cursor-pointer hover:bg-slate-100 group transition-colors print:bg-white print:text-black" onClick={() => handleSort('timestamp')}>
                                             <div className="flex items-center gap-1">{t('finance.csv_date', { defaultValue: 'Datum' })} <span className="print:hidden">{renderSortIcon('timestamp')}</span></div>
                                         </th>
-                                        <th className="p-3 font-bold cursor-pointer hover:bg-slate-100 group transition-colors print:text-black" onClick={() => handleSort('title')}>
+                                        <th className="p-3 font-bold bg-slate-50 cursor-pointer hover:bg-slate-100 group transition-colors print:bg-white print:text-black" onClick={() => handleSort('title')}>
                                             <div className="flex items-center gap-1">{t('finance.csv_purpose', { defaultValue: 'Zweck' })} <span className="print:hidden">{renderSortIcon('title')}</span></div>
                                         </th>
-                                        <th className="p-3 font-bold text-right cursor-pointer hover:bg-slate-100 group transition-colors print:text-black" onClick={() => handleSort('amount')}>
+                                        <th className="p-3 font-bold bg-slate-50 text-right cursor-pointer hover:bg-slate-100 group transition-colors print:bg-white print:text-black" onClick={() => handleSort('amount')}>
                                             <div className="flex justify-end items-center gap-1">{t('finance.csv_amount', { defaultValue: 'Betrag' })} <span className="print:hidden">{renderSortIcon('amount')}</span></div>
                                         </th>
-                                        <th className="p-3 font-bold text-right text-emerald-700 cursor-pointer hover:bg-slate-100 group transition-colors print:text-black" onClick={() => handleSort('amountBase')}>
+                                        <th className="p-3 font-bold bg-slate-50 text-right text-emerald-700 cursor-pointer hover:bg-slate-100 group transition-colors print:bg-white print:text-black" onClick={() => handleSort('amountBase')}>
                                             <div className="flex justify-end items-center gap-1">{t('finance.csv_amount_base', { defaultValue: 'Betrag in' })} {baseCurrency} <span className="print:hidden">{renderSortIcon('amountBase')}</span></div>
                                         </th>
-                                        <th className="p-3 font-bold text-center cursor-pointer hover:bg-slate-100 group transition-colors print:text-black" onClick={() => handleSort('paidBy')}>
+                                        <th className="p-3 font-bold bg-slate-50 text-center cursor-pointer hover:bg-slate-100 group transition-colors print:bg-white print:text-black" onClick={() => handleSort('paidBy')}>
                                             <div className="flex justify-center items-center gap-1">{t('finance.csv_paid_by', { defaultValue: 'Bezahlt von' })} <span className="print:hidden">{renderSortIcon('paidBy')}</span></div>
                                         </th>
-                                        {allNames.map(n => <th key={n} className="p-3 font-bold text-right border-l border-slate-200/50 print:border-slate-300 print:text-black">{n}</th>)}
+                                        {allNames.map(n => <th key={n} className="p-3 font-bold bg-slate-50 text-right border-l border-slate-200/50 print:bg-white print:border-slate-300 print:text-black">{n}</th>)}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 print:divide-slate-200">
                                     {renderTableBody()}
                                 </tbody>
-                                <tfoot className="bg-slate-50 border-t-2 border-slate-200 font-bold print:bg-white print:border-black">
+                                <tfoot className="sticky bottom-0 z-30 bg-slate-50 font-bold shadow-[0_-4px_10px_rgba(0,0,0,0.05)] print:static print:shadow-none print:bg-white print:border-black">
                                     {/* ZEILE 1: ANTEILIGE KOSTEN */}
                                     <tr>
-                                        <td colSpan={3} className="p-3 text-right text-slate-600 text-xs sticky left-0 bg-slate-50 z-10 print:static print:bg-white print:text-black">{t('finance.csv_total', { defaultValue: 'GESAMTKOSTEN (Anteil)' })}</td>
+                                        <td colSpan={3} className="p-3 text-right text-slate-600 text-xs print:text-black">{t('finance.csv_total', { defaultValue: 'GESAMTKOSTEN (Anteil)' })}</td>
                                         <td className="p-3 text-right text-emerald-700 text-base print:text-black">{(() => {
                                             let totalBase = 0;
                                             sortedTableData.forEach(exp => {
@@ -780,7 +779,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                     
                                     {/* ZEILE 2: BEZAHLT VON */}
                                     <tr className="bg-slate-100 print:bg-white border-t border-slate-200">
-                                        <td colSpan={3} className="p-3 text-right text-slate-600 text-xs sticky left-0 bg-slate-100 z-10 print:static print:bg-white print:text-black">{t('finance.csv_paid', { defaultValue: 'BEZAHLT VON' })}</td>
+                                        <td colSpan={3} className="p-3 text-right text-slate-600 text-xs print:text-black">{t('finance.csv_paid', { defaultValue: 'BEZAHLT VON' })}</td>
                                         <td className="p-3"></td>
                                         <td className="p-3"></td>
                                         {allNames.map(n => (
@@ -792,7 +791,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                     
                                     {/* ZEILE 3: BILANZ */}
                                     <tr className="bg-slate-200 print:bg-white border-t border-slate-300">
-                                        <td colSpan={3} className="p-3 text-right text-slate-700 text-xs sticky left-0 bg-slate-200 z-10 print:static print:bg-white print:text-black">{t('finance.csv_balance', { defaultValue: 'BILANZ (+ Gutschrift / - Schuld)' })}</td>
+                                        <td colSpan={3} className="p-3 text-right text-slate-700 text-xs print:text-black">{t('finance.csv_balance', { defaultValue: 'BILANZ (+ Gutschrift / - Schuld)' })}</td>
                                         <td className="p-3"></td>
                                         <td className="p-3"></td>
                                         {allNames.map(n => {
@@ -822,4 +821,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 747 Zeilen ---
+// --- END OF FILE 743 Zeilen ---
