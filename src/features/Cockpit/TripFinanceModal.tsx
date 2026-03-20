@@ -1,7 +1,6 @@
-// 20.03.2026 17:25 - FIX: Resolved JSX fragment and createPortal nesting error at the end of file.
+// 20.03.2026 22:00 - UX: Added Paid By and Balance summary rows to the Table View footer for instant settlement overview.
+// 20.03.2026 17:25 - FIX: Resolved JSX fragment and createPortal nesting error.
 // 20.03.2026 17:00 - FIX: Replaced aggressive print CSS with robust block/static rules.
-// 20.03.2026 16:45 - FEAT: Added Print functionality with optimized CSS print layout.
-// 20.03.2026 16:30 - FEAT: Added dynamic Subtotals (Group-By).
 // src/features/Cockpit/TripFinanceModal.tsx
 
 import React, { useState, useMemo } from 'react';
@@ -753,6 +752,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                     {renderTableBody()}
                                 </tbody>
                                 <tfoot className="bg-slate-50 border-t-2 border-slate-200 font-bold print:bg-white print:border-black">
+                                    {/* ZEILE 1: ANTEILIGE KOSTEN */}
                                     <tr>
                                         <td colSpan={3} className="p-3 text-right text-slate-600 text-xs sticky left-0 bg-slate-50 z-10 print:static print:bg-white print:text-black">{t('finance.csv_total', { defaultValue: 'GESAMTKOSTEN (Anteil)' })}</td>
                                         <td className="p-3 text-right text-emerald-700 text-base print:text-black">{(() => {
@@ -774,7 +774,34 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                                     pTotal += amountBase / exp.splitAmong.length;
                                                 }
                                             });
-                                            return <td key={n} className="p-3 text-right text-slate-800 border-l border-slate-200/50 print:border-slate-300 print:text-black">{pTotal.toFixed(2)}</td>;
+                                            return <td key={`total-${n}`} className="p-3 text-right text-slate-800 border-l border-slate-200/50 print:border-slate-300 print:text-black">{pTotal.toFixed(2)}</td>;
+                                        })}
+                                    </tr>
+                                    
+                                    {/* ZEILE 2: BEZAHLT VON */}
+                                    <tr className="bg-slate-100 print:bg-white border-t border-slate-200">
+                                        <td colSpan={3} className="p-3 text-right text-slate-600 text-xs sticky left-0 bg-slate-100 z-10 print:static print:bg-white print:text-black">{t('finance.csv_paid', { defaultValue: 'BEZAHLT VON' })}</td>
+                                        <td className="p-3"></td>
+                                        <td className="p-3"></td>
+                                        {allNames.map(n => (
+                                            <td key={`paid-${n}`} className="p-3 text-right text-slate-800 border-l border-slate-200/50 print:border-slate-300 print:text-black">
+                                                {(settlement.paidTotals[n] || 0).toFixed(2)}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                    
+                                    {/* ZEILE 3: BILANZ */}
+                                    <tr className="bg-slate-200 print:bg-white border-t border-slate-300">
+                                        <td colSpan={3} className="p-3 text-right text-slate-700 text-xs sticky left-0 bg-slate-200 z-10 print:static print:bg-white print:text-black">{t('finance.csv_balance', { defaultValue: 'BILANZ (+ Gutschrift / - Schuld)' })}</td>
+                                        <td className="p-3"></td>
+                                        <td className="p-3"></td>
+                                        {allNames.map(n => {
+                                            const bal = settlement.balances[n] || 0;
+                                            return (
+                                                <td key={`bal-${n}`} className={`p-3 text-right font-black border-l border-slate-300/50 print:border-slate-300 print:text-black ${bal > 0.01 ? 'text-emerald-600 print:text-black' : bal < -0.01 ? 'text-red-600 print:text-black' : 'text-slate-500 print:text-black'}`}>
+                                                    {bal > 0.01 ? '+' : ''}{bal.toFixed(2)}
+                                                </td>
+                                            );
                                         })}
                                     </tr>
                                 </tfoot>
@@ -795,4 +822,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 714 Zeilen ---
+// --- END OF FILE 747 Zeilen ---

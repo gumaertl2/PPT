@@ -1,5 +1,4 @@
-// 20.03.2026 20:00 - FIX: Master Print Hack. Extracts Map DOM node from React tree to document.body during print prep to completely evade layout collapsing.
-// 20.03.2026 19:45 - FIX: Absolute pixel pre-rendering.
+// 20.03.2026 22:30 - FIX: Removed destructive global print CSS that broke the PDF Report. Fixed macOS PDF grayscale bug by removing visibility hacks. Map is now pre-rendered at exact 297mm A4 size during prep phase.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -28,32 +27,17 @@ const ZoomListener: React.FC<{ onZoomChange: (zoom: number) => void }> = ({ onZo
     return null;
 };
 
-// Intelligenter Print Helper für Direct-Print aus dem Header
-const PrintHelper: React.FC<{ isPrintMode?: boolean, setIsPreparingPrint: (v: boolean) => void }> = ({ isPrintMode, setIsPreparingPrint }) => {
+// Intelligenter Helper: Zwingt Leaflet dazu, die Kacheln nach dem DOM-Move neu zu berechnen
+const PrintHelper: React.FC<{ isPreparingPrint: boolean }> = ({ isPreparingPrint }) => {
     const map = useMap();
     useEffect(() => {
-        if (isPrintMode) return; 
-
-        const handlePrep = () => {
-            setIsPreparingPrint(true);
-            setTimeout(() => map.invalidateSize(false), 150);
-        };
-        const handleCleanup = () => {
-            setIsPreparingPrint(false);
-            setTimeout(() => map.invalidateSize(false), 150);
-        };
-
-        window.addEventListener('prepare-map-print', handlePrep);
-        window.addEventListener('cleanup-map-print', handleCleanup);
-        return () => {
-            window.removeEventListener('prepare-map-print', handlePrep);
-            window.removeEventListener('cleanup-map-print', handleCleanup);
-        };
-    }, [map, isPrintMode, setIsPreparingPrint]);
+        const timer = setTimeout(() => map.invalidateSize(false), 200);
+        return () => clearTimeout(timer);
+    }, [map, isPreparingPrint]);
     return null;
 };
 
-// Automatischer Fitter (wird nur im PDF Report genutzt, um alle POIs zu zeigen)
+// Automatischer Fitter (wird nur im isolierten PDF Report genutzt, um alle POIs zu zeigen)
 const PrintMapFitter: React.FC<{ places: Place[], isPrintMode?: boolean }> = ({ places, isPrintMode }) => {
     const map = useMap();
     useEffect(() => {
@@ -98,34 +82,54 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
 
   const [currentZoom, setCurrentZoom] = useState(10);
 
+  // Lausche auf die Events vom CockpitHeader, um den Print Hack zu aktivieren
+  useEffect(() => {
+      const handlePrep = () => setIsPreparingPrint(true);
+      const handleCleanup = () => setIsPreparingPrint(false);
+
+      window.addEventListener('prepare-map-print', handlePrep);
+      window.addEventListener('cleanup-map-print', handleCleanup);
+      return () => {
+          window.removeEventListener('prepare-map-print', handlePrep);
+          window.removeEventListener('cleanup-map-print', handleCleanup);
+      };
+  }, []);
+
   // --- DER MAGISCHE DOM-EXTRACTOR FÜR DEN DRUCK ---
   useEffect(() => {
-      if (isPreparingPrint && containerRef.current) {
+      if (isPreparingPrint && containerRef.current && !isPrintMode) {
           const el = containerRef.current;
+          const parent = el.parentNode;
+          if (!parent) return;
+
+          // 1. Wir merken uns, wo die Karte vorher war
           const placeholder = document.createElement('div');
           placeholder.id = "map-print-placeholder";
+
+          // 2. Wir ziehen die Karte heraus
+          parent.insertBefore(placeholder, el);
+          document.body.appendChild(el);
           
-          // Sichere die ursprüngliche Position im Layout
-          el.parentNode?.replaceChild(placeholder, el);
-          
-          // Verstecke die Haupt-App temporär
+          // 3. Verstecke die Haupt-App temporär
           const rootEl = document.getElementById('root');
           if (rootEl) rootEl.style.display = 'none';
 
-          // Schiebe die Karte isoliert und frei von allen störenden CSS-Klassen ins Root-Verzeichnis des Bodys
-          document.body.appendChild(el);
+          el.classList.add('print-extractor-active');
 
           return () => {
-              // Aufräumen nach dem Druck
+              // 4. Nach dem Drucken räumen wir nahtlos auf
               if (rootEl) rootEl.style.display = '';
+              el.classList.remove('print-extractor-active');
+              
               if (placeholder.parentNode) {
-                  placeholder.parentNode.replaceChild(el, placeholder);
+                  placeholder.parentNode.insertBefore(el, placeholder);
+                  placeholder.parentNode.removeChild(placeholder);
               } else if (el.parentNode) {
                   el.parentNode.removeChild(el); 
               }
           };
       }
-  }, [isPreparingPrint]);
+  }, [isPreparingPrint, isPrintMode]);
   // ----------------------------------------------
 
   const validPlaces = useMemo(() => places.filter(p => p.location && p.location.lat && p.location.lng), [places]);
@@ -307,73 +311,77 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
   };
 
   const containerClasses = isPrintMode
-    ? "h-[85vh] w-full rounded-2xl overflow-hidden border border-slate-200 relative bg-slate-50 print:h-[90vh] print:break-inside-avoid shadow-sm"
-    : isPreparingPrint
-      ? "fixed inset-0 z-[99999] w-screen h-screen bg-slate-50"
-      : isFullscreen
+    ? "h-[450px] w-full relative bg-slate-50 border border-slate-200 rounded-xl overflow-hidden print:border-none print:rounded-none"
+    : isFullscreen
         ? "fixed left-0 right-0 bottom-0 top-[70px] md:top-[80px] z-[40] bg-slate-100 shadow-2xl transition-all"
         : "h-[calc(100vh-180px)] min-h-[600px] w-full rounded-[2rem] overflow-hidden shadow-inner border border-slate-200 z-0 relative bg-slate-100 transition-all";
 
   return (
     <>
-      <div id="sights-map-container" ref={containerRef} className={containerClasses}>
+      <div ref={containerRef} className={containerClasses}>
         
-        {/* BULLETPROOF PRINT CSS INJECTION - Gezielt für den echten Papierdruck */}
+        {/* DIESER BLOCK WIRD NUR INJIZIERT, WENN WIR DIREKT AUS DEM HEADER DRUCKEN (NICHT BEIM PDF REPORT) */}
+        {isPreparingPrint && !isPrintMode && (
+            <style type="text/css">
+                {`
+                    /* Zwingt den Extractor-Container auf exaktes A4-Querformat (297x209mm) auf dem Bildschirm */
+                    .print-extractor-active {
+                        position: absolute !important;
+                        left: 0 !important;
+                        top: 0 !important;
+                        width: 297mm !important;
+                        height: 209mm !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        background: #f8fafc !important;
+                        z-index: 999999 !important;
+                        border-radius: 0 !important;
+                        border: none !important;
+                        box-sizing: border-box !important;
+                    }
+
+                    .print-extractor-active .leaflet-container {
+                        width: 100% !important;
+                        height: 100% !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+
+                    /* Teilt dem Drucker mit, dass das Papier exakt so groß ist wie der Container */
+                    @media print {
+                        @page {
+                            size: A4 landscape;
+                            margin: 0;
+                        }
+                        html, body {
+                            width: 297mm !important;
+                            height: 209mm !important;
+                            margin: 0 !important;
+                            padding: 0 !important;
+                            background: white !important;
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                        }
+                    }
+                `}
+            </style>
+        )}
+
+        {/* Generelles Print-CSS für Leaflet UI-Elemente (Gilt für Direkt-Druck UND PDF Report) */}
         <style type="text/css" media="print">
             {`
-                @page {
-                    size: landscape;
-                    margin: 0;
-                }
-                body {
-                    margin: 0 !important;
-                    padding: 0 !important;
-                    background: white !important;
-                }
-                
-                /* Da die Karte durch den Hack als freies Element im Body liegt, können wir sie grenzenlos drucken */
-                #sights-map-container {
-                    position: absolute !important;
-                    left: 0 !important;
-                    top: 0 !important;
-                    width: 100vw !important;
-                    height: 100vh !important;
-                    background: white !important;
-                    border: none !important;
-                    box-shadow: none !important;
-                    z-index: 999999 !important;
-                }
-                
-                .leaflet-container {
-                    width: 100vw !important;
-                    height: 100vh !important;
-                    -webkit-print-color-adjust: exact !important;
-                    print-color-adjust: exact !important;
-                }
-                
-                /* Verstecke UI-Controls auf dem Papier */
                 .leaflet-control-container {
                     display: none !important;
-                }
-                
-                /* Zwinge Browser, die Kacheln in Farbe zu drucken */
-                .leaflet-tile,
-                .leaflet-marker-icon, 
-                .leaflet-marker-shadow {
-                    opacity: 1 !important;
-                    visibility: visible !important;
-                    -webkit-print-color-adjust: exact !important;
-                    print-color-adjust: exact !important;
                 }
             `}
         </style>
 
-        {/* VOLLBILD-MASKE (Damit der User den 100vw Umbau nicht nackt sieht) */}
+        {/* VOLLBILD-MASKE (Deckt den Bildschirm ab, während Leaflet die A4 Kacheln rendert) */}
         {isPreparingPrint && typeof document !== 'undefined' && createPortal(
             <div className="fixed inset-0 z-[2147483647] flex flex-col items-center justify-center bg-white/95 backdrop-blur-md print:hidden">
                 <RefreshCw className="w-12 h-12 text-blue-500 animate-spin mb-4" />
                 <h3 className="font-bold text-2xl text-slate-800">Druck wird vorbereitet...</h3>
-                <p className="text-slate-500 mt-2 font-medium">Karte wird im hochauflösenden Querformat geladen.</p>
+                <p className="text-slate-500 mt-2 font-medium">Karte wird im hochauflösenden Querformat für den Drucker optimiert.</p>
             </div>,
             document.body
         )}
@@ -447,18 +455,18 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
             zoom={10} 
             zoomSnap={0.1} 
             style={{ height: "100%", width: "100%" }} 
-            scrollWheelZoom={!isPrintMode}
-            zoomControl={!isPrintMode}
-            dragging={!isPrintMode}
-            touchZoom={!isPrintMode}
-            doubleClickZoom={!isPrintMode}
+            scrollWheelZoom={!isPrintMode && !isPreparingPrint}
+            zoomControl={!isPrintMode && !isPreparingPrint}
+            dragging={!isPrintMode && !isPreparingPrint}
+            touchZoom={!isPrintMode && !isPreparingPrint}
+            doubleClickZoom={!isPrintMode && !isPreparingPrint}
             zoomAnimation={!isPrintMode}
             fadeAnimation={!isPrintMode}
             markerZoomAnimation={!isPrintMode}
         >
           <ZoomListener onZoomChange={setCurrentZoom} />
           <PrintMapFitter places={validPlaces} isPrintMode={isPrintMode} />
-          <PrintHelper isPrintMode={isPrintMode} setIsPreparingPrint={setIsPreparingPrint} />
+          <PrintHelper isPreparingPrint={isPreparingPrint} />
           
           <MapResizer isFullscreen={isFullscreen || isPreparingPrint} />
           <OfflineTileLayer />
