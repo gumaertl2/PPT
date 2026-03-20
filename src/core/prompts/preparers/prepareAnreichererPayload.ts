@@ -1,3 +1,4 @@
+// 20.03.2026 13:45 - FIX: Prevent geographic hallucinations by passing existing_address to the Enricher.
 // 27.01.2026 22:40 - FIX: Added 'duration' & 'user_ratings_total' to requested fields.
 // Also added 'NON_PHYSICAL_KEYWORDS' filter to prevent meta-info enrichment.
 // src/core/prompts/preparers/prepareAnreichererPayload.ts
@@ -68,14 +69,16 @@ export const prepareAnreichererPayload = (
             return { 
                 name: c.name,
                 id: c.id, 
-                context_hint: c.vicinity || c.region || globalContext 
+                // FIX: Send existing address to prevent AI from overwriting it with hallucinations
+                existing_address: c.address || undefined,
+                context_hint: c.city || c.vicinity || c.region || globalContext 
             };
         });
 
     // 3. TARGET FIELDS (Updated with duration & user_ratings_total)
     const requestedFields = [
         "official_name (Correct spelling)", 
-        "address (Street, ZIP, City)",       
+        "address (Street, ZIP, City - CRITICAL: If existing_address is provided, KEEP the city/ZIP from it!)",       
         "location (lat, lng)",      
         "description (Factual short description, max 2 sentences)",   
         "openingHours (String representation)",  
@@ -98,8 +101,8 @@ export const prepareAnreichererPayload = (
         instructions: {
             role: "You are a Data Enrichment Bot. You do not interpret user wishes. You only verify availability and location.",
             task: "For each item in 'candidates_list', identify the place within 'search_region' and find the requested fields.",
-            strict_rule: "If a place is permanently closed or cannot be found in the specified region, set 'valid': false."
+            strict_rule: "If a place is permanently closed or cannot be found in the specified region, set 'valid': false. If 'existing_address' is provided, trust it and do NOT move the place to another city!"
         }
     };
 };
-// --- END OF FILE 109 Zeilen ---
+// --- END OF FILE 111 Zeilen ---
