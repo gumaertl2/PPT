@@ -1,5 +1,5 @@
-// 20.03.2026 00:30 - FIX: Restored circle/spiral marker spread algorithm (displayPlaces) inside MapPrintPreviewModal.
-// 20.03.2026 00:15 - FIX: Replaced 'visibility' print hack with safe '#root { display: none }' portal modal.
+// 20.03.2026 00:45 - FIX: Removed unused TS variables (project, currentLang) from MapPrintPreviewModal to fix build error.
+// 20.03.2026 00:30 - FIX: Restored circle/spiral marker spread algorithm inside MapPrintPreviewModal.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -57,14 +57,12 @@ const MapPrintPreviewModal: React.FC<{
     isOpen: boolean; 
     onClose: () => void; 
     places: Place[]; 
-    project: any; 
     uiState: any; 
     hotelInfo: any; 
     visitedSequence: Map<string, number>; 
     scheduledPlaces: Map<string, number>; 
-    currentLang: string;
     t: any;
-}> = ({ isOpen, onClose, places, project, uiState, hotelInfo, visitedSequence, scheduledPlaces, currentLang, t }) => {
+}> = ({ isOpen, onClose, places, uiState, hotelInfo, visitedSequence, scheduledPlaces, t }) => {
     
     const [currentZoom, setCurrentZoom] = useState(10);
     const validPlaces = useMemo(() => places.filter(p => p.location && p.location.lat && p.location.lng), [places]);
@@ -248,7 +246,7 @@ const MapPrintPreviewModal: React.FC<{
                             return (
                                 <Marker 
                                     key={place.id} 
-                                    position={[place.displayLat, place.displayLng]} // Nutzt die verteilten Koordinaten!
+                                    position={[place.displayLat, place.displayLng]}
                                     icon={createSmartIcon(markerColor, false, badgeNumber, isHotel, userPrio, isFixed, !!place.visited)}
                                     zIndexOffset={(isHotel ? 900 : (badgeNumber ? 500 : baseZ))} 
                                 >
@@ -698,12 +696,10 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
           isOpen={showPrintModal} 
           onClose={() => setShowPrintModal(false)}
           places={places}
-          project={project}
           uiState={uiState}
           hotelInfo={hotelInfo}
           visitedSequence={visitedSequence}
           scheduledPlaces={scheduledPlaces}
-          currentLang={currentLang}
           t={t}
       />
     </>
