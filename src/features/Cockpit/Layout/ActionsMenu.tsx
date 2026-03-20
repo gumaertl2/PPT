@@ -1,5 +1,5 @@
-// 19.03.2026 13:00 - UX: Avoid double prompting for filename if the native showSaveFilePicker is available. The system dialog takes care of the name now.
-// 24.02.2026 19:15 - REFACTOR: Moved Settings button.
+// 20.03.2026 17:40 - UX: Moved Info & Quickguide to ActionsMenu, removed Finance.
+// 19.03.2026 13:00 - UX: Avoid double prompting for filename.
 // src/features/Cockpit/Layout/ActionsMenu.tsx
 
 import React, { useState, useRef } from 'react';
@@ -17,8 +17,8 @@ import {
   Upload, 
   FileText, 
   Terminal,
-  Wallet,
-  Settings 
+  Settings,
+  HelpCircle
 } from 'lucide-react';
 
 import { useTripStore } from '../../../store/useTripStore';
@@ -35,7 +35,8 @@ interface ActionsMenuProps {
   onOpenPrint: () => void;
   onOpenAdHoc: () => void;
   onOpenSettings: () => void;
-  onOpenFinance?: () => void; 
+  onOpenManual: () => void;
+  onOpenQuickGuide: () => void;
 }
 
 export const ActionsMenu: React.FC<ActionsMenuProps> = ({
@@ -46,12 +47,12 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
   onOpenPrint,
   onOpenAdHoc,
   onOpenSettings,
-  onOpenFinance
+  onOpenManual,
+  onOpenQuickGuide
 }) => {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   
-  // --- SMART LOADER STATE ---
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingLoadData, setPendingLoadData] = useState<any | null>(null);
   const [showMergeModal, setShowMergeModal] = useState(false);
@@ -113,7 +114,6 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
 
     let fileName = uiState.currentFileName || `${safeName}_log_${new Date().toISOString().slice(0,10)}.json`;
 
-    // FIX: Wenn der moderne Dialog im Browser nicht da ist, fragen wir wie früher per prompt
     if (!('showSaveFilePicker' in window)) {
         const currentName = uiState.currentFileName ? uiState.currentFileName.replace(/\.json$/i, '') : fileName;
         const userFileName = window.prompt("Dateiname für Speicherstand:", currentName);
@@ -124,7 +124,6 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
         if (!fileName.endsWith('.json')) fileName += '.json';
     }
 
-    // Wartet ab, ob das Speichern erfolgreich war
     await saveProject(fileName);
   };
 
@@ -142,7 +141,6 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
     if (success) onOpenExport();
   };
 
-  // --- SMART LOADER LOGIC ---
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
@@ -206,11 +204,19 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
         <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2">
           
           <button 
-            onClick={() => { setIsOpen(false); if (onOpenFinance) onOpenFinance(); }}
-            className="w-full text-left px-4 py-2 hover:bg-emerald-50 text-emerald-700 flex items-center gap-3 text-sm font-bold border-b border-slate-100"
-            title={t('tooltips.menu_items.finance', { defaultValue: 'Reisekasse' })}
+            onClick={() => { setIsOpen(false); onOpenQuickGuide(); }}
+            className="w-full text-left px-4 py-2 hover:bg-amber-50 text-slate-700 flex items-center gap-3 text-sm font-medium"
+            title={t('welcome.quick_guide_title', { defaultValue: 'Schnellstart-Guide' })}
           >
-            <Wallet className="w-4 h-4" /> {t('wizard.actions_menu.finance', { defaultValue: 'Reisekasse' })}
+            <Zap className="w-4 h-4 text-amber-500" /> {t('wizard.toolbar.help_quick', { defaultValue: 'Schnellstart-Guide' })}
+          </button>
+
+          <button 
+            onClick={() => { setIsOpen(false); onOpenManual(); }}
+            className="w-full text-left px-4 py-2 hover:bg-blue-50 text-slate-700 flex items-center gap-3 text-sm font-medium border-b border-slate-100"
+            title={t('tooltips.help', { defaultValue: 'Handbuch' })}
+          >
+            <HelpCircle className="w-4 h-4 text-blue-500" /> {t('wizard.toolbar.help', { defaultValue: 'Handbuch' })}
           </button>
 
           <button 
@@ -275,7 +281,7 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
             className="w-full text-left px-4 py-2 hover:bg-blue-50 text-slate-700 flex items-center gap-3 text-sm font-medium"
             title={t('tooltips.menu_items.print')}
           >
-            <Printer className="w-4 h-4 text-slate-500" /> {t('wizard.actions_menu.print')}
+            <Printer className="w-4 h-4 text-slate-500" /> {t('wizard.actions_menu.print_report', { defaultValue: 'PDF Report' })}
           </button>
           
           <div className="h-px bg-slate-100 my-1"></div>
@@ -288,7 +294,6 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
             <Save className="w-4 h-4 text-blue-500" /> {t('wizard.actions_menu.save')}
           </button>
           
-          {/* SMART LOADER TRIGGER */}
           <button 
             onClick={() => { setIsOpen(false); fileInputRef.current?.click(); }} 
             className="w-full text-left px-4 py-2 hover:bg-blue-50 text-slate-700 flex items-center gap-3 text-sm font-medium"
@@ -348,4 +353,4 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
     </div>
   );
 };
-// --- END OF FILE 317 Zeilen ---
+// --- END OF FILE 319 Zeilen ---

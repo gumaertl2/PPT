@@ -1,5 +1,5 @@
-// 19.03.2026 13:30 - UX: Updated search placeholder to clearly indicate full-text search capabilities (Keyword, place, note...).
-// 19.03.2026 13:00 - UX: Adjusted handleExitSave to use the new async saveProject logic.
+// 20.03.2026 18:00 - UX: Removed text label from Print button in header (icon only) to save space and avoid translation issues.
+// 20.03.2026 17:40 - UX: Header Navigation reorganized. Quickguide & Help moved to ActionsMenu. Added Travel Wallet and Print View to header.
 // src/features/Cockpit/Layout/CockpitHeader.tsx
 
 import React, { useState, useRef } from 'react';
@@ -9,12 +9,12 @@ import {
   BookOpen, 
   Info, 
   Filter, 
-  HelpCircle, 
   Edit3,
   Home,
   Search, 
   X,
-  Zap
+  Wallet,
+  Printer
 } from 'lucide-react';
 
 import { useTripStore } from '../../../store/useTripStore';
@@ -281,7 +281,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                       }
                       setUIState({ searchTerm: e.target.value });
                   }}
-                  /* FIX: Neuer Platzhalter für Volltextsuche */
                   placeholder={t('sights.search_placeholder_full', { defaultValue: currentLang === 'en' ? 'Keyword, place...' : 'Stichwort, Ort, Notiz...' })}
                   className="pl-6 sm:pl-7 pr-5 sm:pr-6 py-1.5 text-[10px] sm:text-xs border border-slate-200 rounded-full bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:bg-white w-20 focus:w-28 sm:w-24 sm:focus:w-36 transition-all duration-300 placeholder:text-slate-400"
                 />
@@ -298,27 +297,20 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
           
           <div className="flex items-center gap-0.5 sm:gap-2 flex-shrink-0">
               <button 
-                onClick={() => setShowQuickGuide(true)}
-                className="flex flex-col items-center px-1.5 sm:px-2 py-1 text-slate-500 hover:bg-amber-50 hover:text-amber-600 rounded transition-colors shrink-0"
-                title={t('welcome.quick_guide_title', { defaultValue: 'Schnellstart-Guide' })}
+                onClick={() => setIsFinanceModalOpen(true)}
+                className="flex flex-col items-center px-1.5 sm:px-2 py-1 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 rounded transition-colors shrink-0"
+                title={t('finance.title', { defaultValue: 'Reisekasse' })}
               >
-                <Zap className="w-4 h-4 lg:w-5 lg:h-5 mb-0.5" />
-                <span className="text-[10px] font-bold uppercase tracking-wide hidden xl:inline">{t('wizard.toolbar.help_quick', { defaultValue: 'Guide' })}</span>
+                <Wallet className="w-4 h-4 lg:w-5 lg:h-5 mb-0.5" />
+                <span className="text-[10px] font-bold uppercase tracking-wide hidden xl:inline">{t('wizard.actions_menu.finance', { defaultValue: 'Kasse' })}</span>
               </button>
 
               <button 
-                onClick={() => {
-                  if (viewMode === 'wizard') {
-                    onOpenHelp(); 
-                  } else {
-                    setShowManualModal(true); 
-                  }
-                }}
-                className="flex flex-col items-center px-1.5 sm:px-2 py-1 text-slate-500 hover:bg-slate-100 rounded transition-colors shrink-0"
-                title={t('tooltips.help')}
+                onClick={() => window.print()}
+                className="flex flex-col justify-center items-center px-2 sm:px-3 py-1 h-full text-slate-500 hover:bg-slate-100 rounded transition-colors shrink-0"
+                title={t('tooltips.menu_items.print', { defaultValue: 'Drucken' })}
               >
-                <HelpCircle className="w-4 h-4 lg:w-5 lg:h-5 mb-0.5" />
-                <span className="text-[10px] font-bold uppercase tracking-wide hidden xl:inline">{t('wizard.toolbar.help')}</span>
+                <Printer className="w-4 h-4 lg:w-5 lg:h-5" />
               </button>
               
               <div className="w-px h-6 sm:h-8 bg-slate-200 mx-0.5 sm:mx-1"></div>
@@ -332,7 +324,14 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                 onOpenPrint={() => setIsPrintModalOpen(true)}
                 onOpenAdHoc={() => setIsAdHocModalOpen(true)}
                 onOpenSettings={() => setShowSettingsModal(true)}
-                onOpenFinance={() => setIsFinanceModalOpen(true)} 
+                onOpenManual={() => {
+                  if (viewMode === 'wizard') {
+                    onOpenHelp(); 
+                  } else {
+                    setShowManualModal(true); 
+                  }
+                }}
+                onOpenQuickGuide={() => setShowQuickGuide(true)}
               />
           </div>
         </div>
@@ -363,4 +362,4 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     </>
   );
 };
-// --- END OF FILE 383 Zeilen ---
+// --- END OF FILE 379 Zeilen ---
