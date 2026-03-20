@@ -1,4 +1,5 @@
-// 20.03.2026 22:30 - FIX: Removed destructive global print CSS that broke the PDF Report. Fixed macOS PDF grayscale bug by removing visibility hacks. Map is now pre-rendered at exact 297mm A4 size during prep phase.
+// 20.03.2026 00:30 - FIX: Restored circle/spiral marker spread algorithm (displayPlaces) inside MapPrintPreviewModal.
+// 20.03.2026 00:15 - FIX: Replaced 'visibility' print hack with safe '#root { display: none }' portal modal.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -10,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import type { Place } from '../../core/types/models';
 import { 
   ExternalLink, RefreshCw, Maximize, Minimize, 
-  Navigation, CloudOff, Database, CalendarClock, Clock, Layers
+  Navigation, CloudOff, Database, CalendarClock, Clock, Layers, Printer, X
 } from 'lucide-react'; 
 import { GeocodingService } from '../../services/GeocodingService'; 
 import { OfflineMapModal } from './OfflineMapModal';
@@ -27,17 +28,7 @@ const ZoomListener: React.FC<{ onZoomChange: (zoom: number) => void }> = ({ onZo
     return null;
 };
 
-// Intelligenter Helper: Zwingt Leaflet dazu, die Kacheln nach dem DOM-Move neu zu berechnen
-const PrintHelper: React.FC<{ isPreparingPrint: boolean }> = ({ isPreparingPrint }) => {
-    const map = useMap();
-    useEffect(() => {
-        const timer = setTimeout(() => map.invalidateSize(false), 200);
-        return () => clearTimeout(timer);
-    }, [map, isPreparingPrint]);
-    return null;
-};
-
-// Automatischer Fitter (wird nur im isolierten PDF Report genutzt, um alle POIs zu zeigen)
+// Automatischer Fitter (wird nur im isolierten PDF Report genutzt)
 const PrintMapFitter: React.FC<{ places: Place[], isPrintMode?: boolean }> = ({ places, isPrintMode }) => {
     const map = useMap();
     useEffect(() => {
@@ -61,13 +52,225 @@ const PrintMapFitter: React.FC<{ places: Place[], isPrintMode?: boolean }> = ({ 
     return null;
 };
 
+// --- Das sichere Druck-Vorschau Modal (React Portal) ---
+const MapPrintPreviewModal: React.FC<{ 
+    isOpen: boolean; 
+    onClose: () => void; 
+    places: Place[]; 
+    project: any; 
+    uiState: any; 
+    hotelInfo: any; 
+    visitedSequence: Map<string, number>; 
+    scheduledPlaces: Map<string, number>; 
+    currentLang: string;
+    t: any;
+}> = ({ isOpen, onClose, places, project, uiState, hotelInfo, visitedSequence, scheduledPlaces, currentLang, t }) => {
+    
+    const [currentZoom, setCurrentZoom] = useState(10);
+    const validPlaces = useMemo(() => places.filter(p => p.location && p.location.lat && p.location.lng), [places]);
+    
+    const defaultCenter: [number, number] = useMemo(() => {
+        if (validPlaces.length === 0) return [48.1351, 11.5820];
+        const lats = validPlaces.map(p => p.location!.lat);
+        const lngs = validPlaces.map(p => p.location!.lng);
+        return [
+            (Math.min(...lats) + Math.max(...lats)) / 2, 
+            (Math.min(...lngs) + Math.max(...lngs)) / 2
+        ];
+    }, [validPlaces]);
+
+    // Kreis-Algorithmus FÜR DIE DRUCKVORSCHAU (verhindert Überlappung)
+    const displayPlaces = useMemo(() => {
+        const scaleFactor = Math.pow(0.5, Math.max(0, currentZoom - 10));
+        const GROUP_DISTANCE = 0.03 * scaleFactor; 
+        
+        const groups: Place[][] = [];
+        validPlaces.forEach(p => {
+            let added = false;
+            for (const group of groups) {
+                const centerLat = group[0].location!.lat;
+                const centerLng = group[0].location!.lng;
+                
+                if (Math.abs(p.location!.lat - centerLat) < GROUP_DISTANCE && 
+                    Math.abs(p.location!.lng - centerLng) < GROUP_DISTANCE) {
+                    group.push(p);
+                    added = true;
+                    break;
+                }
+            }
+            if (!added) groups.push([p]);
+        });
+
+        const result: (Place & { displayLat: number, displayLng: number })[] = [];
+
+        groups.forEach(group => {
+            if (group.length === 1) {
+                result.push({ ...group[0], displayLat: group[0].location!.lat, displayLng: group[0].location!.lng });
+            } else {
+                const centerLat = group.reduce((sum, p) => sum + p.location!.lat, 0) / group.length;
+                const centerLng = group.reduce((sum, p) => sum + p.location!.lng, 0) / group.length;
+                const latRatio = Math.cos(centerLat * Math.PI / 180); 
+                
+                const minRadius = 0.015; 
+                const arcPerItem = 0.022; 
+                
+                let SPREAD_RADIUS = Math.max(minRadius, (group.length * arcPerItem) / (2 * Math.PI));
+                SPREAD_RADIUS = SPREAD_RADIUS * scaleFactor; 
+                
+                const sortedGroup = [...group].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+                sortedGroup.forEach((p, index) => {
+                    const angle = (index / group.length) * 2 * Math.PI;
+                    result.push({
+                        ...p,
+                        displayLat: centerLat + Math.cos(angle) * SPREAD_RADIUS,
+                        displayLng: centerLng + (Math.sin(angle) * SPREAD_RADIUS) / latRatio
+                    });
+                });
+            }
+        });
+        
+        return result;
+    }, [validPlaces, currentZoom]);
+
+    if (!isOpen) return null;
+
+    return createPortal(
+        <div className="print-preview-portal fixed inset-0 z-[999999] bg-slate-900 flex flex-col print:bg-white print:block print:static print:h-auto">
+            
+            {/* NATIVE DRUCKVORSCHAU TOP-BAR (Nicht sichtbar auf dem Papier) */}
+            <div className="h-16 bg-slate-800 flex items-center justify-between px-4 sm:px-6 shrink-0 shadow-xl no-print">
+                <div className="text-white font-bold flex items-center gap-2">
+                    <Printer className="w-5 h-5 text-blue-400" />
+                </div>
+                <div className="flex items-center gap-2 sm:gap-4">
+                    <button onClick={onClose} className="p-2 bg-slate-700 hover:bg-slate-600 rounded-full transition-colors" title={t('actions.cancel', { defaultValue: 'Abbrechen' })}>
+                        <X className="w-5 h-5 text-white" />
+                    </button>
+                    <button onClick={() => window.print()} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold shadow-md transition-colors flex items-center gap-2">
+                        <Printer className="w-4 h-4" /> {t('tooltips.menu_items.print', { defaultValue: 'Drucken' })}
+                    </button>
+                </div>
+            </div>
+
+            {/* Der Container für die Karte. Skaliert auf dem Bildschirm, aber exakt A4 auf Papier! */}
+            <div className="print-content-area flex-1 overflow-hidden flex justify-center items-center p-4 print:p-0 print:block print:overflow-visible print:h-auto">
+                
+                <style type="text/css" media="print">
+                    {`
+                        @page { size: A4 landscape; margin: 0; }
+                        body { margin: 0 !important; padding: 0 !important; background: white !important; }
+                        
+                        /* Verstecke die normale App komplett - iOS sicherer Weg! */
+                        #root { display: none !important; }
+                        
+                        /* Befreie das Portal aus dem Layout */
+                        .print-preview-portal {
+                            position: static !important;
+                            display: block !important;
+                            width: 100% !important;
+                            height: auto !important;
+                            background: white !important;
+                        }
+                        
+                        .print-content-area {
+                            display: block !important;
+                            width: 100% !important;
+                            height: auto !important;
+                            overflow: visible !important;
+                            padding: 0 !important;
+                        }
+
+                        #print-map-wrapper {
+                            position: relative !important; left: auto !important; top: auto !important;
+                            width: 297mm !important; height: 209mm !important;
+                            margin: 0 !important; padding: 0 !important;
+                            transform: none !important;
+                            box-shadow: none !important;
+                            page-break-inside: avoid;
+                        }
+                        
+                        .leaflet-control-container, .no-print { display: none !important; }
+                        .leaflet-container { background: #f8fafc !important; }
+                        
+                        /* iOS Fix für Marker */
+                        .leaflet-tile, .leaflet-marker-pane, .leaflet-marker-icon, .leaflet-marker-icon *, .leaflet-marker-shadow {
+                            -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
+                            color-adjust: exact !important; forced-color-adjust: none !important;
+                            box-shadow: none !important; text-shadow: none !important;
+                            filter: none !important; -webkit-filter: none !important;
+                        }
+                    `}
+                </style>
+
+                {/* Wrapper: Auf dem Bildschirm skaliert (CSS aspect-ratio), beim Drucken exakt 297x209mm */}
+                <div id="print-map-wrapper" className="w-[297mm] h-[209mm] max-w-full max-h-full bg-white shadow-2xl overflow-hidden print:shadow-none print:w-[297mm] print:h-[209mm]" style={{ transformOrigin: 'center center', transform: 'scale(min(calc((100vw - 2rem) / 1122), calc((100vh - 5rem) / 790)))' }}>
+                     
+                     <MapContainer 
+                        center={defaultCenter} 
+                        zoom={10} 
+                        zoomSnap={0.1} 
+                        style={{ height: "100%", width: "100%" }} 
+                        scrollWheelZoom={true} 
+                        zoomControl={true}
+                        dragging={true}
+                    >
+                        <ZoomListener onZoomChange={setCurrentZoom} />
+                        <PrintMapFitter places={validPlaces} isPrintMode={true} />
+                        <MapStyles /> 
+                        <OfflineTileLayer />
+                        <MapLogic places={places} />
+
+                        {displayPlaces.map((place) => {
+                            const isHotel = hotelInfo.ids.has(place.id) || 
+                                            hotelInfo.names.has(place.name?.toLowerCase() || '') || 
+                                            hotelInfo.names.has(place.official_name?.toLowerCase() || '') ||
+                                            place.category?.toLowerCase().includes('hotel') ||
+                                            place.category?.toLowerCase().includes('accommodation');
+
+                            let badgeNumber = undefined;
+                            if (uiState.visitedFilter === 'visited' || uiState.viewMode === 'diary') {
+                                badgeNumber = visitedSequence.get(place.id);
+                            } else if (uiState.sortMode === 'day') {
+                                badgeNumber = scheduledPlaces.get(place.id);
+                            }
+                            
+                            const markerColor = getCategoryColor(place.category, place);
+                            const isFixed = !!place.isFixed;
+                            const userPrio = place.userPriority ?? 0;
+                            
+                            let baseZ = 0;
+                            if (isFixed) baseZ = 400;
+                            else if (userPrio === 1) baseZ = 300;
+                            else if (userPrio === 2) baseZ = 200;
+                            else if (userPrio === -1) baseZ = -100;
+                            
+                            return (
+                                <Marker 
+                                    key={place.id} 
+                                    position={[place.displayLat, place.displayLng]} // Nutzt die verteilten Koordinaten!
+                                    icon={createSmartIcon(markerColor, false, badgeNumber, isHotel, userPrio, isFixed, !!place.visited)}
+                                    zIndexOffset={(isHotel ? 900 : (badgeNumber ? 500 : baseZ))} 
+                                >
+                                    <Tooltip direction="top" offset={[0, -15]} opacity={0.95} className="custom-tooltip print:hidden">{place.name}</Tooltip>
+                                </Marker>
+                            );
+                        })}
+                    </MapContainer>
+                </div>
+            </div>
+        </div>,
+        document.body
+    );
+};
+// --------------------------------------------------------
+
 export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any) => void, forceDiaryMode?: boolean, isPrintMode?: boolean }> = ({ places, setViewMode, forceDiaryMode, isPrintMode }) => {
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) === 'en' ? 'en' : 'de';
   
   const { uiState, setUIState, project, setProject, updatePlace } = useTripStore(); 
   const markerRefs = useRef<Record<string, L.Marker | null>>({});
-  const containerRef = useRef<HTMLDivElement>(null);
 
   const [isUpdatingCoords, setIsUpdatingCoords] = useState(false);
   const [updateProgress, setUpdateProgress] = useState({ current: 0, total: 0 });
@@ -77,60 +280,17 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
   const [isLocating, setIsLocating] = useState(false);
   const [isLayerMenuOpen, setIsLayerMenuOpen] = useState(false);
   
-  // Status für den Druck-Vorbereitungs-Modus
-  const [isPreparingPrint, setIsPreparingPrint] = useState(false);
+  // State für unser neues Preview Modal
+  const [showPrintModal, setShowPrintModal] = useState(false);
 
   const [currentZoom, setCurrentZoom] = useState(10);
 
-  // Lausche auf die Events vom CockpitHeader, um den Print Hack zu aktivieren
+  // Lausche auf die Events vom CockpitHeader
   useEffect(() => {
-      const handlePrep = () => setIsPreparingPrint(true);
-      const handleCleanup = () => setIsPreparingPrint(false);
-
-      window.addEventListener('prepare-map-print', handlePrep);
-      window.addEventListener('cleanup-map-print', handleCleanup);
-      return () => {
-          window.removeEventListener('prepare-map-print', handlePrep);
-          window.removeEventListener('cleanup-map-print', handleCleanup);
-      };
+      const handleOpenPreview = () => setShowPrintModal(true);
+      window.addEventListener('open-map-print-preview', handleOpenPreview);
+      return () => window.removeEventListener('open-map-print-preview', handleOpenPreview);
   }, []);
-
-  // --- DER MAGISCHE DOM-EXTRACTOR FÜR DEN DRUCK ---
-  useEffect(() => {
-      if (isPreparingPrint && containerRef.current && !isPrintMode) {
-          const el = containerRef.current;
-          const parent = el.parentNode;
-          if (!parent) return;
-
-          // 1. Wir merken uns, wo die Karte vorher war
-          const placeholder = document.createElement('div');
-          placeholder.id = "map-print-placeholder";
-
-          // 2. Wir ziehen die Karte heraus
-          parent.insertBefore(placeholder, el);
-          document.body.appendChild(el);
-          
-          // 3. Verstecke die Haupt-App temporär
-          const rootEl = document.getElementById('root');
-          if (rootEl) rootEl.style.display = 'none';
-
-          el.classList.add('print-extractor-active');
-
-          return () => {
-              // 4. Nach dem Drucken räumen wir nahtlos auf
-              if (rootEl) rootEl.style.display = '';
-              el.classList.remove('print-extractor-active');
-              
-              if (placeholder.parentNode) {
-                  placeholder.parentNode.insertBefore(el, placeholder);
-                  placeholder.parentNode.removeChild(placeholder);
-              } else if (el.parentNode) {
-                  el.parentNode.removeChild(el); 
-              }
-          };
-      }
-  }, [isPreparingPrint, isPrintMode]);
-  // ----------------------------------------------
 
   const validPlaces = useMemo(() => places.filter(p => p.location && p.location.lat && p.location.lng), [places]);
   
@@ -318,72 +478,22 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
 
   return (
     <>
-      <div ref={containerRef} className={containerClasses}>
+      <div className={containerClasses}>
         
-        {/* DIESER BLOCK WIRD NUR INJIZIERT, WENN WIR DIREKT AUS DEM HEADER DRUCKEN (NICHT BEIM PDF REPORT) */}
-        {isPreparingPrint && !isPrintMode && (
-            <style type="text/css">
-                {`
-                    /* Zwingt den Extractor-Container auf exaktes A4-Querformat (297x209mm) auf dem Bildschirm */
-                    .print-extractor-active {
-                        position: absolute !important;
-                        left: 0 !important;
-                        top: 0 !important;
-                        width: 297mm !important;
-                        height: 209mm !important;
-                        margin: 0 !important;
-                        padding: 0 !important;
-                        background: #f8fafc !important;
-                        z-index: 999999 !important;
-                        border-radius: 0 !important;
-                        border: none !important;
-                        box-sizing: border-box !important;
-                    }
-
-                    .print-extractor-active .leaflet-container {
-                        width: 100% !important;
-                        height: 100% !important;
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
-                    }
-
-                    /* Teilt dem Drucker mit, dass das Papier exakt so groß ist wie der Container */
-                    @media print {
-                        @page {
-                            size: A4 landscape;
-                            margin: 0;
-                        }
-                        html, body {
-                            width: 297mm !important;
-                            height: 209mm !important;
-                            margin: 0 !important;
-                            padding: 0 !important;
-                            background: white !important;
-                            -webkit-print-color-adjust: exact !important;
-                            print-color-adjust: exact !important;
-                        }
-                    }
-                `}
-            </style>
-        )}
-
-        {/* Generelles Print-CSS für Leaflet UI-Elemente (Gilt für Direkt-Druck UND PDF Report) */}
-        <style type="text/css" media="print">
-            {`
-                .leaflet-control-container {
-                    display: none !important;
-                }
-            `}
-        </style>
-
-        {/* VOLLBILD-MASKE (Deckt den Bildschirm ab, während Leaflet die A4 Kacheln rendert) */}
-        {isPreparingPrint && typeof document !== 'undefined' && createPortal(
-            <div className="fixed inset-0 z-[2147483647] flex flex-col items-center justify-center bg-white/95 backdrop-blur-md print:hidden">
-                <RefreshCw className="w-12 h-12 text-blue-500 animate-spin mb-4" />
-                <h3 className="font-bold text-2xl text-slate-800">Druck wird vorbereitet...</h3>
-                <p className="text-slate-500 mt-2 font-medium">Karte wird im hochauflösenden Querformat für den Drucker optimiert.</p>
-            </div>,
-            document.body
+        {/* Generelles Print-CSS für Leaflet UI-Elemente (Gilt IMMER, auch für regulären PDF Report) */}
+        {!showPrintModal && (
+             <style type="text/css" media="print">
+                 {`
+                     .leaflet-control-container { display: none !important; }
+                     .leaflet-container { background: #f8fafc !important; }
+                     .leaflet-tile, .leaflet-marker-pane, .leaflet-marker-icon, .leaflet-marker-icon *, .leaflet-marker-shadow {
+                         -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
+                         color-adjust: exact !important; forced-color-adjust: none !important;
+                         box-shadow: none !important; text-shadow: none !important;
+                         filter: none !important; -webkit-filter: none !important;
+                     }
+                 `}
+             </style>
         )}
 
         <MapStyles /> 
@@ -395,7 +505,7 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
             </div>
         )}
 
-        {!isPrintMode && !isPreparingPrint && (
+        {!isPrintMode && (
             <div className="print:hidden">
               <button 
                   onClick={() => setIsFullscreen(!isFullscreen)}
@@ -455,20 +565,19 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
             zoom={10} 
             zoomSnap={0.1} 
             style={{ height: "100%", width: "100%" }} 
-            scrollWheelZoom={!isPrintMode && !isPreparingPrint}
-            zoomControl={!isPrintMode && !isPreparingPrint}
-            dragging={!isPrintMode && !isPreparingPrint}
-            touchZoom={!isPrintMode && !isPreparingPrint}
-            doubleClickZoom={!isPrintMode && !isPreparingPrint}
+            scrollWheelZoom={!isPrintMode}
+            zoomControl={!isPrintMode}
+            dragging={!isPrintMode}
+            touchZoom={!isPrintMode}
+            doubleClickZoom={!isPrintMode}
             zoomAnimation={!isPrintMode}
             fadeAnimation={!isPrintMode}
             markerZoomAnimation={!isPrintMode}
         >
           <ZoomListener onZoomChange={setCurrentZoom} />
           <PrintMapFitter places={validPlaces} isPrintMode={isPrintMode} />
-          <PrintHelper isPreparingPrint={isPreparingPrint} />
           
-          <MapResizer isFullscreen={isFullscreen || isPreparingPrint} />
+          <MapResizer isFullscreen={isFullscreen} />
           <OfflineTileLayer />
           <MapLogic places={places} />
           {!isPrintMode && <OfflineMapModal />}
@@ -583,7 +692,21 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
           {!isPrintMode && <MapLegend places={allValidPlacesForLegend} />}
         </MapContainer>
       </div>
+
+      {/* NEU: Das Modal für den sicheren, nativen Apple-Proof Druck */}
+      <MapPrintPreviewModal 
+          isOpen={showPrintModal} 
+          onClose={() => setShowPrintModal(false)}
+          places={places}
+          project={project}
+          uiState={uiState}
+          hotelInfo={hotelInfo}
+          visitedSequence={visitedSequence}
+          scheduledPlaces={scheduledPlaces}
+          currentLang={currentLang}
+          t={t}
+      />
     </>
   );
 };
-// --- END OF FILE 528 Zeilen ---
+// --- END OF FILE 683 Zeilen ---

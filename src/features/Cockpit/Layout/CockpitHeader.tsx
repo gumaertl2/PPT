@@ -1,4 +1,4 @@
-// 20.03.2026 18:50 - FIX: Intercepted map print clicks to provide Leaflet time to fetch tiles before opening the print dialog.
+// 20.03.2026 23:30 - FIX: Removed async print timeout to comply with iOS WebKit security policies. Implemented safe dispatch for Map Print Preview.
 // 20.03.2026 18:00 - UX: Removed text label from Print button in header.
 // src/features/Cockpit/Layout/CockpitHeader.tsx
 
@@ -14,8 +14,7 @@ import {
   Search, 
   X,
   Wallet,
-  Printer,
-  RefreshCw
+  Printer
 } from 'lucide-react';
 
 import { useTripStore } from '../../../store/useTripStore';
@@ -73,9 +72,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
   const [isFinanceModalOpen, setIsFinanceModalOpen] = useState(false); 
   const [showQuickGuide, setShowQuickGuide] = useState(false);
   
-  // Neu: Status für den Druck-Verzögerer (Map Tile Loading)
-  const [isPreparingPrint, setIsPreparingPrint] = useState(false);
-  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isFilterActive = uiState.searchTerm || uiState.categoryFilter.length > 0 || uiState.visitedFilter !== 'all';
@@ -114,20 +110,15 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     }, 2000); 
   };
 
-  // Neu: Abgefangener Druck-Befehl für die Karte
+  // FIX: Apple-Proof Print Dispatch. Keine asynchronen Timeouts mehr!
   const handleDirectPrint = () => {
       const isMapActive = viewMode === 'sights' && uiState.viewMode === 'map';
       
       if (isMapActive) {
-          setIsPreparingPrint(true);
-          window.dispatchEvent(new Event('prepare-map-print'));
-          
-          setTimeout(() => {
-              window.print();
-              setIsPreparingPrint(false);
-              window.dispatchEvent(new Event('cleanup-map-print'));
-          }, 1200); // Gibt Leaflet 1,2 Sekunden, um Kacheln zu laden
+          // Öffnet das sichere React-Overlay in der Karte (Apple/iOS konform)
+          window.dispatchEvent(new Event('open-map-print-preview'));
       } else {
+          // Normaler Listen-Druck
           window.print();
       }
   };
@@ -329,11 +320,10 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
 
               <button 
                 onClick={handleDirectPrint}
-                disabled={isPreparingPrint}
-                className="flex flex-col justify-center items-center px-2 sm:px-3 py-1 h-full text-slate-500 hover:bg-slate-100 rounded transition-colors shrink-0 disabled:opacity-50"
+                className="flex flex-col justify-center items-center px-2 sm:px-3 py-1 h-full text-slate-500 hover:bg-slate-100 rounded transition-colors shrink-0"
                 title={t('tooltips.menu_items.print', { defaultValue: 'Drucken' })}
               >
-                {isPreparingPrint ? <RefreshCw className="w-4 h-4 lg:w-5 lg:h-5 animate-spin text-blue-500" /> : <Printer className="w-4 h-4 lg:w-5 lg:h-5" />}
+                <Printer className="w-4 h-4 lg:w-5 lg:h-5" />
               </button>
               
               <div className="w-px h-6 sm:h-8 bg-slate-200 mx-0.5 sm:mx-1"></div>
@@ -385,4 +375,4 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     </>
   );
 };
-// --- END OF FILE 402 Zeilen ---
+// --- END OF FILE 387 Zeilen ---
