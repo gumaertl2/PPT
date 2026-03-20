@@ -1,15 +1,17 @@
-// 20.03.2026 16:30 - FEAT: Added dynamic Subtotals (Group-By) based on the active sort column.
-// 20.03.2026 16:00 - FEAT: Added native HTML5 datalist for folksonomy autocomplete.
-// 20.03.2026 15:45 - FEAT: Added interactive column sorting to the Table View.
+// 20.03.2026 17:25 - FIX: Resolved JSX fragment and createPortal nesting error at the end of file.
+// 20.03.2026 17:00 - FIX: Replaced aggressive print CSS with robust block/static rules.
+// 20.03.2026 16:45 - FEAT: Added Print functionality with optimized CSS print layout.
+// 20.03.2026 16:30 - FEAT: Added dynamic Subtotals (Group-By).
 // src/features/Cockpit/TripFinanceModal.tsx
 
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
 import { 
   X, Wallet, ListFilter, Trash2, ArrowRightLeft, Banknote, Edit3, 
   Save, CheckCircle2, Users, MapPin, Landmark, Download, TableProperties,
-  ChevronUp, ChevronDown, ChevronsUpDown, Sigma, Info
+  ChevronUp, ChevronDown, ChevronsUpDown, Sigma, Info, Printer
 } from 'lucide-react'; 
 import type { Expense, LanguageCode, CurrencyConfig } from '../../core/types/shared';
 import { ExpenseEntryButton } from './ExpenseEntryButton'; 
@@ -322,7 +324,6 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
       document.body.removeChild(link);
   };
 
-  // RENDERING LOGIC FOR TABLE WITH SUBTOTALS
   const renderTableBody = () => {
       const rows: React.ReactNode[] = [];
       let currentGroupKey: string | null = null;
@@ -405,342 +406,393 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
 
   return (
     <>
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
-      <div className="bg-slate-50 w-full max-w-4xl max-h-[90dvh] h-full sm:h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-        
-        <div className="relative z-50 bg-white border-b border-slate-200 px-3 sm:px-5 py-3 sm:py-4 flex justify-between items-center shrink-0">
-          <div className="flex items-center gap-2 text-slate-800 truncate mr-2">
-            <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600 shrink-0"><Wallet className="w-5 h-5" /></div>
-            <h2 className="hidden xs:block text-base sm:text-lg font-bold truncate">{t('finance.title', { defaultValue: 'Reisekasse' })}</h2>
-          </div>
-          
-          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            <ExpenseEntryButton travelers={rawNames} mode="standalone" isMobile={true} />
+      {/* BULLETPROOF PRINT CSS INJECTION */}
+      <style type="text/css" media="print">
+          {`
+              /* Hide the main app background to prevent blank pages */
+              #root { display: none !important; }
+              body { background-color: white !important; }
+              
+              /* Break the Modal out of the "fixed/flex" jail */
+              .finance-print-container {
+                  position: static !important;
+                  display: block !important;
+                  height: auto !important;
+                  overflow: visible !important;
+                  background-color: white !important;
+              }
+              .finance-print-inner {
+                  position: static !important;
+                  display: block !important;
+                  height: auto !important;
+                  max-height: none !important;
+                  overflow: visible !important;
+                  box-shadow: none !important;
+              }
+              .finance-print-scroll {
+                  display: block !important;
+                  height: auto !important;
+                  overflow: visible !important;
+              }
+              
+              /* Ensure Tables break naturally over multiple pages */
+              table { width: 100% !important; page-break-inside: auto; }
+              tr { page-break-inside: avoid; page-break-after: auto; }
+              thead { display: table-header-group; }
+              tfoot { display: table-footer-group; }
+          `}
+      </style>
+      
+      {typeof document !== 'undefined' && createPortal(
+        <div className="finance-print-container fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+          <div className="finance-print-inner bg-slate-50 w-full max-w-4xl max-h-[90dvh] h-full sm:h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 print:rounded-none print:border-none" onClick={e => e.stopPropagation()}>
             
-            <button onClick={handleExportCSV} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100 shrink-0" title={t('finance.export_csv', { defaultValue: 'Als CSV exportieren' })}>
-                <Download className="w-5 h-5" />
-            </button>
+            {/* Screen Header */}
+            <div className="relative z-50 bg-white border-b border-slate-200 px-3 sm:px-5 py-3 sm:py-4 flex justify-between items-center shrink-0 print:hidden">
+              <div className="flex items-center gap-2 text-slate-800 truncate mr-2">
+                <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600 shrink-0"><Wallet className="w-5 h-5" /></div>
+                <h2 className="hidden xs:block text-base sm:text-lg font-bold truncate">{t('finance.title', { defaultValue: 'Reisekasse' })}</h2>
+              </div>
+              
+              <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                <ExpenseEntryButton travelers={rawNames} mode="standalone" isMobile={true} />
+                
+                <button onClick={() => window.print()} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100 shrink-0" title={t('finance.print_tooltip', { defaultValue: 'Ansicht drucken' })}>
+                    <Printer className="w-5 h-5" />
+                </button>
 
-            <button onClick={() => setIsCurrencyModalOpen(true)} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100 shrink-0" title={t('finance.currency_config_title', { defaultValue: 'Währungen konfigurieren' })}>
-                <Landmark className="w-5 h-5" />
-            </button>
-            <div className="w-px h-6 bg-slate-200 mx-1 hidden sm:block"></div>
-            <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors shrink-0" title={t('actions.close', { defaultValue: 'Schließen' })}><X className="w-5 h-5" /></button>
-          </div>
-        </div>
+                <button onClick={handleExportCSV} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100 shrink-0" title={t('finance.export_csv', { defaultValue: 'Als CSV exportieren' })}>
+                    <Download className="w-5 h-5" />
+                </button>
 
-        <div className="flex p-3 bg-white border-b border-slate-200 shrink-0 gap-2 z-[100] overflow-x-auto">
-            <button 
-                onClick={() => setActiveTab('settlement')} 
-                className={`flex-1 min-w-[120px] py-2 text-sm font-bold rounded-lg transition-colors flex justify-center items-center gap-2 ${activeTab === 'settlement' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-            >
-                <ArrowRightLeft className="w-4 h-4" /> <span className="hidden sm:inline">{t('finance.tab_settlement', { defaultValue: 'Abrechnung' })}</span>
-            </button>
-            <button 
-                onClick={() => setActiveTab('feed')} 
-                className={`flex-1 min-w-[120px] py-2 text-sm font-bold rounded-lg transition-colors flex justify-center items-center gap-2 ${activeTab === 'feed' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-            >
-                <ListFilter className="w-4 h-4" /> <span className="hidden sm:inline">{t('finance.tab_feed', { defaultValue: 'Historie' })}</span> ({expenses.length})
-            </button>
-            <button 
-                onClick={() => setActiveTab('table')} 
-                className={`flex-1 min-w-[120px] py-2 text-sm font-bold rounded-lg transition-colors flex justify-center items-center gap-2 ${activeTab === 'table' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-            >
-                <TableProperties className="w-4 h-4" /> <span className="hidden sm:inline">{t('finance.tab_table', { defaultValue: 'Tabelle' })}</span>
-            </button>
-        </div>
+                <button onClick={() => setIsCurrencyModalOpen(true)} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100 shrink-0" title={t('finance.currency_config_title', { defaultValue: 'Währungen konfigurieren' })}>
+                    <Landmark className="w-5 h-5" />
+                </button>
+                <div className="w-px h-6 bg-slate-200 mx-1 hidden sm:block"></div>
+                <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors shrink-0" title={t('actions.close', { defaultValue: 'Schließen' })}><X className="w-5 h-5" /></button>
+              </div>
+            </div>
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 relative">
-            
-            {expenses.length === 0 ? (
-                <div className="text-center py-12 text-slate-400 flex flex-col items-center">
-                    <Wallet className="w-12 h-12 mb-4 opacity-20" />
-                    <p className="mb-4 px-4">{t('finance.empty_state', { defaultValue: 'Noch keine Ausgaben erfasst.' })}</p>
-                    <div className="w-full max-w-[200px]">
-                        <ExpenseEntryButton travelers={rawNames} mode="standalone" isMobile={true} />
+            {/* Print Header (Only visible when printing) */}
+            <div className="hidden print:block pb-2 mb-4 border-b border-slate-200">
+                <h1 className="text-3xl font-black text-slate-900">{project.meta.name || t('finance.title', { defaultValue: 'Reisekasse' })}</h1>
+                <p className="text-slate-500 mt-1 font-medium">{activeTab === 'settlement' ? t('finance.tab_settlement', { defaultValue: 'Abrechnung' }) : activeTab === 'feed' ? t('finance.tab_feed', { defaultValue: 'Historie' }) : t('finance.tab_table', { defaultValue: 'Tabelle' })}</p>
+            </div>
+
+            <div className="flex p-3 bg-white border-b border-slate-200 shrink-0 gap-2 z-[100] overflow-x-auto print:hidden">
+                <button 
+                    onClick={() => setActiveTab('settlement')} 
+                    className={`flex-1 min-w-[120px] py-2 text-sm font-bold rounded-lg transition-colors flex justify-center items-center gap-2 ${activeTab === 'settlement' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                    <ArrowRightLeft className="w-4 h-4" /> <span className="hidden sm:inline">{t('finance.tab_settlement', { defaultValue: 'Abrechnung' })}</span>
+                </button>
+                <button 
+                    onClick={() => setActiveTab('feed')} 
+                    className={`flex-1 min-w-[120px] py-2 text-sm font-bold rounded-lg transition-colors flex justify-center items-center gap-2 ${activeTab === 'feed' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                    <ListFilter className="w-4 h-4" /> <span className="hidden sm:inline">{t('finance.tab_feed', { defaultValue: 'Historie' })}</span> ({expenses.length})
+                </button>
+                <button 
+                    onClick={() => setActiveTab('table')} 
+                    className={`flex-1 min-w-[120px] py-2 text-sm font-bold rounded-lg transition-colors flex justify-center items-center gap-2 ${activeTab === 'table' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                    <TableProperties className="w-4 h-4" /> <span className="hidden sm:inline">{t('finance.tab_table', { defaultValue: 'Tabelle' })}</span>
+                </button>
+            </div>
+
+            <div className="finance-print-scroll flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 relative print:p-0 print:space-y-4">
+                
+                {expenses.length === 0 ? (
+                    <div className="text-center py-12 text-slate-400 flex flex-col items-center print:hidden">
+                        <Wallet className="w-12 h-12 mb-4 opacity-20" />
+                        <p className="mb-4 px-4">{t('finance.empty_state', { defaultValue: 'Noch keine Ausgaben erfasst.' })}</p>
+                        <div className="w-full max-w-[200px]">
+                            <ExpenseEntryButton travelers={rawNames} mode="standalone" isMobile={true} />
+                        </div>
                     </div>
-                </div>
-            ) : activeTab === 'settlement' ? (
-                <div className="space-y-6 animate-in fade-in max-w-2xl mx-auto">
-                    
-                    <div className="grid grid-cols-1 xs:grid-cols-2 gap-4">
-                        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                            <h3 className="text-xs font-bold text-slate-400 uppercase mb-3">{t('finance.total_costs', { defaultValue: 'Gesamtkosten' })}</h3>
-                            <div className="flex flex-wrap gap-3">
-                                {Object.entries(settlement.totalsByCurrency).map(([cur, total]) => (
-                                    <div key={cur} className="text-xl font-black text-emerald-700">
-                                        {total.toFixed(2)} <span className="text-sm">{cur}</span>
+                ) : activeTab === 'settlement' ? (
+                    <div className="space-y-6 animate-in fade-in max-w-2xl mx-auto print:max-w-none">
+                        
+                        <div className="grid grid-cols-1 xs:grid-cols-2 gap-4">
+                            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm print:shadow-none print:border-slate-300">
+                                <h3 className="text-xs font-bold text-slate-400 uppercase mb-3">{t('finance.total_costs', { defaultValue: 'Gesamtkosten' })}</h3>
+                                <div className="flex flex-wrap gap-3">
+                                    {Object.entries(settlement.totalsByCurrency).map(([cur, total]) => (
+                                        <div key={cur} className="text-xl font-black text-emerald-700 print:text-black">
+                                            {total.toFixed(2)} <span className="text-sm">{cur}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                {Object.keys(settlement.totalsByCurrency).length > 1 && (
+                                    <div className="mt-3 text-[10px] text-slate-400 font-medium bg-slate-50 p-2 rounded border border-slate-100 leading-tight print:bg-white print:border-none print:p-0">
+                                        {t('finance.settlement_base_info', { defaultValue: 'Alle Abrechnungen unten erfolgen in der Hauptwährung:' })} <strong>{baseCurrency}</strong>
                                     </div>
-                                ))}
+                                )}
                             </div>
-                            {Object.keys(settlement.totalsByCurrency).length > 1 && (
-                                <div className="mt-3 text-[10px] text-slate-400 font-medium bg-slate-50 p-2 rounded border border-slate-100 leading-tight">
-                                    {t('finance.settlement_base_info', { defaultValue: 'Alle Abrechnungen unten erfolgen in der Hauptwährung:' })} <strong>{baseCurrency}</strong>
+                            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm overflow-hidden print:shadow-none print:border-slate-300">
+                                 <h3 className="text-[10px] font-bold text-slate-400 uppercase mb-2">{t('finance.paid_by_summary', { defaultValue: 'Wer hat gezahlt?' })} ({baseCurrency})</h3>
+                                 <div className="space-y-1.5">
+                                     {Object.entries(settlement.paidTotals).sort((a,b) => b[1]-a[1]).map(([name, total]) => (
+                                         <div key={name} className="flex justify-between items-center text-xs">
+                                             <span className="font-bold text-slate-600 truncate mr-2 print:text-black">{name}</span>
+                                             <span className="font-bold text-slate-800 shrink-0 print:text-black">{total > 0 ? total.toFixed(2) : '-'}</span>
+                                         </div>
+                                     ))}
+                                 </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm print:shadow-none print:border-slate-300">
+                            <h3 className="text-xs font-bold text-slate-400 uppercase mb-4 flex items-center gap-1.5"><ArrowRightLeft className="w-3.5 h-3.5" /> {t('finance.who_owes_who', { defaultValue: 'Wer schuldet wem?' })}</h3>
+                            {settlement.transfers.length === 0 ? (
+                                <div className="text-sm text-slate-500 text-center py-4 bg-slate-50 rounded-lg print:bg-white print:border print:border-slate-200">{t('finance.perfectly_balanced', { defaultValue: 'Die Kasse ist perfekt ausgeglichen! 🎉' })}</div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {settlement.transfers.map((tr, idx) => (
+                                        <div key={idx} className="flex flex-col xs:flex-row xs:items-center justify-between p-3 bg-amber-50/50 border border-amber-100 rounded-lg gap-2 print:bg-white print:border-slate-300">
+                                            <div className="flex items-center gap-3 text-sm">
+                                                <span className="font-bold text-slate-800 print:text-black">{tr.from}</span>
+                                                <ArrowRightLeft className="w-4 h-4 text-amber-400 shrink-0 print:text-slate-400" />
+                                                <span className="font-bold text-slate-800 print:text-black">{tr.to}</span>
+                                            </div>
+                                            <div className="font-black text-amber-700 text-right print:text-black">
+                                                {tr.amount.toFixed(2)} <span className="text-xs font-bold text-amber-600/70 print:text-slate-500">{baseCurrency}</span>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </div>
-                        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                             <h3 className="text-[10px] font-bold text-slate-400 uppercase mb-2">{t('finance.paid_by_summary', { defaultValue: 'Wer hat gezahlt?' })} ({baseCurrency})</h3>
-                             <div className="space-y-1.5">
-                                 {Object.entries(settlement.paidTotals).sort((a,b) => b[1]-a[1]).map(([name, total]) => (
-                                     <div key={name} className="flex justify-between items-center text-xs">
-                                         <span className="font-bold text-slate-600 truncate mr-2">{name}</span>
-                                         <span className="font-bold text-slate-800 shrink-0">{total > 0 ? total.toFixed(2) : '-'}</span>
-                                     </div>
-                                 ))}
-                             </div>
-                        </div>
-                    </div>
 
-                    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                        <h3 className="text-xs font-bold text-slate-400 uppercase mb-4 flex items-center gap-1.5"><ArrowRightLeft className="w-3.5 h-3.5" /> {t('finance.who_owes_who', { defaultValue: 'Wer schuldet wem?' })}</h3>
-                        {settlement.transfers.length === 0 ? (
-                            <div className="text-sm text-slate-500 text-center py-4 bg-slate-50 rounded-lg">{t('finance.perfectly_balanced', { defaultValue: 'Die Kasse ist perfekt ausgeglichen! 🎉' })}</div>
-                        ) : (
-                            <div className="space-y-3">
-                                {settlement.transfers.map((tr, idx) => (
-                                    <div key={idx} className="flex flex-col xs:flex-row xs:items-center justify-between p-3 bg-amber-50/50 border border-amber-100 rounded-lg gap-2">
-                                        <div className="flex items-center gap-3 text-sm">
-                                            <span className="font-bold text-slate-800">{tr.from}</span>
-                                            <ArrowRightLeft className="w-4 h-4 text-amber-400 shrink-0" />
-                                            <span className="font-bold text-slate-800">{tr.to}</span>
-                                        </div>
-                                        <div className="font-black text-amber-700 text-right">
-                                            {tr.amount.toFixed(2)} <span className="text-xs font-bold text-amber-600/70">{baseCurrency}</span>
-                                        </div>
+                        <div>
+                            <h3 className="text-xs font-bold text-slate-400 uppercase mb-2 ml-1">{t('finance.balances', { defaultValue: 'Stand (Bilanzen)' })} ({baseCurrency})</h3>
+                            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm print:shadow-none print:border-slate-300">
+                                {Object.entries(settlement.balances).map(([name, bal], idx) => (
+                                    <div key={name} className={`flex justify-between items-center p-3 text-sm ${idx !== 0 ? 'border-t border-slate-100 print:border-slate-200' : ''}`}>
+                                        <span className="font-bold text-slate-700 truncate mr-2 print:text-black">{name}</span>
+                                        <span className={`font-bold shrink-0 print:text-black ${bal > 0.01 ? 'text-emerald-600' : bal < -0.01 ? 'text-red-500' : 'text-slate-400'}`}>
+                                            {bal > 0 ? '+' : ''}{bal.toFixed(2)}
+                                        </span>
                                     </div>
                                 ))}
                             </div>
-                        )}
-                    </div>
-
-                    <div>
-                        <h3 className="text-xs font-bold text-slate-400 uppercase mb-2 ml-1">{t('finance.balances', { defaultValue: 'Stand (Bilanzen)' })} ({baseCurrency})</h3>
-                        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                            {Object.entries(settlement.balances).map(([name, bal], idx) => (
-                                <div key={name} className={`flex justify-between items-center p-3 text-sm ${idx !== 0 ? 'border-t border-slate-100' : ''}`}>
-                                    <span className="font-bold text-slate-700 truncate mr-2">{name}</span>
-                                    <span className={`font-bold shrink-0 ${bal > 0.01 ? 'text-emerald-600' : bal < -0.01 ? 'text-red-500' : 'text-slate-400'}`}>
-                                        {bal > 0 ? '+' : ''}{bal.toFixed(2)}
-                                    </span>
-                                </div>
-                            ))}
                         </div>
                     </div>
-                </div>
-            ) : activeTab === 'feed' ? (
-                <div className="space-y-3 animate-in fade-in max-w-2xl mx-auto">
-                    {sortedFeed.map(exp => (
-                        <div key={exp.id}>
-                            {editingId === exp.id ? (
-                                <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-300 shadow-md">
-                                    <div className="flex justify-between items-center mb-4 border-b border-emerald-100/50 pb-2">
-                                        <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5"><Edit3 className="w-3.5 h-3.5" /> {t('actions.edit', { defaultValue: 'Bearbeiten' })}</span>
-                                        <button onClick={() => setEditingId(null)} className="text-emerald-500 hover:text-emerald-800 bg-emerald-100/50 p-1 rounded-full"><X className="w-4 h-4"/></button>
-                                    </div>
-                                    
-                                    <div className="flex flex-col sm:flex-row gap-3 mb-4">
-                                        <div className="flex-[2]">
-                                            <label className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">{t('finance.purpose', { defaultValue: 'Verwendungszweck' })}</label>
-                                            <input type="text" list="expense-titles-edit" value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2.5 focus:ring-emerald-500 bg-white shadow-sm" placeholder={t('finance.title_placeholder', { defaultValue: 'Titel' })} />
-                                            <datalist id="expense-titles-edit">
-                                                {uniqueTitles.map(tTitle => <option key={tTitle} value={tTitle} />)}
-                                            </datalist>
+                ) : activeTab === 'feed' ? (
+                    <div className="space-y-3 animate-in fade-in max-w-2xl mx-auto print:max-w-none">
+                        {sortedFeed.map(exp => (
+                            <div key={exp.id} className="print:break-inside-avoid">
+                                {editingId === exp.id ? (
+                                    <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-300 shadow-md print:hidden">
+                                        <div className="flex justify-between items-center mb-4 border-b border-emerald-100/50 pb-2">
+                                            <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5"><Edit3 className="w-3.5 h-3.5" /> {t('actions.edit', { defaultValue: 'Bearbeiten' })}</span>
+                                            <button onClick={() => setEditingId(null)} className="text-emerald-500 hover:text-emerald-800 bg-emerald-100/50 p-1 rounded-full"><X className="w-4 h-4"/></button>
                                         </div>
-                                        <div className="flex-1">
-                                            <label className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">{t('finance.date', { defaultValue: 'Datum & Uhrzeit' })}</label>
-                                            <input type="datetime-local" value={editDate} onChange={e => setEditDate(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2.5 focus:ring-emerald-500 bg-white shadow-sm" />
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="flex gap-2 mb-4">
-                                        <input type="number" step="0.01" value={editAmount} onChange={e => setEditAmount(e.target.value)} className="flex-1 text-lg font-bold border-emerald-200 rounded-lg p-2.5 focus:ring-emerald-500 bg-white shadow-sm" />
-                                        <select value={editCurrency} onChange={e => setEditCurrency(e.target.value)} className="w-24 text-sm font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 cursor-pointer shadow-sm">
-                                            {availableCurrencies.map(c => <option key={c} value={c}>{c}</option>)}
-                                        </select>
-                                    </div>
-                                    
-                                    <div className="mb-4">
-                                        <span className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">{t('finance.paid_by', { defaultValue: 'Wer hat bezahlt?' })}</span>
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {allNames.map((n: string) => ( 
-                                                <button key={n} onClick={() => setEditPaidBy(n)} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${editPaidBy === n ? 'bg-emerald-600 text-white' : 'bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-100'}`}>{n}</button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="mb-5">
-                                        <button onClick={(e) => { e.stopPropagation(); setShowSplit(!showSplit); }} className="text-xs font-bold text-emerald-800 flex items-center gap-1.5 bg-emerald-100/50 px-3 py-2 rounded-lg border border-emerald-200/50 hover:bg-emerald-100 transition-colors w-full">
-                                            <Users className="w-3.5 h-3.5" /> 
-                                            {t('finance.split_among', { defaultValue: 'Aufgeteilt auf:' })} {editSplitMode === 'exact' ? t('finance.exact', { defaultValue: 'Exakt' }) : (editSplitAmong.length === allNames.length ? t('finance.everyone', { defaultValue: 'Alle' }) : `${editSplitAmong.length} ${t('finance.persons', { defaultValue: 'Personen' })}`)} ✎
-                                        </button>
-
-                                        {showSplit && (
-                                            <div className="mt-2 p-3 bg-white rounded-xl border border-emerald-200 shadow-sm animate-in fade-in slide-in-from-top-1">
-                                                <div className="flex bg-emerald-50 border border-emerald-100 rounded-lg mb-3 p-1">
-                                                    <button onClick={() => setEditSplitMode('equal')} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${editSplitMode === 'equal' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.equal', { defaultValue: 'Gleichmäßig' })}</button>
-                                                    <button onClick={() => setEditSplitMode('exact')} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${editSplitMode === 'exact' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.exact_amount', { defaultValue: 'Exakter Betrag' })}</button>
-                                                </div>
-
-                                                {editSplitMode === 'equal' ? (
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                    {allNames.map((n: string) => { 
-                                                        const active = editSplitAmong.includes(n);
-                                                        return <button key={n} onClick={() => setEditSplitAmong(active ? editSplitAmong.filter(x => x !== n) : [...editSplitAmong, n])} className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${active ? 'bg-emerald-500 text-white border-emerald-600 shadow-sm' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'}`}>{n} {active && '✓'}</button>;
-                                                    })}
-                                                    </div>
-                                                ) : (
-                                                    <div className="space-y-2">
-                                                        {allNames.map((n: string) => ( 
-                                                            <div key={n} className="flex justify-between items-center bg-slate-50 p-1.5 rounded-lg border border-slate-100">
-                                                                <span className="text-xs font-bold text-slate-700 ml-1">{n}</span>
-                                                                <div className="relative w-24">
-                                                                    <input type="number" step="0.01" value={editSplitExact[n] || ''} onChange={e => setEditSplitExact((prev: Record<string, string>) => ({...prev, [n]: e.target.value}))} className="w-full text-right text-sm pr-8 pl-2 py-1.5 border border-emerald-200 rounded-md focus:ring-emerald-500 bg-white" />
-                                                                    <span className="absolute right-2 top-2 text-slate-400 text-[10px] font-bold">{editCurrency}</span>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                        {(() => {
-                                                            const rem = calculateRemaining();
-                                                            const isPerfect = Math.abs(rem) < 0.01;
-                                                            return (
-                                                                <div className={`mt-3 p-2 rounded-lg flex items-center justify-between text-xs font-bold border ${isPerfect ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : rem < 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
-                                                                    <span>{isPerfect ? t('finance.split_perfect', { defaultValue: 'Aufteilung stimmt!' }) : rem > 0 ? t('finance.split_remaining', { defaultValue: 'Noch zu verteilen:' }) : t('finance.split_too_much', { defaultValue: 'Zu viel verteilt:' })}</span>
-                                                                    <span className="flex items-center gap-1">{isPerfect && <CheckCircle2 className="w-4 h-4" />}{Math.abs(rem).toFixed(2)} {editCurrency}</span>
-                                                                </div>
-                                                            );
-                                                        })()}
-                                                    </div>
-                                                )}
+                                        
+                                        <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                                            <div className="flex-[2]">
+                                                <label className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">{t('finance.purpose', { defaultValue: 'Verwendungszweck' })}</label>
+                                                <input type="text" list="expense-titles-edit" value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2.5 focus:ring-emerald-500 bg-white shadow-sm" placeholder={t('finance.title_placeholder', { defaultValue: 'Titel' })} />
+                                                <datalist id="expense-titles-edit">
+                                                    {uniqueTitles.map(tTitle => <option key={tTitle} value={tTitle} />)}
+                                                </datalist>
                                             </div>
-                                        )}
-                                    </div>
-                                    <button onClick={handleSaveEdit} disabled={!editAmount || !editTitle.trim() || isNaN(parseFloat(editAmount)) || !editPaidBy || (editSplitMode==='equal' && editSplitAmong.length === 0)} className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"><Save className="w-4 h-4"/> {t('finance.save', { defaultValue: 'Speichern' })}</button>
-                                </div>
-                            ) : (
-                                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-start gap-3 hover:border-blue-200 transition-colors cursor-pointer group" onClick={() => startEdit(exp)}>
-                                    <div className="p-2 bg-slate-50 rounded-lg text-slate-400 shrink-0 group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors"><Banknote className="w-5 h-5" /></div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex justify-between items-start">
-                                            <h4 className="font-bold text-slate-800 truncate pr-2 group-hover:text-blue-700">{exp.title}</h4>
-                                            <span className="font-black text-slate-800 whitespace-nowrap">{exp.amount.toFixed(2)} {exp.currency}</span>
+                                            <div className="flex-1">
+                                                <label className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">{t('finance.date', { defaultValue: 'Datum & Uhrzeit' })}</label>
+                                                <input type="datetime-local" value={editDate} onChange={e => setEditDate(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2.5 focus:ring-emerald-500 bg-white shadow-sm" />
+                                            </div>
                                         </div>
-                                        <div className="text-xs text-slate-500 mt-1 flex flex-wrap gap-x-3 gap-y-1">
-                                            <span>{new Date(exp.timestamp).toLocaleDateString(currentLang === 'de' ? 'de-DE' : 'en-US')}</span>
-                                            <span>•</span>
-                                            <span>{t('finance.paid_by_label', { defaultValue: 'Gezahlt von' })} <strong className="text-emerald-700">{exp.paidBy}</strong></span>
-                                            
-                                            {exp.location && (
-                                                <>
-                                                    <span>•</span>
-                                                    <a 
-                                                        href={`https://www.google.com/maps/search/?api=1&query=${exp.location.lat},${exp.location.lng}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="flex items-center gap-0.5 text-blue-500 hover:underline"
-                                                        title={t('sights.open_map', { defaultValue: 'Auf Karte öffnen' })}
-                                                        onClick={e => e.stopPropagation()}
-                                                    >
-                                                        <MapPin size={10} /> GPS
-                                                    </a>
-                                                </>
+                                        
+                                        <div className="flex gap-2 mb-4">
+                                            <input type="number" step="0.01" value={editAmount} onChange={e => setEditAmount(e.target.value)} className="flex-1 text-lg font-bold border-emerald-200 rounded-lg p-2.5 focus:ring-emerald-500 bg-white shadow-sm" />
+                                            <select value={editCurrency} onChange={e => setEditCurrency(e.target.value)} className="w-24 text-sm font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 cursor-pointer shadow-sm">
+                                                {availableCurrencies.map(c => <option key={c} value={c}>{c}</option>)}
+                                            </select>
+                                        </div>
+                                        
+                                        <div className="mb-4">
+                                            <span className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">{t('finance.paid_by', { defaultValue: 'Wer hat bezahlt?' })}</span>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {allNames.map((n: string) => ( 
+                                                    <button key={n} onClick={() => setEditPaidBy(n)} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${editPaidBy === n ? 'bg-emerald-600 text-white' : 'bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-100'}`}>{n}</button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="mb-5">
+                                            <button onClick={(e) => { e.stopPropagation(); setShowSplit(!showSplit); }} className="text-xs font-bold text-emerald-800 flex items-center gap-1.5 bg-emerald-100/50 px-3 py-2 rounded-lg border border-emerald-200/50 hover:bg-emerald-100 transition-colors w-full">
+                                                <Users className="w-3.5 h-3.5" /> 
+                                                {t('finance.split_among', { defaultValue: 'Aufgeteilt auf:' })} {editSplitMode === 'exact' ? t('finance.exact', { defaultValue: 'Exakt' }) : (editSplitAmong.length === allNames.length ? t('finance.everyone', { defaultValue: 'Alle' }) : `${editSplitAmong.length} ${t('finance.persons', { defaultValue: 'Personen' })}`)} ✎
+                                            </button>
+
+                                            {showSplit && (
+                                                <div className="mt-2 p-3 bg-white rounded-xl border border-emerald-200 shadow-sm animate-in fade-in slide-in-from-top-1">
+                                                    <div className="flex bg-emerald-50 border border-emerald-100 rounded-lg mb-3 p-1">
+                                                        <button onClick={() => setEditSplitMode('equal')} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${editSplitMode === 'equal' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.equal', { defaultValue: 'Gleichmäßig' })}</button>
+                                                        <button onClick={() => setEditSplitMode('exact')} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${editSplitMode === 'exact' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.exact_amount', { defaultValue: 'Exakter Betrag' })}</button>
+                                                    </div>
+
+                                                    {editSplitMode === 'equal' ? (
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                        {allNames.map((n: string) => { 
+                                                            const active = editSplitAmong.includes(n);
+                                                            return <button key={n} onClick={() => setEditSplitAmong(active ? editSplitAmong.filter(x => x !== n) : [...editSplitAmong, n])} className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${active ? 'bg-emerald-500 text-white border-emerald-600 shadow-sm' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'}`}>{n} {active && '✓'}</button>;
+                                                        })}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="space-y-2">
+                                                            {allNames.map((n: string) => ( 
+                                                                <div key={n} className="flex justify-between items-center bg-slate-50 p-1.5 rounded-lg border border-slate-100">
+                                                                    <span className="text-xs font-bold text-slate-700 ml-1">{n}</span>
+                                                                    <div className="relative w-24">
+                                                                        <input type="number" step="0.01" value={editSplitExact[n] || ''} onChange={e => setEditSplitExact((prev: Record<string, string>) => ({...prev, [n]: e.target.value}))} className="w-full text-right text-sm pr-8 pl-2 py-1.5 border border-emerald-200 rounded-md focus:ring-emerald-500 bg-white" />
+                                                                        <span className="absolute right-2 top-2 text-slate-400 text-[10px] font-bold">{editCurrency}</span>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                            {(() => {
+                                                                const rem = calculateRemaining();
+                                                                const isPerfect = Math.abs(rem) < 0.01;
+                                                                return (
+                                                                    <div className={`mt-3 p-2 rounded-lg flex items-center justify-between text-xs font-bold border ${isPerfect ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : rem < 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                                        <span>{isPerfect ? t('finance.split_perfect', { defaultValue: 'Aufteilung stimmt!' }) : rem > 0 ? t('finance.split_remaining', { defaultValue: 'Noch zu verteilen:' }) : t('finance.split_too_much', { defaultValue: 'Zu viel verteilt:' })}</span>
+                                                                        <span className="flex items-center gap-1">{isPerfect && <CheckCircle2 className="w-4 h-4" />}{Math.abs(rem).toFixed(2)} {editCurrency}</span>
+                                                                    </div>
+                                                                );
+                                                            })()}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
-                                        {exp.splitExact && Object.keys(exp.splitExact).length > 0 ? (
-                                            <div className="text-[10px] text-blue-500 mt-1 bg-blue-50 px-2 py-0.5 rounded inline-block">{t('finance.split_exact_label', { defaultValue: 'Aufteilung: Exakt' })}</div>
-                                        ) : exp.splitAmong && exp.splitAmong.length > 0 ? (
-                                            <div className="text-[10px] text-slate-400 mt-1 truncate">{t('finance.for', { defaultValue: 'Für:' })} {exp.splitAmong.join(', ')}</div>
-                                        ) : null}
+                                        <button onClick={handleSaveEdit} disabled={!editAmount || !editTitle.trim() || isNaN(parseFloat(editAmount)) || !editPaidBy || (editSplitMode==='equal' && editSplitAmong.length === 0)} className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"><Save className="w-4 h-4"/> {t('finance.save', { defaultValue: 'Speichern' })}</button>
                                     </div>
-                                    <button 
-                                        onClick={(e) => { 
-                                            e.stopPropagation(); 
-                                            if(window.confirm(t('finance.delete_confirm', { defaultValue: 'Diese Ausgabe wirklich löschen?' }))) {
-                                                deleteExpense(exp.id); 
-                                            }
-                                        }} 
-                                        className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0" 
-                                        title={t('actions.delete', { defaultValue: 'Löschen' })}
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            )}
+                                ) : (
+                                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-start gap-3 hover:border-blue-200 transition-colors cursor-pointer group print:shadow-none print:border-slate-300 print:rounded-none" onClick={() => startEdit(exp)}>
+                                        <div className="p-2 bg-slate-50 rounded-lg text-slate-400 shrink-0 group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors print:hidden"><Banknote className="w-5 h-5" /></div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex justify-between items-start">
+                                                <h4 className="font-bold text-slate-800 truncate pr-2 group-hover:text-blue-700 print:text-black">{exp.title}</h4>
+                                                <span className="font-black text-slate-800 whitespace-nowrap print:text-black">{exp.amount.toFixed(2)} {exp.currency}</span>
+                                            </div>
+                                            <div className="text-xs text-slate-500 mt-1 flex flex-wrap gap-x-3 gap-y-1 print:text-slate-800">
+                                                <span>{new Date(exp.timestamp).toLocaleDateString(currentLang === 'de' ? 'de-DE' : 'en-US')}</span>
+                                                <span>•</span>
+                                                <span>{t('finance.paid_by_label', { defaultValue: 'Gezahlt von' })} <strong className="text-emerald-700 print:text-black">{exp.paidBy}</strong></span>
+                                                
+                                                {exp.location && (
+                                                    <>
+                                                        <span className="print:hidden">•</span>
+                                                        <a 
+                                                            href={`https://www.google.com/maps/search/?api=1&query=${exp.location.lat},${exp.location.lng}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="flex items-center gap-0.5 text-blue-500 hover:underline print:hidden"
+                                                            title={t('sights.open_map', { defaultValue: 'Auf Karte öffnen' })}
+                                                            onClick={e => e.stopPropagation()}
+                                                        >
+                                                            <MapPin size={10} /> GPS
+                                                        </a>
+                                                    </>
+                                                )}
+                                            </div>
+                                            {exp.splitExact && Object.keys(exp.splitExact).length > 0 ? (
+                                                <div className="text-[10px] text-blue-500 mt-1 bg-blue-50 px-2 py-0.5 rounded inline-block print:border print:border-slate-300 print:bg-white">{t('finance.split_exact_label', { defaultValue: 'Aufteilung: Exakt' })}</div>
+                                            ) : exp.splitAmong && exp.splitAmong.length > 0 ? (
+                                                <div className="text-[10px] text-slate-400 mt-1 truncate print:text-slate-600">{t('finance.for', { defaultValue: 'Für:' })} {exp.splitAmong.join(', ')}</div>
+                                            ) : null}
+                                        </div>
+                                        <button 
+                                            onClick={(e) => { 
+                                                e.stopPropagation(); 
+                                                if(window.confirm(t('finance.delete_confirm', { defaultValue: 'Diese Ausgabe wirklich löschen?' }))) {
+                                                    deleteExpense(exp.id); 
+                                                }
+                                            }} 
+                                            className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0 print:hidden" 
+                                            title={t('actions.delete', { defaultValue: 'Löschen' })}
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="flex flex-col gap-3 animate-in fade-in max-w-full">
+                        <div className="flex justify-between items-center px-1 print:hidden">
+                            <span className="text-xs text-slate-500 font-medium flex items-center gap-1.5"><Info size={14}/> {t('finance.sort_hint', {defaultValue: 'Klicke auf die Spaltenköpfe zur Sortierung'})}</span>
+                            <button onClick={() => setShowSubtotals(!showSubtotals)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border shadow-sm ${showSubtotals ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+                                <Sigma className="w-4 h-4" /> {t('finance.toggle_subtotals', { defaultValue: 'Zwischensummen' })}
+                            </button>
                         </div>
-                    ))}
-                </div>
-            ) : (
-                <div className="flex flex-col gap-3 animate-in fade-in max-w-full">
-                    <div className="flex justify-between items-center px-1">
-                        <span className="text-xs text-slate-500 font-medium flex items-center gap-1.5"><Info size={14}/> {t('finance.sort_hint', {defaultValue: 'Klicke auf die Spaltenköpfe zur Sortierung'})}</span>
-                        <button onClick={() => setShowSubtotals(!showSubtotals)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border shadow-sm ${showSubtotals ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
-                            <Sigma className="w-4 h-4" /> {t('finance.toggle_subtotals', { defaultValue: 'Zwischensummen' })}
-                        </button>
+                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto print:shadow-none print:border-none print:overflow-visible">
+                            <table className="w-full text-left text-sm whitespace-nowrap print:whitespace-normal">
+                                <thead className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 uppercase tracking-wider select-none print:bg-white print:border-b-2 print:border-black">
+                                    <tr>
+                                        <th className="p-3 font-bold sticky left-0 bg-slate-50 z-10 cursor-pointer hover:bg-slate-100 group transition-colors print:static print:bg-white print:text-black" onClick={() => handleSort('timestamp')}>
+                                            <div className="flex items-center gap-1">{t('finance.csv_date', { defaultValue: 'Datum' })} <span className="print:hidden">{renderSortIcon('timestamp')}</span></div>
+                                        </th>
+                                        <th className="p-3 font-bold cursor-pointer hover:bg-slate-100 group transition-colors print:text-black" onClick={() => handleSort('title')}>
+                                            <div className="flex items-center gap-1">{t('finance.csv_purpose', { defaultValue: 'Zweck' })} <span className="print:hidden">{renderSortIcon('title')}</span></div>
+                                        </th>
+                                        <th className="p-3 font-bold text-right cursor-pointer hover:bg-slate-100 group transition-colors print:text-black" onClick={() => handleSort('amount')}>
+                                            <div className="flex justify-end items-center gap-1">{t('finance.csv_amount', { defaultValue: 'Betrag' })} <span className="print:hidden">{renderSortIcon('amount')}</span></div>
+                                        </th>
+                                        <th className="p-3 font-bold text-right text-emerald-700 cursor-pointer hover:bg-slate-100 group transition-colors print:text-black" onClick={() => handleSort('amountBase')}>
+                                            <div className="flex justify-end items-center gap-1">{t('finance.csv_amount_base', { defaultValue: 'Betrag in' })} {baseCurrency} <span className="print:hidden">{renderSortIcon('amountBase')}</span></div>
+                                        </th>
+                                        <th className="p-3 font-bold text-center cursor-pointer hover:bg-slate-100 group transition-colors print:text-black" onClick={() => handleSort('paidBy')}>
+                                            <div className="flex justify-center items-center gap-1">{t('finance.csv_paid_by', { defaultValue: 'Bezahlt von' })} <span className="print:hidden">{renderSortIcon('paidBy')}</span></div>
+                                        </th>
+                                        {allNames.map(n => <th key={n} className="p-3 font-bold text-right border-l border-slate-200/50 print:border-slate-300 print:text-black">{n}</th>)}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 print:divide-slate-200">
+                                    {renderTableBody()}
+                                </tbody>
+                                <tfoot className="bg-slate-50 border-t-2 border-slate-200 font-bold print:bg-white print:border-black">
+                                    <tr>
+                                        <td colSpan={3} className="p-3 text-right text-slate-600 text-xs sticky left-0 bg-slate-50 z-10 print:static print:bg-white print:text-black">{t('finance.csv_total', { defaultValue: 'GESAMTKOSTEN (Anteil)' })}</td>
+                                        <td className="p-3 text-right text-emerald-700 text-base print:text-black">{(() => {
+                                            let totalBase = 0;
+                                            sortedTableData.forEach(exp => {
+                                                totalBase += exp.amount / getRateForCurrency(exp.currency || 'EUR');
+                                            });
+                                            return totalBase.toFixed(2);
+                                        })()}</td>
+                                        <td className="p-3"></td>
+                                        {allNames.map(n => {
+                                            let pTotal = 0;
+                                            sortedTableData.forEach(exp => {
+                                                const rate = getRateForCurrency(exp.currency || 'EUR');
+                                                const amountBase = exp.amount / rate;
+                                                if (exp.splitExact && exp.splitExact[n]) {
+                                                    pTotal += exp.splitExact[n] / rate;
+                                                } else if (exp.splitAmong && exp.splitAmong.includes(n)) {
+                                                    pTotal += amountBase / exp.splitAmong.length;
+                                                }
+                                            });
+                                            return <td key={n} className="p-3 text-right text-slate-800 border-l border-slate-200/50 print:border-slate-300 print:text-black">{pTotal.toFixed(2)}</td>;
+                                        })}
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
                     </div>
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-                        <table className="w-full text-left text-sm whitespace-nowrap">
-                            <thead className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 uppercase tracking-wider select-none">
-                                <tr>
-                                    <th className="p-3 font-bold sticky left-0 bg-slate-50 z-10 cursor-pointer hover:bg-slate-100 group transition-colors" onClick={() => handleSort('timestamp')}>
-                                        <div className="flex items-center gap-1">{t('finance.csv_date', { defaultValue: 'Datum' })} {renderSortIcon('timestamp')}</div>
-                                    </th>
-                                    <th className="p-3 font-bold cursor-pointer hover:bg-slate-100 group transition-colors" onClick={() => handleSort('title')}>
-                                        <div className="flex items-center gap-1">{t('finance.csv_purpose', { defaultValue: 'Zweck' })} {renderSortIcon('title')}</div>
-                                    </th>
-                                    <th className="p-3 font-bold text-right cursor-pointer hover:bg-slate-100 group transition-colors" onClick={() => handleSort('amount')}>
-                                        <div className="flex justify-end items-center gap-1">{t('finance.csv_amount', { defaultValue: 'Betrag' })} {renderSortIcon('amount')}</div>
-                                    </th>
-                                    <th className="p-3 font-bold text-right text-emerald-700 cursor-pointer hover:bg-slate-100 group transition-colors" onClick={() => handleSort('amountBase')}>
-                                        <div className="flex justify-end items-center gap-1">{t('finance.csv_amount_base', { defaultValue: 'Betrag in' })} {baseCurrency} {renderSortIcon('amountBase')}</div>
-                                    </th>
-                                    <th className="p-3 font-bold text-center cursor-pointer hover:bg-slate-100 group transition-colors" onClick={() => handleSort('paidBy')}>
-                                        <div className="flex justify-center items-center gap-1">{t('finance.csv_paid_by', { defaultValue: 'Bezahlt von' })} {renderSortIcon('paidBy')}</div>
-                                    </th>
-                                    {allNames.map(n => <th key={n} className="p-3 font-bold text-right border-l border-slate-200/50">{n}</th>)}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {renderTableBody()}
-                            </tbody>
-                            <tfoot className="bg-slate-50 border-t-2 border-slate-200 font-bold">
-                                <tr>
-                                    <td colSpan={3} className="p-3 text-right text-slate-600 text-xs sticky left-0 bg-slate-50 z-10">{t('finance.csv_total', { defaultValue: 'GESAMTKOSTEN (Anteil)' })}</td>
-                                    <td className="p-3 text-right text-emerald-700 text-base">{(() => {
-                                        let totalBase = 0;
-                                        sortedTableData.forEach(exp => {
-                                            totalBase += exp.amount / getRateForCurrency(exp.currency || 'EUR');
-                                        });
-                                        return totalBase.toFixed(2);
-                                    })()}</td>
-                                    <td className="p-3"></td>
-                                    {allNames.map(n => {
-                                        let pTotal = 0;
-                                        sortedTableData.forEach(exp => {
-                                            const rate = getRateForCurrency(exp.currency || 'EUR');
-                                            const amountBase = exp.amount / rate;
-                                            if (exp.splitExact && exp.splitExact[n]) {
-                                                pTotal += exp.splitExact[n] / rate;
-                                            } else if (exp.splitAmong && exp.splitAmong.includes(n)) {
-                                                pTotal += amountBase / exp.splitAmong.length;
-                                            }
-                                        });
-                                        return <td key={n} className="p-3 text-right text-slate-800 border-l border-slate-200/50">{pTotal.toFixed(2)}</td>;
-                                    })}
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                </div>
-            )}
-        </div>
-      </div>
-    </div>
-    
-    <CurrencyConfigModal 
-        isOpen={isCurrencyModalOpen} 
-        onClose={() => setIsCurrencyModalOpen(false)} 
-    />
+                )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+      
+      <CurrencyConfigModal 
+          isOpen={isCurrencyModalOpen} 
+          onClose={() => setIsCurrencyModalOpen(false)} 
+      />
     </>
   );
 };
-// --- END OF FILE 642 Zeilen ---
+// --- END OF FILE 714 Zeilen ---

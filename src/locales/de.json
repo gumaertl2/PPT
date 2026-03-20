@@ -709,7 +709,8 @@
     "delete_confirm": "Diese Ausgabe wirklich löschen?",
     "toggle_subtotals": "Zwischensummen",
     "subtotal": "Zwischensumme",
-    "sort_hint": "Klicke auf die Spaltenköpfe, um zu sortieren"
+    "sort_hint": "Klicke auf die Spaltenköpfe, um zu sortieren",
+    "print_tooltip": "Aktuelle Ansicht drucken"
   },
   "map": {
     "layer": {

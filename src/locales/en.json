@@ -710,7 +710,8 @@
     "delete_confirm": "Really delete this expense?",
     "toggle_subtotals": "Subtotals",
     "subtotal": "Subtotal",
-    "sort_hint": "Click on column headers to sort"
+    "sort_hint": "Click on column headers to sort",
+    "print_tooltip": "Print current view"
   },
   "map": {
     "layer": {
