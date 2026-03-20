@@ -1,8 +1,9 @@
-// 18.03.2026 20:30 - HOTFIX: Restored missing <MapStyles /> component in the JSX tree to fix Vercel TS6133 build error (unused import).
-// 18.03.2026 18:30 - FIX: Flexible 90vh print height.
+// 20.03.2026 20:00 - FIX: Master Print Hack. Extracts Map DOM node from React tree to document.body during print prep to completely evade layout collapsing.
+// 20.03.2026 19:45 - FIX: Absolute pixel pre-rendering.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { MapContainer, Marker, Popup, Tooltip, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useTripStore } from '../../store/useTripStore';
@@ -27,6 +28,32 @@ const ZoomListener: React.FC<{ onZoomChange: (zoom: number) => void }> = ({ onZo
     return null;
 };
 
+// Intelligenter Print Helper für Direct-Print aus dem Header
+const PrintHelper: React.FC<{ isPrintMode?: boolean, setIsPreparingPrint: (v: boolean) => void }> = ({ isPrintMode, setIsPreparingPrint }) => {
+    const map = useMap();
+    useEffect(() => {
+        if (isPrintMode) return; 
+
+        const handlePrep = () => {
+            setIsPreparingPrint(true);
+            setTimeout(() => map.invalidateSize(false), 150);
+        };
+        const handleCleanup = () => {
+            setIsPreparingPrint(false);
+            setTimeout(() => map.invalidateSize(false), 150);
+        };
+
+        window.addEventListener('prepare-map-print', handlePrep);
+        window.addEventListener('cleanup-map-print', handleCleanup);
+        return () => {
+            window.removeEventListener('prepare-map-print', handlePrep);
+            window.removeEventListener('cleanup-map-print', handleCleanup);
+        };
+    }, [map, isPrintMode, setIsPreparingPrint]);
+    return null;
+};
+
+// Automatischer Fitter (wird nur im PDF Report genutzt, um alle POIs zu zeigen)
 const PrintMapFitter: React.FC<{ places: Place[], isPrintMode?: boolean }> = ({ places, isPrintMode }) => {
     const map = useMap();
     useEffect(() => {
@@ -56,6 +83,7 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
   
   const { uiState, setUIState, project, setProject, updatePlace } = useTripStore(); 
   const markerRefs = useRef<Record<string, L.Marker | null>>({});
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const [isUpdatingCoords, setIsUpdatingCoords] = useState(false);
   const [updateProgress, setUpdateProgress] = useState({ current: 0, total: 0 });
@@ -64,8 +92,41 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [isLayerMenuOpen, setIsLayerMenuOpen] = useState(false);
+  
+  // Status für den Druck-Vorbereitungs-Modus
+  const [isPreparingPrint, setIsPreparingPrint] = useState(false);
 
   const [currentZoom, setCurrentZoom] = useState(10);
+
+  // --- DER MAGISCHE DOM-EXTRACTOR FÜR DEN DRUCK ---
+  useEffect(() => {
+      if (isPreparingPrint && containerRef.current) {
+          const el = containerRef.current;
+          const placeholder = document.createElement('div');
+          placeholder.id = "map-print-placeholder";
+          
+          // Sichere die ursprüngliche Position im Layout
+          el.parentNode?.replaceChild(placeholder, el);
+          
+          // Verstecke die Haupt-App temporär
+          const rootEl = document.getElementById('root');
+          if (rootEl) rootEl.style.display = 'none';
+
+          // Schiebe die Karte isoliert und frei von allen störenden CSS-Klassen ins Root-Verzeichnis des Bodys
+          document.body.appendChild(el);
+
+          return () => {
+              // Aufräumen nach dem Druck
+              if (rootEl) rootEl.style.display = '';
+              if (placeholder.parentNode) {
+                  placeholder.parentNode.replaceChild(el, placeholder);
+              } else if (el.parentNode) {
+                  el.parentNode.removeChild(el); 
+              }
+          };
+      }
+  }, [isPreparingPrint]);
+  // ----------------------------------------------
 
   const validPlaces = useMemo(() => places.filter(p => p.location && p.location.lat && p.location.lng), [places]);
   
@@ -247,209 +308,274 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
 
   const containerClasses = isPrintMode
     ? "h-[85vh] w-full rounded-2xl overflow-hidden border border-slate-200 relative bg-slate-50 print:h-[90vh] print:break-inside-avoid shadow-sm"
-    : isFullscreen
-      ? "fixed left-0 right-0 bottom-0 top-[70px] md:top-[80px] z-[40] bg-slate-100 shadow-2xl transition-all"
-      : "h-[calc(100vh-180px)] min-h-[600px] w-full rounded-[2rem] overflow-hidden shadow-inner border border-slate-200 z-0 relative bg-slate-100 transition-all";
+    : isPreparingPrint
+      ? "fixed inset-0 z-[99999] w-screen h-screen bg-slate-50"
+      : isFullscreen
+        ? "fixed left-0 right-0 bottom-0 top-[70px] md:top-[80px] z-[40] bg-slate-100 shadow-2xl transition-all"
+        : "h-[calc(100vh-180px)] min-h-[600px] w-full rounded-[2rem] overflow-hidden shadow-inner border border-slate-200 z-0 relative bg-slate-100 transition-all";
 
   return (
-    <div className={containerClasses}>
-      
-      <MapStyles /> {/* HOTFIX: Restored MapStyles to fix Vercel TS6133 Error */}
-
-      {isUpdatingCoords && (
-          <div className={`absolute top-4 right-20 z-[1000] bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-md border border-slate-200 flex items-center gap-3 text-xs font-medium text-slate-600 animate-in slide-in-from-top-2`}>
-              <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-500" />
-              <span className="hidden sm:inline">Optimiere Koordinaten... ({updateProgress.current}/{updateProgress.total})</span>
-          </div>
-      )}
-
-      {!isPrintMode && (
-          <>
-            <button 
-                onClick={() => setIsFullscreen(!isFullscreen)}
-                className={`absolute top-4 right-4 z-[1000] bg-white text-slate-700 p-2.5 rounded-xl shadow-lg border border-slate-200 hover:text-blue-600 hover:bg-blue-50 transition-all focus:outline-none`}
-                title={isFullscreen ? t('map.exit_fullscreen', "Breitbildmodus beenden") : t('map.enter_fullscreen', "Karte auf volle Breite vergrößern")}
-            >
-                {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
-            </button>
-
-            <button 
-                onClick={handleLocateUser}
-                className={`absolute top-[68px] right-4 z-[1000] bg-white text-blue-600 p-2.5 rounded-xl shadow-lg border border-slate-200 hover:bg-blue-50 transition-all focus:outline-none ${isLocating ? 'animate-pulse opacity-70' : ''}`}
-                title={t('map.locate_me', "Meinen aktuellen GPS-Standort anzeigen")}
-            >
-                <Navigation className={`w-5 h-5 ${isLocating ? 'animate-spin text-slate-400' : 'fill-blue-100'}`} />
-            </button>
-
-            <button 
-                onClick={() => setUIState({ isMapManagerOpen: true })}
-                className={`absolute top-[120px] right-4 z-[1000] p-2.5 rounded-xl shadow-lg border transition-all focus:outline-none ${
-                    uiState.mapMode === 'offline' 
-                        ? 'bg-slate-800 text-white border-slate-900 hover:bg-black' 
-                        : 'bg-white text-slate-700 border-slate-200 hover:bg-blue-50 hover:text-blue-600'
-                }`}
-                title={t('map.manager.title', "Offline-Karten & Download")}
-            >
-                {uiState.mapMode === 'offline' ? <CloudOff className="w-5 h-5" /> : <Database className="w-5 h-5" />}
-            </button>
-
-            <div className="absolute top-[172px] right-4 z-[1000]">
-                <button 
-                    onClick={() => setIsLayerMenuOpen(!isLayerMenuOpen)}
-                    className={`p-2.5 rounded-xl shadow-lg border transition-all focus:outline-none ${isLayerMenuOpen ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-white text-slate-700 border-slate-200 hover:bg-blue-50 hover:text-blue-600'}`}
-                    title="Karten-Ansicht (Ebenen) wechseln"
-                >
-                    <Layers className="w-5 h-5" />
-                </button>
-                {isLayerMenuOpen && (
-                    <div className="absolute top-0 right-14 bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl shadow-xl w-48 overflow-hidden animate-in slide-in-from-right-2">
-                        {Object.entries(MAP_LAYERS).map(([key, layer]) => (
-                            <button
-                                key={key}
-                                onClick={() => { setUIState({ mapLayer: key as any }); setIsLayerMenuOpen(false); }}
-                                className={`w-full text-left px-4 py-3 text-xs font-bold transition-colors ${uiState.mapLayer === key ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-600' : 'text-slate-600 hover:bg-slate-50 border-l-4 border-transparent'}`}
-                            >
-                                {t(layer.nameKey, layer.defaultName)}
-                            </button>
-                        ))}
-                    </div>
-                )}
-            </div>
-          </>
-      )}
-
-      <MapContainer 
-          center={defaultCenter} 
-          zoom={10} 
-          zoomSnap={0.1} 
-          style={{ height: "100%", width: "100%" }} 
-          scrollWheelZoom={!isPrintMode}
-          zoomControl={!isPrintMode}
-          dragging={!isPrintMode}
-          touchZoom={!isPrintMode}
-          doubleClickZoom={!isPrintMode}
-          zoomAnimation={!isPrintMode}
-          fadeAnimation={!isPrintMode}
-          markerZoomAnimation={!isPrintMode}
-      >
-        <ZoomListener onZoomChange={setCurrentZoom} />
-        <PrintMapFitter places={validPlaces} isPrintMode={isPrintMode} />
+    <>
+      <div id="sights-map-container" ref={containerRef} className={containerClasses}>
         
-        <MapResizer isFullscreen={isFullscreen} />
-        <OfflineTileLayer />
-        <MapLogic places={places} />
-        {!isPrintMode && <OfflineMapModal />}
-        <UserLocationMarker location={userLocation} />
+        {/* BULLETPROOF PRINT CSS INJECTION - Gezielt für den echten Papierdruck */}
+        <style type="text/css" media="print">
+            {`
+                @page {
+                    size: landscape;
+                    margin: 0;
+                }
+                body {
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    background: white !important;
+                }
+                
+                /* Da die Karte durch den Hack als freies Element im Body liegt, können wir sie grenzenlos drucken */
+                #sights-map-container {
+                    position: absolute !important;
+                    left: 0 !important;
+                    top: 0 !important;
+                    width: 100vw !important;
+                    height: 100vh !important;
+                    background: white !important;
+                    border: none !important;
+                    box-shadow: none !important;
+                    z-index: 999999 !important;
+                }
+                
+                .leaflet-container {
+                    width: 100vw !important;
+                    height: 100vh !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
+                
+                /* Verstecke UI-Controls auf dem Papier */
+                .leaflet-control-container {
+                    display: none !important;
+                }
+                
+                /* Zwinge Browser, die Kacheln in Farbe zu drucken */
+                .leaflet-tile,
+                .leaflet-marker-icon, 
+                .leaflet-marker-shadow {
+                    opacity: 1 !important;
+                    visibility: visible !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
+            `}
+        </style>
 
-        {displayPlaces.map((place) => {
-          const isSelected = uiState.selectedPlaceId === place.id;
-          const isHotel = hotelInfo.ids.has(place.id) || 
-                          hotelInfo.names.has(place.name?.toLowerCase() || '') || 
-                          hotelInfo.names.has(place.official_name?.toLowerCase() || '') ||
-                          place.category?.toLowerCase().includes('hotel') ||
-                          place.category?.toLowerCase().includes('accommodation');
+        {/* VOLLBILD-MASKE (Damit der User den 100vw Umbau nicht nackt sieht) */}
+        {isPreparingPrint && typeof document !== 'undefined' && createPortal(
+            <div className="fixed inset-0 z-[2147483647] flex flex-col items-center justify-center bg-white/95 backdrop-blur-md print:hidden">
+                <RefreshCw className="w-12 h-12 text-blue-500 animate-spin mb-4" />
+                <h3 className="font-bold text-2xl text-slate-800">Druck wird vorbereitet...</h3>
+                <p className="text-slate-500 mt-2 font-medium">Karte wird im hochauflösenden Querformat geladen.</p>
+            </div>,
+            document.body
+        )}
 
-          let badgeNumber = undefined;
-          if (uiState.visitedFilter === 'visited' || forceDiaryMode) {
-              badgeNumber = visitedSequence.get(place.id);
-          } else if (uiState.sortMode === 'day') {
-              badgeNumber = scheduledPlaces.get(place.id);
-          }
-          
-          const markerColor = getCategoryColor(place.category, place);
-          const isFixed = !!place.isFixed;
-          const userPrio = place.userPriority ?? 0;
-          
-          let baseZ = 0;
-          if (isFixed) baseZ = 400;
-          else if (userPrio === 1) baseZ = 300;
-          else if (userPrio === 2) baseZ = 200;
-          else if (userPrio === -1) baseZ = -100;
-          
-          return (
-            <Marker 
-              key={place.id} 
-              position={[place.displayLat, place.displayLng]}
-              icon={createSmartIcon(markerColor, isSelected, badgeNumber, isHotel, userPrio, isFixed, !!place.visited)}
-              zIndexOffset={isSelected ? 1000 : (isHotel ? 900 : (badgeNumber ? 500 : baseZ))} 
-              ref={(ref) => { markerRefs.current[place.id] = ref; }}
-              eventHandlers={{ click: () => setUIState({ selectedPlaceId: place.id }) }}
-            >
-              {!isPrintMode && <Tooltip direction="top" offset={[0, -15]} opacity={0.95} className="custom-tooltip">{place.name}</Tooltip>}
+        <MapStyles /> 
 
-              {!isPrintMode && (
-                  <Popup>
-                    <div className="min-w-[220px] font-sans p-1">
-                      <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 rounded" style={{ backgroundColor: markerColor }} />
-                              <span className="text-[10px] uppercase font-bold text-slate-400">
-                                {place.category === 'special' ? (place.details?.specialType === 'sunny' ? (currentLang === 'en' ? 'Sunny Day ☀️' : 'Sonnentag ☀️') : (currentLang === 'en' ? 'Rainy Day 🌧️' : 'Regentag 🌧️')) : (place.category || (currentLang === 'en' ? 'Place' : 'Ort'))}
-                              </span>
-                          </div>
-                          
-                          {(uiState.visitedFilter === 'visited' || forceDiaryMode) && badgeNumber ? (
-                              <span className="text-[10px] font-bold text-white px-1.5 py-0.5 rounded shadow-sm bg-emerald-500">✅ {currentLang === 'en' ? 'Stop' : 'Station'} {badgeNumber}</span>
-                          ) : scheduledPlaces.get(place.id) ? (
-                              <span className="text-[10px] font-bold text-white px-1.5 py-0.5 rounded shadow-sm" style={{ backgroundColor: DAY_COLORS[(scheduledPlaces.get(place.id)! - 1) % DAY_COLORS.length] }}>📅 {t('sights.day', { defaultValue: currentLang === 'en' ? 'Day' : 'Tag' })} {scheduledPlaces.get(place.id)}</span>
-                          ) : null}
+        {isUpdatingCoords && (
+            <div className={`absolute top-4 right-20 z-[1000] bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-md border border-slate-200 flex items-center gap-3 text-xs font-medium text-slate-600 animate-in slide-in-from-top-2 print:hidden`}>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-500" />
+                <span className="hidden sm:inline">Optimiere Koordinaten... ({updateProgress.current}/{updateProgress.total})</span>
+            </div>
+        )}
 
-                          {isHotel && <span className="text-[10px] font-bold bg-slate-900 text-white px-1.5 py-0.5 rounded">🏨 {t('interests.hotel', { defaultValue: currentLang === 'en' ? 'Accommodation' : 'Unterkunft' })}</span>}
+        {!isPrintMode && !isPreparingPrint && (
+            <div className="print:hidden">
+              <button 
+                  onClick={() => setIsFullscreen(!isFullscreen)}
+                  className={`absolute top-4 right-4 z-[1000] bg-white text-slate-700 p-2.5 rounded-xl shadow-lg border border-slate-200 hover:text-blue-600 hover:bg-blue-50 transition-all focus:outline-none`}
+                  title={isFullscreen ? t('map.exit_fullscreen', "Breitbildmodus beenden") : t('map.enter_fullscreen', "Karte auf volle Breite vergrößern")}
+              >
+                  {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+              </button>
+
+              <button 
+                  onClick={handleLocateUser}
+                  className={`absolute top-[68px] right-4 z-[1000] bg-white text-blue-600 p-2.5 rounded-xl shadow-lg border border-slate-200 hover:bg-blue-50 transition-all focus:outline-none ${isLocating ? 'animate-pulse opacity-70' : ''}`}
+                  title={t('map.locate_me', "Meinen aktuellen GPS-Standort anzeigen")}
+              >
+                  <Navigation className={`w-5 h-5 ${isLocating ? 'animate-spin text-slate-400' : 'fill-blue-100'}`} />
+              </button>
+
+              <button 
+                  onClick={() => setUIState({ isMapManagerOpen: true })}
+                  className={`absolute top-[120px] right-4 z-[1000] p-2.5 rounded-xl shadow-lg border transition-all focus:outline-none ${
+                      uiState.mapMode === 'offline' 
+                          ? 'bg-slate-800 text-white border-slate-900 hover:bg-black' 
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-blue-50 hover:text-blue-600'
+                  }`}
+                  title={t('map.manager.title', "Offline-Karten & Download")}
+              >
+                  {uiState.mapMode === 'offline' ? <CloudOff className="w-5 h-5" /> : <Database className="w-5 h-5" />}
+              </button>
+
+              <div className="absolute top-[172px] right-4 z-[1000]">
+                  <button 
+                      onClick={() => setIsLayerMenuOpen(!isLayerMenuOpen)}
+                      className={`p-2.5 rounded-xl shadow-lg border transition-all focus:outline-none ${isLayerMenuOpen ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-white text-slate-700 border-slate-200 hover:bg-blue-50 hover:text-blue-600'}`}
+                      title="Karten-Ansicht (Ebenen) wechseln"
+                  >
+                      <Layers className="w-5 h-5" />
+                  </button>
+                  {isLayerMenuOpen && (
+                      <div className="absolute top-0 right-14 bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl shadow-xl w-48 overflow-hidden animate-in slide-in-from-right-2">
+                          {Object.entries(MAP_LAYERS).map(([key, layer]) => (
+                              <button
+                                  key={key}
+                                  onClick={() => { setUIState({ mapLayer: key as any }); setIsLayerMenuOpen(false); }}
+                                  className={`w-full text-left px-4 py-3 text-xs font-bold transition-colors ${uiState.mapLayer === key ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-600' : 'text-slate-600 hover:bg-slate-50 border-l-4 border-transparent'}`}
+                              >
+                                  {t(layer.nameKey, layer.defaultName)}
+                              </button>
+                          ))}
                       </div>
-                      
-                      <h3 className="font-bold text-slate-900 text-sm mb-1 mt-1">{place.name}</h3>
-                      {place.address && <p className="text-xs text-slate-600 mb-2 leading-snug flex gap-1">📍 <span className="opacity-80">{place.address}</span></p>}
+                  )}
+              </div>
+            </div>
+        )}
 
-                      <div className="flex justify-between gap-1 mt-3 mb-2 border-t border-slate-100 pt-2 no-print">
-                         <button onClick={(e) => { e.stopPropagation(); updatePlace(place.id, { userPriority: isFixed && userPrio === 1 ? 0 : 1, isFixed: !(isFixed && userPrio === 1) }); }} className={`flex-1 py-1 rounded text-[9px] font-bold transition-colors border shadow-sm ${isFixed && userPrio === 1 ? 'bg-purple-600 text-white border-purple-700' : 'bg-slate-50 text-slate-600 hover:bg-purple-50 hover:text-purple-700 border-slate-200'}`}>Fix</button>
-                         <button onClick={(e) => { e.stopPropagation(); updatePlace(place.id, { userPriority: !isFixed && userPrio === 1 ? 0 : 1, isFixed: false }); }} className={`flex-1 py-1 rounded text-[9px] font-bold transition-colors border shadow-sm ${!isFixed && userPrio === 1 ? 'bg-green-600 text-white border-green-700' : 'bg-slate-50 text-slate-600 hover:bg-green-50 hover:text-green-700 border-slate-200'}`}>Prio 1</button>
-                         <button onClick={(e) => { e.stopPropagation(); updatePlace(place.id, { userPriority: userPrio === 2 ? 0 : 2, isFixed: false }); }} className={`flex-1 py-1 rounded text-[9px] font-bold transition-colors border shadow-sm ${userPrio === 2 ? 'bg-blue-500 text-white border-blue-600' : 'bg-slate-50 text-slate-600 hover:bg-blue-50 hover:text-blue-700 border-slate-200'}`}>Prio 2</button>
-                         <button onClick={(e) => { e.stopPropagation(); updatePlace(place.id, { userPriority: userPrio === -1 ? 0 : -1, isFixed: false }); }} className={`flex-1 py-1 rounded text-[9px] font-bold transition-colors border shadow-sm ${userPrio === -1 ? 'bg-gray-800 text-white border-gray-900' : 'bg-slate-50 text-slate-400 hover:bg-gray-100 border-slate-200'}`}>Ignore</button>
-                      </div>
+        <MapContainer 
+            center={defaultCenter} 
+            zoom={10} 
+            zoomSnap={0.1} 
+            style={{ height: "100%", width: "100%" }} 
+            scrollWheelZoom={!isPrintMode}
+            zoomControl={!isPrintMode}
+            dragging={!isPrintMode}
+            touchZoom={!isPrintMode}
+            doubleClickZoom={!isPrintMode}
+            zoomAnimation={!isPrintMode}
+            fadeAnimation={!isPrintMode}
+            markerZoomAnimation={!isPrintMode}
+        >
+          <ZoomListener onZoomChange={setCurrentZoom} />
+          <PrintMapFitter places={validPlaces} isPrintMode={isPrintMode} />
+          <PrintHelper isPrintMode={isPrintMode} setIsPreparingPrint={setIsPreparingPrint} />
+          
+          <MapResizer isFullscreen={isFullscreen || isPreparingPrint} />
+          <OfflineTileLayer />
+          <MapLogic places={places} />
+          {!isPrintMode && <OfflineMapModal />}
+          <UserLocationMarker location={userLocation} />
 
-                      {isFixed && (
-                         <div className="flex flex-col gap-1 bg-purple-50 px-2 py-1.5 rounded-md text-xs mt-1 mb-2 border border-purple-100 no-print animate-in slide-in-from-top-1">
-                            <span className="font-bold text-purple-800 flex items-center gap-1"><CalendarClock className="w-3.5 h-3.5" /> {currentLang === 'en' ? 'Fixed Appointment' : 'Fixtermin'}</span>
-                            <div className="flex gap-1 items-center">
-                               <input type="date" value={place.fixedDate || ''} min={tripStart} max={tripEnd} onChange={(e) => updatePlace(place.id, { fixedDate: e.target.value })} className="bg-white border border-purple-200 rounded px-1 py-0.5 text-[10px] w-full focus:ring-1 focus:ring-purple-500 outline-none" title="Datum" />
-                               <input type="time" value={place.fixedTime || ''} onChange={(e) => updatePlace(place.id, { fixedTime: e.target.value })} className="bg-white border border-purple-200 rounded px-1 py-0.5 text-[10px] focus:ring-1 focus:ring-purple-500 outline-none" title="Uhrzeit" />
-                               <div className="flex items-center gap-0.5 bg-white border border-purple-200 rounded px-1 py-0.5 focus-within:ring-1 focus-within:ring-purple-500"><Clock className="w-2.5 h-2.5 text-purple-400" /><input type="number" placeholder="Min" value={place.visitDuration || ''} onChange={(e) => updatePlace(place.id, { visitDuration: parseInt(e.target.value) || 0 })} className="w-8 bg-transparent border-none p-0 text-center text-[10px] text-purple-900 focus:ring-0 placeholder:text-purple-300 outline-none" title="Dauer in Minuten" /></div>
+          {displayPlaces.map((place) => {
+            const isSelected = uiState.selectedPlaceId === place.id;
+            const isHotel = hotelInfo.ids.has(place.id) || 
+                            hotelInfo.names.has(place.name?.toLowerCase() || '') || 
+                            hotelInfo.names.has(place.official_name?.toLowerCase() || '') ||
+                            place.category?.toLowerCase().includes('hotel') ||
+                            place.category?.toLowerCase().includes('accommodation');
+
+            let badgeNumber = undefined;
+            if (uiState.visitedFilter === 'visited' || forceDiaryMode) {
+                badgeNumber = visitedSequence.get(place.id);
+            } else if (uiState.sortMode === 'day') {
+                badgeNumber = scheduledPlaces.get(place.id);
+            }
+            
+            const markerColor = getCategoryColor(place.category, place);
+            const isFixed = !!place.isFixed;
+            const userPrio = place.userPriority ?? 0;
+            
+            let baseZ = 0;
+            if (isFixed) baseZ = 400;
+            else if (userPrio === 1) baseZ = 300;
+            else if (userPrio === 2) baseZ = 200;
+            else if (userPrio === -1) baseZ = -100;
+            
+            return (
+              <Marker 
+                key={place.id} 
+                position={[place.displayLat, place.displayLng]}
+                icon={createSmartIcon(markerColor, isSelected, badgeNumber, isHotel, userPrio, isFixed, !!place.visited)}
+                zIndexOffset={isSelected ? 1000 : (isHotel ? 900 : (badgeNumber ? 500 : baseZ))} 
+                ref={(ref) => { markerRefs.current[place.id] = ref; }}
+                eventHandlers={{ click: () => setUIState({ selectedPlaceId: place.id }) }}
+              >
+                {!isPrintMode && <Tooltip direction="top" offset={[0, -15]} opacity={0.95} className="custom-tooltip print:hidden">{place.name}</Tooltip>}
+
+                {!isPrintMode && (
+                    <Popup className="print:hidden">
+                      <div className="min-w-[220px] font-sans p-1">
+                        <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded" style={{ backgroundColor: markerColor }} />
+                                <span className="text-[10px] uppercase font-bold text-slate-400">
+                                  {place.category === 'special' ? (place.details?.specialType === 'sunny' ? (currentLang === 'en' ? 'Sunny Day ☀️' : 'Sonnentag ☀️') : (currentLang === 'en' ? 'Rainy Day 🌧️' : 'Regentag 🌧️')) : (place.category || (currentLang === 'en' ? 'Place' : 'Ort'))}
+                                </span>
                             </div>
-                         </div>
-                      )}
+                            
+                            {(uiState.visitedFilter === 'visited' || forceDiaryMode) && badgeNumber ? (
+                                <span className="text-[10px] font-bold text-white px-1.5 py-0.5 rounded shadow-sm bg-emerald-500">✅ {currentLang === 'en' ? 'Stop' : 'Station'} {badgeNumber}</span>
+                            ) : scheduledPlaces.get(place.id) ? (
+                                <span className="text-[10px] font-bold text-white px-1.5 py-0.5 rounded shadow-sm" style={{ backgroundColor: DAY_COLORS[(scheduledPlaces.get(place.id)! - 1) % DAY_COLORS.length] }}>📅 {t('sights.day', { defaultValue: currentLang === 'en' ? 'Day' : 'Tag' })} {scheduledPlaces.get(place.id)}</span>
+                            ) : null}
 
-                      <button 
-                        onClick={() => {
-                            if (uiState.visitedFilter === 'visited') {
-                                if (isFullscreen) setIsFullscreen(false);
-                                setUIState({ selectedPlaceId: place.id });
-                                if (setViewMode) setViewMode('plan');
-                            } else {
-                                let targetSortMode = uiState.sortMode || 'category';
-                                let targetFilter = uiState.categoryFilter || [];
-                                if ((targetSortMode as string) === 'day') {
-                                    const dayNum = scheduledPlaces.get(place.id);
-                                    const isVisibleInCurrentView = dayNum && (targetFilter.length === 0 || targetFilter.some(f => f.includes(String(dayNum))));
-                                    if (!isVisibleInCurrentView) { targetSortMode = 'category' as any; targetFilter = []; }
-                                }
-                                if (isFullscreen) setIsFullscreen(false);
-                                setUIState({ viewMode: 'list', selectedPlaceId: place.id, sortMode: targetSortMode, categoryFilter: targetFilter });
-                            }
-                        }}
-                        className="w-full mt-1 flex items-center justify-center gap-2 bg-slate-900 text-white py-2 rounded-lg text-xs font-bold hover:bg-black transition-colors shadow-sm"
-                      >
-                        <ExternalLink size={12} /> {(uiState.visitedFilter === 'visited' || forceDiaryMode) ? t('map.show_in_diary', { defaultValue: currentLang === 'en' ? 'Show in Diary' : 'Im Tagebuch zeigen' }) : t('map.show_in_guide', { defaultValue: currentLang === 'en' ? 'Show in Guide' : 'Im Reiseführer zeigen' })}
-                      </button>
-                    </div>
-                  </Popup>
-              )}
-            </Marker>
-          );
-        })}
+                            {isHotel && <span className="text-[10px] font-bold bg-slate-900 text-white px-1.5 py-0.5 rounded">🏨 {t('interests.hotel', { defaultValue: currentLang === 'en' ? 'Accommodation' : 'Unterkunft' })}</span>}
+                        </div>
+                        
+                        <h3 className="font-bold text-slate-900 text-sm mb-1 mt-1">{place.name}</h3>
+                        {place.address && <p className="text-xs text-slate-600 mb-2 leading-snug flex gap-1">📍 <span className="opacity-80">{place.address}</span></p>}
 
-        {!isPrintMode && <MapLegend places={allValidPlacesForLegend} />}
-      </MapContainer>
-    </div>
+                        <div className="flex justify-between gap-1 mt-3 mb-2 border-t border-slate-100 pt-2 no-print">
+                           <button onClick={(e) => { e.stopPropagation(); updatePlace(place.id, { userPriority: isFixed && userPrio === 1 ? 0 : 1, isFixed: !(isFixed && userPrio === 1) }); }} className={`flex-1 py-1 rounded text-[9px] font-bold transition-colors border shadow-sm ${isFixed && userPrio === 1 ? 'bg-purple-600 text-white border-purple-700' : 'bg-slate-50 text-slate-600 hover:bg-purple-50 hover:text-purple-700 border-slate-200'}`}>Fix</button>
+                           <button onClick={(e) => { e.stopPropagation(); updatePlace(place.id, { userPriority: !isFixed && userPrio === 1 ? 0 : 1, isFixed: false }); }} className={`flex-1 py-1 rounded text-[9px] font-bold transition-colors border shadow-sm ${!isFixed && userPrio === 1 ? 'bg-green-600 text-white border-green-700' : 'bg-slate-50 text-slate-600 hover:bg-green-50 hover:text-green-700 border-slate-200'}`}>Prio 1</button>
+                           <button onClick={(e) => { e.stopPropagation(); updatePlace(place.id, { userPriority: userPrio === 2 ? 0 : 2, isFixed: false }); }} className={`flex-1 py-1 rounded text-[9px] font-bold transition-colors border shadow-sm ${userPrio === 2 ? 'bg-blue-500 text-white border-blue-600' : 'bg-slate-50 text-slate-600 hover:bg-blue-50 hover:text-blue-700 border-slate-200'}`}>Prio 2</button>
+                           <button onClick={(e) => { e.stopPropagation(); updatePlace(place.id, { userPriority: userPrio === -1 ? 0 : -1, isFixed: false }); }} className={`flex-1 py-1 rounded text-[9px] font-bold transition-colors border shadow-sm ${userPrio === -1 ? 'bg-gray-800 text-white border-gray-900' : 'bg-slate-50 text-slate-400 hover:bg-gray-100 border-slate-200'}`}>Ignore</button>
+                        </div>
+
+                        {isFixed && (
+                           <div className="flex flex-col gap-1 bg-purple-50 px-2 py-1.5 rounded-md text-xs mt-1 mb-2 border border-purple-100 no-print animate-in slide-in-from-top-1">
+                              <span className="font-bold text-purple-800 flex items-center gap-1"><CalendarClock className="w-3.5 h-3.5" /> {currentLang === 'en' ? 'Fixed Appointment' : 'Fixtermin'}</span>
+                              <div className="flex gap-1 items-center">
+                                 <input type="date" value={place.fixedDate || ''} min={tripStart} max={tripEnd} onChange={(e) => updatePlace(place.id, { fixedDate: e.target.value })} className="bg-white border border-purple-200 rounded px-1 py-0.5 text-[10px] w-full focus:ring-1 focus:ring-purple-500 outline-none" title="Datum" />
+                                 <input type="time" value={place.fixedTime || ''} onChange={(e) => updatePlace(place.id, { fixedTime: e.target.value })} className="bg-white border border-purple-200 rounded px-1 py-0.5 text-[10px] focus:ring-1 focus:ring-purple-500 outline-none" title="Uhrzeit" />
+                                 <div className="flex items-center gap-0.5 bg-white border border-purple-200 rounded px-1 py-0.5 focus-within:ring-1 focus-within:ring-purple-500"><Clock className="w-2.5 h-2.5 text-purple-400" /><input type="number" placeholder="Min" value={place.visitDuration || ''} onChange={(e) => updatePlace(place.id, { visitDuration: parseInt(e.target.value) || 0 })} className="w-8 bg-transparent border-none p-0 text-center text-[10px] text-purple-900 focus:ring-0 placeholder:text-purple-300 outline-none" title="Dauer in Minuten" /></div>
+                              </div>
+                           </div>
+                        )}
+
+                        <button 
+                          onClick={() => {
+                              if (uiState.visitedFilter === 'visited') {
+                                  if (isFullscreen) setIsFullscreen(false);
+                                  setUIState({ selectedPlaceId: place.id });
+                                  if (setViewMode) setViewMode('plan');
+                              } else {
+                                  let targetSortMode = uiState.sortMode || 'category';
+                                  let targetFilter = uiState.categoryFilter || [];
+                                  if ((targetSortMode as string) === 'day') {
+                                      const dayNum = scheduledPlaces.get(place.id);
+                                      const isVisibleInCurrentView = dayNum && (targetFilter.length === 0 || targetFilter.some(f => f.includes(String(dayNum))));
+                                      if (!isVisibleInCurrentView) { targetSortMode = 'category' as any; targetFilter = []; }
+                                  }
+                                  if (isFullscreen) setIsFullscreen(false);
+                                  setUIState({ viewMode: 'list', selectedPlaceId: place.id, sortMode: targetSortMode, categoryFilter: targetFilter });
+                              }
+                          }}
+                          className="w-full mt-1 flex items-center justify-center gap-2 bg-slate-900 text-white py-2 rounded-lg text-xs font-bold hover:bg-black transition-colors shadow-sm"
+                        >
+                          <ExternalLink size={12} /> {(uiState.visitedFilter === 'visited' || forceDiaryMode) ? t('map.show_in_diary', { defaultValue: currentLang === 'en' ? 'Show in Diary' : 'Im Tagebuch zeigen' }) : t('map.show_in_guide', { defaultValue: currentLang === 'en' ? 'Show in Guide' : 'Im Reiseführer zeigen' })}
+                        </button>
+                      </div>
+                    </Popup>
+                )}
+              </Marker>
+            );
+          })}
+
+          {!isPrintMode && <MapLegend places={allValidPlacesForLegend} />}
+        </MapContainer>
+      </div>
+    </>
   );
 };
-// --- END OF FILE 420 Zeilen ---
+// --- END OF FILE 528 Zeilen ---
