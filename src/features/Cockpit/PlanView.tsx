@@ -1,5 +1,6 @@
-// 19.03.2026 15:00 - UX: Changed Diary detail levels (+/- buttons) from global to per-day basis. Each day can now be expanded/collapsed individually.
-// 19.03.2026 14:00 - FEAT: Applied Detail-Level logic.
+// 20.03.2026 14:20 - FIX: Applied strict I18N for detail toggle buttons.
+// 20.03.2026 14:15 - FEAT: Added integrated Expense Summaries directly into the diary.
+// 19.03.2026 15:00 - UX: Changed Diary detail levels (+/- buttons) from global to per-day basis.
 // src/features/Cockpit/PlanView.tsx
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -24,7 +25,6 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
   const routeAnalysis = analysis.routeArchitect;
   const travelerNames = travelers.travelerNames || '';
 
-  // FEATURE: Detail-Level State (PER TAG)
   const normalizeLevel = (level: string | undefined): 'kompakt' | 'standard' | 'details' => {
       if (level === 'compact' || level === 'kompakt') return 'kompakt';
       if (level === 'standard') return 'standard';
@@ -34,10 +34,8 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
   const defaultLevel = normalizeLevel(uiState.detailLevel);
   const VIEW_LEVELS = ['kompakt', 'standard', 'details'];
   
-  // Speichert den individuellen Zoom-Status pro Reisetag
   const [dayDetailLevels, setDayDetailLevels] = useState<Record<string, 'kompakt' | 'standard' | 'details'>>({});
 
-  // Wenn die globale Einstellung über das Filter-Menü geändert wird, setzen wir die lokalen Overrides zurück
   useEffect(() => {
       setDayDetailLevels({});
   }, [uiState.detailLevel]);
@@ -61,6 +59,45 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
   const globalSearchTerm = uiState.searchTerm || '';
   const [pendingExpense, setPendingExpense] = useState<{title: string, location: any} | null>(null);
   const isRoundtripContext = ['roundtrip', 'mobil'].includes(logistics.mode);
+
+  const hasAnyExpenses = Object.keys(data?.expenses || {}).length > 0;
+  const [showDailyExpenses, setShowDailyExpenses] = useState(true);
+  const baseCurrency = data?.currencyConfig?.baseCurrency || 'EUR';
+
+  const expensesSummary = useMemo(() => {
+      let before = 0;
+      let after = 0;
+      let total = 0;
+      const byDayKey: Record<string, number> = {};
+
+      if (!hasAnyExpenses) return { before, after, total, byDayKey };
+
+      const startMs = userInputs.dates?.start ? new Date(userInputs.dates.start).getTime() : 0;
+      const endMs = userInputs.dates?.end ? new Date(userInputs.dates.end).getTime() + 86399999 : Infinity;
+
+      Object.values(data!.expenses || {}).forEach((exp: any) => {
+          const rate = data?.currencyConfig?.rates?.find((r: any) => r.currency === exp.currency)?.rate || 1;
+          const isBase = !data?.currencyConfig || exp.currency === baseCurrency;
+          const baseAmount = isBase ? exp.amount : (exp.amount / rate);
+          
+          total += baseAmount;
+          
+          if (exp.timestamp < startMs) {
+              before += baseAmount;
+          } else if (exp.timestamp > endMs) {
+              after += baseAmount;
+          } else {
+              const dateKey = new Date(exp.timestamp).toISOString().split('T')[0];
+              if (!byDayKey[dateKey]) byDayKey[dateKey] = 0;
+              byDayKey[dateKey] += baseAmount;
+          }
+      });
+      return { before, after, total, byDayKey };
+  }, [data?.expenses, data?.currencyConfig, userInputs.dates, hasAnyExpenses, baseCurrency]);
+
+  const formatCurrency = (val: number) => {
+      return new Intl.NumberFormat(currentLang === 'de' ? 'de-DE' : 'en-US', { style: 'currency', currency: baseCurrency }).format(val);
+  };
 
   useEffect(() => {
     if (uiState.selectedPlaceId) {
@@ -211,7 +248,6 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
           setPendingExpense({ title: customTitle.trim() || defaultTitleText, location: customLocation });
       }
 
-      // Auto-Expand für den spezifischen Tag
       if (customNote.trim()) {
           setDayDetailLevels(prev => ({ ...prev, [dateKey]: 'details' }));
       } else {
@@ -276,7 +312,6 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
       updatePlace(id, updates);
       setEditingEntryId(null);
 
-      // Auto-Expand für den bearbeiteten Tag
       if (editNote.trim()) {
           setDayDetailLevels(prev => ({ ...prev, [dateKeyToExpand]: 'details' }));
       }
@@ -400,12 +435,22 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                 </div>
                 
                 <div className="hidden sm:flex items-center gap-2">
+                    {hasAnyExpenses && (
+                        <button onClick={() => setShowDailyExpenses(!showDailyExpenses)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm border ${showDailyExpenses ? 'bg-red-50 text-red-700 border-red-100 hover:bg-red-100' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'}`} title={t('diary.toggle_expenses', { defaultValue: 'Ausgaben im Tagebuch anzeigen/ausblenden' })}>
+                            <Banknote size={14} /> {showDailyExpenses ? t('diary.expenses_on', { defaultValue: 'Ausgaben' }) : t('diary.expenses_off', { defaultValue: 'Ausgaben' })}
+                        </button>
+                    )}
                     <ExpenseEntryButton travelers={travelerNames} mode="standalone" />
                     <button onClick={() => setIsAddingCustom(!isAddingCustom)} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white rounded-lg text-xs font-bold transition-colors shadow-sm"><PenLine size={14} /> {t('diary.add_custom', { defaultValue: 'Eigener Eintrag' })}</button>
                 </div>
             </div>
 
-            <div className="flex sm:hidden gap-2 mb-4">
+            <div className="flex sm:hidden gap-2 mb-4 flex-wrap">
+                {hasAnyExpenses && (
+                    <button onClick={() => setShowDailyExpenses(!showDailyExpenses)} className={`flex justify-center items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold shadow-sm border ${showDailyExpenses ? 'bg-red-50 text-red-700 border-red-100' : 'bg-slate-50 text-slate-500 border-slate-200'}`} title={t('diary.toggle_expenses', { defaultValue: 'Ausgaben im Tagebuch anzeigen/ausblenden' })}>
+                        <Banknote size={16} />
+                    </button>
+                )}
                 <ExpenseEntryButton travelers={travelerNames} mode="standalone" isMobile={true} />
                 <button onClick={() => setIsAddingCustom(!isAddingCustom)} className="flex-1 flex justify-center items-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-bold shadow-sm"><PenLine size={16} /> {t('diary.add_note', { defaultValue: 'Notiz' })}</button>
             </div>
@@ -452,6 +497,19 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                 </div>
             )}
 
+            {showDailyExpenses && expensesSummary.before > 0 && (
+                <div className="mb-6 bg-white border border-red-100 rounded-xl p-4 flex items-center justify-between shadow-sm animate-in fade-in">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-red-50 text-red-500 rounded-lg"><Banknote size={18} /></div>
+                        <div>
+                            <span className="block text-sm font-bold text-slate-800">{t('diary.expenses_before', { defaultValue: 'Vor der Reise' })}</span>
+                            <span className="block text-[10px] text-slate-500 uppercase tracking-wider">{t('diary.expenses_advance', { defaultValue: 'Vorabkosten & Buchungen' })}</span>
+                        </div>
+                    </div>
+                    <span className="text-lg font-black text-red-600">{formatCurrency(expensesSummary.before)}</span>
+                </div>
+            )}
+
             <div className="space-y-1 relative">
                 {allDates.length > 0 && <div className="absolute top-8 bottom-4 left-[27px] w-0.5 bg-emerald-100 z-0"></div>}
 
@@ -461,7 +519,6 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                     const dateObj = new Date(dateKey);
                     const dateStr = new Intl.DateTimeFormat(currentLang === 'de' ? 'de-DE' : 'en-US', { weekday: 'long', day: '2-digit', month: 'long' }).format(dateObj);
 
-                    // Lese spezifischen Level für diesen Tag
                     const currentDayLevel = dayDetailLevels[dateKey] || defaultLevel;
                     const currentLevelIndex = VIEW_LEVELS.indexOf(currentDayLevel);
                     const canStepDown = currentLevelIndex > 0;
@@ -482,21 +539,28 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                             <div className="flex items-center gap-4 my-6 flex-wrap">
                                 <div className="h-px bg-emerald-200 flex-1 min-w-[20px]"></div>
                                 
-                                <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 shadow-sm flex items-center gap-2">
-                                    {t('diary.real_day', { defaultValue: currentLang === 'en' ? 'Travel Day' : 'Reisetag' })} {realDay} <span className="text-emerald-600/60 font-medium">|</span> {dateStr}
-                                    <button onClick={() => {
-                                        setEditingSummaryDate(dateKey);
-                                        setEditSummaryText(diarySummaries[dateKey] || '');
-                                    }} className="ml-2 text-emerald-500 hover:text-emerald-700 transition-colors" title={t('diary.edit_summary', { defaultValue: 'Tageszusammenfassung bearbeiten' })}>
-                                        <PenLine size={12} />
-                                    </button>
-                                </span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 shadow-sm flex items-center gap-2">
+                                        {t('diary.real_day', { defaultValue: currentLang === 'en' ? 'Travel Day' : 'Reisetag' })} {realDay} <span className="text-emerald-600/60 font-medium">|</span> {dateStr}
+                                        <button onClick={() => {
+                                            setEditingSummaryDate(dateKey);
+                                            setEditSummaryText(diarySummaries[dateKey] || '');
+                                        }} className="ml-2 text-emerald-500 hover:text-emerald-700 transition-colors" title={t('diary.edit_summary', { defaultValue: 'Tageszusammenfassung bearbeiten' })}>
+                                            <PenLine size={12} />
+                                        </button>
+                                    </span>
 
-                                {/* DETAIL-LEVEL CONTROLS (+/-) PRO TAG */}
+                                    {showDailyExpenses && expensesSummary.byDayKey[dateKey] > 0 && (
+                                        <span className="text-xs font-bold text-red-700 bg-red-50 px-3 py-1 rounded-full border border-red-100 shadow-sm flex items-center gap-1.5" title={t('diary.daily_expenses', { defaultValue: 'Ausgaben an diesem Tag' })}>
+                                            <Banknote size={12} /> {formatCurrency(expensesSummary.byDayKey[dateKey])}
+                                        </span>
+                                    )}
+                                </div>
+
                                 <div className="flex items-center gap-0.5 bg-white rounded p-0.5 border border-emerald-100 shadow-sm no-print">
-                                    <button onClick={handleStepDown} disabled={!canStepDown} className={`p-1 rounded transition-all ${canStepDown ? 'text-slate-500 hover:text-emerald-600 hover:bg-emerald-50' : 'text-slate-300 cursor-not-allowed'}`} title="Weniger Details"><Minus className="w-3 h-3" /></button>
+                                    <button onClick={handleStepDown} disabled={!canStepDown} className={`p-1 rounded transition-all ${canStepDown ? 'text-slate-500 hover:text-emerald-600 hover:bg-emerald-50' : 'text-slate-300 cursor-not-allowed'}`} title={t('diary.less_details', { defaultValue: 'Weniger Details' })}><Minus className="w-3 h-3" /></button>
                                     <div className="flex gap-0.5 px-1 items-center">{VIEW_LEVELS.map((level, idx) => (<div key={level} className={`w-1 h-1 rounded-full ${idx <= currentLevelIndex ? 'bg-emerald-500' : 'bg-slate-200'}`} />))}</div>
-                                    <button onClick={handleStepUp} disabled={!canStepUp} className={`p-1 rounded transition-all ${canStepUp ? 'text-slate-500 hover:text-emerald-600 hover:bg-emerald-50' : 'text-slate-300 cursor-not-allowed'}`} title="Mehr Details"><Plus className="w-3 h-3" /></button>
+                                    <button onClick={handleStepUp} disabled={!canStepUp} className={`p-1 rounded transition-all ${canStepUp ? 'text-slate-500 hover:text-emerald-600 hover:bg-emerald-50' : 'text-slate-300 cursor-not-allowed'}`} title={t('diary.more_details', { defaultValue: 'Mehr Details' })}><Plus className="w-3 h-3" /></button>
                                 </div>
 
                                 <div className="h-px bg-emerald-200 flex-1 min-w-[20px]"></div>
@@ -648,6 +712,37 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                     );
                 })}
             </div>
+
+            {showDailyExpenses && (expensesSummary.after > 0 || expensesSummary.total > 0) && (
+                <div className="mt-8 space-y-3 relative z-10 animate-in fade-in">
+                    {expensesSummary.after > 0 && (
+                        <div className="bg-white border border-red-100 rounded-xl p-4 flex items-center justify-between shadow-sm">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-red-50 text-red-500 rounded-lg"><Banknote size={18} /></div>
+                                <div>
+                                    <span className="block text-sm font-bold text-slate-800">{t('diary.expenses_after', { defaultValue: 'Nach der Reise' })}</span>
+                                    <span className="block text-[10px] text-slate-500 uppercase tracking-wider">{t('diary.expenses_subsequent', { defaultValue: 'Nachträgliche Kosten' })}</span>
+                                </div>
+                            </div>
+                            <span className="text-lg font-black text-red-600">{formatCurrency(expensesSummary.after)}</span>
+                        </div>
+                    )}
+                    
+                    {expensesSummary.total > 0 && (
+                        <div className="bg-red-50 border border-red-200 rounded-xl p-5 flex items-center justify-between shadow-sm">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-red-100 text-red-600 rounded-xl"><Banknote size={24} /></div>
+                                <div>
+                                    <span className="block text-base font-black text-red-900 uppercase tracking-wider">{t('diary.expenses_total', { defaultValue: 'Gesamte Reisekosten' })}</span>
+                                    <span className="block text-xs text-red-700/80 font-medium mt-0.5">{t('diary.expenses_total_sub', { defaultValue: 'Alle Ausgaben inkl. Vorabkosten' })}</span>
+                                </div>
+                            </div>
+                            <span className="text-2xl font-black text-red-600">{formatCurrency(expensesSummary.total)}</span>
+                        </div>
+                    )}
+                </div>
+            )}
+
         </div>
     );
   };
@@ -659,4 +754,4 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
     </div>
   );
 };
-// --- END OF FILE 589 Zeilen ---
+// --- END OF FILE 674 Zeilen ---

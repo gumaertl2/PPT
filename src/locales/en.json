@@ -487,7 +487,7 @@
     "route_planning": "Route Planning",
     "itinerary_stops": "Itinerary & Stays"
   },
-  "diary": {
+ "diary": {
     "title": "Live Travel Diary",
     "subtitle": "Your visited places.",
     "add_custom": "Custom Entry",
@@ -513,7 +513,18 @@
     "summary_title": "Daily Summary",
     "summary_placeholder": "How was your day? Highlights, weather, special moments...",
     "no_search_results": "No entries found for this filter.",
-    "empty_state": "No entries yet. Check in at places or create a custom entry!"
+    "toggle_expenses": "Show/hide expenses in diary",
+    "expenses_on": "Expenses",
+    "expenses_off": "Expenses",
+    "expenses_before": "Before the trip",
+    "expenses_advance": "Advance costs & bookings",
+    "expenses_after": "After the trip",
+    "expenses_subsequent": "Subsequent costs",
+    "expenses_total": "Total trip costs",
+    "expenses_total_sub": "All expenses incl. advance costs",
+    "daily_expenses": "Expenses on this day",
+    "less_details": "Less details",
+    "more_details": "More details"
   },
   "itinerary": {
     "remaining_nights_open": "{{count}} nights still open.",
@@ -631,10 +642,11 @@
       "finance": "Travel Wallet"
     }
   },
-  "finance": {
+"finance": {
     "title": "Travel Wallet",
     "tab_settlement": "Settlement",
     "tab_feed": "History",
+    "tab_table": "Table",
     "empty_state": "No expenses recorded yet.",
     "total_costs": "Total Costs",
     "paid_by_summary": "Who paid?",
@@ -645,6 +657,7 @@
     "add_expense": "Record Expense",
     "new_expense": "New Expense",
     "costs": "Costs",
+    "date": "Date & Time",
     "purpose": "Purpose",
     "purpose_placeholder": "e.g. Supermarket, Taxi...",
     "title_placeholder": "Title",
@@ -680,7 +693,24 @@
     "last_updated": "Last updated",
     "save_currencies": "Save Currencies",
     "error_fetch_rates": "Rates could not be retrieved. Please check your internet connection.",
-    "settlement_base_info": "All settlements below are in the main currency:"
+    "settlement_base_info": "All settlements below are in the main currency:",
+    "export_csv": "Export as CSV",
+    "csv_date": "Date",
+    "csv_purpose": "Purpose",
+    "csv_amount": "Amount",
+    "csv_currency": "Currency",
+    "csv_rate": "Rate",
+    "csv_amount_base": "Amount in",
+    "csv_paid_by": "Paid by",
+    "csv_total": "TOTAL COSTS (Share)",
+    "csv_paid": "PAID BY",
+    "csv_balance": "BALANCE (+ Credit / - Debt)",
+    "delete_confirm": "Really delete this expense?",
+    "csv_balance": "BALANCE (+ Credit / - Debt)",
+    "delete_confirm": "Really delete this expense?",
+    "toggle_subtotals": "Subtotals",
+    "subtotal": "Subtotal",
+    "sort_hint": "Click on column headers to sort"
   },
   "map": {
     "layer": {

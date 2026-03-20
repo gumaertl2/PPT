@@ -486,7 +486,7 @@
     "route_planning": "Routen-Planung",
     "itinerary_stops": "Reiseverlauf & Aufenthalte"
   },
-  "diary": {
+"diary": {
     "title": "Live-Reisetagebuch",
     "subtitle": "Deine besuchten Orte.",
     "add_custom": "Eigener Eintrag",
@@ -512,7 +512,18 @@
     "summary_title": "Tageszusammenfassung",
     "summary_placeholder": "Wie war dein Tag? Highlights, Wetter, Besonderes...",
     "no_search_results": "Keine Einträge für diesen Filter gefunden.",
-    "empty_state": "Noch keine Einträge. Checke bei Orten ein oder erstelle einen eigenen Eintrag!"
+    "toggle_expenses": "Ausgaben im Tagebuch anzeigen/ausblenden",
+    "expenses_on": "Ausgaben",
+    "expenses_off": "Ausgaben",
+    "expenses_before": "Vor der Reise",
+    "expenses_advance": "Vorabkosten & Buchungen",
+    "expenses_after": "Nach der Reise",
+    "expenses_subsequent": "Nachträgliche Kosten",
+    "expenses_total": "Gesamte Reisekosten",
+    "expenses_total_sub": "Alle Ausgaben inkl. Vorabkosten",
+    "daily_expenses": "Ausgaben an diesem Tag",
+    "less_details": "Weniger Details",
+    "more_details": "Mehr Details"
   },
   "itinerary": {
     "remaining_nights_open": "Es sind noch {{count}} Nächte offen.",
@@ -630,10 +641,11 @@
       "finance": "Reisekasse"
     }
   },
-  "finance": {
+"finance": {
     "title": "Reisekasse",
     "tab_settlement": "Abrechnung",
     "tab_feed": "Historie",
+    "tab_table": "Tabelle",
     "empty_state": "Noch keine Ausgaben erfasst.",
     "total_costs": "Gesamtkosten",
     "paid_by_summary": "Wer hat gezahlt?",
@@ -644,6 +656,7 @@
     "add_expense": "Ausgabe erfassen",
     "new_expense": "Neue Ausgabe",
     "costs": "Kosten",
+    "date": "Datum & Uhrzeit",
     "purpose": "Verwendungszweck",
     "purpose_placeholder": "z.B. Supermarkt, Taxi...",
     "title_placeholder": "Titel",
@@ -679,7 +692,24 @@
     "last_updated": "Zuletzt aktualisiert",
     "save_currencies": "Währungen speichern",
     "error_fetch_rates": "Die Kurse konnten nicht abgerufen werden. Bitte prüfen Sie Ihre Internetverbindung.",
-    "settlement_base_info": "Alle Abrechnungen unten erfolgen in der Hauptwährung:"
+    "settlement_base_info": "Alle Abrechnungen unten erfolgen in der Hauptwährung:",
+    "export_csv": "Als CSV exportieren",
+    "csv_date": "Datum",
+    "csv_purpose": "Zweck",
+    "csv_amount": "Betrag",
+    "csv_currency": "Währung",
+    "csv_rate": "Kurs",
+    "csv_amount_base": "Betrag in",
+    "csv_paid_by": "Bezahlt von",
+    "csv_total": "GESAMTKOSTEN (Anteil)",
+    "csv_paid": "BEZAHLT VON",
+    "csv_balance": "BILANZ (+ Gutschrift / - Schuld)",
+    "delete_confirm": "Diese Ausgabe wirklich löschen?",
+    "csv_balance": "BILANZ (+ Gutschrift / - Schuld)",
+    "delete_confirm": "Diese Ausgabe wirklich löschen?",
+    "toggle_subtotals": "Zwischensummen",
+    "subtotal": "Zwischensumme",
+    "sort_hint": "Klicke auf die Spaltenköpfe, um zu sortieren"
   },
   "map": {
     "layer": {

@@ -1,13 +1,16 @@
-// 22.02.2026 17:45 - FEAT: Added transparent CSV Export functionality to verify all calculations in Excel/Google Sheets.
-// 22.02.2026 17:15 - UX: Added safety confirmation prompt before deleting an expense.
-// 22.02.2026 13:40 - FIX: Adjusted Mobile Layout in TripFinanceModal Header so action buttons remain visible.
-// 22.02.2026 11:45 - FEAT: Integrated Smart-Currency. Auto-converts foreign expenses to base currency in settlement and added config button.
+// 20.03.2026 16:30 - FEAT: Added dynamic Subtotals (Group-By) based on the active sort column.
+// 20.03.2026 16:00 - FEAT: Added native HTML5 datalist for folksonomy autocomplete.
+// 20.03.2026 15:45 - FEAT: Added interactive column sorting to the Table View.
 // src/features/Cockpit/TripFinanceModal.tsx
 
 import React, { useState, useMemo } from 'react';
 import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
-import { X, Wallet, ListFilter, Trash2, ArrowRightLeft, Banknote, Edit3, Save, CheckCircle2, Users, MapPin, Landmark, Download } from 'lucide-react'; 
+import { 
+  X, Wallet, ListFilter, Trash2, ArrowRightLeft, Banknote, Edit3, 
+  Save, CheckCircle2, Users, MapPin, Landmark, Download, TableProperties,
+  ChevronUp, ChevronDown, ChevronsUpDown, Sigma, Info
+} from 'lucide-react'; 
 import type { Expense, LanguageCode, CurrencyConfig } from '../../core/types/shared';
 import { ExpenseEntryButton } from './ExpenseEntryButton'; 
 import { CurrencyConfigModal } from './CurrencyConfigModal';
@@ -22,26 +25,30 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
   
-  const [activeTab, setActiveTab] = useState<'feed' | 'settlement'>('settlement');
+  const [activeTab, setActiveTab] = useState<'feed' | 'settlement' | 'table'>('settlement');
   const [isCurrencyModalOpen, setIsCurrencyModalOpen] = useState(false);
   
+  const [sortConfig, setSortConfig] = useState<{key: string, direction: 'asc'|'desc'}>({ key: 'timestamp', direction: 'desc' });
+  const [showSubtotals, setShowSubtotals] = useState(false);
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editAmount, setEditAmount] = useState('');
   const [editCurrency, setEditCurrency] = useState('EUR');
   const [editPaidBy, setEditPaidBy] = useState('');
+  const [editDate, setEditDate] = useState(''); 
   const [editSplitMode, setEditSplitMode] = useState<'equal'|'exact'>('equal');
   const [editSplitAmong, setEditSplitAmong] = useState<string[]>([]);
   const [editSplitExact, setEditSplitExact] = useState<Record<string, string>>({});
   const [showSplit, setShowSplit] = useState(false);
   
   const expenses = Object.values(project.data.expenses || {}) as Expense[];
+  
   const sortedFeed = [...expenses].sort((a, b) => b.timestamp - a.timestamp);
 
   const rawNames = project.userInputs.travelers.travelerNames || '';
   const allNames = rawNames.split(',').map((n: string) => n.trim()).filter(Boolean);
 
-  // Dynamic Currencies from Config
   const currencyConfig = project.data.currencyConfig as CurrencyConfig | undefined;
   const baseCurrency = currencyConfig?.baseCurrency || 'EUR';
   
@@ -54,6 +61,52 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
       return curs;
   }, [currencyConfig]);
 
+  const getRateForCurrency = (currency: string) => {
+      if (currency === baseCurrency) return 1;
+      const rateObj = currencyConfig?.rates.find(r => r.currency === currency);
+      return rateObj?.rate || 1;
+  };
+
+  const uniqueTitles = useMemo(() => {
+      return Array.from(new Set(expenses.map(e => e.title))).filter(Boolean).sort();
+  }, [expenses]);
+
+  const sortedTableData = useMemo(() => {
+      const data = [...expenses];
+      data.sort((a, b) => {
+          let aVal: any = a[sortConfig.key as keyof Expense];
+          let bVal: any = b[sortConfig.key as keyof Expense];
+
+          if (sortConfig.key === 'amountBase') {
+             const rateA = getRateForCurrency(a.currency || 'EUR');
+             const rateB = getRateForCurrency(b.currency || 'EUR');
+             aVal = a.amount / rateA;
+             bVal = b.amount / rateB;
+          } else if (sortConfig.key === 'title' || sortConfig.key === 'paidBy') {
+             aVal = (aVal || '').toLowerCase();
+             bVal = (bVal || '').toLowerCase();
+          }
+
+          if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+          if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+          return 0;
+      });
+      return data;
+  }, [expenses, sortConfig, currencyConfig, baseCurrency]);
+
+  const handleSort = (key: string) => {
+      let direction: 'asc' | 'desc' = 'asc';
+      if (sortConfig.key === key && sortConfig.direction === 'asc') {
+          direction = 'desc';
+      }
+      setSortConfig({ key, direction });
+  };
+
+  const renderSortIcon = (key: string) => {
+      if (sortConfig.key !== key) return <ChevronsUpDown className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />;
+      return sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3 text-emerald-600" /> : <ChevronDown className="w-3 h-3 text-emerald-600" />;
+  };
+
   const startEdit = (exp: Expense) => {
       setEditingId(exp.id);
       setEditTitle(exp.title);
@@ -61,6 +114,10 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
       setEditCurrency(availableCurrencies.includes(exp.currency) ? exp.currency : availableCurrencies[0]);
       setEditPaidBy(exp.paidBy);
       setShowSplit(false);
+
+      const d = new Date(exp.timestamp);
+      const tzOffset = d.getTimezoneOffset() * 60000;
+      setEditDate(new Date(d.getTime() - tzOffset).toISOString().slice(0, 16));
       
       if (exp.splitExact && Object.keys(exp.splitExact).length > 0) {
           setEditSplitMode('exact');
@@ -118,7 +175,8 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
           currency: editCurrency,
           paidBy: editPaidBy,
           splitAmong: editSplitMode === 'equal' ? editSplitAmong : [],
-          splitExact: finalSplitExact
+          splitExact: finalSplitExact,
+          timestamp: editDate ? new Date(editDate).getTime() : Date.now()
       });
       setEditingId(null);
   };
@@ -133,22 +191,14 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
           paidTotals[n] = 0;
       });
 
-      const getRate = (currency: string) => {
-          if (currency === baseCurrency) return 1;
-          const rateObj = currencyConfig?.rates.find(r => r.currency === currency);
-          return rateObj?.rate || 1; // Fallback 1:1 falls Kurs unerwartet fehlt
-      };
-
       expenses.forEach(exp => {
           const cur = exp.currency || 'EUR';
-          const rate = getRate(cur);
+          const rate = getRateForCurrency(cur);
           const amountInBase = exp.amount / rate;
 
-          // 1. Original-Währungen für die Anzeige sammeln
           if (!totalsByCurrency[cur]) totalsByCurrency[cur] = 0;
           totalsByCurrency[cur] += exp.amount;
 
-          // 2. Bilanzen in Hauptwährung
           if (!paidTotals[exp.paidBy]) paidTotals[exp.paidBy] = 0;
           paidTotals[exp.paidBy] += amountInBase;
 
@@ -196,19 +246,11 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
       return { balances, paidTotals, transfers, totalsByCurrency };
   }, [expenses, allNames, currencyConfig, baseCurrency]);
 
-  // FEAT: CSV Export Logic for maximum transparency
   const handleExportCSV = () => {
-      const getRate = (currency: string) => {
-          if (currency === baseCurrency) return 1;
-          const rateObj = currencyConfig?.rates.find(r => r.currency === currency);
-          return rateObj?.rate || 1;
-      };
-
       const lines: string[] = [];
-      const sep = ";"; // Semicolon is standard for German Excel
-      const fmtNum = (num: number) => num.toFixed(2).replace('.', ','); // Comma as decimal separator
+      const sep = ";"; 
+      const fmtNum = (num: number) => num.toFixed(2).replace('.', ','); 
       
-      // Header
       const header = [
           t('finance.csv_date', { defaultValue: 'Datum' }),
           t('finance.csv_purpose', { defaultValue: 'Zweck' }),
@@ -227,7 +269,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
 
       sortedFeed.forEach(exp => {
           const date = new Date(exp.timestamp).toLocaleDateString(currentLang === 'de' ? 'de-DE' : 'en-US');
-          const rate = getRate(exp.currency || 'EUR');
+          const rate = getRateForCurrency(exp.currency || 'EUR');
           const amountBase = exp.amount / rate;
           totalBase += amountBase;
 
@@ -248,22 +290,17 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
               });
           }
 
-          const cleanTitle = `"${exp.title.replace(/"/g, '""')}"`; // Escape quotes for CSV
+          const cleanTitle = `"${exp.title.replace(/"/g, '""')}"`; 
           
           const row = [
-              date,
-              cleanTitle,
-              fmtNum(exp.amount),
-              exp.currency || 'EUR',
-              rate.toFixed(4).replace('.', ','),
-              fmtNum(amountBase),
-              exp.paidBy,
+              date, cleanTitle, fmtNum(exp.amount), exp.currency || 'EUR',
+              rate.toFixed(4).replace('.', ','), fmtNum(amountBase), exp.paidBy,
               ...allNames.map(n => fmtNum(shares[n]))
           ];
           lines.push(row.join(sep));
       });
 
-      lines.push(""); // Empty line before summary
+      lines.push(""); 
       
       const sumRow = ["", t('finance.csv_total', { defaultValue: 'GESAMTKOSTEN (Anteil)' }), "", "", "", fmtNum(totalBase), "", ...allNames.map(n => fmtNum(personTotals[n]))];
       lines.push(sumRow.join(sep));
@@ -274,7 +311,6 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
       const balanceRow = ["", t('finance.csv_balance', { defaultValue: 'BILANZ (+ Gutschrift / - Schuld)' }), "", "", "", "", "", ...allNames.map(n => fmtNum(settlement.balances[n] || 0))];
       lines.push(balanceRow.join(sep));
 
-      // UTF-8 BOM helps Excel recognize the encoding properly
       const csvContent = "\uFEFF" + lines.join("\n"); 
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
@@ -286,24 +322,99 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
       document.body.removeChild(link);
   };
 
+  // RENDERING LOGIC FOR TABLE WITH SUBTOTALS
+  const renderTableBody = () => {
+      const rows: React.ReactNode[] = [];
+      let currentGroupKey: string | null = null;
+      let groupTotalBase = 0;
+      let groupShares: Record<string, number> = {};
+      allNames.forEach(n => groupShares[n] = 0);
+
+      const getGroupKey = (exp: Expense) => {
+          if (sortConfig.key === 'timestamp') return new Date(exp.timestamp).toLocaleDateString(currentLang === 'de' ? 'de-DE' : 'en-US');
+          if (sortConfig.key === 'amountBase' || sortConfig.key === 'amount') return exp.amount.toString();
+          return String(exp[sortConfig.key as keyof Expense] || '');
+      };
+
+      const pushSubtotal = (key: string) => {
+          rows.push(
+              <tr key={`subtotal-${key}`} className="bg-emerald-50/60 font-bold border-y border-emerald-200/60">
+                  <td colSpan={3} className="p-3 text-right text-emerald-800 text-xs sticky left-0 bg-emerald-50/60 z-10">{t('finance.subtotal', {defaultValue: 'Zwischensumme'})}: {key}</td>
+                  <td className="p-3 text-right text-emerald-700">{groupTotalBase.toFixed(2)}</td>
+                  <td className="p-3"></td>
+                  {allNames.map(n => <td key={`sub-${n}`} className="p-3 text-right text-emerald-800 border-l border-emerald-200/50">{groupShares[n].toFixed(2)}</td>)}
+              </tr>
+          );
+          groupTotalBase = 0;
+          allNames.forEach(n => groupShares[n] = 0);
+      };
+
+      sortedTableData.forEach((exp, idx) => {
+          const groupKey = getGroupKey(exp);
+          
+          if (showSubtotals && currentGroupKey !== null && currentGroupKey !== groupKey) {
+              pushSubtotal(currentGroupKey);
+          }
+          currentGroupKey = groupKey;
+
+          const date = new Date(exp.timestamp).toLocaleDateString(currentLang === 'de' ? 'de-DE' : 'en-US');
+          const rate = getRateForCurrency(exp.currency || 'EUR');
+          const amountBase = exp.amount / rate;
+          
+          const shares: Record<string, number> = {};
+          allNames.forEach(n => shares[n] = 0);
+          
+          if (exp.splitExact && Object.keys(exp.splitExact).length > 0) {
+              Object.entries(exp.splitExact).forEach(([person, amt]) => {
+                  shares[person] = amt / rate;
+              });
+          } else if (exp.splitAmong && exp.splitAmong.length > 0) {
+              const splitAmtBase = amountBase / exp.splitAmong.length;
+              exp.splitAmong.forEach(person => {
+                  shares[person] = splitAmtBase;
+              });
+          }
+
+          groupTotalBase += amountBase;
+          allNames.forEach(n => groupShares[n] += shares[n]);
+
+          rows.push(
+              <tr key={exp.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => {setActiveTab('feed'); setTimeout(() => startEdit(exp), 50)}}>
+                  <td className="p-3 text-slate-500 text-xs sticky left-0 bg-white group-hover:bg-slate-50 z-10 border-r border-slate-50">{date}</td>
+                  <td className="p-3 font-bold text-slate-700 truncate max-w-[150px] sm:max-w-[250px]" title={exp.title}>{exp.title}</td>
+                  <td className="p-3 text-right font-medium">{exp.amount.toFixed(2)} <span className="text-[10px] text-slate-400">{exp.currency}</span></td>
+                  <td className="p-3 text-right font-bold text-emerald-700">{amountBase.toFixed(2)}</td>
+                  <td className="p-3 text-center"><span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-bold border border-slate-200">{exp.paidBy}</span></td>
+                  {allNames.map(n => (
+                      <td key={n} className={`p-3 text-right text-xs font-medium border-l border-slate-100 ${shares[n] > 0 ? 'text-slate-700' : 'text-slate-300'}`}>
+                          {shares[n] > 0 ? shares[n].toFixed(2) : '-'}
+                      </td>
+                  ))}
+              </tr>
+          );
+
+          if (showSubtotals && idx === sortedTableData.length - 1) {
+              pushSubtotal(currentGroupKey);
+          }
+      });
+
+      return rows;
+  };
+
   if (!isOpen) return null;
 
   return (
     <>
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
-      <div className="bg-slate-50 w-full max-w-xl max-h-[90dvh] h-full sm:h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+      <div className="bg-slate-50 w-full max-w-4xl max-h-[90dvh] h-full sm:h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
         
-        {/* MODAL HEADER - ADJUSTED FOR MOBILE */}
         <div className="relative z-50 bg-white border-b border-slate-200 px-3 sm:px-5 py-3 sm:py-4 flex justify-between items-center shrink-0">
           <div className="flex items-center gap-2 text-slate-800 truncate mr-2">
             <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600 shrink-0"><Wallet className="w-5 h-5" /></div>
-            {/* The title is hidden on very small screens to make room for buttons */}
             <h2 className="hidden xs:block text-base sm:text-lg font-bold truncate">{t('finance.title', { defaultValue: 'Reisekasse' })}</h2>
           </div>
           
-          {/* ACTION BUTTONS */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            {/* By passing isMobile={true}, the button won't hide itself on small screens */}
             <ExpenseEntryButton travelers={rawNames} mode="standalone" isMobile={true} />
             
             <button onClick={handleExportCSV} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100 shrink-0" title={t('finance.export_csv', { defaultValue: 'Als CSV exportieren' })}>
@@ -318,18 +429,24 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
           </div>
         </div>
 
-        <div className="flex p-3 bg-white border-b border-slate-200 shrink-0 gap-2 z-[100]">
+        <div className="flex p-3 bg-white border-b border-slate-200 shrink-0 gap-2 z-[100] overflow-x-auto">
             <button 
                 onClick={() => setActiveTab('settlement')} 
-                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors flex justify-center items-center gap-2 ${activeTab === 'settlement' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                className={`flex-1 min-w-[120px] py-2 text-sm font-bold rounded-lg transition-colors flex justify-center items-center gap-2 ${activeTab === 'settlement' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
             >
-                <ArrowRightLeft className="w-4 h-4" /> <span className="hidden xs:inline">{t('finance.tab_settlement', { defaultValue: 'Abrechnung' })}</span>
+                <ArrowRightLeft className="w-4 h-4" /> <span className="hidden sm:inline">{t('finance.tab_settlement', { defaultValue: 'Abrechnung' })}</span>
             </button>
             <button 
                 onClick={() => setActiveTab('feed')} 
-                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors flex justify-center items-center gap-2 ${activeTab === 'feed' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                className={`flex-1 min-w-[120px] py-2 text-sm font-bold rounded-lg transition-colors flex justify-center items-center gap-2 ${activeTab === 'feed' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
             >
-                <ListFilter className="w-4 h-4" /> <span className="hidden xs:inline">{t('finance.tab_feed', { defaultValue: 'Historie' })}</span> ({expenses.length})
+                <ListFilter className="w-4 h-4" /> <span className="hidden sm:inline">{t('finance.tab_feed', { defaultValue: 'Historie' })}</span> ({expenses.length})
+            </button>
+            <button 
+                onClick={() => setActiveTab('table')} 
+                className={`flex-1 min-w-[120px] py-2 text-sm font-bold rounded-lg transition-colors flex justify-center items-center gap-2 ${activeTab === 'table' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
+                <TableProperties className="w-4 h-4" /> <span className="hidden sm:inline">{t('finance.tab_table', { defaultValue: 'Tabelle' })}</span>
             </button>
         </div>
 
@@ -344,7 +461,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                     </div>
                 </div>
             ) : activeTab === 'settlement' ? (
-                <div className="space-y-6 animate-in fade-in">
+                <div className="space-y-6 animate-in fade-in max-w-2xl mx-auto">
                     
                     <div className="grid grid-cols-1 xs:grid-cols-2 gap-4">
                         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
@@ -411,8 +528,8 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                         </div>
                     </div>
                 </div>
-            ) : (
-                <div className="space-y-3 animate-in fade-in">
+            ) : activeTab === 'feed' ? (
+                <div className="space-y-3 animate-in fade-in max-w-2xl mx-auto">
                     {sortedFeed.map(exp => (
                         <div key={exp.id}>
                             {editingId === exp.id ? (
@@ -422,8 +539,19 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                         <button onClick={() => setEditingId(null)} className="text-emerald-500 hover:text-emerald-800 bg-emerald-100/50 p-1 rounded-full"><X className="w-4 h-4"/></button>
                                     </div>
                                     
-                                    <label className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">{t('finance.purpose', { defaultValue: 'Verwendungszweck' })}</label>
-                                    <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2.5 mb-4 focus:ring-emerald-500 bg-white shadow-sm" placeholder={t('finance.title_placeholder', { defaultValue: 'Titel' })} />
+                                    <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                                        <div className="flex-[2]">
+                                            <label className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">{t('finance.purpose', { defaultValue: 'Verwendungszweck' })}</label>
+                                            <input type="text" list="expense-titles-edit" value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2.5 focus:ring-emerald-500 bg-white shadow-sm" placeholder={t('finance.title_placeholder', { defaultValue: 'Titel' })} />
+                                            <datalist id="expense-titles-edit">
+                                                {uniqueTitles.map(tTitle => <option key={tTitle} value={tTitle} />)}
+                                            </datalist>
+                                        </div>
+                                        <div className="flex-1">
+                                            <label className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">{t('finance.date', { defaultValue: 'Datum & Uhrzeit' })}</label>
+                                            <input type="datetime-local" value={editDate} onChange={e => setEditDate(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2.5 focus:ring-emerald-500 bg-white shadow-sm" />
+                                        </div>
+                                    </div>
                                     
                                     <div className="flex gap-2 mb-4">
                                         <input type="number" step="0.01" value={editAmount} onChange={e => setEditAmount(e.target.value)} className="flex-1 text-lg font-bold border-emerald-200 rounded-lg p-2.5 focus:ring-emerald-500 bg-white shadow-sm" />
@@ -524,7 +652,6 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                             <div className="text-[10px] text-slate-400 mt-1 truncate">{t('finance.for', { defaultValue: 'Für:' })} {exp.splitAmong.join(', ')}</div>
                                         ) : null}
                                     </div>
-                                    {/* FIX: Added window.confirm to delete button */}
                                     <button 
                                         onClick={(e) => { 
                                             e.stopPropagation(); 
@@ -542,6 +669,68 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                         </div>
                     ))}
                 </div>
+            ) : (
+                <div className="flex flex-col gap-3 animate-in fade-in max-w-full">
+                    <div className="flex justify-between items-center px-1">
+                        <span className="text-xs text-slate-500 font-medium flex items-center gap-1.5"><Info size={14}/> {t('finance.sort_hint', {defaultValue: 'Klicke auf die Spaltenköpfe zur Sortierung'})}</span>
+                        <button onClick={() => setShowSubtotals(!showSubtotals)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border shadow-sm ${showSubtotals ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+                            <Sigma className="w-4 h-4" /> {t('finance.toggle_subtotals', { defaultValue: 'Zwischensummen' })}
+                        </button>
+                    </div>
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+                        <table className="w-full text-left text-sm whitespace-nowrap">
+                            <thead className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 uppercase tracking-wider select-none">
+                                <tr>
+                                    <th className="p-3 font-bold sticky left-0 bg-slate-50 z-10 cursor-pointer hover:bg-slate-100 group transition-colors" onClick={() => handleSort('timestamp')}>
+                                        <div className="flex items-center gap-1">{t('finance.csv_date', { defaultValue: 'Datum' })} {renderSortIcon('timestamp')}</div>
+                                    </th>
+                                    <th className="p-3 font-bold cursor-pointer hover:bg-slate-100 group transition-colors" onClick={() => handleSort('title')}>
+                                        <div className="flex items-center gap-1">{t('finance.csv_purpose', { defaultValue: 'Zweck' })} {renderSortIcon('title')}</div>
+                                    </th>
+                                    <th className="p-3 font-bold text-right cursor-pointer hover:bg-slate-100 group transition-colors" onClick={() => handleSort('amount')}>
+                                        <div className="flex justify-end items-center gap-1">{t('finance.csv_amount', { defaultValue: 'Betrag' })} {renderSortIcon('amount')}</div>
+                                    </th>
+                                    <th className="p-3 font-bold text-right text-emerald-700 cursor-pointer hover:bg-slate-100 group transition-colors" onClick={() => handleSort('amountBase')}>
+                                        <div className="flex justify-end items-center gap-1">{t('finance.csv_amount_base', { defaultValue: 'Betrag in' })} {baseCurrency} {renderSortIcon('amountBase')}</div>
+                                    </th>
+                                    <th className="p-3 font-bold text-center cursor-pointer hover:bg-slate-100 group transition-colors" onClick={() => handleSort('paidBy')}>
+                                        <div className="flex justify-center items-center gap-1">{t('finance.csv_paid_by', { defaultValue: 'Bezahlt von' })} {renderSortIcon('paidBy')}</div>
+                                    </th>
+                                    {allNames.map(n => <th key={n} className="p-3 font-bold text-right border-l border-slate-200/50">{n}</th>)}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {renderTableBody()}
+                            </tbody>
+                            <tfoot className="bg-slate-50 border-t-2 border-slate-200 font-bold">
+                                <tr>
+                                    <td colSpan={3} className="p-3 text-right text-slate-600 text-xs sticky left-0 bg-slate-50 z-10">{t('finance.csv_total', { defaultValue: 'GESAMTKOSTEN (Anteil)' })}</td>
+                                    <td className="p-3 text-right text-emerald-700 text-base">{(() => {
+                                        let totalBase = 0;
+                                        sortedTableData.forEach(exp => {
+                                            totalBase += exp.amount / getRateForCurrency(exp.currency || 'EUR');
+                                        });
+                                        return totalBase.toFixed(2);
+                                    })()}</td>
+                                    <td className="p-3"></td>
+                                    {allNames.map(n => {
+                                        let pTotal = 0;
+                                        sortedTableData.forEach(exp => {
+                                            const rate = getRateForCurrency(exp.currency || 'EUR');
+                                            const amountBase = exp.amount / rate;
+                                            if (exp.splitExact && exp.splitExact[n]) {
+                                                pTotal += exp.splitExact[n] / rate;
+                                            } else if (exp.splitAmong && exp.splitAmong.includes(n)) {
+                                                pTotal += amountBase / exp.splitAmong.length;
+                                            }
+                                        });
+                                        return <td key={n} className="p-3 text-right text-slate-800 border-l border-slate-200/50">{pTotal.toFixed(2)}</td>;
+                                    })}
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
             )}
         </div>
       </div>
@@ -554,4 +743,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 474 Zeilen ---
+// --- END OF FILE 642 Zeilen ---

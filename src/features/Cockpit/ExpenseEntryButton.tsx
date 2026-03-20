@@ -1,6 +1,5 @@
-// 22.02.2026 15:00 - FIX: Bridge UX Improvements. Fixed initialization on forceOpen and added interactive Note-Step modal.
-// 22.02.2026 13:40 - FIX: Prevented standalone button from completely hiding on mobile when used in headers.
-// 22.02.2026 13:00 - FIX: Corrected import path for 'Place' to fix Vercel build error.
+// 20.03.2026 16:00 - FEAT: Added native HTML5 datalist for folksonomy autocomplete (Purpose) and editable Date field.
+// 22.02.2026 15:00 - FIX: Bridge UX Improvements. Fixed initialization on forceOpen.
 // src/features/Cockpit/ExpenseEntryButton.tsx
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -54,6 +53,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
     const [customTitle, setCustomTitle] = useState('');
     const [amount, setAmount] = useState('');
     const [currency, setCurrency] = useState(availableCurrencies[0]);
+    const [entryDate, setEntryDate] = useState('');
     
     const names = (travelers || '').split(',').map(n => n.trim()).filter(Boolean);
     const [paidBy, setPaidBy] = useState('');
@@ -65,14 +65,25 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
     const [location, setLocation] = useState<{lat: number, lng: number} | null>(defaultLocation);
     const [isFetchingGPS, setIsFetchingGPS] = useState(false);
 
-    // NEU: States für den 2. Schritt (Notiz)
     const [isNoteStep, setIsNoteStep] = useState(false);
     const [noteText, setNoteText] = useState('');
 
-    // BUGFIX 1: Initiale Belegung, wenn von der Tagebuch-Brücke aufgerufen
+    // FOLKSONOMY: Extrahiere alle bisherigen, einzigartigen Titel
+    const uniqueTitles = useMemo(() => {
+        const allExpenses = Object.values(project.data.expenses || {}) as Expense[];
+        return Array.from(new Set(allExpenses.map(e => e.title))).filter(Boolean).sort();
+    }, [project.data.expenses]);
+
+    const resetDate = () => {
+        const d = new Date();
+        const tzOffset = d.getTimezoneOffset() * 60000;
+        setEntryDate(new Date(d.getTime() - tzOffset).toISOString().slice(0, 16));
+    };
+
     useEffect(() => {
         if (forceOpen) {
             setIsOpen(true);
+            resetDate();
             if (defaultLocation) setLocation(defaultLocation);
             if (!availableCurrencies.includes(currency)) setCurrency(availableCurrencies[0]);
             
@@ -140,6 +151,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
             setIsFetchingGPS(false);
             setIsNoteStep(false);
             setNoteText('');
+            resetDate();
         } else {
             if (onClose) onClose();
         }
@@ -177,11 +189,10 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
             paidBy, 
             splitAmong: splitAmong.length > 0 ? splitAmong : names, 
             splitExact: finalSplitExact, 
-            timestamp: Date.now(),
+            timestamp: entryDate ? new Date(entryDate).getTime() : Date.now(),
             location: location || undefined
         });
 
-        // BUGFIX 2: Wechsel in den "Notiz"-Schritt anstatt sofort zu schließen
         if (promptForNote) {
             setIsNoteStep(true);
         } else {
@@ -190,7 +201,6 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         }
     };
 
-    // NEU: Speichern der Notiz (Schritt 2)
     const handleSaveNote = () => {
         const newId = `custom_${uuidv4()}`;
         const finalTitle = mode === 'standalone' ? (customTitle.trim() || defaultTitle) : defaultTitle;
@@ -204,7 +214,8 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
             name: finalTitle, 
             category: 'custom_diary',
             visited: true, 
-            visitedAt: new Date().toISOString(), 
+            // Verknüpft die Notiz mit dem exakten Datum der Ausgabe
+            visitedAt: entryDate ? new Date(entryDate).toISOString() : new Date().toISOString(), 
             userNote: finalNote,
             location: location || undefined
         };
@@ -251,7 +262,6 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         );
     };
 
-    // BUGFIX 1: Disabled Logik repariert, damit defaultTitle ausreicht.
     const isSaveDisabled = (!amount && mode !== 'standalone') || 
                            (mode === 'standalone' && !(customTitle.trim() || defaultTitle)) || 
                            isNaN(parseFloat(amount)) || 
@@ -300,12 +310,21 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                             <>
                                 <div className="p-4 overflow-y-auto space-y-4">
                                     
-                                    {(mode === 'standalone' || forceOpen) && (
-                                        <div>
-                                            <label className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">{t('finance.purpose', { defaultValue: 'Verwendungszweck' })}</label>
-                                            <input type="text" placeholder={t('finance.purpose_placeholder', { defaultValue: 'z.B. Supermarkt, Taxi...' })} value={customTitle || defaultTitle} onChange={e => setCustomTitle(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 shadow-sm" />
+                                    <div className="flex flex-col sm:flex-row gap-3">
+                                        {(mode === 'standalone' || forceOpen) && (
+                                            <div className="flex-[2]">
+                                                <label className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">{t('finance.purpose', { defaultValue: 'Verwendungszweck' })}</label>
+                                                <input type="text" list="expense-titles-new" placeholder={t('finance.purpose_placeholder', { defaultValue: 'z.B. Supermarkt, Taxi...' })} value={customTitle || defaultTitle} onChange={e => setCustomTitle(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 shadow-sm" />
+                                                <datalist id="expense-titles-new">
+                                                    {uniqueTitles.map(tTitle => <option key={tTitle} value={tTitle} />)}
+                                                </datalist>
+                                            </div>
+                                        )}
+                                        <div className={mode === 'standalone' || forceOpen ? "flex-1" : "w-full"}>
+                                            <label className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">{t('finance.date', { defaultValue: 'Datum & Uhrzeit' })}</label>
+                                            <input type="datetime-local" value={entryDate} onChange={e => setEntryDate(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 shadow-sm" />
                                         </div>
-                                    )}
+                                    </div>
 
                                     <div className="flex gap-2">
                                         <input type="number" step="0.01" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} className="flex-1 text-lg font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 shadow-sm" />
@@ -392,7 +411,6 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                 </div>
 
                                 <div className="p-4 bg-emerald-100/50 border-t border-emerald-200/50 flex flex-col gap-2 shrink-0">
-                                     {/* BUGFIX 1: Wenn forceOpen (also Aufruf aus Tagebuch) aktiv ist, zeigen wir den "Und Notiz anlegen" Button NICHT an, um Endlosschleifen zu verhindern. */}
                                      {!forceOpen && (
                                          <button onClick={(e) => handleSave(e, true)} disabled={isSaveDisabled} className="w-full py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold rounded-lg hover:bg-indigo-100 transition-all flex justify-center items-center gap-2">
                                             <PenLine className="w-3.5 h-3.5"/> {t('finance.save_and_diary', { defaultValue: 'Speichern & Notiz anlegen' })}
@@ -412,4 +430,4 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         </div>
     );
 };
-// --- END OF FILE 392 Zeilen ---
+// --- END OF FILE 434 Zeilen ---
