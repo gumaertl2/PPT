@@ -1,7 +1,5 @@
-// 21.03.2026 09:50 - UX/FIX: Removed hard alert() on date validation to prevent severe iOS WebKit picker crashes. Implemented smart auto-correction for start/end dates instead.
+// 21.03.2026 10:30 - FIX: Replaced iOS-crashing alert() with a silent auto-correction (clamping) validation logic for trip start and end dates.
 // 27.02.2026 14:15 - FIX: Replaced all remaining hardcoded strings and alerts with proper i18n hooks.
-// 27.02.2026 13:45 - FEAT: Added 'Mobilität vor Ort' (localMobility) selection for realistic AI transfer checks.
-// 01.02.2026 14:30 - FIX: Added 'resolveHotelName' to display Place names instead of IDs in inputs.
 // src/features/Cockpit/steps/LogisticsStep.tsx
 
 import { useEffect } from 'react';
@@ -121,11 +119,10 @@ export const LogisticsStep = () => {
     { value: 'other', label: t('cockpit.arrival_options.other', { defaultValue: 'Sonstiges' }) }
   ];
 
-  // --- UX FIX: Smart Auto-Correction ---
-  // Ersetzt das harte alert(), welches iOS WebKit Date-Picker zum Absturz/Einfrieren bringt.
+  // --- SILENT AUTO-CORRECTION VALIDATION (iOS Safe) ---
   const handleStartDateChange = (value: string) => {
     if (value && dates.end && value > dates.end) {
-      // Wenn neues Startdatum NACH aktuellem Enddatum liegt -> Enddatum lautlos anpassen
+      // Startdatum liegt NACH Enddatum -> Enddatum lautlos ans Startdatum angleichen
       setDates({ start: value, end: value });
     } else {
       setDates({ start: value });
@@ -134,8 +131,8 @@ export const LogisticsStep = () => {
 
   const handleEndDateChange = (value: string) => {
     if (value && dates.start && value < dates.start) {
-      // Wenn neues Enddatum VOR aktuellem Startdatum liegt -> Startdatum lautlos anpassen
-      setDates({ start: value, end: value });
+      // Enddatum liegt VOR Startdatum -> Enddatum lautlos aufs Startdatum zurücksetzen
+      setDates({ end: dates.start });
     } else {
       setDates({ end: value });
     }
@@ -521,4 +518,4 @@ export const LogisticsStep = () => {
     </div>
   );
 };
-// --- END OF FILE 534 Zeilen ---
+// --- END OF FILE 547 Zeilen ---

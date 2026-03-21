@@ -1,5 +1,4 @@
-// 20.03.2026 00:45 - FIX: Removed unused TS variables (project, currentLang) from MapPrintPreviewModal to fix build error.
-// 20.03.2026 00:30 - FIX: Restored circle/spiral marker spread algorithm inside MapPrintPreviewModal.
+// 21.03.2026 10:30 - FIX: Added silent auto-correction for Fixed Appointments in map popups. Keeps date safely clamped inside trip bounds.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -28,7 +27,15 @@ const ZoomListener: React.FC<{ onZoomChange: (zoom: number) => void }> = ({ onZo
     return null;
 };
 
-// Automatischer Fitter (wird nur im isolierten PDF Report genutzt)
+const PrintHelper: React.FC<{ isPreviewMode: boolean }> = ({ isPreviewMode }) => {
+    const map = useMap();
+    useEffect(() => {
+        const timer = setTimeout(() => map.invalidateSize(false), 300);
+        return () => clearTimeout(timer);
+    }, [map, isPreviewMode]);
+    return null;
+};
+
 const PrintMapFitter: React.FC<{ places: Place[], isPrintMode?: boolean }> = ({ places, isPrintMode }) => {
     const map = useMap();
     useEffect(() => {
@@ -52,7 +59,6 @@ const PrintMapFitter: React.FC<{ places: Place[], isPrintMode?: boolean }> = ({ 
     return null;
 };
 
-// --- Das sichere Druck-Vorschau Modal (React Portal) ---
 const MapPrintPreviewModal: React.FC<{ 
     isOpen: boolean; 
     onClose: () => void; 
@@ -77,7 +83,6 @@ const MapPrintPreviewModal: React.FC<{
         ];
     }, [validPlaces]);
 
-    // Kreis-Algorithmus FÜR DIE DRUCKVORSCHAU (verhindert Überlappung)
     const displayPlaces = useMemo(() => {
         const scaleFactor = Math.pow(0.5, Math.max(0, currentZoom - 10));
         const GROUP_DISTANCE = 0.03 * scaleFactor; 
@@ -135,8 +140,6 @@ const MapPrintPreviewModal: React.FC<{
 
     return createPortal(
         <div className="print-preview-portal fixed inset-0 z-[999999] bg-slate-900 flex flex-col print:bg-white print:block print:static print:h-auto">
-            
-            {/* NATIVE DRUCKVORSCHAU TOP-BAR (Nicht sichtbar auf dem Papier) */}
             <div className="h-16 bg-slate-800 flex items-center justify-between px-4 sm:px-6 shrink-0 shadow-xl no-print">
                 <div className="text-white font-bold flex items-center gap-2">
                     <Printer className="w-5 h-5 text-blue-400" />
@@ -151,18 +154,13 @@ const MapPrintPreviewModal: React.FC<{
                 </div>
             </div>
 
-            {/* Der Container für die Karte. Skaliert auf dem Bildschirm, aber exakt A4 auf Papier! */}
             <div className="print-content-area flex-1 overflow-hidden flex justify-center items-center p-4 print:p-0 print:block print:overflow-visible print:h-auto">
-                
                 <style type="text/css" media="print">
                     {`
                         @page { size: A4 landscape; margin: 0; }
                         body { margin: 0 !important; padding: 0 !important; background: white !important; }
-                        
-                        /* Verstecke die normale App komplett - iOS sicherer Weg! */
                         #root { display: none !important; }
                         
-                        /* Befreie das Portal aus dem Layout */
                         .print-preview-portal {
                             position: static !important;
                             display: block !important;
@@ -191,7 +189,6 @@ const MapPrintPreviewModal: React.FC<{
                         .leaflet-control-container, .no-print { display: none !important; }
                         .leaflet-container { background: #f8fafc !important; }
                         
-                        /* iOS Fix für Marker */
                         .leaflet-tile, .leaflet-marker-pane, .leaflet-marker-icon, .leaflet-marker-icon *, .leaflet-marker-shadow {
                             -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
                             color-adjust: exact !important; forced-color-adjust: none !important;
@@ -201,9 +198,7 @@ const MapPrintPreviewModal: React.FC<{
                     `}
                 </style>
 
-                {/* Wrapper: Auf dem Bildschirm skaliert (CSS aspect-ratio), beim Drucken exakt 297x209mm */}
                 <div id="print-map-wrapper" className="w-[297mm] h-[209mm] max-w-full max-h-full bg-white shadow-2xl overflow-hidden print:shadow-none print:w-[297mm] print:h-[209mm]" style={{ transformOrigin: 'center center', transform: 'scale(min(calc((100vw - 2rem) / 1122), calc((100vh - 5rem) / 790)))' }}>
-                     
                      <MapContainer 
                         center={defaultCenter} 
                         zoom={10} 
@@ -261,7 +256,6 @@ const MapPrintPreviewModal: React.FC<{
         document.body
     );
 };
-// --------------------------------------------------------
 
 export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any) => void, forceDiaryMode?: boolean, isPrintMode?: boolean }> = ({ places, setViewMode, forceDiaryMode, isPrintMode }) => {
   const { t, i18n } = useTranslation();
@@ -278,17 +272,17 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
   const [isLocating, setIsLocating] = useState(false);
   const [isLayerMenuOpen, setIsLayerMenuOpen] = useState(false);
   
-  // State für unser neues Preview Modal
   const [showPrintModal, setShowPrintModal] = useState(false);
-
   const [currentZoom, setCurrentZoom] = useState(10);
 
-  // Lausche auf die Events vom CockpitHeader
   useEffect(() => {
       const handleOpenPreview = () => setShowPrintModal(true);
       window.addEventListener('open-map-print-preview', handleOpenPreview);
       return () => window.removeEventListener('open-map-print-preview', handleOpenPreview);
   }, []);
+
+  const tripStart = project.userInputs.dates?.start || ''; 
+  const tripEnd = project.userInputs.dates?.end || '';
 
   const validPlaces = useMemo(() => places.filter(p => p.location && p.location.lat && p.location.lng), [places]);
   
@@ -407,9 +401,6 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
       return { ids, names };
   }, [project.userInputs.logistics]);
 
-  const tripStart = project.userInputs.dates?.start || '';
-  const tripEnd = project.userInputs.dates?.end || '';
-
   useEffect(() => {
     const runGeocoding = async () => {
         const needsValidation = allPlacesFromStore.some(p => !p.coordinatesValidated);
@@ -478,7 +469,6 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
     <>
       <div className={containerClasses}>
         
-        {/* Generelles Print-CSS für Leaflet UI-Elemente (Gilt IMMER, auch für regulären PDF Report) */}
         {!showPrintModal && (
              <style type="text/css" media="print">
                  {`
@@ -647,11 +637,25 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
                            <button onClick={(e) => { e.stopPropagation(); updatePlace(place.id, { userPriority: userPrio === -1 ? 0 : -1, isFixed: false }); }} className={`flex-1 py-1 rounded text-[9px] font-bold transition-colors border shadow-sm ${userPrio === -1 ? 'bg-gray-800 text-white border-gray-900' : 'bg-slate-50 text-slate-400 hover:bg-gray-100 border-slate-200'}`}>Ignore</button>
                         </div>
 
+                        {/* --- SILENT CLAMPING: Verhindert Auswahl von fehlerhaften Fixterminen in der Karte --- */}
                         {isFixed && (
                            <div className="flex flex-col gap-1 bg-purple-50 px-2 py-1.5 rounded-md text-xs mt-1 mb-2 border border-purple-100 no-print animate-in slide-in-from-top-1">
                               <span className="font-bold text-purple-800 flex items-center gap-1"><CalendarClock className="w-3.5 h-3.5" /> {currentLang === 'en' ? 'Fixed Appointment' : 'Fixtermin'}</span>
                               <div className="flex gap-1 items-center">
-                                 <input type="date" value={place.fixedDate || ''} min={tripStart} max={tripEnd} onChange={(e) => updatePlace(place.id, { fixedDate: e.target.value })} className="bg-white border border-purple-200 rounded px-1 py-0.5 text-[10px] w-full focus:ring-1 focus:ring-purple-500 outline-none" title="Datum" />
+                                 <input 
+                                    type="date" 
+                                    value={place.fixedDate || ''} 
+                                    min={tripStart} 
+                                    max={tripEnd} 
+                                    onChange={(e) => {
+                                        let val = e.target.value;
+                                        if (val && tripStart && val < tripStart) val = tripStart;
+                                        if (val && tripEnd && val > tripEnd) val = tripEnd;
+                                        updatePlace(place.id, { fixedDate: val });
+                                    }} 
+                                    className="bg-white border border-purple-200 rounded px-1 py-0.5 text-[10px] w-full focus:ring-1 focus:ring-purple-500 outline-none" 
+                                    title="Datum" 
+                                 />
                                  <input type="time" value={place.fixedTime || ''} onChange={(e) => updatePlace(place.id, { fixedTime: e.target.value })} className="bg-white border border-purple-200 rounded px-1 py-0.5 text-[10px] focus:ring-1 focus:ring-purple-500 outline-none" title="Uhrzeit" />
                                  <div className="flex items-center gap-0.5 bg-white border border-purple-200 rounded px-1 py-0.5 focus-within:ring-1 focus-within:ring-purple-500"><Clock className="w-2.5 h-2.5 text-purple-400" /><input type="number" placeholder="Min" value={place.visitDuration || ''} onChange={(e) => updatePlace(place.id, { visitDuration: parseInt(e.target.value) || 0 })} className="w-8 bg-transparent border-none p-0 text-center text-[10px] text-purple-900 focus:ring-0 placeholder:text-purple-300 outline-none" title="Dauer in Minuten" /></div>
                               </div>
@@ -691,7 +695,6 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
         </MapContainer>
       </div>
 
-      {/* NEU: Das Modal für den sicheren, nativen Apple-Proof Druck */}
       <MapPrintPreviewModal 
           isOpen={showPrintModal} 
           onClose={() => setShowPrintModal(false)}
@@ -705,4 +708,4 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
     </>
   );
 };
-// --- END OF FILE 683 Zeilen ---
+// --- END OF FILE 689 Zeilen ---

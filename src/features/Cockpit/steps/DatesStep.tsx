@@ -1,5 +1,5 @@
+// 21.03.2026 10:30 - FIX: Added silent auto-correction (clamping) for fixed calendar events to ensure they strictly fall within the trip's start/end dates.
 // src/features/cockpit/steps/DatesStep.tsx
-// 14.01.2026 12:10 - FIX: Removed unused 'currentLang' and 'LanguageCode' import.
 /**
  * src/features/cockpit/steps/DatesStep.tsx
  * SCHRITT 4: FESTE TERMINE (i18n Update)
@@ -14,13 +14,9 @@ import {
   AlertCircle,
   Plus
 } from 'lucide-react';
-// FIX: Removed unused LanguageCode import
-// import type { LanguageCode } from '../../../core/types';
 
 export const DatesStep = () => {
   const { t } = useTranslation();
-  // FIX: Removed unused currentLang variable
-  // const currentLang = i18n.language.substring(0, 2) as LanguageCode;
   
   // Store Access
   const { 
@@ -60,8 +56,15 @@ export const DatesStep = () => {
     if (!d) d = '';
     if (!t) t = '';
 
-    if (type === 'date') d = value;
-    else t = value;
+    if (type === 'date') {
+      let clampedDate = value;
+      // SILENT CLAMPING: Wenn Datum außerhalb der Reisezeit, wird es sofort sanft korrigiert
+      if (dates.start && clampedDate && clampedDate < dates.start) clampedDate = dates.start;
+      if (dates.end && clampedDate && clampedDate > dates.end) clampedDate = dates.end;
+      d = clampedDate;
+    } else {
+      t = value;
+    }
 
     if (d) {
       updateCalendarEvent(id, { date: `${d}T${t}` });
@@ -183,4 +186,4 @@ export const DatesStep = () => {
     </div>
   );
 };
-// --- END OF FILE 139 Zeilen ---
+// --- END OF FILE 142 Zeilen ---
