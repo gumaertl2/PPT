@@ -1,10 +1,9 @@
-// 21.03.2026 13:30 - UX: Removed explicit GPS button. Implemented silent background GPS fetching on modal open with subtle header indicator.
-// 20.03.2026 16:00 - FEAT: Added native HTML5 datalist for folksonomy autocomplete (Purpose) and editable Date field.
+// 21.03.2026 16:30 - UX: Added explicit error state (red icon) for failed silent GPS fetching to prevent user confusion when OS/Browser denies location access.
 // src/features/Cockpit/ExpenseEntryButton.tsx
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Banknote, X, Users, CheckCircle2, Save, MapPin, PenLine } from 'lucide-react';
+import { Banknote, X, Users, CheckCircle2, Save, MapPin, PenLine, MapPinOff } from 'lucide-react';
 import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
@@ -64,11 +63,11 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
 
     const [location, setLocation] = useState<{lat: number, lng: number} | null>(defaultLocation);
     const [isFetchingGPS, setIsFetchingGPS] = useState(false);
+    const [gpsError, setGpsError] = useState(false);
 
     const [isNoteStep, setIsNoteStep] = useState(false);
     const [noteText, setNoteText] = useState('');
 
-    // FOLKSONOMY: Extrahiere alle bisherigen, einzigartigen Titel
     const uniqueTitles = useMemo(() => {
         const allExpenses = Object.values(project.data.expenses || {}) as Expense[];
         return Array.from(new Set(allExpenses.map(e => e.title))).filter(Boolean).sort();
@@ -94,21 +93,22 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                 setSplitAmong(prev => prev.length > 0 ? prev : currentNames);
             }
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [forceOpen]);
 
-    // --- SILENT BACKGROUND GPS FETCHING ---
+    // --- SILENT BACKGROUND GPS FETCHING MIT FEHLER-FEEDBACK ---
     useEffect(() => {
         if (isOpen && !location && navigator.geolocation) {
             setIsFetchingGPS(true);
+            setGpsError(false);
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
                     setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
                     setIsFetchingGPS(false);
                 },
                 (err) => {
-                    console.warn("Silent GPS fetch failed:", err);
-                    setIsFetchingGPS(false); // Fehler wird still ignoriert
+                    console.warn("Silent GPS fetch failed or was denied:", err);
+                    setIsFetchingGPS(false); 
+                    setGpsError(true); // Zeigt an, dass der Mac/Browser blockiert hat
                 },
                 { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
             );
@@ -145,6 +145,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
             setShowSplit(false); 
             setLocation(defaultLocation);
             setIsFetchingGPS(false);
+            setGpsError(false);
             setIsNoteStep(false);
             setNoteText('');
             resetDate();
@@ -279,15 +280,18 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                     <>
                                         <Banknote className="w-4 h-4"/> 
                                         {mode === 'standalone' ? t('finance.add_expense', { defaultValue: 'Kosten erfassen' }) : (defaultTitle || t('finance.new_expense', { defaultValue: 'Neue Ausgabe' }))}
-                                        {/* Subtle GPS Indicator */}
+                                        
+                                        {/* OPTIMIERTES GPS FEEDBACK */}
                                         {isFetchingGPS && <MapPin className="w-3.5 h-3.5 text-emerald-400 animate-pulse ml-1" title={t('finance.gps_fetching', { defaultValue: 'Ortung läuft...' })} />}
                                         {!isFetchingGPS && location && <MapPin className="w-3.5 h-3.5 text-emerald-600 ml-1" title={t('finance.gps_saved', { defaultValue: 'Standort gespeichert ✓' })} />}
+                                        {!isFetchingGPS && gpsError && <MapPinOff className="w-3.5 h-3.5 text-red-400 opacity-70 ml-1" title={t('finance.gps_failed_hint', { defaultValue: 'Kein GPS-Signal (Gerät/Browser blockiert die Anfrage)' })} />}
                                     </>
                                 )}
                             </span>
                             <button onClick={() => handleToggle()} className="text-emerald-600 hover:text-emerald-900 hover:bg-emerald-200 p-1.5 rounded-full transition-colors"><X className="w-4 h-4"/></button>
                         </div>
 
+                        {/* Rest des Formulars bleibt unverändert... */}
                         {isNoteStep ? (
                             <>
                                 <div className="p-4 overflow-y-auto space-y-4">
@@ -421,4 +425,4 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         </div>
     );
 };
-// --- END OF FILE 408 Zeilen ---
+// --- END OF FILE 410 Zeilen ---

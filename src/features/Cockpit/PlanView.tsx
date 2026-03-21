@@ -1,6 +1,5 @@
+// 21.03.2026 16:30 - UX: Automated silent background GPS fetching for custom diary entries (notes) with clear success/error visual indicators. Removed clunky manual GPS button.
 // 20.03.2026 14:20 - FIX: Applied strict I18N for detail toggle buttons.
-// 20.03.2026 14:15 - FEAT: Added integrated Expense Summaries directly into the diary.
-// 19.03.2026 15:00 - UX: Changed Diary detail levels (+/- buttons) from global to per-day basis.
 // src/features/Cockpit/PlanView.tsx
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -8,7 +7,7 @@ import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
 import { 
   CheckCircle, CheckCircle2, Map as MapIcon, ExternalLink, 
-  PenLine, X, MapPin, Trash2, Clock, Navigation, Quote, ArrowRight, Banknote, Star, BookOpen, Plus, Minus
+  PenLine, X, MapPin, Trash2, Clock, Navigation, Quote, ArrowRight, Banknote, Star, BookOpen, Plus, Minus, MapPinOff
 } from 'lucide-react';
 import type { LanguageCode, Place, CockpitViewMode } from '../../core/types';
 import { INTEREST_DATA } from '../../data/staticData';
@@ -51,6 +50,7 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
   const [customTitle, setCustomTitle] = useState('');
   const [customNote, setCustomNote] = useState('');
   const [isFetchingGPS, setIsFetchingGPS] = useState(false);
+  const [gpsError, setGpsError] = useState(false);
   const [customLocation, setCustomLocation] = useState<{lat: number, lng: number} | null>(null);
   
   const [editingSummaryDate, setEditingSummaryDate] = useState<string | null>(null);
@@ -63,6 +63,27 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
   const hasAnyExpenses = Object.keys(data?.expenses || {}).length > 0;
   const [showDailyExpenses, setShowDailyExpenses] = useState(true);
   const baseCurrency = data?.currencyConfig?.baseCurrency || 'EUR';
+
+  // --- SILENT BACKGROUND GPS FETCHING (EIGENER EINTRAG) ---
+  useEffect(() => {
+      if (isAddingCustom && !customLocation && navigator.geolocation) {
+          setIsFetchingGPS(true);
+          setGpsError(false);
+          navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                  setCustomLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                  setIsFetchingGPS(false);
+              },
+              (err) => {
+                  console.warn("Silent GPS fetch failed:", err);
+                  setIsFetchingGPS(false);
+                  setGpsError(true);
+              },
+              { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
+          );
+      }
+  }, [isAddingCustom, customLocation]);
+
 
   const expensesSummary = useMemo(() => {
       let before = 0;
@@ -219,16 +240,6 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
     );
   };
 
-  const handleFetchGPS = () => {
-    setIsFetchingGPS(true);
-    if (!navigator.geolocation) { alert(t('finance.error_no_gps', { defaultValue: 'Dein Browser unterstützt kein GPS.' })); setIsFetchingGPS(false); return; }
-    navigator.geolocation.getCurrentPosition(
-        (pos) => { setCustomLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setIsFetchingGPS(false); },
-        (err) => { console.error(err); alert(t('finance.error_gps_failed', { defaultValue: 'GPS konnte nicht abgerufen werden.' })); setIsFetchingGPS(false); },
-        { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
-
   const handleSaveCustomEntry = (alsoExpense: boolean = false) => {
       if (!customTitle.trim() && !customNote.trim()) return;
       const defaultTitleText = t('diary.default_title', { defaultValue: 'Mein Erlebnis' });
@@ -259,7 +270,7 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
           });
       }
 
-      setIsAddingCustom(false); setCustomTitle(''); setCustomNote(''); setCustomLocation(null);
+      setIsAddingCustom(false); setCustomTitle(''); setCustomNote(''); setCustomLocation(null); setGpsError(false);
   };
 
   const handleDeleteCustom = (id: string) => {
@@ -441,7 +452,7 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                         </button>
                     )}
                     <ExpenseEntryButton travelers={travelerNames} mode="standalone" />
-                    <button onClick={() => setIsAddingCustom(!isAddingCustom)} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white rounded-lg text-xs font-bold transition-colors shadow-sm"><PenLine size={14} /> {t('diary.add_custom', { defaultValue: 'Eigener Eintrag' })}</button>
+                    <button onClick={() => { setIsAddingCustom(!isAddingCustom); setGpsError(false); setIsFetchingGPS(false); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white rounded-lg text-xs font-bold transition-colors shadow-sm"><PenLine size={14} /> {t('diary.add_custom', { defaultValue: 'Eigener Eintrag' })}</button>
                 </div>
             </div>
 
@@ -452,7 +463,7 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                     </button>
                 )}
                 <ExpenseEntryButton travelers={travelerNames} mode="standalone" isMobile={true} />
-                <button onClick={() => setIsAddingCustom(!isAddingCustom)} className="flex-1 flex justify-center items-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-bold shadow-sm"><PenLine size={16} /> {t('diary.add_note', { defaultValue: 'Notiz' })}</button>
+                <button onClick={() => { setIsAddingCustom(!isAddingCustom); setGpsError(false); setIsFetchingGPS(false); }} className="flex-1 flex justify-center items-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-bold shadow-sm"><PenLine size={16} /> {t('diary.add_note', { defaultValue: 'Notiz' })}</button>
             </div>
 
             {pendingExpense && (
@@ -470,12 +481,21 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
 
             {isAddingCustom && (
                 <div className="mb-6 p-4 bg-indigo-50/40 border border-indigo-100 rounded-2xl animate-in fade-in slide-in-from-top-2">
-                    <div className="flex items-center justify-between mb-3"><h4 className="text-sm font-bold text-indigo-900 flex items-center gap-2"><PenLine size={16} className="text-indigo-500" /> {t('diary.what_discovered', { defaultValue: 'Was hast du entdeckt?' })}</h4><button onClick={() => setIsAddingCustom(false)} className="text-slate-400 hover:text-slate-600"><X size={16}/></button></div>
+                    <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-bold text-indigo-900 flex items-center gap-2">
+                            <PenLine size={16} className="text-indigo-500" /> {t('diary.what_discovered', { defaultValue: 'Was hast du entdeckt?' })}
+                            
+                            {/* OPTIMIERTES GPS FEEDBACK FÜR EIGENEN EINTRAG */}
+                            {isFetchingGPS && <MapPin className="w-3.5 h-3.5 text-indigo-400 animate-pulse ml-1" title={t('finance.gps_fetching', { defaultValue: 'Ortung läuft...' })} />}
+                            {!isFetchingGPS && customLocation && <MapPin className="w-3.5 h-3.5 text-indigo-600 ml-1" title={t('finance.gps_saved', { defaultValue: 'Standort gespeichert ✓' })} />}
+                            {!isFetchingGPS && gpsError && <MapPinOff className="w-3.5 h-3.5 text-red-400 opacity-70 ml-1" title={t('finance.gps_failed_hint', { defaultValue: 'Kein GPS-Signal (Gerät/Browser blockiert die Anfrage)' })} />}
+
+                        </h4>
+                        <button onClick={() => setIsAddingCustom(false)} className="text-slate-400 hover:text-slate-600"><X size={16}/></button>
+                    </div>
                     <input type="text" placeholder={t('diary.title_placeholder', { defaultValue: 'Titel (z.B. Ein kleines Café am Eck)' })} className="w-full text-sm p-3 mb-3 border border-indigo-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white placeholder:text-slate-300 font-medium text-slate-800 shadow-sm" value={customTitle} onChange={e => setCustomTitle(e.target.value)} autoFocus />
                     <textarea placeholder={t('diary.note_placeholder', { defaultValue: 'Deine Erlebnisse oder Notizen...' })} className="w-full text-sm p-3 mb-3 border border-indigo-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white placeholder:text-slate-300 resize-y min-h-[80px] shadow-sm leading-relaxed" value={customNote} onChange={e => setCustomNote(e.target.value)} />
                     <div className="flex flex-col gap-3">
-                        <button onClick={handleFetchGPS} className={`flex items-center gap-2 text-xs font-bold px-3 py-2 rounded-lg transition-colors border shadow-sm w-full justify-center ${customLocation ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}><MapPin size={14} className={isFetchingGPS ? 'animate-bounce text-indigo-500' : ''} /> {isFetchingGPS ? t('finance.gps_fetching', { defaultValue: 'Ortung läuft...' }) : customLocation ? t('finance.gps_saved', { defaultValue: 'Standort gespeichert ✓' }) : t('finance.gps_tag', { defaultValue: 'Aktuellen Standort (GPS) taggen' })}</button>
-                        
                         <div className="flex flex-col sm:flex-row gap-2">
                             <button onClick={() => handleSaveCustomEntry(true)} className="flex-1 text-sm bg-emerald-50 text-emerald-700 border border-emerald-200 px-5 py-2.5 rounded-lg font-bold hover:bg-emerald-600 hover:text-white transition-all shadow-sm flex items-center justify-center gap-2">
                                 <Banknote size={16} /> {t('finance.save_and_expense', { defaultValue: 'Speichern & Kosten erfassen' })}
@@ -754,4 +774,4 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
     </div>
   );
 };
-// --- END OF FILE 674 Zeilen ---
+// --- END OF FILE 679 Zeilen ---

@@ -1,4 +1,4 @@
-// 21.03.2026 15:30 - UX/FIX: Corrected Google Maps URL to official search API. Made "Maps" button text explicitly visible on all screen sizes and improved button styling to match Sights/Diary.
+// 21.03.2026 15:45 - UX/FIX: Corrected Google Maps URL to official search API. Made "Maps" button text explicitly visible on all screen sizes and improved button styling to match Sights/Diary.
 // 21.03.2026 14:15 - UX: Added Map link to expense entries.
 // src/features/Cockpit/TripFinanceModal.tsx
 
