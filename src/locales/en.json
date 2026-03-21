@@ -230,7 +230,8 @@
     "constraints_drive_day": "Max Drive Time Excursions (h)",
     "constraints_drive_day_hint": "Round trip (Daily limit)",
     "auto_calc_total": "Auto-calc: (Days-2)*3h",
-    "auto_calc_hotels": "Auto-calc: Days/4"
+    "auto_calc_hotels": "Auto-calc: Days/4",
+    "dates_auto_corrected": "Date was automatically adjusted."
   },
   "dates": {
     "warning_flexible_title": "No fixed period chosen.",
@@ -240,7 +241,8 @@
     "table_time": "Time",
     "table_duration": "Duration",
     "add_btn": "Add Appointment",
-    "placeholder_activity": "e.g. Opera visit, flight arrival"
+    "placeholder_activity": "e.g. Opera visit, flight arrival",
+    "auto_corrected": "Date was automatically adjusted to fit the trip duration."
   },
   "misc": {
     "notes_label": "Other Requests & Notes",
@@ -704,8 +706,6 @@
     "csv_paid_by": "Paid by",
     "csv_total": "TOTAL COSTS (Share)",
     "csv_paid": "PAID BY",
-    "csv_balance": "BALANCE (+ Credit / - Debt)",
-    "delete_confirm": "Really delete this expense?",
     "csv_balance": "BALANCE (+ Credit / - Debt)",
     "delete_confirm": "Really delete this expense?",
     "toggle_subtotals": "Subtotals",

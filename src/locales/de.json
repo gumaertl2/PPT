@@ -229,7 +229,8 @@
     "constraints_drive_day": "Max. Fahrzeit Ausflüge (h)",
     "constraints_drive_day_hint": "Hin & Zurück (Tageslimit)",
     "auto_calc_total": "Auto-calc: (Tage-2)*3h",
-    "auto_calc_hotels": "Auto-calc: Tage/4"
+    "auto_calc_hotels": "Auto-calc: Tage/4",
+    "dates_auto_corrected": "Datum wurde automatisch angepasst."
   },
   "dates": {
     "warning_flexible_title": "Kein fester Reisezeitraum gewählt.",
@@ -239,7 +240,8 @@
     "table_time": "Zeit",
     "table_duration": "Dauer",
     "add_btn": "Termin hinzufügen",
-    "placeholder_activity": "z.B. Opernbesuch, Ankunft Flug"
+    "placeholder_activity": "z.B. Opernbesuch, Ankunft Flug",
+    "auto_corrected": "Datum wurde automatisch auf den Reisezeitraum angepasst."
   },
   "misc": {
     "notes_label": "Sonstige Wünsche & Anmerkungen",
@@ -703,8 +705,6 @@
     "csv_paid_by": "Bezahlt von",
     "csv_total": "GESAMTKOSTEN (Anteil)",
     "csv_paid": "BEZAHLT VON",
-    "csv_balance": "BILANZ (+ Gutschrift / - Schuld)",
-    "delete_confirm": "Diese Ausgabe wirklich löschen?",
     "csv_balance": "BILANZ (+ Gutschrift / - Schuld)",
     "delete_confirm": "Diese Ausgabe wirklich löschen?",
     "toggle_subtotals": "Zwischensummen",
