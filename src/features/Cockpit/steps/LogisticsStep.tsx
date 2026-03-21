@@ -1,3 +1,4 @@
+// 21.03.2026 09:50 - UX/FIX: Removed hard alert() on date validation to prevent severe iOS WebKit picker crashes. Implemented smart auto-correction for start/end dates instead.
 // 27.02.2026 14:15 - FIX: Replaced all remaining hardcoded strings and alerts with proper i18n hooks.
 // 27.02.2026 13:45 - FEAT: Added 'Mobilität vor Ort' (localMobility) selection for realistic AI transfer checks.
 // 01.02.2026 14:30 - FIX: Added 'resolveHotelName' to display Place names instead of IDs in inputs.
@@ -54,7 +55,7 @@ export const LogisticsStep = () => {
     return (item.label as any)[currentLang] || (item.label as any)['de'] || '';
   };
 
-  // --- HELPER: Resolve Hotel Name (FIX) ---
+  // --- HELPER: Resolve Hotel Name ---
   const resolveHotelName = (val: string | undefined): string => {
     if (!val) return '';
     const place = project.data?.places?.[val];
@@ -120,12 +121,24 @@ export const LogisticsStep = () => {
     { value: 'other', label: t('cockpit.arrival_options.other', { defaultValue: 'Sonstiges' }) }
   ];
 
-  const handleEndDateChange = (value: string) => {
-    if (dates.start && value < dates.start) {
-      alert(t('cockpit.error_end_date', { defaultValue: 'Enddatum darf nicht vor dem Startdatum liegen.' }));
-      return;
+  // --- UX FIX: Smart Auto-Correction ---
+  // Ersetzt das harte alert(), welches iOS WebKit Date-Picker zum Absturz/Einfrieren bringt.
+  const handleStartDateChange = (value: string) => {
+    if (value && dates.end && value > dates.end) {
+      // Wenn neues Startdatum NACH aktuellem Enddatum liegt -> Enddatum lautlos anpassen
+      setDates({ start: value, end: value });
+    } else {
+      setDates({ start: value });
     }
-    setDates({ end: value });
+  };
+
+  const handleEndDateChange = (value: string) => {
+    if (value && dates.start && value < dates.start) {
+      // Wenn neues Enddatum VOR aktuellem Startdatum liegt -> Startdatum lautlos anpassen
+      setDates({ start: value, end: value });
+    } else {
+      setDates({ end: value });
+    }
   };
 
   // Helper for View State
@@ -182,20 +195,20 @@ export const LogisticsStep = () => {
                   <div>
                       <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">{t('cockpit.date_from', { defaultValue: 'Von' })}</label>
                       <input
-                      type="date"
-                      className="w-full text-xs border-slate-300 rounded-md"
-                      value={dates.start}
-                      onChange={(e) => setDates({ start: e.target.value })}
+                        type="date"
+                        className="w-full text-xs border-slate-300 rounded-md"
+                        value={dates.start}
+                        onChange={(e) => handleStartDateChange(e.target.value)}
                       />
                   </div>
                   <div>
                       <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">{t('cockpit.date_to', { defaultValue: 'Bis' })}</label>
                       <input
-                      type="date"
-                      className="w-full text-xs border-slate-300 rounded-md"
-                      value={dates.end}
-                      min={dates.start} 
-                      onChange={(e) => handleEndDateChange(e.target.value)}
+                        type="date"
+                        className="w-full text-xs border-slate-300 rounded-md"
+                        value={dates.end}
+                        min={dates.start} 
+                        onChange={(e) => handleEndDateChange(e.target.value)}
                       />
                   </div>
                 </div>
