@@ -1,4 +1,4 @@
-// 21.03.2026 10:30 - FIX: Added silent auto-correction (clamping) for fixed calendar events to ensure they strictly fall within the trip's start/end dates.
+// 21.03.2026 11:30 - UX/FIX: Added visual Toast Notification for silent clamping of Fixed Appointments.
 // src/features/cockpit/steps/DatesStep.tsx
 /**
  * src/features/cockpit/steps/DatesStep.tsx
@@ -23,26 +23,23 @@ export const DatesStep = () => {
     project, 
     addCalendarEvent,
     removeCalendarEvent,
-    updateCalendarEvent
+    updateCalendarEvent,
+    addNotification
   } = useTripStore();
 
   const { userInputs } = project;
   const { dates } = userInputs;
   const { fixedEvents } = dates;
 
-  // Ref, um doppeltes Ausführen in React Strict Mode zu verhindern
   const initialized = useRef(false);
 
-  // 1. Automatisch eine Leerzeile erzeugen, wenn keine Termine da sind
   useEffect(() => {
-    // Nur ausführen, wenn noch nicht initialisiert UND Liste wirklich leer ist
     if (!initialized.current && fixedEvents.length === 0) {
       addCalendarEvent();
       initialized.current = true;
     }
   }, [addCalendarEvent, fixedEvents.length]);
 
-  // Tab-Handler: Neue Zeile bei Tab im letzten Feld
   const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
     if (e.key === 'Tab' && !e.shiftKey && index === fixedEvents.length - 1) {
       addCalendarEvent();
@@ -52,22 +49,37 @@ export const DatesStep = () => {
   const isDateSelectable = !dates.flexible && dates.start && dates.end;
 
   const updateDateTime = (id: string, currentIso: string, type: 'date' | 'time', value: string) => {
-    let [d, t] = currentIso.split('T');
+    let [d, timeStr] = currentIso.split('T');
     if (!d) d = '';
-    if (!t) t = '';
+    if (!timeStr) timeStr = '';
 
     if (type === 'date') {
       let clampedDate = value;
-      // SILENT CLAMPING: Wenn Datum außerhalb der Reisezeit, wird es sofort sanft korrigiert
-      if (dates.start && clampedDate && clampedDate < dates.start) clampedDate = dates.start;
-      if (dates.end && clampedDate && clampedDate > dates.end) clampedDate = dates.end;
+      let corrected = false;
+      
+      if (dates.start && clampedDate && clampedDate < dates.start) { 
+          clampedDate = dates.start; 
+          corrected = true; 
+      }
+      if (dates.end && clampedDate && clampedDate > dates.end) { 
+          clampedDate = dates.end; 
+          corrected = true; 
+      }
+      
       d = clampedDate;
+      
+      if (corrected) {
+         addNotification({
+             type: 'info',
+             message: t('dates.auto_corrected', { defaultValue: 'Datum wurde automatisch auf den Reisezeitraum angepasst.' })
+         });
+      }
     } else {
-      t = value;
+      timeStr = value;
     }
 
     if (d) {
-      updateCalendarEvent(id, { date: `${d}T${t}` });
+      updateCalendarEvent(id, { date: `${d}T${timeStr}` });
     } else {
       updateCalendarEvent(id, { date: '' });
     }
@@ -186,4 +198,4 @@ export const DatesStep = () => {
     </div>
   );
 };
-// --- END OF FILE 142 Zeilen ---
+// --- END OF FILE 153 Zeilen ---

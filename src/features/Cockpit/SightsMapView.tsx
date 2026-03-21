@@ -1,5 +1,4 @@
-// 21.03.2026 10:45 - FIX: Removed unused 'PrintHelper' component to satisfy strict TypeScript build rules (noUnusedLocals).
-// 21.03.2026 10:30 - FIX: Added silent auto-correction for Fixed Appointments in map popups. Keeps date safely clamped inside trip bounds.
+// 21.03.2026 11:30 - UX/FIX: Added visual Toast Notification (addNotification) when clamping out-of-bounds dates in map popups.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -25,6 +24,15 @@ const ZoomListener: React.FC<{ onZoomChange: (zoom: number) => void }> = ({ onZo
             onZoomChange(e.target.getZoom());
         }
     });
+    return null;
+};
+
+const PrintHelper: React.FC<{ isPreviewMode: boolean }> = ({ isPreviewMode }) => {
+    const map = useMap();
+    useEffect(() => {
+        const timer = setTimeout(() => map.invalidateSize(false), 300);
+        return () => clearTimeout(timer);
+    }, [map, isPreviewMode]);
     return null;
 };
 
@@ -202,6 +210,7 @@ const MapPrintPreviewModal: React.FC<{
                     >
                         <ZoomListener onZoomChange={setCurrentZoom} />
                         <PrintMapFitter places={validPlaces} isPrintMode={true} />
+                        <PrintHelper isPreviewMode={isOpen} />
                         <MapStyles /> 
                         <OfflineTileLayer />
                         <MapLogic places={places} />
@@ -253,7 +262,7 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) === 'en' ? 'en' : 'de';
   
-  const { uiState, setUIState, project, setProject, updatePlace } = useTripStore(); 
+  const { uiState, setUIState, project, setProject, updatePlace, addNotification } = useTripStore(); 
   const markerRefs = useRef<Record<string, L.Marker | null>>({});
 
   const [isUpdatingCoords, setIsUpdatingCoords] = useState(false);
@@ -629,6 +638,7 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
                            <button onClick={(e) => { e.stopPropagation(); updatePlace(place.id, { userPriority: userPrio === -1 ? 0 : -1, isFixed: false }); }} className={`flex-1 py-1 rounded text-[9px] font-bold transition-colors border shadow-sm ${userPrio === -1 ? 'bg-gray-800 text-white border-gray-900' : 'bg-slate-50 text-slate-400 hover:bg-gray-100 border-slate-200'}`}>Ignore</button>
                         </div>
 
+                        {/* --- SILENT CLAMPING WITH TOAST --- */}
                         {isFixed && (
                            <div className="flex flex-col gap-1 bg-purple-50 px-2 py-1.5 rounded-md text-xs mt-1 mb-2 border border-purple-100 no-print animate-in slide-in-from-top-1">
                               <span className="font-bold text-purple-800 flex items-center gap-1"><CalendarClock className="w-3.5 h-3.5" /> {currentLang === 'en' ? 'Fixed Appointment' : 'Fixtermin'}</span>
@@ -640,9 +650,16 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
                                     max={tripEnd} 
                                     onChange={(e) => {
                                         let val = e.target.value;
-                                        if (val && tripStart && val < tripStart) val = tripStart;
-                                        if (val && tripEnd && val > tripEnd) val = tripEnd;
+                                        let corrected = false;
+                                        if (val && tripStart && val < tripStart) { val = tripStart; corrected = true; }
+                                        if (val && tripEnd && val > tripEnd) { val = tripEnd; corrected = true; }
                                         updatePlace(place.id, { fixedDate: val });
+                                        if (corrected) {
+                                            addNotification({
+                                                type: 'info',
+                                                message: t('dates.auto_corrected', { defaultValue: 'Datum wurde automatisch auf den Reisezeitraum angepasst.' })
+                                            });
+                                        }
                                     }} 
                                     className="bg-white border border-purple-200 rounded px-1 py-0.5 text-[10px] w-full focus:ring-1 focus:ring-purple-500 outline-none" 
                                     title="Datum" 
@@ -699,4 +716,4 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
     </>
   );
 };
-// --- END OF FILE 680 Zeilen ---
+// --- END OF FILE 692 Zeilen ---

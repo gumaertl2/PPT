@@ -1,5 +1,4 @@
-// 21.03.2026 10:30 - FIX: Replaced iOS-crashing alert() with a silent auto-correction (clamping) validation logic for trip start and end dates.
-// 27.02.2026 14:15 - FIX: Replaced all remaining hardcoded strings and alerts with proper i18n hooks.
+// 21.03.2026 11:30 - UX/FIX: Added Toast-Notifications to silent auto-correction for start/end dates so the user gets clear visual feedback when iOS ignores native min/max bounds.
 // src/features/Cockpit/steps/LogisticsStep.tsx
 
 import { useEffect } from 'react';
@@ -40,7 +39,8 @@ export const LogisticsStep = () => {
     updateRouteStop,
     setDates,
     setArrival,
-    setDeparture
+    setDeparture,
+    addNotification
   } = useTripStore();
 
   const { userInputs } = project;
@@ -119,11 +119,14 @@ export const LogisticsStep = () => {
     { value: 'other', label: t('cockpit.arrival_options.other', { defaultValue: 'Sonstiges' }) }
   ];
 
-  // --- SILENT AUTO-CORRECTION VALIDATION (iOS Safe) ---
+  // --- SILENT AUTO-CORRECTION WITH NOTIFICATIONS ---
   const handleStartDateChange = (value: string) => {
     if (value && dates.end && value > dates.end) {
-      // Startdatum liegt NACH Enddatum -> Enddatum lautlos ans Startdatum angleichen
       setDates({ start: value, end: value });
+      addNotification({
+         type: 'info',
+         message: t('cockpit.dates_auto_corrected', { defaultValue: 'Enddatum wurde automatisch angepasst.' })
+      });
     } else {
       setDates({ start: value });
     }
@@ -131,14 +134,16 @@ export const LogisticsStep = () => {
 
   const handleEndDateChange = (value: string) => {
     if (value && dates.start && value < dates.start) {
-      // Enddatum liegt VOR Startdatum -> Enddatum lautlos aufs Startdatum zurücksetzen
       setDates({ end: dates.start });
+      addNotification({
+         type: 'info',
+         message: t('cockpit.dates_auto_corrected', { defaultValue: 'Enddatum wurde automatisch angepasst.' })
+      });
     } else {
       setDates({ end: value });
     }
   };
 
-  // Helper for View State
   const isStrictRoute = logistics.roundtripOptions?.strictRoute === true;
 
   return (
@@ -204,7 +209,7 @@ export const LogisticsStep = () => {
                         type="date"
                         className="w-full text-xs border-slate-300 rounded-md"
                         value={dates.end}
-                        min={dates.start} 
+                        min={dates.start} // Nativer HTML5 Schutz
                         onChange={(e) => handleEndDateChange(e.target.value)}
                       />
                   </div>
@@ -518,4 +523,4 @@ export const LogisticsStep = () => {
     </div>
   );
 };
-// --- END OF FILE 547 Zeilen ---
+// --- END OF FILE 540 Zeilen ---
