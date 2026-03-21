@@ -1,4 +1,4 @@
-// 21.03.2026 11:30 - UX/FIX: Added visual Toast Notification (addNotification) when clamping out-of-bounds dates in map popups.
+// 21.03.2026 12:00 - UX: Added visual highlighting (amber background animation) to fixed appointment inputs when auto-corrected.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -275,6 +275,14 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
   
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [currentZoom, setCurrentZoom] = useState(10);
+  
+  // Highlight State für Auto-Korrektur
+  const [highlightedPlaceId, setHighlightedPlaceId] = useState<string | null>(null);
+
+  const triggerHighlight = (id: string) => {
+      setHighlightedPlaceId(id);
+      setTimeout(() => setHighlightedPlaceId(null), 3000);
+  };
 
   useEffect(() => {
       const handleOpenPreview = () => setShowPrintModal(true);
@@ -638,7 +646,7 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
                            <button onClick={(e) => { e.stopPropagation(); updatePlace(place.id, { userPriority: userPrio === -1 ? 0 : -1, isFixed: false }); }} className={`flex-1 py-1 rounded text-[9px] font-bold transition-colors border shadow-sm ${userPrio === -1 ? 'bg-gray-800 text-white border-gray-900' : 'bg-slate-50 text-slate-400 hover:bg-gray-100 border-slate-200'}`}>Ignore</button>
                         </div>
 
-                        {/* --- SILENT CLAMPING WITH TOAST --- */}
+                        {/* --- SILENT CLAMPING WITH VISUAL HIGHLIGHTING --- */}
                         {isFixed && (
                            <div className="flex flex-col gap-1 bg-purple-50 px-2 py-1.5 rounded-md text-xs mt-1 mb-2 border border-purple-100 no-print animate-in slide-in-from-top-1">
                               <span className="font-bold text-purple-800 flex items-center gap-1"><CalendarClock className="w-3.5 h-3.5" /> {currentLang === 'en' ? 'Fixed Appointment' : 'Fixtermin'}</span>
@@ -655,13 +663,14 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
                                         if (val && tripEnd && val > tripEnd) { val = tripEnd; corrected = true; }
                                         updatePlace(place.id, { fixedDate: val });
                                         if (corrected) {
+                                            triggerHighlight(place.id);
                                             addNotification({
                                                 type: 'info',
                                                 message: t('dates.auto_corrected', { defaultValue: 'Datum wurde automatisch auf den Reisezeitraum angepasst.' })
                                             });
                                         }
                                     }} 
-                                    className="bg-white border border-purple-200 rounded px-1 py-0.5 text-[10px] w-full focus:ring-1 focus:ring-purple-500 outline-none" 
+                                    className={`bg-white rounded px-1 py-0.5 text-[10px] w-full outline-none transition-all duration-500 ${highlightedPlaceId === place.id ? 'border border-amber-400 ring-2 ring-amber-400 bg-amber-100 text-amber-900 font-bold' : 'border border-purple-200 focus:ring-1 focus:ring-purple-500'}`} 
                                     title="Datum" 
                                  />
                                  <input type="time" value={place.fixedTime || ''} onChange={(e) => updatePlace(place.id, { fixedTime: e.target.value })} className="bg-white border border-purple-200 rounded px-1 py-0.5 text-[10px] focus:ring-1 focus:ring-purple-500 outline-none" title="Uhrzeit" />
@@ -716,4 +725,4 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
     </>
   );
 };
-// --- END OF FILE 692 Zeilen ---
+// --- END OF FILE 700 Zeilen ---

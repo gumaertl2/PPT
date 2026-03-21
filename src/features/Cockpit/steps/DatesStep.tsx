@@ -1,4 +1,4 @@
-// 21.03.2026 11:30 - UX/FIX: Added visual Toast Notification for silent clamping of Fixed Appointments.
+// 21.03.2026 12:00 - UX: Added visual highlighting (amber background) to specific event row when auto-corrected.
 // src/features/cockpit/steps/DatesStep.tsx
 /**
  * src/features/cockpit/steps/DatesStep.tsx
@@ -6,7 +6,7 @@
  * Ersetzt harte Texte durch t().
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTripStore } from '../../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
 import { 
@@ -32,6 +32,14 @@ export const DatesStep = () => {
   const { fixedEvents } = dates;
 
   const initialized = useRef(false);
+
+  // Highlight State für visuelles Feedback
+  const [highlightedEventId, setHighlightedEventId] = useState<string | null>(null);
+
+  const triggerHighlight = (id: string) => {
+      setHighlightedEventId(id);
+      setTimeout(() => setHighlightedEventId(null), 3000);
+  };
 
   useEffect(() => {
     if (!initialized.current && fixedEvents.length === 0) {
@@ -69,6 +77,7 @@ export const DatesStep = () => {
       d = clampedDate;
       
       if (corrected) {
+         triggerHighlight(id);
          addNotification({
              type: 'info',
              message: t('dates.auto_corrected', { defaultValue: 'Datum wurde automatisch auf den Reisezeitraum angepasst.' })
@@ -113,11 +122,12 @@ export const DatesStep = () => {
 
         {fixedEvents.map((event, index) => {
           const [datePart, timePart] = (event.date || '').split('T');
+          const isHighlighted = highlightedEventId === event.id;
 
           return (
             <div 
               key={event.id} 
-              className="flex gap-2 items-start bg-white p-2 rounded-lg border border-slate-200 shadow-sm transition-colors focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-100"
+              className={`flex gap-2 items-start p-2 rounded-lg border shadow-sm transition-all duration-500 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-100 ${isHighlighted ? 'bg-amber-100 border-amber-400 ring-2 ring-amber-400' : 'bg-white border-slate-200'}`}
             >
               {/* 1. AKTIVITÄT */}
               <div className="flex-[4]">
@@ -135,8 +145,9 @@ export const DatesStep = () => {
               <div className="flex-[2] relative">
                 <input
                   type="date"
-                  className={`w-full text-xs border-slate-300 rounded focus:border-blue-500 focus:ring-blue-500 ${
-                    !isDateSelectable ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : ''
+                  className={`w-full text-xs rounded focus:border-blue-500 focus:ring-blue-500 transition-colors duration-500 ${
+                    !isDateSelectable ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-300' : 
+                    isHighlighted ? 'bg-amber-50 text-amber-900 border-amber-400 font-bold' : 'border-slate-300'
                   }`}
                   value={datePart || ''}
                   min={dates.start}
@@ -198,4 +209,4 @@ export const DatesStep = () => {
     </div>
   );
 };
-// --- END OF FILE 153 Zeilen ---
+// --- END OF FILE 164 Zeilen ---

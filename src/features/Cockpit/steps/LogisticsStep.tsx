@@ -1,7 +1,8 @@
-// 21.03.2026 11:30 - UX/FIX: Added Toast-Notifications to silent auto-correction for start/end dates so the user gets clear visual feedback when iOS ignores native min/max bounds.
+// 21.03.2026 12:00 - UX: Added visual highlighting (amber background) to input fields when they are auto-corrected.
+// 21.03.2026 11:30 - UX/FIX: Added Toast-Notifications to silent auto-correction.
 // src/features/Cockpit/steps/LogisticsStep.tsx
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useTripStore } from '../../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
 import { 
@@ -26,7 +27,6 @@ export const LogisticsStep = () => {
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
    
-  // Store Access
   const { 
     project, 
     setProject, 
@@ -46,14 +46,20 @@ export const LogisticsStep = () => {
   const { userInputs } = project;
   const { logistics, dates } = userInputs;
 
-  // --- HELPER: Label Resolution ---
+  // Highlight State für Auto-Korrektur
+  const [highlightedField, setHighlightedField] = useState<'start' | 'end' | null>(null);
+
+  const triggerHighlight = (field: 'start' | 'end') => {
+    setHighlightedField(field);
+    setTimeout(() => setHighlightedField(null), 3000);
+  };
+
   const resolveLabel = (item: any): string => {
     if (!item || !item.label) return '';
     if (typeof item.label === 'string') return item.label;
     return (item.label as any)[currentLang] || (item.label as any)['de'] || '';
   };
 
-  // --- HELPER: Resolve Hotel Name ---
   const resolveHotelName = (val: string | undefined): string => {
     if (!val) return '';
     const place = project.data?.places?.[val];
@@ -63,7 +69,6 @@ export const LogisticsStep = () => {
     return val;
   };
 
-  // --- AUTO-CALC DURATION ---
   useEffect(() => {
     if (!dates.flexible && dates.start && dates.end) {
       const start = new Date(dates.start);
@@ -78,7 +83,6 @@ export const LogisticsStep = () => {
     }
   }, [dates.start, dates.end, dates.flexible, dates.duration, setDates]);
 
-  // --- SMART DEFAULTS LOGIC ---
   useEffect(() => {
     if (logistics.mode === 'mobil' && dates.duration) {
       const days = dates.duration;
@@ -119,10 +123,10 @@ export const LogisticsStep = () => {
     { value: 'other', label: t('cockpit.arrival_options.other', { defaultValue: 'Sonstiges' }) }
   ];
 
-  // --- SILENT AUTO-CORRECTION WITH NOTIFICATIONS ---
   const handleStartDateChange = (value: string) => {
     if (value && dates.end && value > dates.end) {
       setDates({ start: value, end: value });
+      triggerHighlight('end');
       addNotification({
          type: 'info',
          message: t('cockpit.dates_auto_corrected', { defaultValue: 'Enddatum wurde automatisch angepasst.' })
@@ -135,6 +139,7 @@ export const LogisticsStep = () => {
   const handleEndDateChange = (value: string) => {
     if (value && dates.start && value < dates.start) {
       setDates({ end: dates.start });
+      triggerHighlight('end');
       addNotification({
          type: 'info',
          message: t('cockpit.dates_auto_corrected', { defaultValue: 'Enddatum wurde automatisch angepasst.' })
@@ -198,7 +203,7 @@ export const LogisticsStep = () => {
                       <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">{t('cockpit.date_from', { defaultValue: 'Von' })}</label>
                       <input
                         type="date"
-                        className="w-full text-xs border-slate-300 rounded-md"
+                        className={`w-full text-xs rounded-md transition-all duration-300 ${highlightedField === 'start' ? 'bg-amber-100 text-amber-900 font-bold border-amber-400 ring-2 ring-amber-400 shadow-inner' : 'border-slate-300'}`}
                         value={dates.start}
                         onChange={(e) => handleStartDateChange(e.target.value)}
                       />
@@ -207,9 +212,9 @@ export const LogisticsStep = () => {
                       <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">{t('cockpit.date_to', { defaultValue: 'Bis' })}</label>
                       <input
                         type="date"
-                        className="w-full text-xs border-slate-300 rounded-md"
+                        className={`w-full text-xs rounded-md transition-all duration-300 ${highlightedField === 'end' ? 'bg-amber-100 text-amber-900 font-bold border-amber-400 ring-2 ring-amber-400 shadow-inner' : 'border-slate-300'}`}
                         value={dates.end}
-                        min={dates.start} // Nativer HTML5 Schutz
+                        min={dates.start} 
                         onChange={(e) => handleEndDateChange(e.target.value)}
                       />
                   </div>
@@ -523,4 +528,4 @@ export const LogisticsStep = () => {
     </div>
   );
 };
-// --- END OF FILE 540 Zeilen ---
+// --- END OF FILE 552 Zeilen ---
