@@ -1,4 +1,5 @@
-// 21.03.2026 19:45 - FIX: Applied strict I18N to manual GPS override buttons (replaced hardcoded "(Ändern)") and fixed Maps tooltips.
+// 21.03.2026 19:45 - FIX: Removed unused variables (MapPinOff, isUpdatingGPS) to fix TypeScript build error TS6133.
+// 21.03.2026 19:30 - FEAT: Added LocationPickerModal to manual Edit View allowing users to select accurate expense locations on map.
 // src/features/Cockpit/TripFinanceModal.tsx
 
 import React, { useState, useMemo } from 'react';
@@ -8,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { 
   X, Wallet, ListFilter, Trash2, ArrowRightLeft, Banknote, Edit3, 
   Save, CheckCircle2, Users, MapPin, Landmark, Download, TableProperties,
-  ChevronUp, ChevronDown, ChevronsUpDown, Sigma, Info, Printer, Map as MapIcon, MapPinOff
+  ChevronUp, ChevronDown, ChevronsUpDown, Sigma, Info, Printer, Map as MapIcon
 } from 'lucide-react'; 
 import type { Expense, LanguageCode, CurrencyConfig } from '../../core/types/shared';
 import { ExpenseEntryButton } from './ExpenseEntryButton'; 
@@ -45,7 +46,6 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
   
   const [editLocation, setEditLocation] = useState<{lat: number, lng: number} | null>(null);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
-  const [isUpdatingGPS, setIsUpdatingGPS] = useState(false);
   
   const expenses = Object.values(project.data.expenses || {}) as Expense[];
   
@@ -673,7 +673,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                                                 <div key={n} className="flex justify-between items-center bg-slate-50 p-1.5 rounded-lg border border-slate-100">
                                                                     <span className="text-xs font-bold text-slate-700 ml-1">{n}</span>
                                                                     <div className="relative w-24">
-                                                                        <input type="number" step="0.01" value={editSplitExact[n] || ''} onChange={e => setEditSplitExact((prev: Record<string, string>) => ({...prev, [n]: e.target.value}))} className="w-full text-right text-sm pr-8 pl-2 py-1.5 border border-emerald-200 rounded-md focus:ring-emerald-500 bg-white" />
+                                                                        <input type="number" step="0.01" value={editSplitExact[n] || ''} onChange={e => setEditSplitExact((prev: Record<string, string>) => ({...prev, [n]: e.target.value}))} className="w-full text-right text-sm pr-8 pl-2 py-1.5 border border-emerald-200 rounded-md focus:ring-emerald-500 bg-white" onClick={e => e.stopPropagation()}/>
                                                                         <span className="absolute right-2 top-2 text-slate-400 text-[10px] font-bold">{editCurrency}</span>
                                                                     </div>
                                                                 </div>
@@ -694,7 +694,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                             )}
                                         </div>
                                         
-                                        {/* MANUELLER RE-FETCH BUTTON */}
+                                        {/* MANUELLER LOCATION PICKER BUTTON */}
                                         <div className="flex flex-col gap-3">
                                             <button onClick={(e) => {
                                                 e.stopPropagation();
@@ -886,4 +886,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 795 Zeilen ---
+// --- END OF FILE 765 Zeilen ---
