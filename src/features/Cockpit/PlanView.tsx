@@ -1,5 +1,5 @@
-// 21.03.2026 16:30 - UX: Automated silent background GPS fetching for custom diary entries (notes) with clear success/error visual indicators. Removed clunky manual GPS button.
-// 20.03.2026 14:20 - FIX: Applied strict I18N for detail toggle buttons.
+// 21.03.2026 16:45 - FIX: Resolved TypeScript error by wrapping Lucide icons in span for 'title' attributes in custom diary entry.
+// 21.03.2026 16:30 - UX: Automated silent background GPS fetching for custom diary entries (notes).
 // src/features/Cockpit/PlanView.tsx
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -75,7 +75,7 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                   setIsFetchingGPS(false);
               },
               (err) => {
-                  console.warn("Silent GPS fetch failed:", err);
+                  console.warn("Silent GPS fetch failed or was denied:", err);
                   setIsFetchingGPS(false);
                   setGpsError(true);
               },
@@ -485,10 +485,10 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                         <h4 className="text-sm font-bold text-indigo-900 flex items-center gap-2">
                             <PenLine size={16} className="text-indigo-500" /> {t('diary.what_discovered', { defaultValue: 'Was hast du entdeckt?' })}
                             
-                            {/* OPTIMIERTES GPS FEEDBACK FÜR EIGENEN EINTRAG */}
-                            {isFetchingGPS && <MapPin className="w-3.5 h-3.5 text-indigo-400 animate-pulse ml-1" title={t('finance.gps_fetching', { defaultValue: 'Ortung läuft...' })} />}
-                            {!isFetchingGPS && customLocation && <MapPin className="w-3.5 h-3.5 text-indigo-600 ml-1" title={t('finance.gps_saved', { defaultValue: 'Standort gespeichert ✓' })} />}
-                            {!isFetchingGPS && gpsError && <MapPinOff className="w-3.5 h-3.5 text-red-400 opacity-70 ml-1" title={t('finance.gps_failed_hint', { defaultValue: 'Kein GPS-Signal (Gerät/Browser blockiert die Anfrage)' })} />}
+                            {/* OPTIMIERTES GPS FEEDBACK FÜR EIGENEN EINTRAG (MIT WRAPPER SPAN FÜR TYPESCRIPT) */}
+                            {isFetchingGPS && <span title={t('finance.gps_fetching', { defaultValue: 'Ortung läuft...' })}><MapPin className="w-3.5 h-3.5 text-indigo-400 animate-pulse ml-1" /></span>}
+                            {!isFetchingGPS && customLocation && <span title={t('finance.gps_saved', { defaultValue: 'Standort gespeichert ✓' })}><MapPin className="w-3.5 h-3.5 text-indigo-600 ml-1" /></span>}
+                            {!isFetchingGPS && gpsError && <span title={t('finance.gps_failed_hint', { defaultValue: 'Kein GPS-Signal (Gerät/Browser blockiert die Anfrage)' })}><MapPinOff className="w-3.5 h-3.5 text-red-400 opacity-70 ml-1" /></span>}
 
                         </h4>
                         <button onClick={() => setIsAddingCustom(false)} className="text-slate-400 hover:text-slate-600"><X size={16}/></button>
@@ -618,7 +618,7 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                                 </div>
                             ) : null}
 
-                            {/* BESUCHTE ORTE DES TAGES (Wird bei "Kompakt" ausgeblendet) */}
+                            {/* BESUCHTE ORTE DES TAGES */}
                             {showPlaces && placesForThisDay.map((place: any) => {
                                 const safeTimeDate = place.visitedAt ? new Date(place.visitedAt as string) : new Date();
                                 const timeStr = new Intl.DateTimeFormat(currentLang === 'de' ? 'de-DE' : 'en-US', { hour: '2-digit', minute: '2-digit' }).format(safeTimeDate);

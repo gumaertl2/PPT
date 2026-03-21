@@ -23,7 +23,9 @@
     "regenerate": "Regenerate",
     "generate": "Generate",
     "apply": "Apply",
-    "none": "None"
+    "none": "None",
+    "skip": "Skip",
+    "openMaps": "Open in Google Maps"
   },
   "unit": {
     "hours": "hrs",
@@ -364,7 +366,7 @@
     "stationary": "Stationary",
     "roadtrip": "Road Trip"
   },
- "sights": {
+  "sights": {
     "budget": "Budget",
     "select": "Select",
     "selected": "Selected",
@@ -489,7 +491,7 @@
     "route_planning": "Route Planning",
     "itinerary_stops": "Itinerary & Stays"
   },
- "diary": {
+  "diary": {
     "title": "Live Travel Diary",
     "subtitle": "Your visited places.",
     "add_custom": "Custom Entry",
@@ -526,7 +528,12 @@
     "expenses_total_sub": "All expenses incl. advance costs",
     "daily_expenses": "Expenses on this day",
     "less_details": "Less details",
-    "more_details": "More details"
+    "more_details": "More details",
+    "update_gps": "Tag GPS Data",
+    "edit_title": "Title",
+    "edit_date": "Date & Time",
+    "undo_confirm": "Do you really want to undo this check-in?",
+    "real_day": "Travel Day"
   },
   "itinerary": {
     "remaining_nights_open": "{{count}} nights still open.",
@@ -555,29 +562,29 @@
     "step2_btn": "Open Google My Maps",
     "step3_text": "Choose your Google Sheet on import. Use the \"Name\" or \"Address\" column for position and \"Name\" as title."
   },
-"print": {
-  "title": "PDF Print & Export",
-  "subtitle": "Choose which content to include in the PDF",
-  "detail_level": "Text Detail Level",
-  "sections_label": "Document Content",
-  "btn_start": "Print",
-  "generating_pdf": "Generating PDF... Loading maps...",
-  "no_diary_entries": "No diary entries yet.",
-  "section_diary": "My Travel Diary",
-  "section_diary_map": "My Travel Diary (Map)",
-  "section_diary_text": "My Travel Diary (Entries)",
-  "section_days": "Travel Guide: Days (Chronological)",
-  "footer_tip": "Tip: Choose 'Save as PDF' in your browser's print dialog.",
-  "sections": {
-    "briefing": "Briefing & Strategy",
-    "analysis": "Foundation & Analysis",
-    "days": "Travel Guide (Days)",
-    "tours": "Travel Guide (Tours)",
-    "categories": "Travel Guide (Categories)",
-    "infos": "Travel Info A-Z",
-    "diaryMap": "Diary (Map only)",
-    "diaryText": "Diary (Text only)"
-  }
+  "print": {
+    "title": "PDF Print & Export",
+    "subtitle": "Choose which content to include in the PDF",
+    "detail_level": "Text Detail Level",
+    "sections_label": "Document Content",
+    "btn_start": "Print",
+    "generating_pdf": "Generating PDF... Loading maps...",
+    "no_diary_entries": "No diary entries yet.",
+    "section_diary": "My Travel Diary",
+    "section_diary_map": "My Travel Diary (Map)",
+    "section_diary_text": "My Travel Diary (Entries)",
+    "section_days": "Travel Guide: Days (Chronological)",
+    "footer_tip": "Tip: Choose 'Save as PDF' in your browser's print dialog.",
+    "sections": {
+      "briefing": "Briefing & Strategy",
+      "analysis": "Foundation & Analysis",
+      "days": "Travel Guide (Days)",
+      "tours": "Travel Guide (Tours)",
+      "categories": "Travel Guide (Categories)",
+      "infos": "Travel Info A-Z",
+      "diaryMap": "Diary (Map only)",
+      "diaryText": "Diary (Text only)"
+    }
   },
   "adhoc_food": {
     "title": "Ad-Hoc Restaurant Search",
@@ -644,7 +651,7 @@
       "finance": "Travel Wallet"
     }
   },
-"finance": {
+  "finance": {
     "title": "Travel Wallet",
     "tab_settlement": "Settlement",
     "tab_feed": "History",
@@ -711,7 +718,11 @@
     "toggle_subtotals": "Subtotals",
     "subtotal": "Subtotal",
     "sort_hint": "Click on column headers to sort",
-    "print_tooltip": "Print current view"
+    "print_tooltip": "Print current view",
+    "show_on_map": "Show on Google Maps",
+    "map": "Map",
+    "gps_failed_hint": "No GPS signal (Device/Browser blocked request)",
+    "expense_saved": "Expense saved!"
   },
   "map": {
     "layer": {

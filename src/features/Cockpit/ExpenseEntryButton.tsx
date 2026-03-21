@@ -1,4 +1,5 @@
-// 21.03.2026 16:30 - UX: Added explicit error state (red icon) for failed silent GPS fetching to prevent user confusion when OS/Browser denies location access.
+// 21.03.2026 16:45 - FIX: Resolved TypeScript error by wrapping Lucide icons in span for 'title' attributes.
+// 21.03.2026 16:30 - UX: Added explicit error state (red icon) for failed silent GPS fetching.
 // src/features/Cockpit/ExpenseEntryButton.tsx
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -281,17 +282,16 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                         <Banknote className="w-4 h-4"/> 
                                         {mode === 'standalone' ? t('finance.add_expense', { defaultValue: 'Kosten erfassen' }) : (defaultTitle || t('finance.new_expense', { defaultValue: 'Neue Ausgabe' }))}
                                         
-                                        {/* OPTIMIERTES GPS FEEDBACK */}
-                                        {isFetchingGPS && <MapPin className="w-3.5 h-3.5 text-emerald-400 animate-pulse ml-1" title={t('finance.gps_fetching', { defaultValue: 'Ortung läuft...' })} />}
-                                        {!isFetchingGPS && location && <MapPin className="w-3.5 h-3.5 text-emerald-600 ml-1" title={t('finance.gps_saved', { defaultValue: 'Standort gespeichert ✓' })} />}
-                                        {!isFetchingGPS && gpsError && <MapPinOff className="w-3.5 h-3.5 text-red-400 opacity-70 ml-1" title={t('finance.gps_failed_hint', { defaultValue: 'Kein GPS-Signal (Gerät/Browser blockiert die Anfrage)' })} />}
+                                        {/* OPTIMIERTES GPS FEEDBACK - SPAN WRAPPER FÜR TYPESCRIPT */}
+                                        {isFetchingGPS && <span title={t('finance.gps_fetching', { defaultValue: 'Ortung läuft...' })}><MapPin className="w-3.5 h-3.5 text-emerald-400 animate-pulse ml-1" /></span>}
+                                        {!isFetchingGPS && location && <span title={t('finance.gps_saved', { defaultValue: 'Standort gespeichert ✓' })}><MapPin className="w-3.5 h-3.5 text-emerald-600 ml-1" /></span>}
+                                        {!isFetchingGPS && gpsError && <span title={t('finance.gps_failed_hint', { defaultValue: 'Kein GPS-Signal (Gerät/Browser blockiert die Anfrage)' })}><MapPinOff className="w-3.5 h-3.5 text-red-400 opacity-70 ml-1" /></span>}
                                     </>
                                 )}
                             </span>
                             <button onClick={() => handleToggle()} className="text-emerald-600 hover:text-emerald-900 hover:bg-emerald-200 p-1.5 rounded-full transition-colors"><X className="w-4 h-4"/></button>
                         </div>
 
-                        {/* Rest des Formulars bleibt unverändert... */}
                         {isNoteStep ? (
                             <>
                                 <div className="p-4 overflow-y-auto space-y-4">
@@ -425,4 +425,4 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         </div>
     );
 };
-// --- END OF FILE 410 Zeilen ---
+// --- END OF FILE 408 Zeilen ---
