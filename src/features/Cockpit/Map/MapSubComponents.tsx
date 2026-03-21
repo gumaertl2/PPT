@@ -1,3 +1,4 @@
+// 21.03.2026 19:15 - FEAT: Added tab-navigation (Categories, Tours, Days) to the MapLegend, allowing users to filter the interactive map directly by planned days or suggested tours.
 // 28.02.2026 13:40 - FIX: MapResizer now triggers invalidateSize on viewMode changes to prevent half-rendered or shifted maps.
 // 28.02.2026 13:25 - FIX: Added strict minZoom (10) and maxZoom (16) constraints when offline to prevent gray map areas.
 // 28.02.2026 12:15 - I18N: Translated static legend items and GPS marker popup.
@@ -64,8 +65,6 @@ export const MapLogic: React.FC<{ places: Place[] }> = ({ places }) => {
     const activeLayer = MAP_LAYERS[uiState.mapLayer as keyof typeof MAP_LAYERS] || MAP_LAYERS['standard'];
     
     if (isOffline) {
-        // Im Offline-Modus binden wir den User an die Zoom-Level 10 bis 16,
-        // da wir außerhalb dieses Bereichs keine Kacheln speichern und sonst alles grau wäre.
         map.setMinZoom(10);
         map.setMaxZoom(16);
         
@@ -73,7 +72,6 @@ export const MapLogic: React.FC<{ places: Place[] }> = ({ places }) => {
             map.setZoom(10, { animate: true });
         }
     } else {
-        // Im Live-Modus heben wir die Grenzen wieder auf.
         map.setMinZoom(3);
         map.setMaxZoom(activeLayer.maxZoom);
     }
@@ -112,8 +110,6 @@ export const MapResizer: React.FC<{ isFullscreen: boolean }> = ({ isFullscreen }
     const { uiState } = useTripStore();
 
     useEffect(() => {
-        // Wir lösen den Refresh mehrfach mit Verzögerung aus, um sicherzustellen, 
-        // dass alle CSS-Animationen und Layout-Änderungen abgeschlossen sind.
         const timer1 = setTimeout(() => map.invalidateSize(), 50);
         const timer2 = setTimeout(() => map.invalidateSize(), 300);
         const timer3 = setTimeout(() => map.invalidateSize(), 600);
@@ -204,9 +200,17 @@ export const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
   
-  const { uiState, setUIState } = useTripStore();
+  const { project, uiState, setUIState } = useTripStore();
   const [isOpen, setIsOpen] = useState(false);
   const legendRef = useRef<HTMLDivElement>(null);
+
+  const [legendMode, setLegendMode] = useState<'category' | 'tour' | 'day'>('category');
+
+  useEffect(() => {
+      if (['category', 'tour', 'day'].includes(uiState.sortMode || '')) {
+          setLegendMode(uiState.sortMode as any);
+      }
+  }, [uiState.sortMode]);
 
   useEffect(() => {
     if (isOpen && legendRef.current) {
@@ -224,24 +228,42 @@ export const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
     return Array.from(cats).sort();
   }, [places]);
 
-  const activeFilters = uiState.categoryFilter || [];
-  const isCategoryMode = uiState.sortMode === 'category';
+  const days = useMemo(() => {
+      if (!project.itinerary?.days) return [];
+      return project.itinerary.days.map((_, i) => i + 1);
+  }, [project.itinerary]);
 
-  const handleCategoryClick = (cat: string, e: React.MouseEvent) => {
+  const tours = useMemo(() => {
+      const tourGuide = (project.analysis as any)?.tourGuide;
+      const tList = (tourGuide?.guide?.tours || []) as any[];
+      return tList.map(t => t.tour_title || "Tour");
+  }, [project.analysis]);
+
+  const activeFilters = uiState.categoryFilter || [];
+
+  const handleFilterClick = (item: string, mode: 'category' | 'tour' | 'day', e: React.MouseEvent) => {
     e.stopPropagation();
     let newFilter: string[] = [];
-    if (isCategoryMode) {
+    if (uiState.sortMode === mode) {
         if (activeFilters.length === 0) {
-            newFilter = [cat];
-        } else if (activeFilters.includes(cat)) {
-            newFilter = activeFilters.filter(c => c !== cat);
+            newFilter = [item];
+        } else if (activeFilters.includes(item)) {
+            newFilter = activeFilters.filter(c => c !== item);
         } else {
-            newFilter = [...activeFilters, cat];
+            newFilter = [...activeFilters, item];
         }
     } else {
-        newFilter = [cat];
+        newFilter = [item];
     }
-    setUIState({ sortMode: 'category', categoryFilter: newFilter });
+    setUIState({ sortMode: mode, categoryFilter: newFilter });
+  };
+
+  const handleTabSwitch = (mode: 'category' | 'tour' | 'day', e: React.MouseEvent) => {
+      e.stopPropagation();
+      setLegendMode(mode);
+      if (uiState.sortMode !== mode) {
+          setUIState({ sortMode: mode, categoryFilter: [] });
+      }
   };
 
   const resolveCategoryLabel = (catId: string): string => {
@@ -254,7 +276,7 @@ export const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
     return catId.charAt(0).toUpperCase() + catId.slice(1).replace(/_/g, ' ');
   };
 
-  if (categories.length === 0) return null;
+  if (categories.length === 0 && days.length === 0 && tours.length === 0) return null;
 
   if (!isOpen) {
     return (
@@ -264,7 +286,7 @@ export const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
         title={t('map.show_legend', { defaultValue: 'Legende einblenden' })}
       >
         <List className="w-4 h-4" /> {t('map.legend', { defaultValue: 'Legende' })}
-        {isCategoryMode && activeFilters.length > 0 && (
+        {activeFilters.length > 0 && (
             <span className="bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded-full shadow-sm">{activeFilters.length}</span>
         )}
       </button>
@@ -274,12 +296,12 @@ export const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
   return (
     <div 
       ref={legendRef} 
-      className={`absolute left-4 z-[500] bg-white/95 backdrop-blur-sm p-3 rounded-xl border border-slate-200 shadow-xl max-h-[250px] overflow-y-auto bottom-6 custom-scrollbar min-w-[180px]`}
+      className={`absolute left-4 z-[500] bg-white/95 backdrop-blur-sm p-3 rounded-xl border border-slate-200 shadow-xl max-h-[350px] overflow-hidden bottom-6 flex flex-col min-w-[220px]`}
     >
-      <div className="flex items-center justify-between mb-2 sticky top-0 bg-white/95 pb-1 z-10 border-b border-slate-100">
+      <div className="flex items-center justify-between mb-2 pb-1 z-20 border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-2">
               <h4 className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">{t('map.legend', { defaultValue: 'Legende' })}</h4>
-              {isCategoryMode && activeFilters.length > 0 && (
+              {activeFilters.length > 0 && (
                   <button 
                     onClick={(e) => { e.stopPropagation(); setUIState({ categoryFilter: [] }); }}
                     className="text-[9px] text-blue-500 hover:text-blue-700 hover:underline font-bold transition-colors"
@@ -296,27 +318,89 @@ export const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
               <ChevronDown className="w-4 h-4" />
           </button>
       </div>
-      <div className="space-y-0.5">
-        {categories.map(cat => {
-          const isActive = isCategoryMode && activeFilters.length > 0 ? activeFilters.includes(cat) : true;
+
+      <div className="flex bg-slate-100 rounded-lg p-0.5 mb-2 shrink-0">
+          <button 
+              onClick={(e) => handleTabSwitch('category', e)}
+              className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-all ${legendMode === 'category' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+              {t('sights.categories', { defaultValue: 'Kategorien' })}
+          </button>
+          {tours.length > 0 && (
+              <button 
+                  onClick={(e) => handleTabSwitch('tour', e)}
+                  className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-all ${legendMode === 'tour' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                  {t('sights.tour', { defaultValue: 'Touren' })}
+              </button>
+          )}
+          {days.length > 0 && (
+              <button 
+                  onClick={(e) => handleTabSwitch('day', e)}
+                  className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-all ${legendMode === 'day' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                  {t('sights.day', { defaultValue: 'Tage' })}
+              </button>
+          )}
+      </div>
+
+      <div className="space-y-0.5 overflow-y-auto flex-1 min-h-[50px] custom-scrollbar pr-1">
+        {legendMode === 'category' && categories.map(cat => {
+          const isActive = uiState.sortMode === 'category' && activeFilters.length > 0 ? activeFilters.includes(cat) : true;
           return (
               <button
                 key={cat}
-                onClick={(e) => handleCategoryClick(cat, e)}
+                onClick={(e) => handleFilterClick(cat, 'category', e)}
                 className={`flex items-center gap-2 w-full text-left hover:bg-slate-50 p-1.5 -mx-1 rounded transition-all ${isActive ? 'opacity-100' : 'opacity-40 grayscale'}`}
               >
                 <div 
                   className="w-3 h-3 rounded border border-white shadow-sm shrink-0" 
                   style={{ backgroundColor: getCategoryColor(cat) }}
                 ></div>
-                <span className="text-xs font-medium text-slate-700 capitalize truncate max-w-[120px]" title={cat}>
+                <span className="text-xs font-medium text-slate-700 capitalize truncate max-w-[150px]" title={cat}>
                    {resolveCategoryLabel(cat)}
                 </span>
               </button>
           )
         })}
+
+        {legendMode === 'tour' && tours.map((tourTitle, idx) => {
+          const isActive = uiState.sortMode === 'tour' && activeFilters.length > 0 ? activeFilters.includes(tourTitle) : true;
+          return (
+              <button
+                key={idx}
+                onClick={(e) => handleFilterClick(tourTitle, 'tour', e)}
+                className={`flex items-center gap-2 w-full text-left hover:bg-slate-50 p-1.5 -mx-1 rounded transition-all ${isActive ? 'opacity-100' : 'opacity-40 grayscale'}`}
+              >
+                <div className="w-3 h-3 rounded-full bg-blue-500 border border-white shadow-sm shrink-0"></div>
+                <span className="text-xs font-medium text-slate-700 truncate max-w-[150px]" title={tourTitle}>
+                   {tourTitle}
+                </span>
+              </button>
+          )
+        })}
+
+        {legendMode === 'day' && days.map(dayNum => {
+          const dayLabel = `${t('sights.day', {defaultValue: 'Tag'})} ${dayNum}`;
+          const isActive = uiState.sortMode === 'day' && activeFilters.length > 0 ? activeFilters.includes(dayLabel) : true;
+          return (
+              <button
+                key={dayNum}
+                onClick={(e) => handleFilterClick(dayLabel, 'day', e)}
+                className={`flex items-center gap-2 w-full text-left hover:bg-slate-50 p-1.5 -mx-1 rounded transition-all ${isActive ? 'opacity-100' : 'opacity-40 grayscale'}`}
+              >
+                <div className="w-4 h-4 rounded bg-slate-200 text-[9px] font-bold flex items-center justify-center text-slate-600 shrink-0 shadow-sm">
+                    {dayNum}
+                </div>
+                <span className="text-xs font-medium text-slate-700 truncate max-w-[150px]" title={dayLabel}>
+                   {dayLabel}
+                </span>
+              </button>
+          )
+        })}
       </div>
-      <div className="mt-2 pt-2 border-t border-slate-200 space-y-1.5 pointer-events-none">
+
+      <div className="mt-2 pt-2 border-t border-slate-200 space-y-1.5 pointer-events-none shrink-0 z-10">
           <div className="flex items-center gap-2 mb-1 px-0.5">
               <div className="w-3 h-3 rounded-full border border-slate-400 bg-slate-100 shadow-sm flex items-center justify-center"></div>
               <span className="text-[10px] text-slate-500 font-bold leading-tight">{t('map.legend_prio', 'Hohe Prio (Kreis)')}</span>
@@ -333,4 +417,4 @@ export const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
     </div>
   );
 };
-// Zeilenanzahl: 326
+// --- END OF FILE 373 Zeilen ---
