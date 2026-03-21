@@ -1,5 +1,5 @@
-// 21.03.2026 18:45 - FIX: Resolved TypeScript TS2345 error by mapping undefined targetPlaceId to null for setPendingPlaceId.
-// 21.03.2026 17:30 - FIX: Fixed official Google Maps URL structure and ensured span wrappers fix the TS build error.
+// 21.03.2026 19:30 - FEAT: Integrated LocationPickerModal to allow manual GPS correction. Made header GPS indicators clickable.
+// 21.03.2026 18:45 - FIX: Resolved TypeScript TS2345 error.
 // src/features/Cockpit/ExpenseEntryButton.tsx
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
 import type { Expense, CurrencyConfig } from '../../core/types/shared';
 import type { Place } from '../../core/types';
+import { LocationPickerModal } from './LocationPickerModal';
 
 export type ExpenseButtonMode = 'sight' | 'planner' | 'diary' | 'standalone';
 
@@ -65,6 +66,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
     const [location, setLocation] = useState<{lat: number, lng: number} | null>(defaultLocation);
     const [isFetchingGPS, setIsFetchingGPS] = useState(false);
     const [gpsError, setGpsError] = useState(false);
+    const [showLocationPicker, setShowLocationPicker] = useState(false);
 
     const [isNoteStep, setIsNoteStep] = useState(false);
     const [noteText, setNoteText] = useState('');
@@ -196,7 +198,6 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         });
 
         if (promptForNote) {
-            // FIX: Map undefined to null to satisfy TypeScript SetStateAction<string | null>
             setPendingPlaceId(targetPlaceId ?? null);
             setIsNoteStep(true);
         } else {
@@ -289,19 +290,17 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                         <Banknote className="w-4 h-4"/> 
                                         {mode === 'standalone' ? t('finance.add_expense', { defaultValue: 'Kosten erfassen' }) : (defaultTitle || t('finance.new_expense', { defaultValue: 'Neue Ausgabe' }))}
                                         
-                                        {isFetchingGPS && <span title={t('finance.gps_fetching', { defaultValue: 'Ortung läuft...' })}><MapPin className="w-3.5 h-3.5 text-emerald-400 animate-pulse ml-1" /></span>}
-                                        {!isFetchingGPS && location && (
-                                            <a 
-                                                href={`https://www.google.com/maps/search/?api=1&query=${location.lat},${location.lng}`} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer" 
-                                                className="ml-2 text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-md border border-indigo-200 transition-colors inline-flex items-center gap-1 text-[10px] font-bold normal-case shadow-sm" 
-                                                onClick={e => e.stopPropagation()}
-                                            >
-                                                <MapPin className="w-3.5 h-3.5" /> Maps
-                                            </a>
-                                        )}
-                                        {!isFetchingGPS && gpsError && <span title={t('finance.gps_failed_hint', { defaultValue: 'Kein GPS-Signal (Gerät/Browser blockiert die Anfrage)' })}><MapPinOff className="w-3.5 h-3.5 text-red-400 opacity-70 ml-1" /></span>}
+                                        {/* GPS INDICATOR ALS KLICKBARER BUTTON FÜR DEN PICKER */}
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); setShowLocationPicker(true); }}
+                                            className="ml-1 p-1 rounded hover:bg-emerald-200 transition-colors"
+                                            title={t('map.picker_title', { defaultValue: 'Ort ändern / wählen' })}
+                                        >
+                                            {isFetchingGPS && <MapPin className="w-4 h-4 text-emerald-500 animate-pulse" />}
+                                            {!isFetchingGPS && location && <MapPin className="w-4 h-4 text-emerald-600" />}
+                                            {!isFetchingGPS && !location && gpsError && <MapPinOff className="w-4 h-4 text-red-500" />}
+                                            {!isFetchingGPS && !location && !gpsError && <MapPin className="w-4 h-4 text-slate-400" />}
+                                        </button>
                                     </>
                                 )}
                             </span>
@@ -330,7 +329,6 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                         ) : (
                             <>
                                 <div className="p-4 overflow-y-auto space-y-4">
-                                    
                                     <div className="flex flex-col sm:flex-row gap-3">
                                         {(mode === 'standalone' || forceOpen) && (
                                             <div className="flex-[2]">
@@ -433,12 +431,17 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                 </div>
                             </>
                         )}
-
                     </div>
                 </div>,
                 document.body
             )}
+            <LocationPickerModal 
+                isOpen={showLocationPicker} 
+                onClose={() => setShowLocationPicker(false)} 
+                initialLocation={location} 
+                onSave={(loc) => setLocation(loc)} 
+            />
         </div>
     );
 };
-// --- END OF FILE 414 Zeilen ---
+// --- END OF FILE 423 Zeilen ---

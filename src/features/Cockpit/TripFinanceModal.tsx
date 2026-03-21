@@ -1,4 +1,4 @@
-// 21.03.2026 18:30 - FIX: Repaired Google Maps URL (https://www.google.com/maps/search/?api=1...). Wired up setViewMode for internal map jumping.
+// 21.03.2026 19:45 - FIX: Applied strict I18N to manual GPS override buttons (replaced hardcoded "(Ändern)") and fixed Maps tooltips.
 // src/features/Cockpit/TripFinanceModal.tsx
 
 import React, { useState, useMemo } from 'react';
@@ -8,11 +8,12 @@ import { useTranslation } from 'react-i18next';
 import { 
   X, Wallet, ListFilter, Trash2, ArrowRightLeft, Banknote, Edit3, 
   Save, CheckCircle2, Users, MapPin, Landmark, Download, TableProperties,
-  ChevronUp, ChevronDown, ChevronsUpDown, Sigma, Info, Printer, Map as MapIcon
+  ChevronUp, ChevronDown, ChevronsUpDown, Sigma, Info, Printer, Map as MapIcon, MapPinOff
 } from 'lucide-react'; 
 import type { Expense, LanguageCode, CurrencyConfig } from '../../core/types/shared';
 import { ExpenseEntryButton } from './ExpenseEntryButton'; 
 import { CurrencyConfigModal } from './CurrencyConfigModal';
+import { LocationPickerModal } from './LocationPickerModal';
 
 interface TripFinanceModalProps {
   isOpen: boolean;
@@ -41,7 +42,9 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
   const [editSplitAmong, setEditSplitAmong] = useState<string[]>([]);
   const [editSplitExact, setEditSplitExact] = useState<Record<string, string>>({});
   const [showSplit, setShowSplit] = useState(false);
+  
   const [editLocation, setEditLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [isUpdatingGPS, setIsUpdatingGPS] = useState(false);
   
   const expenses = Object.values(project.data.expenses || {}) as Expense[];
@@ -592,6 +595,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                                             rel="noopener noreferrer"
                                                             className="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-md border border-indigo-200 transition-colors inline-flex items-center gap-1 text-[10px] font-bold normal-case shadow-sm"
                                                             onClick={(e) => e.stopPropagation()}
+                                                            title={t('finance.show_on_map', { defaultValue: 'Auf Google Maps zeigen' })}
                                                         >
                                                             <MapPin className="w-3 h-3" /> Maps
                                                         </a>
@@ -694,15 +698,13 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                         <div className="flex flex-col gap-3">
                                             <button onClick={(e) => {
                                                 e.stopPropagation();
-                                                setIsUpdatingGPS(true);
-                                                if (!navigator.geolocation) { alert(t('finance.error_no_gps', { defaultValue: 'Dein Browser unterstützt kein GPS.' })); setIsUpdatingGPS(false); return; }
-                                                navigator.geolocation.getCurrentPosition(
-                                                    (pos) => { setEditLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setIsUpdatingGPS(false); },
-                                                    (err) => { console.error(err); alert(t('finance.error_gps_failed', { defaultValue: 'GPS konnte nicht abgerufen werden.' })); setIsUpdatingGPS(false); },
-                                                    { enableHighAccuracy: true, timeout: 10000 }
-                                                );
+                                                setShowLocationPicker(true);
                                             }} className="w-full flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-white text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 justify-center transition-colors shadow-sm">
-                                                <MapPin size={14} className={isUpdatingGPS ? "animate-bounce text-indigo-500" : ""} /> {editLocation ? t('finance.gps_saved', {defaultValue: 'Standort gespeichert ✓'}) : t('diary.update_gps', {defaultValue: 'GPS-Daten taggen'})}
+                                                {editLocation ? (
+                                                    <><MapPin size={14} className="text-emerald-500" /> {t('finance.gps_saved', {defaultValue: 'Standort gespeichert ✓'})} ({t('actions.change', {defaultValue: 'Ändern'})})</>
+                                                ) : (
+                                                    <><MapPin size={14} className="text-slate-400" /> {t('diary.update_gps', {defaultValue: 'GPS-Daten taggen'})}</>
+                                                )}
                                             </button>
 
                                             <button onClick={handleSaveEdit} disabled={!editAmount || !editTitle.trim() || isNaN(parseFloat(editAmount)) || !editPaidBy || (editSplitMode==='equal' && editSplitAmong.length === 0)} className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"><Save className="w-4 h-4"/> {t('finance.save', { defaultValue: 'Speichern' })}</button>
@@ -731,6 +733,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                                             rel="noopener noreferrer"
                                                             className="text-indigo-600 hover:text-indigo-800 px-2 py-0.5 rounded border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 transition-colors inline-flex items-center gap-1 font-bold print:hidden"
                                                             onClick={e => e.stopPropagation()}
+                                                            title={t('finance.show_on_map', { defaultValue: 'Auf Google Maps zeigen' })}
                                                         >
                                                             <MapPin size={12} /> Maps
                                                         </a>
@@ -873,7 +876,14 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
           isOpen={isCurrencyModalOpen} 
           onClose={() => setIsCurrencyModalOpen(false)} 
       />
+      
+      <LocationPickerModal 
+          isOpen={showLocationPicker} 
+          onClose={() => setShowLocationPicker(false)} 
+          initialLocation={editLocation} 
+          onSave={(loc) => setEditLocation(loc)} 
+      />
     </>
   );
 };
-// --- END OF FILE 769 Zeilen ---
+// --- END OF FILE 795 Zeilen ---

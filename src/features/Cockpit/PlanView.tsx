@@ -1,4 +1,4 @@
-// 21.03.2026 18:30 - FIX: Corrected Google Maps Search API URL for Diary custom entries.
+// 21.03.2026 19:45 - FIX: Applied strict I18N to manual GPS override buttons (replaced hardcoded "(Ändern)") and fixed Maps tooltips.
 // src/features/Cockpit/PlanView.tsx
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -12,6 +12,7 @@ import type { LanguageCode, Place, CockpitViewMode } from '../../core/types';
 import { INTEREST_DATA } from '../../data/staticData';
 import { generateGoogleMapsRouteUrl } from './utils';
 import { ExpenseEntryButton } from './ExpenseEntryButton';
+import { LocationPickerModal } from './LocationPickerModal';
 
 export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void }> = ({ setViewMode }) => {
   const { t, i18n } = useTranslation();
@@ -43,7 +44,7 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
   const [editNote, setEditNote] = useState('');
   const [editDate, setEditDate] = useState('');
   const [editLocation, setEditLocation] = useState<{lat: number, lng: number} | null>(null);
-  const [isUpdatingGPS, setIsUpdatingGPS] = useState(false);
+  const [showEditLocationPicker, setShowEditLocationPicker] = useState(false);
 
   const [isAddingCustom, setIsAddingCustom] = useState(false);
   const [customTitle, setCustomTitle] = useState('');
@@ -51,6 +52,7 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
   const [isFetchingGPS, setIsFetchingGPS] = useState(false);
   const [gpsError, setGpsError] = useState(false);
   const [customLocation, setCustomLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [showCustomLocationPicker, setShowCustomLocationPicker] = useState(false);
   
   const [editingSummaryDate, setEditingSummaryDate] = useState<string | null>(null);
   const [editSummaryText, setEditSummaryText] = useState('');
@@ -325,7 +327,6 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
       }
   };
 
-  // FIX: OFFIZIELLE GOOGLE MAPS SEARCH URL
   const getGoogleMapsUrl = (place: any) => {
       if (place.category === 'custom_diary') {
           if (place.location?.lat && place.location?.lng) {
@@ -483,9 +484,17 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                         <h4 className="text-sm font-bold text-indigo-900 flex items-center gap-2">
                             <PenLine size={16} className="text-indigo-500" /> {t('diary.what_discovered', { defaultValue: 'Was hast du entdeckt?' })}
                             
-                            {isFetchingGPS && <span title={t('finance.gps_fetching', { defaultValue: 'Ortung läuft...' })}><MapPin className="w-3.5 h-3.5 text-indigo-400 animate-pulse ml-1" /></span>}
-                            {!isFetchingGPS && customLocation && <span title={t('finance.gps_saved', { defaultValue: 'Standort gespeichert ✓' })}><MapPin className="w-3.5 h-3.5 text-indigo-600 ml-1" /></span>}
-                            {!isFetchingGPS && gpsError && <span title={t('finance.gps_failed_hint', { defaultValue: 'Kein GPS-Signal (Gerät/Browser blockiert die Anfrage)' })}><MapPinOff className="w-3.5 h-3.5 text-red-400 opacity-70 ml-1" /></span>}
+                            {/* GPS INDICATOR ALS KLICKBARER BUTTON FÜR DEN PICKER */}
+                            <button 
+                                onClick={() => setShowCustomLocationPicker(true)}
+                                className="ml-1 p-1 rounded hover:bg-indigo-100 transition-colors"
+                                title={t('map.picker_title', { defaultValue: 'Ort ändern / wählen' })}
+                            >
+                                {isFetchingGPS && <MapPin className="w-4 h-4 text-indigo-400 animate-pulse" />}
+                                {!isFetchingGPS && customLocation && <MapPin className="w-4 h-4 text-indigo-600" />}
+                                {!isFetchingGPS && !customLocation && gpsError && <MapPinOff className="w-4 h-4 text-red-400 opacity-70" />}
+                                {!isFetchingGPS && !customLocation && !gpsError && <MapPin className="w-4 h-4 text-slate-400" />}
+                            </button>
 
                         </h4>
                         <button onClick={() => setIsAddingCustom(false)} className="text-slate-400 hover:text-slate-600"><X size={16}/></button>
@@ -615,7 +624,7 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                                 </div>
                             ) : null}
 
-                            {/* BESUCHTE ORTE DES TAGES (Wird bei "Kompakt" ausgeblendet) */}
+                            {/* BESUCHTE ORTE DES TAGES */}
                             {showPlaces && placesForThisDay.map((place: any) => {
                                 const safeTimeDate = place.visitedAt ? new Date(place.visitedAt as string) : new Date();
                                 const timeStr = new Intl.DateTimeFormat(currentLang === 'de' ? 'de-DE' : 'en-US', { hour: '2-digit', minute: '2-digit' }).format(safeTimeDate);
@@ -693,17 +702,17 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                                                         <label className="text-[10px] font-bold text-indigo-400 uppercase">{t('diary.edit_note', {defaultValue: 'Notiz'})}</label>
                                                         <textarea value={editNote} onChange={e => setEditNote(e.target.value)} className="w-full text-sm p-2.5 border border-indigo-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 min-h-[80px] bg-white resize-y" />
                                                     </div>
+                                                    
                                                     <div className="flex flex-col sm:flex-row gap-2">
-                                                        <button onClick={() => {
-                                                            setIsUpdatingGPS(true);
-                                                            if (!navigator.geolocation) { alert(t('finance.error_no_gps', { defaultValue: 'Dein Browser unterstützt kein GPS.' })); setIsUpdatingGPS(false); return; }
-                                                            navigator.geolocation.getCurrentPosition(
-                                                                (pos) => { setEditLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setIsUpdatingGPS(false); },
-                                                                (err) => { console.error(err); alert(t('finance.error_gps_failed', { defaultValue: 'GPS konnte nicht abgerufen werden.' })); setIsUpdatingGPS(false); },
-                                                                { enableHighAccuracy: true, timeout: 10000 }
-                                                            );
+                                                        <button onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setShowEditLocationPicker(true);
                                                         }} className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-white text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 justify-center flex-1 transition-colors">
-                                                            <MapPin size={14} className={isUpdatingGPS ? "animate-bounce text-indigo-500" : ""} /> {editLocation ? t('finance.gps_saved', {defaultValue: 'Standort gespeichert ✓'}) : t('diary.update_gps', {defaultValue: 'GPS-Daten taggen'})}
+                                                            {editLocation ? (
+                                                                <><MapPin size={14} className="text-emerald-500" /> {t('finance.gps_saved', {defaultValue: 'Standort gespeichert ✓'})} ({t('actions.change', {defaultValue: 'Ändern'})})</>
+                                                            ) : (
+                                                                <><MapPin size={14} className="text-slate-400" /> {t('diary.update_gps', {defaultValue: 'GPS-Daten taggen'})}</>
+                                                            )}
                                                         </button>
                                                         <div className="flex gap-2 flex-1">
                                                             <button onClick={() => setEditingEntryId(null)} className="flex-1 flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-white text-slate-600 border border-slate-200 rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 justify-center transition-colors">
@@ -760,6 +769,20 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                 </div>
             )}
 
+            <LocationPickerModal 
+                isOpen={showCustomLocationPicker} 
+                onClose={() => setShowCustomLocationPicker(false)} 
+                initialLocation={customLocation} 
+                onSave={(loc) => setCustomLocation(loc)} 
+            />
+
+            <LocationPickerModal 
+                isOpen={showEditLocationPicker} 
+                onClose={() => setShowEditLocationPicker(false)} 
+                initialLocation={editLocation} 
+                onSave={(loc) => setEditLocation(loc)} 
+            />
+
         </div>
     );
   };
@@ -771,4 +794,4 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
     </div>
   );
 };
-// --- END OF FILE 679 Zeilen ---
+// --- END OF FILE 707 Zeilen ---
