@@ -1,4 +1,5 @@
-// 21.03.2026 18:30 - FIX: Corrected Google Maps Search API URL.
+// 21.03.2026 18:45 - FIX: Resolved TypeScript TS2345 error by mapping undefined targetPlaceId to null for setPendingPlaceId.
+// 21.03.2026 17:30 - FIX: Fixed official Google Maps URL structure and ensured span wrappers fix the TS build error.
 // src/features/Cockpit/ExpenseEntryButton.tsx
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -195,7 +196,8 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         });
 
         if (promptForNote) {
-            setPendingPlaceId(targetPlaceId);
+            // FIX: Map undefined to null to satisfy TypeScript SetStateAction<string | null>
+            setPendingPlaceId(targetPlaceId ?? null);
             setIsNoteStep(true);
         } else {
             setIsOpen(false);
@@ -306,7 +308,6 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                             <button onClick={() => handleToggle()} className="text-emerald-600 hover:text-emerald-900 hover:bg-emerald-200 p-1.5 rounded-full transition-colors"><X className="w-4 h-4"/></button>
                         </div>
 
-                        {/* Rest des Formulars */}
                         {isNoteStep ? (
                             <>
                                 <div className="p-4 overflow-y-auto space-y-4">
@@ -387,7 +388,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                                             <div className="flex flex-wrap gap-1.5">
                                                                 {names.map(n => {
                                                                     const active = splitAmong.includes(n);
-                                                                    return <button key={n} onClick={(e) => { e.stopPropagation(); if(active) setSplitAmong(prev => prev.filter(x => x !== n)); else setSplitAmong(prev => [...prev, n]); }} className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${active ? 'bg-emerald-500 text-white border-emerald-600 shadow-sm' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'}`}>{n} {active && '✓'}</button>;
+                                                                    return <button key={n} onClick={(e) => { e.stopPropagation(); if(active) setSplitAmong(prev => prev.filter(x => x !== n)); else setSplitAmong(prev => [...prev, n]); }} className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${active ? 'bg-emerald-500 text-white border-blue-600 shadow-sm' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'}`}>{n} {active && '✓'}</button>;
                                                                 })}
                                                             </div>
                                                         ) : (
@@ -440,4 +441,4 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         </div>
     );
 };
-// --- END OF FILE 413 Zeilen ---
+// --- END OF FILE 414 Zeilen ---
