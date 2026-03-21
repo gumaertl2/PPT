@@ -1,5 +1,4 @@
-// 21.03.2026 16:45 - FIX: Resolved TypeScript error by wrapping Lucide icons in span for 'title' attributes.
-// 21.03.2026 16:30 - UX: Added explicit error state (red icon) for failed silent GPS fetching.
+// 21.03.2026 17:30 - FIX: Fixed official Google Maps URL structure and ensured span wrappers fix the TS build error.
 // src/features/Cockpit/ExpenseEntryButton.tsx
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -109,7 +108,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                 (err) => {
                     console.warn("Silent GPS fetch failed or was denied:", err);
                     setIsFetchingGPS(false); 
-                    setGpsError(true); // Zeigt an, dass der Mac/Browser blockiert hat
+                    setGpsError(true); 
                 },
                 { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
             );
@@ -282,9 +281,19 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                         <Banknote className="w-4 h-4"/> 
                                         {mode === 'standalone' ? t('finance.add_expense', { defaultValue: 'Kosten erfassen' }) : (defaultTitle || t('finance.new_expense', { defaultValue: 'Neue Ausgabe' }))}
                                         
-                                        {/* OPTIMIERTES GPS FEEDBACK - SPAN WRAPPER FÜR TYPESCRIPT */}
+                                        {/* OPTIMIERTES GPS FEEDBACK - KLICKBARER MAPS BUTTON MIT OFFIZIELLER URL */}
                                         {isFetchingGPS && <span title={t('finance.gps_fetching', { defaultValue: 'Ortung läuft...' })}><MapPin className="w-3.5 h-3.5 text-emerald-400 animate-pulse ml-1" /></span>}
-                                        {!isFetchingGPS && location && <span title={t('finance.gps_saved', { defaultValue: 'Standort gespeichert ✓' })}><MapPin className="w-3.5 h-3.5 text-emerald-600 ml-1" /></span>}
+                                        {!isFetchingGPS && location && (
+                                            <a 
+                                                href={`https://www.google.com/maps/search/?api=1&query=${location.lat},${location.lng}`} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer" 
+                                                className="ml-2 text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-md border border-indigo-200 transition-colors inline-flex items-center gap-1 text-[10px] font-bold normal-case shadow-sm" 
+                                                onClick={e => e.stopPropagation()}
+                                            >
+                                                <MapPin className="w-3.5 h-3.5" /> Maps
+                                            </a>
+                                        )}
                                         {!isFetchingGPS && gpsError && <span title={t('finance.gps_failed_hint', { defaultValue: 'Kein GPS-Signal (Gerät/Browser blockiert die Anfrage)' })}><MapPinOff className="w-3.5 h-3.5 text-red-400 opacity-70 ml-1" /></span>}
                                     </>
                                 )}
@@ -292,6 +301,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                             <button onClick={() => handleToggle()} className="text-emerald-600 hover:text-emerald-900 hover:bg-emerald-200 p-1.5 rounded-full transition-colors"><X className="w-4 h-4"/></button>
                         </div>
 
+                        {/* Rest des Formulars... */}
                         {isNoteStep ? (
                             <>
                                 <div className="p-4 overflow-y-auto space-y-4">
@@ -425,4 +435,4 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         </div>
     );
 };
-// --- END OF FILE 408 Zeilen ---
+// --- END OF FILE 413 Zeilen ---

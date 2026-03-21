@@ -1,5 +1,4 @@
-// 21.03.2026 15:45 - UX/FIX: Corrected Google Maps URL to official search API. Made "Maps" button text explicitly visible on all screen sizes and improved button styling to match Sights/Diary.
-// 21.03.2026 14:15 - UX: Added Map link to expense entries.
+// 21.03.2026 17:30 - UX: Added "Zur Karte" (Papatours Map) button to expense history for uniformity with Diary entries. Corrected Maps URL.
 // src/features/Cockpit/TripFinanceModal.tsx
 
 import React, { useState, useMemo } from 'react';
@@ -9,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { 
   X, Wallet, ListFilter, Trash2, ArrowRightLeft, Banknote, Edit3, 
   Save, CheckCircle2, Users, MapPin, Landmark, Download, TableProperties,
-  ChevronUp, ChevronDown, ChevronsUpDown, Sigma, Info, Printer
+  ChevronUp, ChevronDown, ChevronsUpDown, Sigma, Info, Printer, Map as MapIcon
 } from 'lucide-react'; 
 import type { Expense, LanguageCode, CurrencyConfig } from '../../core/types/shared';
 import { ExpenseEntryButton } from './ExpenseEntryButton'; 
@@ -21,7 +20,7 @@ interface TripFinanceModalProps {
 }
 
 export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onClose }) => {
-  const { project, deleteExpense, updateExpense } = useTripStore();
+  const { project, deleteExpense, updateExpense, setUIState } = useTripStore();
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
   
@@ -41,6 +40,8 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
   const [editSplitAmong, setEditSplitAmong] = useState<string[]>([]);
   const [editSplitExact, setEditSplitExact] = useState<Record<string, string>>({});
   const [showSplit, setShowSplit] = useState(false);
+  const [editLocation, setEditLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [isUpdatingGPS, setIsUpdatingGPS] = useState(false);
   
   const expenses = Object.values(project.data.expenses || {}) as Expense[];
   
@@ -114,6 +115,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
       setEditCurrency(availableCurrencies.includes(exp.currency) ? exp.currency : availableCurrencies[0]);
       setEditPaidBy(exp.paidBy);
       setShowSplit(false);
+      setEditLocation(exp.location || null);
 
       const d = new Date(exp.timestamp);
       const tzOffset = d.getTimezoneOffset() * 60000;
@@ -176,7 +178,8 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
           paidBy: editPaidBy,
           splitAmong: editSplitMode === 'equal' ? editSplitAmong : [],
           splitExact: finalSplitExact,
-          timestamp: editDate ? new Date(editDate).getTime() : Date.now()
+          timestamp: editDate ? new Date(editDate).getTime() : Date.now(),
+          location: editLocation || undefined
       });
       setEditingId(null);
   };
@@ -578,16 +581,31 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                         <div className="flex justify-between items-center mb-4 border-b border-emerald-100/50 pb-2">
                                             <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
                                                 <Edit3 className="w-3.5 h-3.5" /> {t('actions.edit', { defaultValue: 'Bearbeiten' })}
+                                                
+                                                {/* BEIDE MAPS BUTTONS IM EDIT MODUS */}
                                                 {exp.location && exp.location.lat && exp.location.lng && (
-                                                    <a 
-                                                        href={`https://www.google.com/maps/search/?api=1&query=${exp.location.lat},${exp.location.lng}`}
-                                                        target="_blank" 
-                                                        rel="noopener noreferrer"
-                                                        className="ml-3 text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-md border border-indigo-200 transition-colors inline-flex items-center gap-1 text-[11px] normal-case shadow-sm"
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    >
-                                                        <MapPin className="w-3.5 h-3.5" /> Maps
-                                                    </a>
+                                                    <div className="ml-3 flex gap-1.5">
+                                                        <a 
+                                                            href={`https://www.google.com/maps/search/?api=1&query=${exp.location.lat},${exp.location.lng}`}
+                                                            target="_blank" 
+                                                            rel="noopener noreferrer"
+                                                            className="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-md border border-indigo-200 transition-colors inline-flex items-center gap-1 text-[10px] font-bold normal-case shadow-sm"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <MapPin className="w-3 h-3" /> Maps
+                                                        </a>
+                                                        <button 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (exp.placeId) setUIState({ viewMode: 'map', selectedPlaceId: exp.placeId });
+                                                                else setUIState({ viewMode: 'map' });
+                                                                onClose();
+                                                            }}
+                                                            className="text-emerald-600 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded-md border border-emerald-200 transition-colors inline-flex items-center gap-1 text-[10px] font-bold normal-case shadow-sm"
+                                                        >
+                                                            <MapIcon className="w-3 h-3" /> {t('diary.jump_to_map', { defaultValue: 'Zur Karte' })}
+                                                        </button>
+                                                    </div>
                                                 )}
                                             </span>
                                             <button onClick={() => setEditingId(null)} className="text-emerald-500 hover:text-emerald-800 bg-emerald-100/50 p-1 rounded-full"><X className="w-4 h-4"/></button>
@@ -669,7 +687,23 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                                 </div>
                                             )}
                                         </div>
-                                        <button onClick={handleSaveEdit} disabled={!editAmount || !editTitle.trim() || isNaN(parseFloat(editAmount)) || !editPaidBy || (editSplitMode==='equal' && editSplitAmong.length === 0)} className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"><Save className="w-4 h-4"/> {t('finance.save', { defaultValue: 'Speichern' })}</button>
+                                        
+                                        <div className="flex flex-col gap-3">
+                                            <button onClick={(e) => {
+                                                e.stopPropagation();
+                                                setIsUpdatingGPS(true);
+                                                if (!navigator.geolocation) { alert(t('finance.error_no_gps', { defaultValue: 'Dein Browser unterstützt kein GPS.' })); setIsUpdatingGPS(false); return; }
+                                                navigator.geolocation.getCurrentPosition(
+                                                    (pos) => { setEditLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setIsUpdatingGPS(false); },
+                                                    (err) => { console.error(err); alert(t('finance.error_gps_failed', { defaultValue: 'GPS konnte nicht abgerufen werden.' })); setIsUpdatingGPS(false); },
+                                                    { enableHighAccuracy: true, timeout: 10000 }
+                                                );
+                                            }} className="w-full flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-white text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 justify-center transition-colors shadow-sm">
+                                                <MapPin size={14} className={isUpdatingGPS ? "animate-bounce text-indigo-500" : ""} /> {editLocation ? t('finance.gps_saved', {defaultValue: 'Standort gespeichert ✓'}) : t('diary.update_gps', {defaultValue: 'GPS-Daten taggen'})}
+                                            </button>
+
+                                            <button onClick={handleSaveEdit} disabled={!editAmount || !editTitle.trim() || isNaN(parseFloat(editAmount)) || !editPaidBy || (editSplitMode==='equal' && editSplitAmong.length === 0)} className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"><Save className="w-4 h-4"/> {t('finance.save', { defaultValue: 'Speichern' })}</button>
+                                        </div>
                                     </div>
                                 ) : (
                                     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-start gap-3 hover:border-blue-200 transition-colors cursor-pointer group print:shadow-none print:border-slate-300 print:rounded-none" onClick={() => startEdit(exp)}>
@@ -684,7 +718,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                                 <span>•</span>
                                                 <span>{t('finance.paid_by_label', { defaultValue: 'Gezahlt von' })} <strong className="text-emerald-700 print:text-black">{exp.paidBy}</strong></span>
                                                 
-                                                {/* NEU: Prominenter Google Maps Button in der Feed-Historie, der "Maps" heißt und IMMER sichtbar ist */}
+                                                {/* BEIDE MAPS BUTTONS IN DER HISTORIE */}
                                                 {exp.location && exp.location.lat && exp.location.lng && (
                                                     <>
                                                         <span className="print:hidden">•</span>
@@ -697,6 +731,18 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                                         >
                                                             <MapPin size={12} /> Maps
                                                         </a>
+                                                        <button 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (exp.placeId) setUIState({ viewMode: 'map', selectedPlaceId: exp.placeId });
+                                                                else setUIState({ viewMode: 'map' });
+                                                                onClose();
+                                                            }}
+                                                            className="text-emerald-600 hover:text-emerald-800 px-2 py-0.5 rounded border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 transition-colors inline-flex items-center gap-1 font-bold print:hidden ml-1"
+                                                            title={t('diary.jump_to_map', { defaultValue: 'Zur Karte' })}
+                                                        >
+                                                            <MapIcon size={12} /> {t('diary.jump_to_map', { defaultValue: 'Zur Karte' })}
+                                                        </button>
                                                     </>
                                                 )}
                                             </div>
@@ -827,4 +873,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 747 Zeilen ---
+// --- END OF FILE 765 Zeilen ---
