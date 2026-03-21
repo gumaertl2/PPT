@@ -1,5 +1,5 @@
+// 21.03.2026 13:30 - UX: Removed explicit GPS button. Implemented silent background GPS fetching on modal open with subtle header indicator.
 // 20.03.2026 16:00 - FEAT: Added native HTML5 datalist for folksonomy autocomplete (Purpose) and editable Date field.
-// 22.02.2026 15:00 - FIX: Bridge UX Improvements. Fixed initialization on forceOpen.
 // src/features/Cockpit/ExpenseEntryButton.tsx
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -97,33 +97,29 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [forceOpen]);
 
+    // --- SILENT BACKGROUND GPS FETCHING ---
+    useEffect(() => {
+        if (isOpen && !location && navigator.geolocation) {
+            setIsFetchingGPS(true);
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                    setIsFetchingGPS(false);
+                },
+                (err) => {
+                    console.warn("Silent GPS fetch failed:", err);
+                    setIsFetchingGPS(false); // Fehler wird still ignoriert
+                },
+                { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
+            );
+        }
+    }, [isOpen, location]);
+
     const expenses = Object.values(project.data.expenses || {}).filter((e: Expense) => 
         (placeId && e.placeId === placeId) || (!placeId && e.title === defaultTitle)
     ) as Expense[];
     
     const totalSpent = expenses.reduce((sum: number, e: Expense) => sum + e.amount, 0);
-
-    const handleFetchGPS = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        setIsFetchingGPS(true);
-        if (!navigator.geolocation) {
-            alert(t('finance.error_no_gps', { defaultValue: 'Dein Browser unterstützt kein GPS.' }));
-            setIsFetchingGPS(false);
-            return;
-        }
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-                setIsFetchingGPS(false);
-            },
-            (err) => {
-                console.error(err);
-                alert(t('finance.error_gps_failed', { defaultValue: 'GPS konnte nicht abgerufen werden.' }));
-                setIsFetchingGPS(false);
-            },
-            { enableHighAccuracy: true, timeout: 10000 }
-        );
-    };
 
     const calculateRemaining = () => {
         const total = parseFloat(amount.replace(',', '.')) || 0;
@@ -214,7 +210,6 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
             name: finalTitle, 
             category: 'custom_diary',
             visited: true, 
-            // Verknüpft die Notiz mit dem exakten Datum der Ausgabe
             visitedAt: entryDate ? new Date(entryDate).toISOString() : new Date().toISOString(), 
             userNote: finalNote,
             location: location || undefined
@@ -281,7 +276,13 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                 {isNoteStep ? (
                                     <><PenLine className="w-4 h-4"/> {t('diary.add_note', { defaultValue: 'Notiz hinzufügen' })}</>
                                 ) : (
-                                    <><Banknote className="w-4 h-4"/> {mode === 'standalone' ? t('finance.add_expense', { defaultValue: 'Kosten erfassen' }) : (defaultTitle || t('finance.new_expense', { defaultValue: 'Neue Ausgabe' }))}</>
+                                    <>
+                                        <Banknote className="w-4 h-4"/> 
+                                        {mode === 'standalone' ? t('finance.add_expense', { defaultValue: 'Kosten erfassen' }) : (defaultTitle || t('finance.new_expense', { defaultValue: 'Neue Ausgabe' }))}
+                                        {/* Subtle GPS Indicator */}
+                                        {isFetchingGPS && <MapPin className="w-3.5 h-3.5 text-emerald-400 animate-pulse ml-1" title={t('finance.gps_fetching', { defaultValue: 'Ortung läuft...' })} />}
+                                        {!isFetchingGPS && location && <MapPin className="w-3.5 h-3.5 text-emerald-600 ml-1" title={t('finance.gps_saved', { defaultValue: 'Standort gespeichert ✓' })} />}
+                                    </>
                                 )}
                             </span>
                             <button onClick={() => handleToggle()} className="text-emerald-600 hover:text-emerald-900 hover:bg-emerald-200 p-1.5 rounded-full transition-colors"><X className="w-4 h-4"/></button>
@@ -333,16 +334,6 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                                 <option key={c} value={c}>{c}</option>
                                             ))}
                                         </select>
-                                    </div>
-
-                                    <div>
-                                        <button 
-                                            onClick={handleFetchGPS} 
-                                            className={`w-full flex items-center justify-center gap-2 text-xs font-bold py-2.5 rounded-xl transition-all border shadow-sm ${location ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
-                                        >
-                                            <MapPin size={16} className={isFetchingGPS ? 'animate-bounce text-emerald-500' : ''} /> 
-                                            {isFetchingGPS ? t('finance.gps_fetching', { defaultValue: 'Ortung läuft...' }) : location ? t('finance.gps_saved', { defaultValue: 'Standort gespeichert ✓' }) : t('finance.gps_tag', { defaultValue: 'Aktuellen Standort (GPS) taggen' })}
-                                        </button>
                                     </div>
 
                                     {names.length === 0 ? (
@@ -430,4 +421,4 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         </div>
     );
 };
-// --- END OF FILE 434 Zeilen ---
+// --- END OF FILE 408 Zeilen ---

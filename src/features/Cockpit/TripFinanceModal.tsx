@@ -1,5 +1,5 @@
-// 20.03.2026 23:00 - UX: Removed horizontal sticky columns to fix mobile viewing. Added vertical scroll with sticky Top-Header and Bottom-Footer.
-// 20.03.2026 22:00 - UX: Added Paid By and Balance summary rows to the Table View footer.
+// 21.03.2026 15:30 - UX/FIX: Corrected Google Maps URL to official search API. Made "Maps" button text explicitly visible on all screen sizes and improved button styling to match Sights/Diary.
+// 21.03.2026 14:15 - UX: Added Map link to expense entries.
 // src/features/Cockpit/TripFinanceModal.tsx
 
 import React, { useState, useMemo } from 'react';
@@ -380,7 +380,23 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
           rows.push(
               <tr key={exp.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => {setActiveTab('feed'); setTimeout(() => startEdit(exp), 50)}}>
                   <td className="p-3 text-slate-500 text-xs border-r border-slate-50">{date}</td>
-                  <td className="p-3 font-bold text-slate-700 truncate max-w-[150px] sm:max-w-[250px]" title={exp.title}>{exp.title}</td>
+                  <td className="p-3 font-bold text-slate-700 truncate max-w-[150px] sm:max-w-[250px]" title={exp.title}>
+                      <div className="flex items-center gap-1.5">
+                          <span className="truncate">{exp.title}</span>
+                          {exp.location && exp.location.lat && exp.location.lng && (
+                              <a 
+                                  href={`https://www.google.com/maps/search/?api=1&query=${exp.location.lat},${exp.location.lng}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-1.5 py-0.5 rounded border border-indigo-200 transition-colors inline-flex items-center gap-1 font-bold text-[9px] print:hidden shrink-0"
+                                  onClick={e => e.stopPropagation()}
+                                  title="Maps"
+                              >
+                                  <MapPin size={10} /> Maps
+                              </a>
+                          )}
+                      </div>
+                  </td>
                   <td className="p-3 text-right font-medium">{exp.amount.toFixed(2)} <span className="text-[10px] text-slate-400">{exp.currency}</span></td>
                   <td className="p-3 text-right font-bold text-emerald-700">{amountBase.toFixed(2)}</td>
                   <td className="p-3 text-center"><span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-bold border border-slate-200">{exp.paidBy}</span></td>
@@ -404,36 +420,13 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
 
   return (
     <>
-      {/* BULLETPROOF PRINT CSS INJECTION */}
       <style type="text/css" media="print">
           {`
-              /* Hide the main app background to prevent blank pages */
               #root { display: none !important; }
               body { background-color: white !important; }
-              
-              /* Break the Modal out of the "fixed/flex" jail */
-              .finance-print-container {
-                  position: static !important;
-                  display: block !important;
-                  height: auto !important;
-                  overflow: visible !important;
-                  background-color: white !important;
-              }
-              .finance-print-inner {
-                  position: static !important;
-                  display: block !important;
-                  height: auto !important;
-                  max-height: none !important;
-                  overflow: visible !important;
-                  box-shadow: none !important;
-              }
-              .finance-print-scroll {
-                  display: block !important;
-                  height: auto !important;
-                  overflow: visible !important;
-              }
-              
-              /* Ensure Tables break naturally over multiple pages */
+              .finance-print-container { position: static !important; display: block !important; height: auto !important; overflow: visible !important; background-color: white !important; }
+              .finance-print-inner { position: static !important; display: block !important; height: auto !important; max-height: none !important; overflow: visible !important; box-shadow: none !important; }
+              .finance-print-scroll { display: block !important; height: auto !important; overflow: visible !important; }
               table { width: 100% !important; page-break-inside: auto; }
               tr { page-break-inside: avoid; page-break-after: auto; }
               thead { display: table-header-group; }
@@ -471,7 +464,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
               </div>
             </div>
 
-            {/* Print Header (Only visible when printing) */}
+            {/* Print Header */}
             <div className="hidden print:block pb-2 mb-4 border-b border-slate-200">
                 <h1 className="text-3xl font-black text-slate-900">{project.meta.name || t('finance.title', { defaultValue: 'Reisekasse' })}</h1>
                 <p className="text-slate-500 mt-1 font-medium">{activeTab === 'settlement' ? t('finance.tab_settlement', { defaultValue: 'Abrechnung' }) : activeTab === 'feed' ? t('finance.tab_feed', { defaultValue: 'Historie' }) : t('finance.tab_table', { defaultValue: 'Tabelle' })}</p>
@@ -583,7 +576,20 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                 {editingId === exp.id ? (
                                     <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-300 shadow-md print:hidden">
                                         <div className="flex justify-between items-center mb-4 border-b border-emerald-100/50 pb-2">
-                                            <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5"><Edit3 className="w-3.5 h-3.5" /> {t('actions.edit', { defaultValue: 'Bearbeiten' })}</span>
+                                            <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
+                                                <Edit3 className="w-3.5 h-3.5" /> {t('actions.edit', { defaultValue: 'Bearbeiten' })}
+                                                {exp.location && exp.location.lat && exp.location.lng && (
+                                                    <a 
+                                                        href={`https://www.google.com/maps/search/?api=1&query=${exp.location.lat},${exp.location.lng}`}
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer"
+                                                        className="ml-3 text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-md border border-indigo-200 transition-colors inline-flex items-center gap-1 text-[11px] normal-case shadow-sm"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <MapPin className="w-3.5 h-3.5" /> Maps
+                                                    </a>
+                                                )}
+                                            </span>
                                             <button onClick={() => setEditingId(null)} className="text-emerald-500 hover:text-emerald-800 bg-emerald-100/50 p-1 rounded-full"><X className="w-4 h-4"/></button>
                                         </div>
                                         
@@ -673,31 +679,31 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                                 <h4 className="font-bold text-slate-800 truncate pr-2 group-hover:text-blue-700 print:text-black">{exp.title}</h4>
                                                 <span className="font-black text-slate-800 whitespace-nowrap print:text-black">{exp.amount.toFixed(2)} {exp.currency}</span>
                                             </div>
-                                            <div className="text-xs text-slate-500 mt-1 flex flex-wrap gap-x-3 gap-y-1 print:text-slate-800">
+                                            <div className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-x-3 gap-y-2 print:text-slate-800">
                                                 <span>{new Date(exp.timestamp).toLocaleDateString(currentLang === 'de' ? 'de-DE' : 'en-US')}</span>
                                                 <span>•</span>
                                                 <span>{t('finance.paid_by_label', { defaultValue: 'Gezahlt von' })} <strong className="text-emerald-700 print:text-black">{exp.paidBy}</strong></span>
                                                 
-                                                {exp.location && (
+                                                {/* NEU: Prominenter Google Maps Button in der Feed-Historie, der "Maps" heißt und IMMER sichtbar ist */}
+                                                {exp.location && exp.location.lat && exp.location.lng && (
                                                     <>
                                                         <span className="print:hidden">•</span>
                                                         <a 
                                                             href={`https://www.google.com/maps/search/?api=1&query=${exp.location.lat},${exp.location.lng}`}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="flex items-center gap-0.5 text-blue-500 hover:underline print:hidden"
-                                                            title={t('sights.open_map', { defaultValue: 'Auf Karte öffnen' })}
+                                                            className="text-indigo-600 hover:text-indigo-800 px-2 py-0.5 rounded border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 transition-colors inline-flex items-center gap-1 font-bold print:hidden"
                                                             onClick={e => e.stopPropagation()}
                                                         >
-                                                            <MapPin size={10} /> GPS
+                                                            <MapPin size={12} /> Maps
                                                         </a>
                                                     </>
                                                 )}
                                             </div>
                                             {exp.splitExact && Object.keys(exp.splitExact).length > 0 ? (
-                                                <div className="text-[10px] text-blue-500 mt-1 bg-blue-50 px-2 py-0.5 rounded inline-block print:border print:border-slate-300 print:bg-white">{t('finance.split_exact_label', { defaultValue: 'Aufteilung: Exakt' })}</div>
+                                                <div className="text-[10px] text-blue-500 mt-1.5 bg-blue-50 px-2 py-0.5 rounded inline-block print:border print:border-slate-300 print:bg-white">{t('finance.split_exact_label', { defaultValue: 'Aufteilung: Exakt' })}</div>
                                             ) : exp.splitAmong && exp.splitAmong.length > 0 ? (
-                                                <div className="text-[10px] text-slate-400 mt-1 truncate print:text-slate-600">{t('finance.for', { defaultValue: 'Für:' })} {exp.splitAmong.join(', ')}</div>
+                                                <div className="text-[10px] text-slate-400 mt-1.5 truncate print:text-slate-600">{t('finance.for', { defaultValue: 'Für:' })} {exp.splitAmong.join(', ')}</div>
                                             ) : null}
                                         </div>
                                         <button 
@@ -821,4 +827,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 743 Zeilen ---
+// --- END OF FILE 747 Zeilen ---
