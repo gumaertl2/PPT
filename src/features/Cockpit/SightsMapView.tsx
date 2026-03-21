@@ -1,3 +1,4 @@
+// 21.03.2026 10:45 - FIX: Removed unused 'PrintHelper' component to satisfy strict TypeScript build rules (noUnusedLocals).
 // 21.03.2026 10:30 - FIX: Added silent auto-correction for Fixed Appointments in map popups. Keeps date safely clamped inside trip bounds.
 // src/features/Cockpit/SightsMapView.tsx
 
@@ -24,15 +25,6 @@ const ZoomListener: React.FC<{ onZoomChange: (zoom: number) => void }> = ({ onZo
             onZoomChange(e.target.getZoom());
         }
     });
-    return null;
-};
-
-const PrintHelper: React.FC<{ isPreviewMode: boolean }> = ({ isPreviewMode }) => {
-    const map = useMap();
-    useEffect(() => {
-        const timer = setTimeout(() => map.invalidateSize(false), 300);
-        return () => clearTimeout(timer);
-    }, [map, isPreviewMode]);
     return null;
 };
 
@@ -637,7 +629,6 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
                            <button onClick={(e) => { e.stopPropagation(); updatePlace(place.id, { userPriority: userPrio === -1 ? 0 : -1, isFixed: false }); }} className={`flex-1 py-1 rounded text-[9px] font-bold transition-colors border shadow-sm ${userPrio === -1 ? 'bg-gray-800 text-white border-gray-900' : 'bg-slate-50 text-slate-400 hover:bg-gray-100 border-slate-200'}`}>Ignore</button>
                         </div>
 
-                        {/* --- SILENT CLAMPING: Verhindert Auswahl von fehlerhaften Fixterminen in der Karte --- */}
                         {isFixed && (
                            <div className="flex flex-col gap-1 bg-purple-50 px-2 py-1.5 rounded-md text-xs mt-1 mb-2 border border-purple-100 no-print animate-in slide-in-from-top-1">
                               <span className="font-bold text-purple-800 flex items-center gap-1"><CalendarClock className="w-3.5 h-3.5" /> {currentLang === 'en' ? 'Fixed Appointment' : 'Fixtermin'}</span>
@@ -708,4 +699,4 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
     </>
   );
 };
-// --- END OF FILE 689 Zeilen ---
+// --- END OF FILE 680 Zeilen ---
