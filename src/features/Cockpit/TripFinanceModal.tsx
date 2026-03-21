@@ -1,4 +1,4 @@
-// 21.03.2026 17:30 - UX: Added "Zur Karte" (Papatours Map) button to expense history for uniformity with Diary entries. Corrected Maps URL.
+// 21.03.2026 18:30 - FIX: Repaired Google Maps URL (https://www.google.com/maps/search/?api=1...). Wired up setViewMode for internal map jumping.
 // src/features/Cockpit/TripFinanceModal.tsx
 
 import React, { useState, useMemo } from 'react';
@@ -17,9 +17,10 @@ import { CurrencyConfigModal } from './CurrencyConfigModal';
 interface TripFinanceModalProps {
   isOpen: boolean;
   onClose: () => void;
+  setViewMode?: (mode: any) => void;
 }
 
-export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onClose }) => {
+export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onClose, setViewMode }) => {
   const { project, deleteExpense, updateExpense, setUIState } = useTripStore();
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
@@ -391,11 +392,11 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                   href={`https://www.google.com/maps/search/?api=1&query=${exp.location.lat},${exp.location.lng}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-1.5 py-0.5 rounded border border-indigo-200 transition-colors inline-flex items-center gap-1 font-bold text-[9px] print:hidden shrink-0"
+                                  className="text-indigo-400 hover:text-indigo-600 print:hidden shrink-0"
                                   onClick={e => e.stopPropagation()}
-                                  title="Maps"
+                                  title={t('finance.show_on_map', { defaultValue: 'Auf Google Maps zeigen' })}
                               >
-                                  <MapPin size={10} /> Maps
+                                  <MapPin size={12} />
                               </a>
                           )}
                       </div>
@@ -597,11 +598,12 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                                         <button 
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                if (exp.placeId) setUIState({ viewMode: 'map', selectedPlaceId: exp.placeId });
-                                                                else setUIState({ viewMode: 'map' });
+                                                                setUIState({ viewMode: 'map', selectedPlaceId: exp.placeId || exp.id });
+                                                                if (setViewMode) setViewMode('sights');
                                                                 onClose();
                                                             }}
                                                             className="text-emerald-600 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded-md border border-emerald-200 transition-colors inline-flex items-center gap-1 text-[10px] font-bold normal-case shadow-sm"
+                                                            title={t('diary.jump_to_map', { defaultValue: 'Zur Karte' })}
                                                         >
                                                             <MapIcon className="w-3 h-3" /> {t('diary.jump_to_map', { defaultValue: 'Zur Karte' })}
                                                         </button>
@@ -688,6 +690,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                             )}
                                         </div>
                                         
+                                        {/* MANUELLER RE-FETCH BUTTON */}
                                         <div className="flex flex-col gap-3">
                                             <button onClick={(e) => {
                                                 e.stopPropagation();
@@ -734,8 +737,8 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                                         <button 
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                if (exp.placeId) setUIState({ viewMode: 'map', selectedPlaceId: exp.placeId });
-                                                                else setUIState({ viewMode: 'map' });
+                                                                setUIState({ viewMode: 'map', selectedPlaceId: exp.placeId || exp.id });
+                                                                if (setViewMode) setViewMode('sights');
                                                                 onClose();
                                                             }}
                                                             className="text-emerald-600 hover:text-emerald-800 px-2 py-0.5 rounded border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 transition-colors inline-flex items-center gap-1 font-bold print:hidden ml-1"
@@ -873,4 +876,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 765 Zeilen ---
+// --- END OF FILE 769 Zeilen ---

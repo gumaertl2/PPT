@@ -1,4 +1,4 @@
-// 21.03.2026 17:30 - FIX: Fixed official Google Maps URL structure and ensured span wrappers fix the TS build error.
+// 21.03.2026 18:30 - FIX: Corrected Google Maps Search API URL.
 // src/features/Cockpit/ExpenseEntryButton.tsx
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -67,6 +67,8 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
 
     const [isNoteStep, setIsNoteStep] = useState(false);
     const [noteText, setNoteText] = useState('');
+    
+    const [pendingPlaceId, setPendingPlaceId] = useState<string | null>(null);
 
     const uniqueTitles = useMemo(() => {
         const allExpenses = Object.values(project.data.expenses || {}) as Expense[];
@@ -95,7 +97,6 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         }
     }, [forceOpen]);
 
-    // --- SILENT BACKGROUND GPS FETCHING MIT FEHLER-FEEDBACK ---
     useEffect(() => {
         if (isOpen && !location && navigator.geolocation) {
             setIsFetchingGPS(true);
@@ -148,6 +149,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
             setGpsError(false);
             setIsNoteStep(false);
             setNoteText('');
+            setPendingPlaceId(null);
             resetDate();
         } else {
             if (onClose) onClose();
@@ -177,9 +179,11 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
             finalSplitExact = exactData;
         }
 
+        const targetPlaceId = (mode === 'standalone' && promptForNote) ? `custom_${uuidv4()}` : (mode === 'standalone' ? undefined : placeId);
+
         addExpense({ 
             id: uuidv4(), 
-            placeId: mode === 'standalone' ? undefined : placeId, 
+            placeId: targetPlaceId, 
             title: finalTitle, 
             amount: numAmount, 
             currency, 
@@ -191,6 +195,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         });
 
         if (promptForNote) {
+            setPendingPlaceId(targetPlaceId);
             setIsNoteStep(true);
         } else {
             setIsOpen(false);
@@ -199,7 +204,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
     };
 
     const handleSaveNote = () => {
-        const newId = `custom_${uuidv4()}`;
+        const newId = pendingPlaceId || `custom_${uuidv4()}`;
         const finalTitle = mode === 'standalone' ? (customTitle.trim() || defaultTitle) : defaultTitle;
         const numAmount = parseFloat(amount.replace(',', '.'));
         const autoText = `${t('finance.expense', { defaultValue: 'Ausgabe' })}: ${numAmount} ${currency}`;
@@ -219,6 +224,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         
         setIsNoteStep(false);
         setNoteText('');
+        setPendingPlaceId(null);
         setIsOpen(false);
         if (onClose) onClose();
     };
@@ -281,7 +287,6 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                         <Banknote className="w-4 h-4"/> 
                                         {mode === 'standalone' ? t('finance.add_expense', { defaultValue: 'Kosten erfassen' }) : (defaultTitle || t('finance.new_expense', { defaultValue: 'Neue Ausgabe' }))}
                                         
-                                        {/* OPTIMIERTES GPS FEEDBACK - KLICKBARER MAPS BUTTON MIT OFFIZIELLER URL */}
                                         {isFetchingGPS && <span title={t('finance.gps_fetching', { defaultValue: 'Ortung läuft...' })}><MapPin className="w-3.5 h-3.5 text-emerald-400 animate-pulse ml-1" /></span>}
                                         {!isFetchingGPS && location && (
                                             <a 
@@ -301,7 +306,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                             <button onClick={() => handleToggle()} className="text-emerald-600 hover:text-emerald-900 hover:bg-emerald-200 p-1.5 rounded-full transition-colors"><X className="w-4 h-4"/></button>
                         </div>
 
-                        {/* Rest des Formulars... */}
+                        {/* Rest des Formulars */}
                         {isNoteStep ? (
                             <>
                                 <div className="p-4 overflow-y-auto space-y-4">
@@ -382,7 +387,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                                             <div className="flex flex-wrap gap-1.5">
                                                                 {names.map(n => {
                                                                     const active = splitAmong.includes(n);
-                                                                    return <button key={n} onClick={(e) => { e.stopPropagation(); if(active) setSplitAmong(prev => prev.filter(x => x !== n)); else setSplitAmong(prev => [...prev, n]); }} className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${active ? 'bg-emerald-500 text-white border-blue-600 shadow-sm' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'}`}>{n} {active && '✓'}</button>;
+                                                                    return <button key={n} onClick={(e) => { e.stopPropagation(); if(active) setSplitAmong(prev => prev.filter(x => x !== n)); else setSplitAmong(prev => [...prev, n]); }} className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${active ? 'bg-emerald-500 text-white border-emerald-600 shadow-sm' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'}`}>{n} {active && '✓'}</button>;
                                                                 })}
                                                             </div>
                                                         ) : (

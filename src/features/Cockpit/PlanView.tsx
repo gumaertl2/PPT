@@ -1,5 +1,4 @@
-// 21.03.2026 16:45 - FIX: Resolved TypeScript error by wrapping Lucide icons in span for 'title' attributes in custom diary entry.
-// 21.03.2026 16:30 - UX: Automated silent background GPS fetching for custom diary entries (notes).
+// 21.03.2026 18:30 - FIX: Corrected Google Maps Search API URL for Diary custom entries.
 // src/features/Cockpit/PlanView.tsx
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -64,7 +63,6 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
   const [showDailyExpenses, setShowDailyExpenses] = useState(true);
   const baseCurrency = data?.currencyConfig?.baseCurrency || 'EUR';
 
-  // --- SILENT BACKGROUND GPS FETCHING (EIGENER EINTRAG) ---
   useEffect(() => {
       if (isAddingCustom && !customLocation && navigator.geolocation) {
           setIsFetchingGPS(true);
@@ -75,7 +73,7 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                   setIsFetchingGPS(false);
               },
               (err) => {
-                  console.warn("Silent GPS fetch failed or was denied:", err);
+                  console.warn("Silent GPS fetch failed:", err);
                   setIsFetchingGPS(false);
                   setGpsError(true);
               },
@@ -83,7 +81,6 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
           );
       }
   }, [isAddingCustom, customLocation]);
-
 
   const expensesSummary = useMemo(() => {
       let before = 0;
@@ -328,6 +325,7 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
       }
   };
 
+  // FIX: OFFIZIELLE GOOGLE MAPS SEARCH URL
   const getGoogleMapsUrl = (place: any) => {
       if (place.category === 'custom_diary') {
           if (place.location?.lat && place.location?.lng) {
@@ -485,7 +483,6 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                         <h4 className="text-sm font-bold text-indigo-900 flex items-center gap-2">
                             <PenLine size={16} className="text-indigo-500" /> {t('diary.what_discovered', { defaultValue: 'Was hast du entdeckt?' })}
                             
-                            {/* OPTIMIERTES GPS FEEDBACK FÜR EIGENEN EINTRAG (MIT WRAPPER SPAN FÜR TYPESCRIPT) */}
                             {isFetchingGPS && <span title={t('finance.gps_fetching', { defaultValue: 'Ortung läuft...' })}><MapPin className="w-3.5 h-3.5 text-indigo-400 animate-pulse ml-1" /></span>}
                             {!isFetchingGPS && customLocation && <span title={t('finance.gps_saved', { defaultValue: 'Standort gespeichert ✓' })}><MapPin className="w-3.5 h-3.5 text-indigo-600 ml-1" /></span>}
                             {!isFetchingGPS && gpsError && <span title={t('finance.gps_failed_hint', { defaultValue: 'Kein GPS-Signal (Gerät/Browser blockiert die Anfrage)' })}><MapPinOff className="w-3.5 h-3.5 text-red-400 opacity-70 ml-1" /></span>}
@@ -618,7 +615,7 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                                 </div>
                             ) : null}
 
-                            {/* BESUCHTE ORTE DES TAGES */}
+                            {/* BESUCHTE ORTE DES TAGES (Wird bei "Kompakt" ausgeblendet) */}
                             {showPlaces && placesForThisDay.map((place: any) => {
                                 const safeTimeDate = place.visitedAt ? new Date(place.visitedAt as string) : new Date();
                                 const timeStr = new Intl.DateTimeFormat(currentLang === 'de' ? 'de-DE' : 'en-US', { hour: '2-digit', minute: '2-digit' }).format(safeTimeDate);

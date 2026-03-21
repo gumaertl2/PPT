@@ -1,4 +1,4 @@
-// 21.03.2026 12:00 - UX: Added visual highlighting (amber background animation) to fixed appointment inputs when auto-corrected.
+// 21.03.2026 18:00 - UX: Added logic to render standalone expenses (without placeId) on the interactive map so users can locate pure GPS-tagged expenses.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -276,7 +276,6 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [currentZoom, setCurrentZoom] = useState(10);
   
-  // Highlight State für Auto-Korrektur
   const [highlightedPlaceId, setHighlightedPlaceId] = useState<string | null>(null);
 
   const triggerHighlight = (id: string) => {
@@ -307,6 +306,11 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
 
   const allPlacesFromStore = useMemo(() => Object.values(project.data.places), [project.data.places]);
   const allValidPlacesForLegend = useMemo(() => (allPlacesFromStore as Place[]).filter(p => p.location && p.location.lat && p.location.lng), [allPlacesFromStore]);
+
+  // NEU: Filtert reine "Standalone Ausgaben" (die kein placeId haben) heraus, damit sie gezeichnet werden können
+  const standaloneExpenses = useMemo(() => {
+      return Object.values(project.data.expenses || {}).filter((e: any) => e.location && e.location.lat && e.location.lng && !e.placeId);
+  }, [project.data.expenses]);
 
   const displayPlaces = useMemo(() => {
       const scaleFactor = Math.pow(0.5, Math.max(0, currentZoom - 10));
@@ -646,7 +650,6 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
                            <button onClick={(e) => { e.stopPropagation(); updatePlace(place.id, { userPriority: userPrio === -1 ? 0 : -1, isFixed: false }); }} className={`flex-1 py-1 rounded text-[9px] font-bold transition-colors border shadow-sm ${userPrio === -1 ? 'bg-gray-800 text-white border-gray-900' : 'bg-slate-50 text-slate-400 hover:bg-gray-100 border-slate-200'}`}>Ignore</button>
                         </div>
 
-                        {/* --- SILENT CLAMPING WITH VISUAL HIGHLIGHTING --- */}
                         {isFixed && (
                            <div className="flex flex-col gap-1 bg-purple-50 px-2 py-1.5 rounded-md text-xs mt-1 mb-2 border border-purple-100 no-print animate-in slide-in-from-top-1">
                               <span className="font-bold text-purple-800 flex items-center gap-1"><CalendarClock className="w-3.5 h-3.5" /> {currentLang === 'en' ? 'Fixed Appointment' : 'Fixtermin'}</span>
@@ -708,6 +711,36 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
             );
           })}
 
+          {/* NEU: ZEICHNE EIGENSTÄNDIGE AUSGABEN ALS GRÜNE PINS AUF DIE KARTE */}
+          {standaloneExpenses.map((exp: any) => {
+              const isSelected = uiState.selectedPlaceId === exp.id;
+              return (
+                  <Marker 
+                      key={exp.id} 
+                      position={[exp.location.lat, exp.location.lng]}
+                      icon={createSmartIcon('#10b981', isSelected, undefined, false, 0, false, true)}
+                      zIndexOffset={isSelected ? 1000 : 400} 
+                      ref={(ref) => { markerRefs.current[exp.id] = ref; }}
+                      eventHandlers={{ click: () => setUIState({ selectedPlaceId: exp.id }) }}
+                  >
+                      {!isPrintMode && <Tooltip direction="top" offset={[0, -15]} opacity={0.95} className="custom-tooltip print:hidden">{exp.title}</Tooltip>}
+                      {!isPrintMode && (
+                          <Popup className="print:hidden">
+                              <div className="min-w-[200px] font-sans p-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                      <div className="w-2 h-2 rounded bg-emerald-500" />
+                                      <span className="text-[10px] uppercase font-bold text-slate-400">{t('finance.expense', { defaultValue: 'Ausgabe' })}</span>
+                                  </div>
+                                  <h3 className="font-bold text-slate-900 text-sm mb-1">{exp.title}</h3>
+                                  <p className="text-lg font-black text-emerald-600 mb-2">{exp.amount.toFixed(2)} {exp.currency}</p>
+                                  <p className="text-xs text-slate-500 mb-2">{new Date(exp.timestamp).toLocaleDateString(currentLang === 'de' ? 'de-DE' : 'en-US')} • {t('finance.paid_by_label', {defaultValue: 'Gezahlt von'})} {exp.paidBy}</p>
+                              </div>
+                          </Popup>
+                      )}
+                  </Marker>
+              );
+          })}
+
           {!isPrintMode && <MapLegend places={allValidPlacesForLegend} />}
         </MapContainer>
       </div>
@@ -725,4 +758,4 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
     </>
   );
 };
-// --- END OF FILE 700 Zeilen ---
+// --- END OF FILE 731 Zeilen ---

@@ -1,5 +1,4 @@
-// 20.03.2026 23:30 - FIX: Removed async print timeout to comply with iOS WebKit security policies. Implemented safe dispatch for Map Print Preview.
-// 20.03.2026 18:00 - UX: Removed text label from Print button in header.
+// 21.03.2026 18:30 - FIX: Passed setViewMode to TripFinanceModal to enable proper "Jump to Map" tab-switching functionality.
 // src/features/Cockpit/Layout/CockpitHeader.tsx
 
 import React, { useState, useRef } from 'react';
@@ -110,15 +109,12 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     }, 2000); 
   };
 
-  // FIX: Apple-Proof Print Dispatch. Keine asynchronen Timeouts mehr!
   const handleDirectPrint = () => {
       const isMapActive = viewMode === 'sights' && uiState.viewMode === 'map';
       
       if (isMapActive) {
-          // Öffnet das sichere React-Overlay in der Karte (Apple/iOS konform)
           window.dispatchEvent(new Event('open-map-print-preview'));
       } else {
-          // Normaler Listen-Druck
           window.print();
       }
   };
@@ -357,7 +353,9 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
       <PrintModal isOpen={isPrintModalOpen} onClose={() => setIsPrintModalOpen(false)} onConfirm={handlePrintConfirm} />
       <AdHocFoodModal isOpen={isAdHocModalOpen} onClose={() => setIsAdHocModalOpen(false)} />
       <SafeExitModal isOpen={showExitModal} onCancel={() => setShowExitModal(false)} onDiscard={handleExitDiscard} onSave={handleExitSave} />
-      <TripFinanceModal isOpen={isFinanceModalOpen} onClose={() => setIsFinanceModalOpen(false)} /> 
+      
+      {/* HIER ÜBERGEBEN WIR DAS VIEW-MODE, DAMIT DIE KARTE UMSCHALTEN KANN */}
+      <TripFinanceModal isOpen={isFinanceModalOpen} onClose={() => setIsFinanceModalOpen(false)} setViewMode={setViewMode} /> 
       
       <InfoModal 
         isOpen={showManualModal} 
