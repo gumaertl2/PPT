@@ -1,0 +1,76 @@
+/* 19.03.2026 11:00 - FIX: Changed 'page-break-inside' from 'avoid' to 'auto' on section containers. Forcing 'avoid' on massive multi-page sections caused Safari/Chrome to panic and drop the rest of the document! */
+/* 19.03.2026 10:00 - FIX: Removed obsolete 'VIEW-KILLER' rules for .sights-view-root. */
+/* src/index.css */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-slate-50 text-slate-900;
+}
+
+/* --- PRINT RULES (WYSIWYG) --- */
+@media print {
+  /* 1. Reset Page & Root */
+  @page {
+    margin: 1.5cm;
+    size: A4;
+  }
+
+  html, body, #root {
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* 2. KILL-SWITCH: Globale UI-Elemente entfernen */
+  header, 
+  footer, 
+  nav, 
+  aside, 
+  .sticky, 
+  .fixed, 
+  .no-print, 
+  [role="dialog"], 
+  button {
+    display: none !important;
+  }
+
+  /* 3. Layout-Reset für Sections */
+  section, .print-section {
+    page-break-inside: auto !important; /* WICHTIG: Darf niemals 'avoid' sein, sonst bricht der Druck ab! */
+    page-break-after: auto;
+    margin-bottom: 2rem;
+    display: block !important;
+  }
+
+  h1, h2, h3 {
+    page-break-after: avoid;
+    page-break-inside: avoid;
+    color: #000 !important;
+  }
+
+  /* 4. Styling-Fixes */
+  .print-container .bg-white {
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+    margin-bottom: 1rem !important;
+    page-break-inside: avoid !important;
+  }
+  
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Scroll-Container im Druck aufbrechen */
+  .overflow-y-auto, .overflow-x-auto {
+    overflow: visible !important;
+    height: auto !important;
+  }
+}
+/* --- END OF FILE 71 Zeilen --- */

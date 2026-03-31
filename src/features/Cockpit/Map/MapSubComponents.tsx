@@ -1,0 +1,420 @@
+// 21.03.2026 19:15 - FEAT: Added tab-navigation (Categories, Tours, Days) to the MapLegend, allowing users to filter the interactive map directly by planned days or suggested tours.
+// 28.02.2026 13:40 - FIX: MapResizer now triggers invalidateSize on viewMode changes to prevent half-rendered or shifted maps.
+// 28.02.2026 13:25 - FIX: Added strict minZoom (10) and maxZoom (16) constraints when offline to prevent gray map areas.
+// 28.02.2026 12:15 - I18N: Translated static legend items and GPS marker popup.
+// 28.02.2026 10:55 - I18N: Added full translation support to MapLegend categories using INTEREST_DATA.
+// 27.02.2026 10:55 - FIX: Added L.DomEvent propagation stoppers to MapLegend to fix scrolling issues on mobile/iPhone.
+// 27.02.2026 10:45 - FIX: Removed unused 'DAY_COLORS' import to resolve TS6133 Vercel build error (again).
+// 27.02.2026 10:25 - FEAT: Added interactive category filtering directly from the MapLegend.
+// src/features/Cockpit/Map/MapSubComponents.tsx
+
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useMap, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
+import { useTripStore } from '../../../store/useTripStore';
+import { MapOfflineService } from '../../../services/MapOfflineService';
+import type { Place } from '../../../core/types/models';
+import type { LanguageCode } from '../../../core/types';
+import { INTEREST_DATA } from '../../../data/interests';
+import { MAP_LAYERS, getCategoryColor } from './MapConstants';
+import { List, ChevronDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+
+export const MapStyles = () => (
+  <style>{`
+    @keyframes pulse-black {
+      0% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.7); transform: scale(1); }
+      70% { box-shadow: 0 0 0 12px rgba(0, 0, 0, 0); transform: scale(1.1); }
+      100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); transform: scale(1); }
+    }
+    .marker-pulse > div {
+      animation: pulse-black 1.5s infinite;
+      z-index: 9999 !important;
+    }
+    @keyframes pulse-blue {
+      0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); transform: scale(1); }
+      70% { box-shadow: 0 0 0 15px rgba(59, 130, 246, 0); transform: scale(1.1); }
+      100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); transform: scale(1); }
+    }
+    .user-pulse > div {
+      animation: pulse-blue 1.5s infinite;
+      z-index: 10000 !important;
+    }
+    .leaflet-container { z-index: 1; }
+    .leaflet-tooltip.custom-tooltip {
+       background-color: rgba(255, 255, 255, 0.95);
+       border: 1px solid #e2e8f0;
+       border-radius: 8px;
+       box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+       color: #1e293b;
+       font-weight: 700;
+       padding: 4px 8px;
+    }
+    .leaflet-tooltip-top.custom-tooltip::before { border-top-color: rgba(255, 255, 255, 0.95); }
+  `}</style>
+);
+
+export const MapLogic: React.FC<{ places: Place[] }> = ({ places }) => {
+  const map = useMap();
+  const { uiState } = useTripStore(); 
+  const isInitialized = useRef(false);
+  const lastSelectedId = useRef<string | null>(uiState.selectedPlaceId);
+
+  useEffect(() => {
+    const isOffline = uiState.mapMode === 'offline';
+    const activeLayer = MAP_LAYERS[uiState.mapLayer as keyof typeof MAP_LAYERS] || MAP_LAYERS['standard'];
+    
+    if (isOffline) {
+        map.setMinZoom(10);
+        map.setMaxZoom(16);
+        
+        if (map.getZoom() < 10) {
+            map.setZoom(10, { animate: true });
+        }
+    } else {
+        map.setMinZoom(3);
+        map.setMaxZoom(activeLayer.maxZoom);
+    }
+  }, [uiState.mapMode, uiState.mapLayer, map]);
+
+  useEffect(() => {
+    const validPlaces = places.filter(p => p.location?.lat && p.location?.lng);
+    if (validPlaces.length === 0) return;
+
+    const currentId = uiState.selectedPlaceId;
+    const currentPlace = currentId ? validPlaces.find(p => p.id === currentId) : null;
+
+    if (!isInitialized.current) {
+        if (currentPlace && currentPlace.location) {
+            map.setView([currentPlace.location.lat, currentPlace.location.lng], 12, { animate: false });
+        } else {
+            const bounds = L.latLngBounds(validPlaces.map(p => [p.location!.lat, p.location!.lng]));
+            if (bounds.isValid()) map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
+        }
+        isInitialized.current = true;
+    } 
+    else {
+        if (lastSelectedId.current && !currentId) {
+            const bounds = L.latLngBounds(validPlaces.map(p => [p.location!.lat, p.location!.lng]));
+            if (bounds.isValid()) map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
+        }
+    }
+    lastSelectedId.current = currentId;
+  }, [places, uiState.selectedPlaceId, map]);
+
+  return null;
+};
+
+export const MapResizer: React.FC<{ isFullscreen: boolean }> = ({ isFullscreen }) => {
+    const map = useMap();
+    const { uiState } = useTripStore();
+
+    useEffect(() => {
+        const timer1 = setTimeout(() => map.invalidateSize(), 50);
+        const timer2 = setTimeout(() => map.invalidateSize(), 300);
+        const timer3 = setTimeout(() => map.invalidateSize(), 600);
+        
+        return () => { 
+            clearTimeout(timer1); 
+            clearTimeout(timer2); 
+            clearTimeout(timer3);
+        };
+    }, [isFullscreen, uiState.viewMode, map]);
+    
+    return null;
+};
+
+export const UserLocationMarker: React.FC<{ location: [number, number] | null }> = ({ location }) => {
+    const { t } = useTranslation();
+    const map = useMap();
+    useEffect(() => {
+        if (location) map.flyTo(location, 14, { animate: true, duration: 1.5 });
+    }, [location, map]);
+
+    if (!location) return null;
+
+    const userIcon = L.divIcon({
+        className: 'custom-map-marker user-pulse',
+        html: `<div style="background-color: #3b82f6; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4);"></div>`,
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+        popupAnchor: [0, -10]
+    });
+
+    return (
+        <Marker position={location} icon={userIcon} zIndexOffset={9999}>
+            <Popup><div className="text-xs font-bold text-blue-600 p-1">{t('map.current_location', 'Mein aktueller Standort')}</div></Popup>
+        </Marker>
+    );
+};
+
+export const OfflineTileLayer = () => {
+    const { uiState } = useTripStore();
+    const { mapMode, mapLayer } = uiState;
+    const map = useMap();
+
+    useEffect(() => {
+        const layerConfig = MAP_LAYERS[mapLayer as keyof typeof MAP_LAYERS] || MAP_LAYERS['standard'];
+        const url = layerConfig.url;
+
+        const ExtendedLayer = L.TileLayer.extend({
+            createTile: function(coords: L.Coords, done: L.DoneCallback) {
+                const tile = document.createElement('img');
+                const key = `${mapLayer}/${coords.z}/${coords.x}/${coords.y}`;
+
+                L.DomEvent.on(tile, 'load', L.Util.bind((this as any)._tileOnLoad, this, done, tile));
+                L.DomEvent.on(tile, 'error', L.Util.bind((this as any)._tileOnError, this, done, tile));
+
+                if ((this as any).options.crossOrigin || (this as any).options.crossOrigin === "") {
+                    tile.crossOrigin = (this as any).options.crossOrigin === true ? "" : (this as any).options.crossOrigin;
+                }
+                tile.alt = "";
+                tile.setAttribute('role', 'presentation');
+
+                MapOfflineService.getTile(key).then(blob => {
+                    if (blob) {
+                        tile.src = URL.createObjectURL(blob);
+                    } else if (mapMode === 'offline') {
+                        tile.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAAEAAQMAAABmvDolAAAAA1BMVEW1tbW6T9UMAAAAH0lEQVRoQ+3BAQ0AAADCoPdPbQ43oAAAAAAAAAAAAIAvAxaAAGE6fS8AAAAASUVORK5CYII=';
+                    } else {
+                        tile.src = (this as any).getTileUrl(coords);
+                    }
+                });
+                return tile;
+            }
+        });
+
+        const layer = new (ExtendedLayer as any)(url, {
+            attribution: layerConfig.attribution,
+            maxZoom: layerConfig.maxZoom
+        });
+
+        layer.addTo(map);
+        return () => { map.removeLayer(layer); };
+    }, [mapMode, mapLayer, map]);
+
+    return null;
+};
+
+export const MapLegend: React.FC<{ places: Place[] }> = ({ places }) => {
+  const { t, i18n } = useTranslation();
+  const currentLang = i18n.language.substring(0, 2) as LanguageCode;
+  
+  const { project, uiState, setUIState } = useTripStore();
+  const [isOpen, setIsOpen] = useState(false);
+  const legendRef = useRef<HTMLDivElement>(null);
+
+  const [legendMode, setLegendMode] = useState<'category' | 'tour' | 'day'>('category');
+
+  useEffect(() => {
+      if (['category', 'tour', 'day'].includes(uiState.sortMode || '')) {
+          setLegendMode(uiState.sortMode as any);
+      }
+  }, [uiState.sortMode]);
+
+  useEffect(() => {
+    if (isOpen && legendRef.current) {
+        L.DomEvent.disableClickPropagation(legendRef.current);
+        L.DomEvent.disableScrollPropagation(legendRef.current);
+    }
+  }, [isOpen]);
+
+  const categories = useMemo(() => {
+    const cats = new Set<string>();
+    places.forEach(p => {
+      const c = p.category || 'general';
+      cats.add(c);
+    });
+    return Array.from(cats).sort();
+  }, [places]);
+
+  const days = useMemo(() => {
+      if (!project.itinerary?.days) return [];
+      return project.itinerary.days.map((_, i) => i + 1);
+  }, [project.itinerary]);
+
+  const tours = useMemo(() => {
+      const tourGuide = (project.analysis as any)?.tourGuide;
+      const tList = (tourGuide?.guide?.tours || []) as any[];
+      return tList.map(t => t.tour_title || "Tour");
+  }, [project.analysis]);
+
+  const activeFilters = uiState.categoryFilter || [];
+
+  const handleFilterClick = (item: string, mode: 'category' | 'tour' | 'day', e: React.MouseEvent) => {
+    e.stopPropagation();
+    let newFilter: string[] = [];
+    if (uiState.sortMode === mode) {
+        if (activeFilters.length === 0) {
+            newFilter = [item];
+        } else if (activeFilters.includes(item)) {
+            newFilter = activeFilters.filter(c => c !== item);
+        } else {
+            newFilter = [...activeFilters, item];
+        }
+    } else {
+        newFilter = [item];
+    }
+    setUIState({ sortMode: mode, categoryFilter: newFilter });
+  };
+
+  const handleTabSwitch = (mode: 'category' | 'tour' | 'day', e: React.MouseEvent) => {
+      e.stopPropagation();
+      setLegendMode(mode);
+      if (uiState.sortMode !== mode) {
+          setUIState({ sortMode: mode, categoryFilter: [] });
+      }
+  };
+
+  const resolveCategoryLabel = (catId: string): string => {
+    if (!catId) return "";
+    const def = INTEREST_DATA[catId];
+    if (def && def.label) {
+        return (def.label as any)[currentLang] || (def.label as any)['de'] || catId;
+    }
+    if (catId === 'hotel') return t('interests.hotel', { defaultValue: 'Hotels' });
+    return catId.charAt(0).toUpperCase() + catId.slice(1).replace(/_/g, ' ');
+  };
+
+  if (categories.length === 0 && days.length === 0 && tours.length === 0) return null;
+
+  if (!isOpen) {
+    return (
+      <button 
+        onClick={(e) => { e.stopPropagation(); setIsOpen(true); }}
+        className="absolute left-4 bottom-6 z-[500] bg-white/95 backdrop-blur-sm px-3 py-2 rounded-xl border border-slate-200 shadow-lg text-xs font-bold text-slate-700 flex items-center gap-2 hover:bg-blue-50 hover:text-blue-600 transition-all"
+        title={t('map.show_legend', { defaultValue: 'Legende einblenden' })}
+      >
+        <List className="w-4 h-4" /> {t('map.legend', { defaultValue: 'Legende' })}
+        {activeFilters.length > 0 && (
+            <span className="bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded-full shadow-sm">{activeFilters.length}</span>
+        )}
+      </button>
+    );
+  }
+
+  return (
+    <div 
+      ref={legendRef} 
+      className={`absolute left-4 z-[500] bg-white/95 backdrop-blur-sm p-3 rounded-xl border border-slate-200 shadow-xl max-h-[350px] overflow-hidden bottom-6 flex flex-col min-w-[220px]`}
+    >
+      <div className="flex items-center justify-between mb-2 pb-1 z-20 border-b border-slate-100 shrink-0">
+          <div className="flex items-center gap-2">
+              <h4 className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">{t('map.legend', { defaultValue: 'Legende' })}</h4>
+              {activeFilters.length > 0 && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setUIState({ categoryFilter: [] }); }}
+                    className="text-[9px] text-blue-500 hover:text-blue-700 hover:underline font-bold transition-colors"
+                  >
+                      ({t('sights.reset_filter', { defaultValue: 'Alle anzeigen' })})
+                  </button>
+              )}
+          </div>
+          <button 
+              onClick={(e) => { e.stopPropagation(); setIsOpen(false); }}
+              className="p-1 hover:bg-slate-200 rounded-full transition-colors text-slate-500"
+              title={t('map.hide_legend', { defaultValue: 'Legende ausblenden' })}
+          >
+              <ChevronDown className="w-4 h-4" />
+          </button>
+      </div>
+
+      <div className="flex bg-slate-100 rounded-lg p-0.5 mb-2 shrink-0">
+          <button 
+              onClick={(e) => handleTabSwitch('category', e)}
+              className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-all ${legendMode === 'category' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+              {t('sights.categories', { defaultValue: 'Kategorien' })}
+          </button>
+          {tours.length > 0 && (
+              <button 
+                  onClick={(e) => handleTabSwitch('tour', e)}
+                  className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-all ${legendMode === 'tour' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                  {t('sights.tour', { defaultValue: 'Touren' })}
+              </button>
+          )}
+          {days.length > 0 && (
+              <button 
+                  onClick={(e) => handleTabSwitch('day', e)}
+                  className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-all ${legendMode === 'day' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                  {t('sights.day', { defaultValue: 'Tage' })}
+              </button>
+          )}
+      </div>
+
+      <div className="space-y-0.5 overflow-y-auto flex-1 min-h-[50px] custom-scrollbar pr-1">
+        {legendMode === 'category' && categories.map(cat => {
+          const isActive = uiState.sortMode === 'category' && activeFilters.length > 0 ? activeFilters.includes(cat) : true;
+          return (
+              <button
+                key={cat}
+                onClick={(e) => handleFilterClick(cat, 'category', e)}
+                className={`flex items-center gap-2 w-full text-left hover:bg-slate-50 p-1.5 -mx-1 rounded transition-all ${isActive ? 'opacity-100' : 'opacity-40 grayscale'}`}
+              >
+                <div 
+                  className="w-3 h-3 rounded border border-white shadow-sm shrink-0" 
+                  style={{ backgroundColor: getCategoryColor(cat) }}
+                ></div>
+                <span className="text-xs font-medium text-slate-700 capitalize truncate max-w-[150px]" title={cat}>
+                   {resolveCategoryLabel(cat)}
+                </span>
+              </button>
+          )
+        })}
+
+        {legendMode === 'tour' && tours.map((tourTitle, idx) => {
+          const isActive = uiState.sortMode === 'tour' && activeFilters.length > 0 ? activeFilters.includes(tourTitle) : true;
+          return (
+              <button
+                key={idx}
+                onClick={(e) => handleFilterClick(tourTitle, 'tour', e)}
+                className={`flex items-center gap-2 w-full text-left hover:bg-slate-50 p-1.5 -mx-1 rounded transition-all ${isActive ? 'opacity-100' : 'opacity-40 grayscale'}`}
+              >
+                <div className="w-3 h-3 rounded-full bg-blue-500 border border-white shadow-sm shrink-0"></div>
+                <span className="text-xs font-medium text-slate-700 truncate max-w-[150px]" title={tourTitle}>
+                   {tourTitle}
+                </span>
+              </button>
+          )
+        })}
+
+        {legendMode === 'day' && days.map(dayNum => {
+          const dayLabel = `${t('sights.day', {defaultValue: 'Tag'})} ${dayNum}`;
+          const isActive = uiState.sortMode === 'day' && activeFilters.length > 0 ? activeFilters.includes(dayLabel) : true;
+          return (
+              <button
+                key={dayNum}
+                onClick={(e) => handleFilterClick(dayLabel, 'day', e)}
+                className={`flex items-center gap-2 w-full text-left hover:bg-slate-50 p-1.5 -mx-1 rounded transition-all ${isActive ? 'opacity-100' : 'opacity-40 grayscale'}`}
+              >
+                <div className="w-4 h-4 rounded bg-slate-200 text-[9px] font-bold flex items-center justify-center text-slate-600 shrink-0 shadow-sm">
+                    {dayNum}
+                </div>
+                <span className="text-xs font-medium text-slate-700 truncate max-w-[150px]" title={dayLabel}>
+                   {dayLabel}
+                </span>
+              </button>
+          )
+        })}
+      </div>
+
+      <div className="mt-2 pt-2 border-t border-slate-200 space-y-1.5 pointer-events-none shrink-0 z-10">
+          <div className="flex items-center gap-2 mb-1 px-0.5">
+              <div className="w-3 h-3 rounded-full border border-slate-400 bg-slate-100 shadow-sm flex items-center justify-center"></div>
+              <span className="text-[10px] text-slate-500 font-bold leading-tight">{t('map.legend_prio', 'Hohe Prio (Kreis)')}</span>
+          </div>
+          <div className="flex items-center gap-2 mb-1 px-0.5">
+              <div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-sm text-[8px] text-white flex items-center justify-center font-bold">1</div>
+              <span className="text-[10px] text-slate-500 font-bold leading-tight">{t('map.legend_planned', 'Geplant (Tag 1)')}</span>
+          </div>
+          <div className="flex items-center gap-2 px-0.5">
+              <div className="w-4 h-4 rounded-md bg-slate-900 border-2 border-white shadow-sm text-[10px] flex items-center justify-center">🏨</div>
+              <span className="text-[10px] text-slate-500 font-bold leading-tight">{t('map.legend_hotel', 'Unterkunft')}</span>
+          </div>
+      </div>
+    </div>
+  );
+};
+// --- END OF FILE 373 Zeilen ---
