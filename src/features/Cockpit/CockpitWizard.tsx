@@ -1,5 +1,5 @@
-// 21.03.2026 22:30 - FIX: Relaxed validation for TravelerStep (Step 2); origin is no longer mandatory to mark the step as completed.
-// 21.03.2026 22:00 - UX: Added directional arrows to the step indicator line and a dynamic "Next Step" button.
+// 21.03.2026 23:00 - FIX: Prevented the app from jumping to SightsView when 'routeArchitect' was selected in WorkflowModal. It now correctly jumps to the RouteReviewView.
+// 21.03.2026 22:30 - FIX: Relaxed validation for TravelerStep (Step 2).
 // src/features/Cockpit/CockpitWizard.tsx
 
 import { useState, useEffect } from 'react';
@@ -157,7 +157,15 @@ export const CockpitWizard = () => {
       setWorkflowModalOpen(false); 
       if (selectedSteps.length > 0) {
           await startWorkflow(selectedSteps, options); 
-          setViewMode('sights');
+          
+          // FIX: Wenn die Route generiert wurde, MUSS die App zur Routenansicht springen,
+          // damit der Nutzer sie bestätigen kann!
+          if (selectedSteps.includes('routeArchitect')) {
+              setViewMode('routeArchitect');
+          } else {
+              setViewMode('sights');
+          }
+          
           window.scrollTo({ top: 0, behavior: 'smooth' });
       }
   };
@@ -198,7 +206,6 @@ export const CockpitWizard = () => {
           ? (!!logistics.stationary.region || !!logistics.stationary.destination) 
           : !!logistics.roundtrip.region;
       case 1: 
-        // FIX: origin is no longer mandatory for completing this step.
         return travelers.adults > 0;
       case 2: return selectedInterests.length > 0;
       case 3: return dates.fixedEvents.some(e => e.title && e.title.trim() !== '');
@@ -373,4 +380,4 @@ export const CockpitWizard = () => {
     </div>
   );
 };
-// --- END OF FILE 314 Zeilen ---
+// --- END OF FILE 320 Zeilen ---

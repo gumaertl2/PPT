@@ -1,5 +1,5 @@
+// 21.03.2026 23:00 - UX: Added explicit "Regenerate" button to the empty state screen so users can fix missing or broken route data without navigating through the WorkflowModal.
 // 20.01.2026 19:40 - FIX: Verified RouteReviewView migration to V40 English Keys.
-// 06.02.2026 17:45 - FIX: Pass 'countryContext' to Google Maps to prevent ambiguous routing (e.g. Galle -> Germany).
 // src/features/Cockpit/RouteReviewView.tsx
 
 import React, { useState, useEffect } from 'react';
@@ -28,27 +28,22 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
   const { project, updateLogistics, addNotification } = useTripStore();
   const { startSingleTask, status } = useTripGeneration();
 
-  // ROUTE DATA (V40 English Key: routes)
   const routeResult = project.analysis.routeArchitect;
   const proposals = routeResult?.routes || [];
 
-  // STATE
   const [selectedRouteIndex, setSelectedRouteIndex] = useState<number | null>(null);
   const [keptRouteIndices, setKeptRouteIndices] = useState<Set<number>>(new Set());
   const [feedback, setFeedback] = useState('');
     
   const [showItineraryModal, setShowItineraryModal] = useState(false);
 
-  // --- 0. AUTO-SELECT ---
   useEffect(() => {
     const currentStops = project.userInputs.logistics.roundtrip?.stops;
     if (!currentStops || currentStops.length === 0 || proposals.length === 0) return;
 
-    // Vergleich basierend auf Locations
     const currentLocations = currentStops.map(s => s.location).sort().join('|');
 
     const matchingIndex = proposals.findIndex(p => {
-        // V40: stages ist ein Array von Objekten { location_name, nights }
         if (!p.stages) return false;
         const proposalStr = p.stages.map(s => s.location_name).sort().join('|');
         return proposalStr === currentLocations;
@@ -58,9 +53,6 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
         setSelectedRouteIndex(matchingIndex);
     }
   }, [project.userInputs.logistics.roundtrip, proposals]);
-
-
-  // --- ACTIONS ---
 
   const handleToggleKeep = (index: number) => {
     const newSet = new Set(keptRouteIndices);
@@ -82,7 +74,6 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
     const selectedRoute = proposals[selectedRouteIndex];
     if (!selectedRoute || !selectedRoute.stages) return;
 
-    // 1. Convert V40 Stages to RouteStop Format
     const stops = selectedRoute.stages.map((item, i) => ({
       id: `stop-${Date.now()}-${i}`,
       location: item.location_name,
@@ -90,12 +81,10 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
       hotel: undefined 
     }));
 
-    // 2. Update Store
     updateLogistics('roundtrip', {
       stops: stops,
     });
 
-    // 3. Open Itinerary Modal
     setShowItineraryModal(true);
   };
 
@@ -110,7 +99,6 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
       return;
     }
 
-    // 1. Prepare "Kept" Routes
     const keptRoutes = proposals.filter((_, i) => keptRouteIndices.has(i));
     const targetCount = keptRoutes.length + 2;
 
@@ -118,7 +106,6 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
         ? `\n\nKEEP THESE ROUTES EXACTLY AS IS:\n${JSON.stringify(keptRoutes, null, 2)}` 
         : "";
 
-    // V40 Prompt expects 'routes' key in JSON
     const fullFeedback = `User Feedback: "${feedback}"${keptBlock}\n\nTask: Generate a total of ${targetCount} route proposals. Include the "kept" routes unchanged. Generate exactly 2 NEW variations. The output must contain a 'routes' array.`;
 
     await startSingleTask('routeArchitect', fullFeedback);
@@ -128,14 +115,29 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
     setKeptRouteIndices(new Set());
   };
 
-
   // --- RENDER HELPERS ---
 
   if (!routeResult || proposals.length === 0) {
     return (
-      <div className="p-8 text-center text-gray-500">
-        <Info className="w-12 h-12 mx-auto mb-4 opacity-50" />
-        <p>{t('route.no_proposals', { defaultValue: 'Keine Routenvorschläge verfügbar.' })}</p>
+      <div className="p-10 text-center text-slate-500 flex flex-col items-center bg-white rounded-2xl shadow-sm border border-slate-200">
+        <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4">
+            <Navigation className="w-8 h-8 text-blue-500 opacity-80" />
+        </div>
+        <h3 className="text-lg font-bold text-slate-800 mb-2">
+            {t('route.no_proposals', { defaultValue: 'Keine Routenvorschläge verfügbar.' })}
+        </h3>
+        <p className="text-sm text-slate-500 mb-8 max-w-md">
+            Die KI hat für diese Reise noch keine Etappen generiert oder die Daten sind unvollständig. Klicke auf den Button, um den Routen-Architekten jetzt zu starten.
+        </p>
+        
+        <button 
+           onClick={() => startSingleTask('routeArchitect')}
+           disabled={status === 'generating'}
+           className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold shadow-md transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+        >
+           {status === 'generating' ? <RefreshCw className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
+           {status === 'generating' ? t('actions.analyzing', { defaultValue: 'Analysiere...' }) : t('actions.regenerate', { defaultValue: 'Routen neu generieren' })}
+        </button>
       </div>
     );
   }
@@ -145,7 +147,6 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
                    project.userInputs.logistics.roundtrip.region || 
                    "";
 
-  // FIX: Extract Country Context for Disambiguation
   const countryContext = project.userInputs.logistics.roundtrip.region || 
                          project.userInputs.logistics.target_countries?.[0] || 
                          "";
@@ -176,7 +177,6 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
                       </div>
                     </div>
                     <div>
-                      {/* V40 Key: title */}
                       <span className={`block text-lg font-bold ${selectedRouteIndex === i ? 'text-blue-700' : 'text-slate-800'}`}>
                         {route.title}
                       </span>
@@ -234,12 +234,10 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-slate-600">
                       <Navigation className="w-4 h-4" />
-                      {/* V40: total_km */}
                       <span>{r.total_km || '?'} km</span>
                     </div>
                     <div className="flex items-center gap-2 text-slate-600">
                       <Clock className="w-4 h-4" />
-                      {/* V40: total_drive_time */}
                       <span>~{r.total_drive_time || '?'} {t('unit.hours', { defaultValue: 'Std.' })}</span>
                     </div>
                   </div>
@@ -256,7 +254,6 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
                     ? [startLoc, ...stages.map(c => c.location_name), startLoc] 
                     : stages.map(c => c.location_name);
                 
-                // FIX: Pass countryContext to prevent ambiguity
                 const url = generateGoogleMapsRouteUrl(mapLocs, 'driving', countryContext);
 
                 return (
@@ -362,4 +359,4 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
     </div>
   );
 };
-// --- END OF FILE 336 Zeilen ---
+// --- END OF FILE 351 Zeilen ---
