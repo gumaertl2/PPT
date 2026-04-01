@@ -1,5 +1,5 @@
-// 21.03.2026 22:00 - UX: Added directional arrows to the step indicator line and a dynamic "Next Step" button at the bottom of the form to cure tab-blindness.
-// 18.03.2026 16:00 - FIX: Added `window.onafterprint` listener to reliably clean up the printConfig state.
+// 21.03.2026 22:30 - FIX: Relaxed validation for TravelerStep (Step 2); origin is no longer mandatory to mark the step as completed.
+// 21.03.2026 22:00 - UX: Added directional arrows to the step indicator line and a dynamic "Next Step" button.
 // src/features/Cockpit/CockpitWizard.tsx
 
 import { useState, useEffect } from 'react';
@@ -69,12 +69,10 @@ export const CockpitWizard = () => {
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
 
   useEffect(() => {
-      // Bereinige fehlerhafte States beim App-Start
       if (uiState.printConfig) {
           setUIState({ printConfig: null as any });
       }
 
-      // SAUBERER APPLE-FIX: Wenn der Safari/Browser meldet "Druckdialog geschlossen", räumen wir auf.
       const handleAfterPrint = () => {
           setUIState({ printConfig: null as any });
       };
@@ -199,7 +197,9 @@ export const CockpitWizard = () => {
         return logistics.mode === 'stationaer' 
           ? (!!logistics.stationary.region || !!logistics.stationary.destination) 
           : !!logistics.roundtrip.region;
-      case 1: return travelers.adults > 0 && travelers.origin.trim().length > 0;
+      case 1: 
+        // FIX: origin is no longer mandatory for completing this step.
+        return travelers.adults > 0;
       case 2: return selectedInterests.length > 0;
       case 3: return dates.fixedEvents.some(e => e.title && e.title.trim() !== '');
       case 4: return !!notes || !!customPreferences['noGos'];
@@ -214,7 +214,6 @@ export const CockpitWizard = () => {
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-24">
       {uiState.printConfig ? (
           <div className="bg-white w-full min-h-screen">
-              {/* SICHERHEITSNETZ: Manueller Abbruch-Button für Safari */}
               <div className="p-8 flex flex-col items-center justify-center print:hidden">
                   <div className="text-blue-600 font-bold animate-pulse mb-4">
                       {t('print.generating_pdf', { defaultValue: 'PDF wird aufgebaut... Karten werden geladen...' })}
@@ -253,7 +252,6 @@ export const CockpitWizard = () => {
                       
                       return (
                         <div key={step.id} className="flex flex-col items-center relative group min-w-[70px]">
-                            {/* LINIE MIT PFEIL ZUM NÄCHSTEN KREIS */}
                             {index < STEPS.length - 1 && (
                               <div className={`absolute top-3.5 left-1/2 w-full h-0.5 -z-10 transition-colors duration-300 flex items-center justify-end ${
                                 (hasData || isActive) ? 'bg-blue-500 text-blue-500' : 'bg-slate-100 text-slate-200'
@@ -308,7 +306,6 @@ export const CockpitWizard = () => {
                       />
                   }
 
-                  {/* DYNAMISCHER WEITER-BUTTON UNTER DEM FORMULAR */}
                   {viewMode === 'wizard' && currentStep < STEPS.length - 1 && (
                       <div className="mt-10 flex justify-center no-print">
                           <button 
