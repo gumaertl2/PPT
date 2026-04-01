@@ -1,5 +1,4 @@
-// 21.03.2026 12:00 - UX: Added visual highlighting (amber background) to input fields when they are auto-corrected.
-// 21.03.2026 11:30 - UX/FIX: Added Toast-Notifications to silent auto-correction.
+// 22.03.2026 09:00 - UX: Applied "Deep Input" UX logic (inner shadow, focus rings, strong labels) to cure lack of affordance.
 // src/features/Cockpit/steps/LogisticsStep.tsx
 
 import { useEffect, useState } from 'react';
@@ -48,6 +47,11 @@ export const LogisticsStep = () => {
 
   // Highlight State für Auto-Korrektur
   const [highlightedField, setHighlightedField] = useState<'start' | 'end' | null>(null);
+
+  // UX-Klassen zentral definiert für perfekte Konsistenz
+  const LABEL_CLASS = "text-[10px] font-black text-blue-800/80 uppercase tracking-wider block mb-1.5";
+  const INPUT_CLASS = "w-full text-sm bg-white border border-slate-300 shadow-inner rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 hover:border-blue-400 transition-all placeholder:text-slate-300";
+  const INPUT_XS_CLASS = "w-full text-xs bg-white border border-slate-300 shadow-inner rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 hover:border-blue-400 transition-all placeholder:text-slate-300";
 
   const triggerHighlight = (field: 'start' | 'end') => {
     setHighlightedField(field);
@@ -188,31 +192,31 @@ export const LogisticsStep = () => {
 
             {dates.flexible ? (
                <div className="animate-fade-in">
-                  <label className="text-xs font-bold text-slate-500 block mb-1">{t('cockpit.duration_label', { defaultValue: 'Dauer (Tage)' })}</label>
+                  <label className={LABEL_CLASS}>{t('cockpit.duration_label', { defaultValue: 'Dauer (Tage)' })}</label>
                   <input
                     type="number"
-                    className="w-full text-sm border-slate-300 rounded-md"
+                    className={INPUT_CLASS}
                     value={dates.duration || 7}
                     onChange={(e) => setDates({ duration: parseInt(e.target.value) })}
                   />
                   <p className="text-[10px] text-slate-400 mt-2">{t('cockpit.ai_hint', { defaultValue: 'KI schlägt Zeitraum vor.' })}</p>
                </div>
             ) : (
-                <div className="grid grid-cols-2 gap-2 animate-fade-in">
+                <div className="grid grid-cols-2 gap-3 animate-fade-in">
                   <div>
-                      <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">{t('cockpit.date_from', { defaultValue: 'Von' })}</label>
+                      <label className={LABEL_CLASS}>{t('cockpit.date_from', { defaultValue: 'Von' })}</label>
                       <input
                         type="date"
-                        className={`w-full text-xs rounded-md transition-all duration-300 ${highlightedField === 'start' ? 'bg-amber-100 text-amber-900 font-bold border-amber-400 ring-2 ring-amber-400 shadow-inner' : 'border-slate-300'}`}
+                        className={`${INPUT_XS_CLASS} ${highlightedField === 'start' ? 'ring-2 ring-amber-400 border-amber-400 bg-amber-50' : ''}`}
                         value={dates.start}
                         onChange={(e) => handleStartDateChange(e.target.value)}
                       />
                   </div>
                   <div>
-                      <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">{t('cockpit.date_to', { defaultValue: 'Bis' })}</label>
+                      <label className={LABEL_CLASS}>{t('cockpit.date_to', { defaultValue: 'Bis' })}</label>
                       <input
                         type="date"
-                        className={`w-full text-xs rounded-md transition-all duration-300 ${highlightedField === 'end' ? 'bg-amber-100 text-amber-900 font-bold border-amber-400 ring-2 ring-amber-400 shadow-inner' : 'border-slate-300'}`}
+                        className={`${INPUT_XS_CLASS} ${highlightedField === 'end' ? 'ring-2 ring-amber-400 border-amber-400 bg-amber-50' : ''}`}
                         value={dates.end}
                         min={dates.start} 
                         onChange={(e) => handleEndDateChange(e.target.value)}
@@ -232,7 +236,7 @@ export const LogisticsStep = () => {
           <div className="space-y-3">
             <div>
                 <select
-                className="w-full text-xs border-slate-300 rounded-md"
+                className={`${INPUT_XS_CLASS} cursor-pointer`}
                 value={dates.arrival.type}
                 onChange={(e) => setArrival({ type: e.target.value as any })}
                 >
@@ -242,26 +246,26 @@ export const LogisticsStep = () => {
                 </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-3">
                 <div className="relative">
-                    <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">{t('cockpit.arrival_time', { defaultValue: 'Ankunft (Uhr)' })}</label>
+                    <label className={LABEL_CLASS}>{t('cockpit.arrival_time', { defaultValue: 'Ankunft (Uhr)' })}</label>
                     <div className="relative">
-                        <Clock className="w-3 h-3 absolute left-2 top-2 text-slate-400" />
+                        <Clock className="w-3 h-3 absolute left-2.5 top-2.5 text-blue-400 pointer-events-none" />
                         <input 
                             type="time" 
-                            className="w-full pl-6 text-xs border-slate-300 rounded-md"
+                            className={`${INPUT_XS_CLASS} pl-8`}
                             value={dates.arrival.time || ''}
                             onChange={(e) => setArrival({ time: e.target.value })}
                         />
                     </div>
                 </div>
                 <div>
-                      <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">{t('cockpit.departure_time', { defaultValue: 'Abreise (Uhr)' })}</label>
+                      <label className={LABEL_CLASS}>{t('cockpit.departure_time', { defaultValue: 'Abreise (Uhr)' })}</label>
                       <div className="relative">
-                        <Clock className="w-3 h-3 absolute left-2 top-2 text-slate-400" />
+                        <Clock className="w-3 h-3 absolute left-2.5 top-2.5 text-blue-400 pointer-events-none" />
                         <input 
                             type="time" 
-                            className="w-full pl-6 text-xs border-slate-300 rounded-md"
+                            className={`${INPUT_XS_CLASS} pl-8`}
                             value={dates.departure?.time || ''}
                             onChange={(e) => setDeparture({ time: e.target.value })}
                         />
@@ -271,9 +275,9 @@ export const LogisticsStep = () => {
           </div>
 
           <div className="mt-4 pt-4 border-t border-slate-100">
-             <label className="text-[10px] text-slate-400 uppercase font-bold block mb-2">{t('cockpit.local_mobility', { defaultValue: 'Mobilität vor Ort' })}</label>
+             <label className={LABEL_CLASS}>{t('cockpit.local_mobility', { defaultValue: 'Mobilität vor Ort' })}</label>
              <select
-                className="w-full text-xs border-slate-300 rounded-md bg-blue-50/50"
+                className={`${INPUT_XS_CLASS} bg-blue-50/30 cursor-pointer`}
                 value={logistics.localMobility || 'car'}
                 onChange={(e) => setProject({
                     ...project,
@@ -295,17 +299,17 @@ export const LogisticsStep = () => {
       </div>
 
       {/* LOGISTIK MODUS */}
-      <div className="bg-slate-100 p-1 rounded-lg flex shadow-inner">
+      <div className="bg-slate-200/60 p-1 rounded-xl flex shadow-inner">
         {Object.values(LOGISTIC_OPTIONS).map((option) => {
           const isActive = logistics.mode === option.id;
           return (
             <button
               key={option.id}
               onClick={() => setLogisticMode(option.id as 'stationaer' | 'mobil')}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+              className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${
                 isActive 
-                  ? 'bg-white text-blue-600 shadow-sm' 
-                  : 'text-slate-500 hover:text-slate-700'
+                  ? 'bg-white text-blue-600 shadow-md ring-1 ring-black/5' 
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
               }`}
             >
               {resolveLabel(option)}
@@ -320,34 +324,34 @@ export const LogisticsStep = () => {
         {logistics.mode === 'stationaer' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-bold text-slate-500 uppercase block mb-1">{t('cockpit.region_label', { defaultValue: 'Region' })}</label>
+              <label className={LABEL_CLASS}>{t('cockpit.region_label', { defaultValue: 'Region' })}</label>
               <input
                 type="text"
-                className="w-full text-sm border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                placeholder={t('cockpit.region_placeholder')}
+                className={INPUT_CLASS}
+                placeholder={t('cockpit.region_placeholder', { defaultValue: 'z.B. Tirol, Österreich' })}
                 value={logistics.stationary.region}
                 onChange={(e) => updateStationary({ region: e.target.value })}
               />
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-500 uppercase block mb-1">{t('cockpit.destination_label', { defaultValue: 'Ziel' })}</label>
+              <label className={LABEL_CLASS}>{t('cockpit.destination_label', { defaultValue: 'Ziel' })}</label>
               <input
                 type="text"
-                className="w-full text-sm border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                placeholder={t('cockpit.destination_placeholder')}
+                className={INPUT_CLASS}
+                placeholder={t('cockpit.destination_placeholder', { defaultValue: 'z.B. Innsbruck' })}
                 value={logistics.stationary.destination}
                 onChange={(e) => updateStationary({ destination: e.target.value })}
               />
             </div>
             
             <div>
-               <label className="text-[10px] text-slate-500 block font-bold mb-1 flex items-center gap-1">
-                 <Compass className="w-3 h-3"/> {t('cockpit.constraints_drive_day', { defaultValue: 'Max. Fahrzeit Ausflüge (h)' })}
+               <label className={LABEL_CLASS}>
+                 <span className="flex items-center gap-1.5"><Compass className="w-3.5 h-3.5"/> {t('cockpit.constraints_drive_day', { defaultValue: 'Max. Fahrzeit Ausflüge (h)' })}</span>
                </label>
                <input 
                   type="number"
                   placeholder="3"
-                  className="w-full text-xs border-slate-300 rounded"
+                  className={INPUT_XS_CLASS}
                   value={logistics.stationary.constraints?.maxDriveTimeDay ? logistics.stationary.constraints.maxDriveTimeDay / 60 : ''}
                   onChange={(e) => {
                       const val = parseFloat(e.target.value);
@@ -356,15 +360,18 @@ export const LogisticsStep = () => {
                       });
                   }}
                />
-               <span className="text-[9px] text-slate-400">{t('cockpit.constraints_drive_day_hint', { defaultValue: 'Hin & Zurück (Tageslimit)' })}</span>
+               <span className="text-[9px] text-slate-400 mt-1 block">{t('cockpit.constraints_drive_day_hint', { defaultValue: 'Hin & Zurück (Tageslimit)' })}</span>
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-500 uppercase block mb-1">{t('cockpit.hotel_label', { defaultValue: 'Hotel' })}</label>
+              <label className={`${LABEL_CLASS} flex items-center justify-between`}>
+                 <span>{t('cockpit.hotel_label', { defaultValue: 'Hotel' })}</span>
+                 <span className="text-[9px] text-slate-400 font-medium normal-case bg-slate-100 px-1.5 py-0.5 rounded">(Optional)</span>
+              </label>
               <input
                 type="text"
-                className="w-full text-sm border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                placeholder={t('cockpit.hotel_placeholder')}
+                className={INPUT_CLASS}
+                placeholder={t('cockpit.hotel_placeholder', { defaultValue: 'Name des Hotels (falls gebucht)' })}
                 value={resolveHotelName(logistics.stationary.hotel)}
                 onChange={(e) => updateStationary({ hotel: e.target.value })}
               />
@@ -375,45 +382,45 @@ export const LogisticsStep = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">{t('cockpit.roundtrip_region', { defaultValue: 'Region' })}</label>
+                <label className={LABEL_CLASS}>{t('cockpit.roundtrip_region', { defaultValue: 'Region' })}</label>
                 <input
                   type="text"
-                  placeholder={t('cockpit.roundtrip_region_placeholder')}
-                  className="w-full text-sm border-slate-300 rounded-md"
+                  placeholder={t('cockpit.roundtrip_region_placeholder', { defaultValue: 'z.B. Schottland' })}
+                  className={INPUT_CLASS}
                   value={logistics.roundtrip.region}
                   onChange={(e) => updateRoundtrip({ region: e.target.value })}
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">{t('cockpit.roundtrip_start', { defaultValue: 'Start' })}</label>
+                <label className={LABEL_CLASS}>{t('cockpit.roundtrip_start', { defaultValue: 'Start' })}</label>
                 <input
                   type="text"
-                  placeholder={t('cockpit.roundtrip_start_placeholder')}
-                  className="w-full text-sm border-slate-300 rounded-md"
+                  placeholder={t('cockpit.roundtrip_start_placeholder', { defaultValue: 'z.B. Edinburgh' })}
+                  className={INPUT_CLASS}
                   value={logistics.roundtrip.startLocation}
                   onChange={(e) => updateRoundtrip({ startLocation: e.target.value })}
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">{t('cockpit.roundtrip_end', { defaultValue: 'Ende' })}</label>
+                <label className={LABEL_CLASS}>{t('cockpit.roundtrip_end', { defaultValue: 'Ende' })}</label>
                 <input
                   type="text"
-                  placeholder={t('cockpit.roundtrip_end_placeholder')}
-                  className="w-full text-sm border-slate-300 rounded-md"
+                  placeholder={t('cockpit.roundtrip_end_placeholder', { defaultValue: 'z.B. Glasgow' })}
+                  className={INPUT_CLASS}
                   value={logistics.roundtrip.endLocation}
                   onChange={(e) => updateRoundtrip({ endLocation: e.target.value })}
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-3 rounded-lg border border-slate-100">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100 shadow-inner">
               
               <div>
-                 <label className="text-[10px] text-slate-500 block font-bold mb-1">{t('cockpit.constraints_drive_leg', { defaultValue: 'Max Fahrzeit (Etappe)' })}</label>
+                 <label className={LABEL_CLASS}>{t('cockpit.constraints_drive_leg', { defaultValue: 'Max Fahrzeit (Etappe)' })}</label>
                  <input 
                     type="number"
                     placeholder="h"
-                    className="w-full text-xs border-slate-300 rounded"
+                    className={INPUT_XS_CLASS}
                     value={logistics.roundtrip.constraints?.maxDriveTimeLeg ? logistics.roundtrip.constraints.maxDriveTimeLeg / 60 : ''}
                     onChange={(e) => {
                         const val = parseFloat(e.target.value);
@@ -425,11 +432,11 @@ export const LogisticsStep = () => {
               </div>
 
               <div>
-                 <label className="text-[10px] text-slate-500 block font-bold mb-1">{t('cockpit.constraints_drive_total', { defaultValue: 'Max Fahrzeit (Gesamt)' })}</label>
+                 <label className={LABEL_CLASS}>{t('cockpit.constraints_drive_total', { defaultValue: 'Max Fahrzeit (Gesamt)' })}</label>
                  <input 
                     type="number"
                     placeholder="h"
-                    className="w-full text-xs border-slate-300 rounded font-medium text-blue-600"
+                    className={`${INPUT_XS_CLASS} text-blue-700 font-bold`}
                     value={logistics.roundtrip.constraints?.maxDriveTimeTotal ? logistics.roundtrip.constraints.maxDriveTimeTotal / 60 : ''}
                     onChange={(e) => {
                         const val = parseFloat(e.target.value);
@@ -438,41 +445,41 @@ export const LogisticsStep = () => {
                         });
                     }}
                  />
-                 <span className="text-[9px] text-slate-400">{t('cockpit.auto_calc_total', { defaultValue: 'Auto-calc: (Tage-2)*3h' })}</span>
+                 <span className="text-[9px] text-slate-400 mt-1 block">{t('cockpit.auto_calc_total', { defaultValue: 'Auto-calc: (Tage-2)*3h' })}</span>
               </div>
 
               <div>
-                 <label className="text-[10px] text-slate-500 block font-bold mb-1">{t('cockpit.constraints_hotel_changes', { defaultValue: 'Max Hotelwechsel' })}</label>
+                 <label className={LABEL_CLASS}>{t('cockpit.constraints_hotel_changes', { defaultValue: 'Max Hotelwechsel' })}</label>
                  <input 
                     type="number"
                     placeholder="#"
-                    className="w-full text-xs border-slate-300 rounded font-medium text-blue-600"
+                    className={`${INPUT_XS_CLASS} text-blue-700 font-bold`}
                     value={logistics.roundtrip.constraints?.maxHotelChanges || ''}
                     onChange={(e) => updateRoundtrip({ 
                         constraints: { ...logistics.roundtrip.constraints, maxHotelChanges: parseInt(e.target.value) } 
                     })}
                  />
-                 <span className="text-[9px] text-slate-400">{t('cockpit.auto_calc_hotels', { defaultValue: 'Auto-calc: Tage/4' })}</span>
+                 <span className="text-[9px] text-slate-400 mt-1 block">{t('cockpit.auto_calc_hotels', { defaultValue: 'Auto-calc: Tage/4' })}</span>
               </div>
             </div>
 
             <div>
-              <div className="flex justify-between items-center mb-2">
-                <label className="text-xs font-bold text-slate-500 uppercase">{t('cockpit.stops_label', { defaultValue: 'Stationen' })}</label>
+              <div className="flex justify-between items-center mb-3">
+                <label className="text-xs font-black text-slate-700 uppercase tracking-wide">{t('cockpit.stops_label', { defaultValue: 'Stationen' })}</label>
                 
-                <div className="flex bg-slate-100 rounded p-0.5">
+                <div className="flex bg-slate-100 rounded-lg p-0.5 shadow-inner">
                    <button 
                      onClick={() => setRoundtripOptions({ strictRoute: true })}
-                     className={`text-[10px] px-2 py-0.5 rounded ${
-                       isStrictRoute ? 'bg-white shadow text-blue-600' : 'text-slate-400'
+                     className={`text-[10px] px-3 py-1 font-bold rounded-md transition-all ${
+                       isStrictRoute ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'
                      }`}
                    >
                      {t('cockpit.mode_fix', { defaultValue: 'Fix' })}
                    </button>
                    <button 
                      onClick={() => setRoundtripOptions({ strictRoute: false })}
-                     className={`text-[10px] px-2 py-0.5 rounded ${
-                       !isStrictRoute ? 'bg-white shadow text-blue-600' : 'text-slate-400'
+                     className={`text-[10px] px-3 py-1 font-bold rounded-md transition-all ${
+                       !isStrictRoute ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'
                      }`}
                    >
                      {t('cockpit.mode_inspiration', { defaultValue: 'Inspiration' })}
@@ -482,42 +489,42 @@ export const LogisticsStep = () => {
 
               <div className="space-y-2">
                 {logistics.roundtrip.stops.map((stop, index) => (
-                  <div key={stop.id} className="flex gap-2 items-center bg-slate-50 p-2 rounded border border-slate-100">
-                    <span className="text-xs font-bold text-slate-400 w-4">{index + 1}.</span>
+                  <div key={stop.id} className="flex gap-2 items-center bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                    <span className="text-xs font-black text-slate-400 w-5 text-center">{index + 1}.</span>
                     <input
                       type="text"
                       placeholder={t('cockpit.destination_label', { defaultValue: 'Ziel' })}
-                      className="flex-1 text-xs border-slate-300 rounded"
+                      className={`${INPUT_XS_CLASS} flex-1`}
                       value={stop.location}
                       onChange={(e) => updateRouteStop(stop.id, { location: e.target.value })}
                     />
                     <input
                       type="text"
                       placeholder={t('cockpit.hotel_label', { defaultValue: 'Hotel' })}
-                      className="flex-1 text-xs border-slate-300 rounded"
+                      className={`${INPUT_XS_CLASS} flex-1`}
                       value={resolveHotelName(stop.hotel)}
                       onChange={(e) => updateRouteStop(stop.id, { hotel: e.target.value })}
                     />
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5">
                         <input
                             type="number"
                             placeholder="-"
-                            className="w-10 text-xs border-slate-300 rounded text-center"
+                            className={`${INPUT_XS_CLASS} w-12 text-center`}
                             value={stop.duration || ''}
                             onChange={(e) => updateRouteStop(stop.id, { duration: parseInt(e.target.value) })}
                         />
-                        <span className="text-[10px] text-slate-500">{t('cockpit.nights', { defaultValue: 'Nächte' })}</span>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">{t('cockpit.nights', { defaultValue: 'Nächte' })}</span>
                     </div>
-                    <button onClick={() => removeRouteStop(stop.id)} className="text-slate-300 hover:text-red-500">
-                      <Trash2 className="w-3.5 h-3.5" />
+                    <button onClick={() => removeRouteStop(stop.id)} className="text-slate-300 hover:text-red-500 p-1">
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 ))}
                 <button
                   onClick={addRouteStop}
-                  className="w-full py-1.5 border border-dashed border-slate-300 text-slate-500 text-xs rounded hover:bg-slate-50 hover:border-blue-300 hover:text-blue-600 flex items-center justify-center gap-1"
+                  className="w-full py-2.5 border-2 border-dashed border-slate-200 text-slate-500 text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-slate-50 hover:border-blue-300 hover:text-blue-600 flex items-center justify-center gap-2 transition-colors"
                 >
-                  <Plus className="w-3 h-3" /> {t('cockpit.add_stop', { defaultValue: 'Station hinzufügen' })}
+                  <Plus className="w-4 h-4" /> {t('cockpit.add_stop', { defaultValue: 'Station hinzufügen' })}
                 </button>
               </div>
             </div>
