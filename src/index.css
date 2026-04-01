@@ -1,5 +1,5 @@
-/* 19.03.2026 11:00 - FIX: Changed 'page-break-inside' from 'avoid' to 'auto' on section containers. Forcing 'avoid' on massive multi-page sections caused Safari/Chrome to panic and drop the rest of the document! */
-/* 19.03.2026 10:00 - FIX: Removed obsolete 'VIEW-KILLER' rules for .sights-view-root. */
+/* 21.03.2026 22:00 - UX: Added global CSS fix to make Windows Date/Time pickers behave like Mac/iOS (hidden icon, click anywhere to open). */
+/* 19.03.2026 11:00 - FIX: Changed 'page-break-inside' from 'avoid' to 'auto' on section containers. */
 /* src/index.css */
 
 @tailwind base;
@@ -8,6 +8,26 @@
 
 body {
   @apply bg-slate-50 text-slate-900;
+}
+
+/* --- UX FIX: WINDOWS DATE/TIME PICKER BEHAVIOR --- */
+/* Versteckt das winzige Windows-Kalender-Icon am rechten Rand und legt es unsichtbar über das komplette Feld. Dadurch öffnet sich der Kalender, egal wo man in das Feld klickt (Mac-Verhalten). */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+    background: transparent;
+    bottom: 0;
+    color: transparent;
+    cursor: pointer;
+    height: auto;
+    left: 0;
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: auto;
+}
+input[type="date"],
+input[type="time"] {
+    position: relative;
 }
 
 /* --- PRINT RULES (WYSIWYG) --- */
@@ -73,4 +93,4 @@ body {
     height: auto !important;
   }
 }
-/* --- END OF FILE 71 Zeilen --- */
+/* --- END OF FILE 95 Zeilen --- */

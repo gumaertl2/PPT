@@ -1,5 +1,5 @@
-// 18.03.2026 16:00 - FIX: Added `window.onafterprint` listener to reliably clean up the printConfig state only AFTER the browser finishes processing the PDF. Added a manual fallback button to prevent app lock-ins.
-// 18.03.2026 15:30 - HOTFIX: Startup cleanup logic.
+// 21.03.2026 22:00 - UX: Added directional arrows to the step indicator line and a dynamic "Next Step" button at the bottom of the form to cure tab-blindness.
+// 18.03.2026 16:00 - FIX: Added `window.onafterprint` listener to reliably clean up the printConfig state.
 // src/features/Cockpit/CockpitWizard.tsx
 
 import { useState, useEffect } from 'react';
@@ -23,7 +23,7 @@ import { PlannerConflictModal } from './PlannerConflictModal';
 
 import { CockpitHeader } from './Layout/CockpitHeader'; 
 
-import { Map as MapIcon, Users, Search, Edit3, FileText, CheckCircle } from 'lucide-react';
+import { Map as MapIcon, Users, Search, Edit3, FileText, CheckCircle, ChevronRight } from 'lucide-react';
 
 import { LogisticsStep } from './steps/LogisticsStep';
 import { TravelerStep } from './steps/TravelerStep';
@@ -253,11 +253,17 @@ export const CockpitWizard = () => {
                       
                       return (
                         <div key={step.id} className="flex flex-col items-center relative group min-w-[70px]">
+                            {/* LINIE MIT PFEIL ZUM NÄCHSTEN KREIS */}
                             {index < STEPS.length - 1 && (
-                              <div className={`absolute top-3.5 left-1/2 w-full h-0.5 -z-10 transition-colors duration-300 ${
-                                (hasData || isActive) ? 'bg-blue-500' : 'bg-slate-100'
-                              }`} />
+                              <div className={`absolute top-3.5 left-1/2 w-full h-0.5 -z-10 transition-colors duration-300 flex items-center justify-end ${
+                                (hasData || isActive) ? 'bg-blue-500 text-blue-500' : 'bg-slate-100 text-slate-200'
+                              }`}>
+                                <svg width="8" height="12" viewBox="0 0 8 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="translate-x-full">
+                                    <path d="M1.5 1L6.5 6L1.5 11" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              </div>
                             )}
+
                             <button 
                               onClick={() => jumpToStep(index)}
                               className={`w-7 h-7 rounded-full flex items-center justify-center text-xs transition-all duration-200 z-10 border-2 ${bubbleClass}`}
@@ -287,18 +293,34 @@ export const CockpitWizard = () => {
               ) : viewMode === 'plan' ? ( 
                 <PlanView setViewMode={setViewMode} />
               ) : (
-                currentStep === 5 
-                  ? <ReviewStep 
-                      onEdit={jumpToStep} 
-                      onAnalyze={handleAnalyze} 
-                      status={status} 
-                      error={error} 
-                      onNext={handleNext} 
-                    />
-                  : <CurrentComponent 
-                      onEdit={jumpToStep} 
-                      onNext={handleNext} 
-                    />
+                <>
+                  {currentStep === 5 
+                    ? <ReviewStep 
+                        onEdit={jumpToStep} 
+                        onAnalyze={handleAnalyze} 
+                        status={status} 
+                        error={error} 
+                        onNext={handleNext} 
+                      />
+                    : <CurrentComponent 
+                        onEdit={jumpToStep} 
+                        onNext={handleNext} 
+                      />
+                  }
+
+                  {/* DYNAMISCHER WEITER-BUTTON UNTER DEM FORMULAR */}
+                  {viewMode === 'wizard' && currentStep < STEPS.length - 1 && (
+                      <div className="mt-10 flex justify-center no-print">
+                          <button 
+                              onClick={handleNext}
+                              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-8 rounded-xl shadow-md transition-all flex items-center gap-2 hover:scale-[1.02] hover:shadow-lg"
+                          >
+                              {t('actions.next', { defaultValue: 'Weiter' })}: {STEPS[currentStep + 1].label}
+                              <ChevronRight className="w-5 h-5" />
+                          </button>
+                      </div>
+                  )}
+                </>
               )}
             </main>
 
@@ -354,4 +376,4 @@ export const CockpitWizard = () => {
     </div>
   );
 };
-// --- END OF FILE 285 Zeilen ---
+// --- END OF FILE 314 Zeilen ---
