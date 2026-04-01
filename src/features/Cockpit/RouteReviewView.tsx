@@ -1,5 +1,5 @@
-// 21.03.2026 23:00 - UX: Added explicit "Regenerate" button to the empty state screen so users can fix missing or broken route data without navigating through the WorkflowModal.
-// 20.01.2026 19:40 - FIX: Verified RouteReviewView migration to V40 English Keys.
+// 21.03.2026 23:15 - FIX: Removed unused 'Info' icon import to fix TypeScript error TS6133.
+// 21.03.2026 23:00 - UX: Added explicit "Regenerate" button to the empty state screen.
 // src/features/Cockpit/RouteReviewView.tsx
 
 import React, { useState, useEffect } from 'react';
@@ -10,8 +10,7 @@ import {
   RefreshCw, 
   Check, 
   Lock, 
-  ExternalLink,
-  Info 
+  ExternalLink
 } from 'lucide-react'; 
 
 import { useTripStore } from '../../store/useTripStore';
@@ -359,4 +358,4 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
     </div>
   );
 };
-// --- END OF FILE 351 Zeilen ---
+// --- END OF FILE 350 Zeilen ---
