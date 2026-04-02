@@ -4,7 +4,7 @@ cd "$(dirname "$0")"
 
 # Startet den node server im Hintergrund
 echo "Starte den lokalen Server..." 
-npm run dev & 
+npm run dev -- --port 5173 &
 
 # Wartet 2 Sekunden, damit Vite Zeit zum Starten hat
 sleep 2

@@ -1,7 +1,5 @@
+// 22.03.2026 10:00 - FIX: Added anti-hallucination rules for Hiking/Trails (force Komoot/AllTrails links and explicit trailheads).
 // 28.02.2026 18:50 - FIX: Relaxed CRITICAL GEOCODING RULE.
-// 28.02.2026 18:00 - FIX: Added CRITICAL GEOCODING RULE securely.
-// 05.02.2026 20:45 - FIX: Mapped output to 'logistics' field (removed new field logistics_tip).
-// 05.02.2026 20:30 - FEATURE: ENRICHER V2 - Added Price & Logistics Research.
 // src/core/prompts/templates/anreicherer.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -28,7 +26,7 @@ export const buildAnreichererPrompt = (payload: any): string => {
     region_context: context.search_region,
     target_language: context.target_language,
     progress: context.chunk_progress,
-    input_candidates: context.candidates_list // The raw list to process
+    input_candidates: context.candidates_list 
   };
   
   builder.withContext(contextData, "DATA CONTEXT");
@@ -65,6 +63,7 @@ Map the place to one of these SYSTEM IDs:
 - **Duration:** Estimate realistic visit duration in minutes.
 - **Price:** Research ticket prices or if it's free. Format: "Free" or "Adults ~15€".
 - **Logistics:** Find practical tips (Parking near the spot, best time to visit, public transport stop).
+- **Hiking/Trails (ANTI-HALLUCINATION):** If the activity is a hike, trail, or nature walk, the 'website' field MUST contain a link to a reliable trail guide (e.g. Komoot, AllTrails, Outdooractive) and 'logistics' MUST specify the EXACT official trailhead or hiker's parking lot. Do not invent trailheads.
 
 # BLACKLIST (FORBIDDEN TERMS)
 You are strictly FORBIDDEN from using the following terms as categories:
@@ -76,7 +75,7 @@ You are strictly FORBIDDEN from using the following terms as categories:
 
   // 4. Output Schema (Object-based for PromptBuilder optimization)
   const outputSchema = {
-    "_thought_process": "String (Verify ID match, check region validity...)",
+    "_thought_process": "String (Verify ID match, check region validity, find exact trailheads if hiking...)",
     "results": [
       {
         "id": "String (MUST MATCH INPUT ID EXACTLY)",
@@ -101,4 +100,4 @@ You are strictly FORBIDDEN from using the following terms as categories:
 
   return builder.build();
 };
-// --- END OF FILE 103 Zeilen ---
+// --- END OF FILE 105 Zeilen ---

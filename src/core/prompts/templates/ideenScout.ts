@@ -1,6 +1,5 @@
-// 16.03.2026 18:00 - FIX: Added "Strict Naming" rule to prevent the AI from generating conversational/descriptive POI names (e.g. "Zeitgenössische Kunst im...").
-// 04.02.2026 13:00 - FIX: Enforce Wildcard "Wow-Effect" & Quantity.
-// - Updated Mandatory Rules to strictly enforce Vibe-Independence for Wildcards.
+// 22.03.2026 10:00 - FIX: Added Rule 5 to prevent trail/hiking hallucinations and enforce Komoot/AllTrails links.
+// 16.03.2026 18:00 - FIX: Added "Strict Naming" rule to prevent the AI from generating conversational/descriptive POI names.
 // src/core/prompts/templates/ideenScout.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -84,7 +83,8 @@ ${taskInstructions}
 - **Rule 1 (No Duplicates):** Strictly respect the "ALREADY PLANNED" list for each location.
 - **Rule 2 (Geo-Data):** You MUST provide Lat/Lng coordinates for every idea (Critical for Map Pins).
 - **Rule 3 (Wildcard):** The Wildcard MUST be completely INDEPENDENT of the user's profile/vibe. It must be a "Wow-Idea", a local secret, or something unique.
-- **Rule 4 (Strict Naming):** The \`name\` field MUST contain ONLY the official, raw name of the place (e.g., "Centro de Arte Juan Ismael"). Do NOT prepend descriptions like "Visit", "Art at", or "Zeitgenössische Kunst im". The name must be perfectly searchable on Google Maps or OpenStreetMap.
+- **Rule 4 (Strict Naming):** The \`name\` field MUST contain ONLY the official, raw name of the place. Do NOT prepend descriptions like "Visit" or "Art at". The name must be perfectly searchable on Google Maps or OpenStreetMap.
+- **Rule 5 (Hiking/Trails):** If suggesting a hike or trail, you MUST provide a reliable trail link (e.g., Komoot, AllTrails, Outdooractive) in the 'website_url' and specify the exact official trailhead or hiker's parking lot in 'planning_note'. Avoid hallucinatory trail names.
 
 # OUTPUT SCHEMA
 Return a SINGLE valid JSON object.`;
@@ -123,4 +123,4 @@ Return a SINGLE valid JSON object.`;
     .withSelfCheck(['research', 'planning'])
     .build();
 };
-// Lines: 119
+// Lines: 120

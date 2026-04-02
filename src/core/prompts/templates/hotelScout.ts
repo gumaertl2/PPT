@@ -1,8 +1,5 @@
+// 22.03.2026 10:00 - FIX: Added strict inverse rule to ABSOLUTELY forbid campsites if vehicle is a normal car.
 // 19.03.2026 16:30 - FEAT: Enforce persona directives.
-// 28.02.2026 18:50 - FIX: Relaxed CRITICAL GEOCODING RULE to allow specific local identifiers (like Plazas) but keep blocking prose/brackets.
-// 28.02.2026 18:00 - FIX: Added CRITICAL GEOCODING RULE securely without breaking exports.
-// 02.02.2026 09:30 - FIX: Enforced explicit research for 'user_ratings_total'.
-// Added DATA ACCURACY section to prevent estimated review counts.
 // src/core/prompts/templates/hotelScout.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -36,7 +33,7 @@ export const buildHotelScoutPrompt = (payload: any): string => {
   const instructions = `${context.persona_directive || ''}# PHASE 1: CONSTRAINT ANALYSIS
 Check the "Vehicle" and "Budget" constraints immediately.
 1. **VEHICLE CHECK:** User drives a **${isCamper ? "CAMPER" : "CAR"}**.
-   - ${isCamper ? "CRITICAL: You MUST ONLY suggest legal Campsites or RV Parks. ABSOLUTELY NO HOTELS." : "Ensure parking is available."}
+   - ${isCamper ? "CRITICAL: You MUST ONLY suggest legal Campsites or RV Parks. ABSOLUTELY NO HOTELS." : "CRITICAL: Suggest ONLY Hotels, Apartments, B&Bs, or Guesthouses. ABSOLUTELY NO Campsites or RV Parks. Ensure parking is available."}
 2. **BUDGET CHECK:** User budget is **"${context.budget}"**.
    - Do not suggest luxury resorts if budget is 'low'. Do not suggest hostels if budget is 'high'.
 

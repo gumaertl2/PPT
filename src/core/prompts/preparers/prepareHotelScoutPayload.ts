@@ -1,5 +1,5 @@
+// 22.03.2026 10:00 - FIX: Removed erroneous 'mobil' check for 'isCamper'. Camper mode is now strictly determined by the chosen arrival or local mobility vehicle.
 // 19.03.2026 16:30 - FEAT: Inject persona directive for scout.
-// 31.01.2026 20:30 - FIX: Added 'mobil' mode support (Camper Roundtrip).
 // src/core/prompts/preparers/prepareHotelScoutPayload.ts
 
 import type { TripProject } from '../../types';
@@ -17,7 +17,6 @@ export const prepareHotelScoutPayload = (
   let stayDuration = "2-3 nights"; 
 
   // 1. DETERMINE SEARCH TARGET (Roundtrip OR Mobil/Camper)
-  // FIX: Treat 'mobil' as a roundtrip if stops are defined
   const isRoundtripMode = logistics.mode === 'roundtrip' || logistics.mode === 'mobil';
 
   if (isRoundtripMode) {
@@ -57,9 +56,10 @@ export const prepareHotelScoutPayload = (
   }
 
   // 2. LOGISTICS MODE (Camper Check!)
-  // Wir prüfen hier explizit auf 'camper', 'rv', 'mobil' oder ob der Modus selbst 'mobil' ist
+  // FIX: Only check actual vehicle choices (arrival or localMobility), not the generic trip mode 'mobil'.
   const arrivalType = dates.arrival?.type || 'car';
-  const isCamper = arrivalType.toLowerCase().includes('camper') || logistics.mode === 'mobil';
+  const localMobility = logistics.localMobility || 'car';
+  const isCamper = arrivalType.toLowerCase().includes('camper') || localMobility.toLowerCase().includes('camper');
 
   return {
     context: {
@@ -68,7 +68,7 @@ export const prepareHotelScoutPayload = (
       stay_duration: stayDuration,
       travelers: travelers,
       budget: budget,
-      logistics_type: isCamper ? 'camper' : 'car', // Explicitly set camper type
+      logistics_type: isCamper ? 'camper' : 'car', 
       is_roundtrip: isRoundtripMode,
       persona_directive: buildPersonaDirective(project.userInputs, 'scout')
     },
@@ -77,4 +77,4 @@ export const prepareHotelScoutPayload = (
     }
   };
 };
-// --- END OF FILE 78 Zeilen ---
+// --- END OF FILE 76 Zeilen ---
