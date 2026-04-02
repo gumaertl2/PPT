@@ -72,7 +72,7 @@
   },
   "settings": {
     "title": "Einstellungen & API",
-    "api_section": "OpenAI API Key",
+    "api_section": "Google Gemini API Key",
     "api_placeholder": "sk-proj-...",
     "help_link": "Noch keinen Key? → Kostenlos in 2 Min. holen",
     "stats_section": "Verbrauchs-Statistik (Session)",
@@ -110,7 +110,7 @@
   },
   "welcome": {
     "subtitle": "Ihre intelligente KI-Reisebegleitung",
-    "api_label": "OpenAI API Key",
+    "api_label": "Google Gemini API Key (Optional)",
     "storage_note": "Gespeichert im LocalStorage (Base64).",
     "help_link": "Noch keinen Key? → Kostenlos in 2 Min. holen",
     "btn_new": "Neue Reise planen",

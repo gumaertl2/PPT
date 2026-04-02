@@ -1,7 +1,5 @@
+// 22.03.2026 10:30 - UX: Updated API label to "Google Gemini API Key" and made the help link an eye-catching amber CTA button.
 // 24.02.2026 13:15 - FEAT: Added Language Switcher to Settings for better UX during planning and testing.
-// 23.02.2026 17:25 - FEAT: Added 'Free Tier Mode' toggle to settings.
-// 23.02.2026 10:45 - FIX: i18n completely integrated and Manual Chunk Limit added back to Matrix.
-// 12.02.2026 17:15 - UI: Implemented 3-Model-Strategy (Pro/Flash/Thinking) in Matrix.
 // src/features/Cockpit/SettingsModal.tsx
 
 import React, { useState, useEffect } from 'react';
@@ -24,7 +22,7 @@ import {
   Brain,
   Sparkles,
   ShieldCheck,
-  Globe // NEW ICON
+  Globe 
 } from 'lucide-react';
 import { useTripStore } from '../../store/useTripStore';
 import type { AiStrategy } from '../../store/useTripStore';
@@ -50,8 +48,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     resetModelOverrides,
     setTaskChunkLimit,
     resetChunkOverrides,
-    project, // NEW
-    setLanguage // NEW
+    project, 
+    setLanguage 
   } = useTripStore();
 
   const [keyInput, setKeyInput] = useState(apiKey || '');
@@ -83,14 +81,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     setInfoModalOpen(true);
   };
 
-  // NEW: Language Toggle Logic
   const toggleLanguage = () => {
     const current = project.meta.language;
     const next: LanguageCode = current === 'de' ? 'en' : 'de';
     
-    // 1. i18next (UI)
     i18n.changeLanguage(next);
-    // 2. Store (Projekt-Daten)
     setLanguage(next);
   };
 
@@ -170,7 +165,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             
             <section>
               <label className="text-xs font-bold text-slate-500 uppercase mb-3 block flex items-center justify-between">
-                <span className="flex items-center gap-2"><Key className="w-4 h-4" /> Google Gemini API Key</span>
+                <span className="flex items-center gap-2"><Key className="w-4 h-4" /> {t('settings.api_section', 'Google Gemini API Key')}</span>
                 {!apiKey && (
                   <span className="text-amber-600 text-[10px] bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">
                     {t('settings.manual_mode_active', 'Manueller Modus aktiv')}
@@ -250,12 +245,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   </div>
               )}
 
-              <div className="mt-3 flex justify-between items-center">
+              <div className="mt-4 flex justify-between items-center">
                 <button 
                   onClick={openHelpModal}
-                  className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                  className="text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 hover:bg-amber-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
                 >
-                  <HelpCircle className="w-3 h-3" /> {t('settings.help_link', 'Wo finde ich meinen Key?')}
+                  <HelpCircle className="w-4 h-4" /> {t('settings.help_link', 'Noch keinen Key? → Kostenlos in 2 Min. holen')}
                 </button>
 
                 {!apiKey && (

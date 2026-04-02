@@ -1,6 +1,5 @@
+// 22.03.2026 10:30 - UX: Updated API label to "Google Gemini API Key" and made the help link an eye-catching amber CTA button.
 // 24.02.2026 20:10 - REFACTOR: Compacted UI (smaller cards, reduced margins/paddings) to fit 'above the fold' without scrolling.
-// 24.02.2026 19:55 - REFACTOR: Removed "V40" from main title.
-// 24.02.2026 19:35 - REFACTOR: Elevated Info (Marketing) and Quick Guide buttons to main grid for better visibility.
 // src/features/Welcome/WelcomeScreen.tsx
 
 import { useState, useRef } from 'react';
@@ -79,7 +78,6 @@ export const WelcomeScreen = () => {
   const isFreeTier = aiSettings?.isFreeTierKey ?? true;
 
   return (
-    // FIX: mt-10 -> mt-6 md:mt-10, p-8 -> p-6 md:p-8 für mehr Platz auf Mobile
     <div className="max-w-3xl mx-auto mt-6 md:mt-10 p-6 md:p-8 bg-white rounded-2xl shadow-xl border border-slate-200 text-center animate-fade-in-up relative">
       
       {/* HEADER ACTIONS (Language & Settings) */}
@@ -142,7 +140,7 @@ export const WelcomeScreen = () => {
       <div className="mb-6 text-left bg-slate-50 p-4 md:p-5 rounded-xl border border-slate-200">
         <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
           <Key className="w-4 h-4 text-blue-500" />
-          {t('welcome.api_label', 'OpenAI API Key (Optional)')}
+          {t('welcome.api_label', 'Google Gemini API Key (Optional)')}
         </label>
         
         <input 
@@ -162,9 +160,9 @@ export const WelcomeScreen = () => {
             </p>
             <button 
                 onClick={() => openInfoModal('help')} 
-                className="text-[11px] text-blue-500 hover:underline flex items-center gap-1"
+                className="text-[11px] font-bold text-amber-600 bg-amber-50 border border-amber-200 hover:bg-amber-100 px-2 py-1 rounded-md flex items-center gap-1 transition-colors"
             >
-                <HelpCircle className="w-3 h-3" /> {t('welcome.help_link', 'Wo finde ich meinen Key?')}
+                <HelpCircle className="w-3.5 h-3.5" /> {t('welcome.help_link', 'Noch keinen Key? → Kostenlos in 2 Min. holen')}
             </button>
         </div>
         
@@ -266,4 +264,4 @@ export const WelcomeScreen = () => {
   );
 };
 
-// --- END OF FILE 224 Zeilen ---
+// --- END OF FILE 226 Zeilen ---
