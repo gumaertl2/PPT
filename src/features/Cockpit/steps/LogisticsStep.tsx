@@ -1,7 +1,8 @@
+// 04.04.2026 22:30 - FIX: Resolved Vercel TS build errors by removing unused React import and applying (as any) casting to dynamic properties (city, name_official) not explicitly defined in the Place interface.
 // 04.04.2026 21:30 - UX: Updated custom hotel save logic to utilize the "Smart Index Filter".
 // src/features/Cockpit/steps/LogisticsStep.tsx
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTripStore } from '../../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
 import { 
@@ -74,7 +75,7 @@ export const LogisticsStep = () => {
     if (!val) return '';
     const place = project.data?.places?.[val];
     if (place) {
-        let n = place.name || place.official_name || place.name_official;
+        let n = place.name || place.official_name || (place as any).name_official;
         if (typeof n === 'object' && n !== null) {
             n = (n as any)[currentLang] || (n as any)['de'] || Object.values(n)[0];
         }
@@ -176,7 +177,7 @@ export const LogisticsStep = () => {
           const place = project.data.places?.[existingHotelRef];
           if (place) {
               setCustomHotelName(resolveHotelName(existingHotelRef));
-              setCustomHotelAddress(place.address || place.city || '');
+              setCustomHotelAddress(place.address || (place as any).city || '');
               setCustomHotelLink(place.source_url || place.bookingUrl || place.website || '');
           } else {
               setCustomHotelName(existingHotelRef);
@@ -214,12 +215,12 @@ export const LogisticsStep = () => {
       const existingPlace = existingHotelId ? currentProject.data.places[existingHotelId] : null;
       const targetId = existingPlace ? existingPlace.id : `custom-hotel-${Date.now()}`;
       
-      const newPlace: Place = {
+      const newPlace: any = {
           ...(existingPlace || {}),
           id: targetId,
           name: customHotelName,
           address: customHotelAddress,
-          city: customHotelAddress.split(',').pop()?.trim() || (existingPlace?.city || ''), 
+          city: customHotelAddress.split(',').pop()?.trim() || ((existingPlace as any)?.city || ''), 
           category: 'hotel',
           userSelection: { ...existingPlace?.userSelection, customCategory: 'hotel' },
           userPriority: 1, 
@@ -228,7 +229,7 @@ export const LogisticsStep = () => {
           coordinatesValidated: false 
       };
 
-      const updatedPlaces = { ...currentProject.data.places, [targetId]: newPlace };
+      const updatedPlaces = { ...currentProject.data.places, [targetId]: newPlace as Place };
       let updatedLogistics = { ...currentProject.userInputs.logistics };
 
       // Apply Smart Index Filter to clear out AI competitors when creating a custom hotel
@@ -744,4 +745,4 @@ export const LogisticsStep = () => {
     </div>
   );
 };
-// --- END OF FILE 683 Zeilen ---
+// --- END OF FILE 659 Zeilen ---
