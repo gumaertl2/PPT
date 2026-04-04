@@ -99,7 +99,9 @@
     "strategy_pro_desc": "Gemini 2.5 Pro (Deep Analysis)",
     "strategy_fast_desc": "High Speed (1.5k RPM)",
     "free_tier_title": "I am using a free API key",
-    "free_tier_desc": "Enables limit protection (pauses between API calls) & automatically swaps \"Pro\" for the faster \"Thinking\" model."
+    "free_tier_desc": "Enables limit protection (pauses between API calls) & automatically swaps \"Pro\" for the faster \"Thinking\" model.",
+    "language_section": "Program Language",
+    "language_switch_hint": "Click to switch"
   },
   "modal": {
     "manual_title": "Run AI Request Manually",
@@ -187,7 +189,7 @@
     "destination_label": "Location (Destination)",
     "destination_placeholder": "e.g. Innsbruck",
     "hotel_label": "Booked Hotel (Optional)",
-    "hotel_placeholder": "Name of the hotel (if already booked)",
+    "hotel_placeholder": "Name or Link (e.g. Booking.com)",
     "roundtrip_region": "Target Area",
     "roundtrip_region_placeholder": "e.g. Scotland",
     "roundtrip_start": "Start Location",
@@ -234,7 +236,23 @@
     "constraints_drive_day_hint": "Round trip (Daily limit)",
     "auto_calc_total": "Auto-calc: (Days-2)*3h",
     "auto_calc_hotels": "Auto-calc: Days/4",
-    "dates_auto_corrected": "Date was automatically adjusted."
+    "dates_auto_corrected": "Date was automatically adjusted.",
+    "custom_hotel": {
+      "title": "Hotel Details (Manual)",
+      "desc": "Check or enter your hotel here. It will be instantly created as a card in the guide and distances will be calculated.",
+      "name_label": "Accommodation Name *",
+      "name_placeholder": "e.g. The Ritz",
+      "address_label": "Address / City *",
+      "address_placeholder": "Street, ZIP, City (Important for GPS!)",
+      "address_hint": "The address is used to locate the hotel on the map.",
+      "link_label": "Website or Booking Link",
+      "link_placeholder": "https://...",
+      "save_btn": "Save & Apply",
+      "error_name": "Please enter at least a name.",
+      "success_msg": "Hotel successfully applied.",
+      "btn_tooltip": "View/add exact hotel with address",
+      "btn_manual": "Manual"
+    }
   },
   "dates": {
     "warning_flexible_title": "No fixed period chosen.",
@@ -460,7 +478,16 @@
     "visited_status": "Visit Status",
     "visited_all": "All",
     "visited_unvisited": "Unvisited",
-    "visited_done": "Visited"
+    "visited_done": "Visited",
+    "hotel_assigned_stop": "🏡 Unterkunft für Station {{stopIndex}} ({{stopName}})",
+    "hotel_assigned_stationary": "🏡 Unterkunft für den Aufenthalt",
+    "hotel_location": "Standort:",
+    "hotel_selected_stop": "Selected for Station {{assignedStopIndex}} ({{assignedStopName}})",
+    "hotel_option_stop": "Option for Station {{assignedStopIndex}} ({{assignedStopName}})",
+    "hotel_option_stationary": "Option for Stay",
+    "duration_hint": "Duration in minutes",
+    "distance_to_hotel": "Distance to accommodation",
+    "booking_search": "Check prices & availability"
   },
   "route": {
     "no_results": "No route proposals available.",
@@ -505,7 +532,9 @@
     "custom_entry_label": "Custom Entry",
     "edit_note": "Edit Note",
     "delete_entry": "Delete Entry",
-    "undo_checkin": "Undo Check-in",
+    "mark_visited": "Visited",
+    "undo_visited": "Undo visit",
+    "undo_confirm": "Do you really want to undo this visit?",
     "personal_note_placeholder": "My personal note...",
     "click_to_edit": "Click to edit",
     "delete_confirm": "Really delete this diary entry?",
@@ -533,9 +562,6 @@
     "update_gps": "Tag GPS Data",
     "edit_title": "Title",
     "edit_date": "Date & Time",
-    "mark_visited": "Visited",
-    "undo_visited": "Undo visit",
-    "undo_confirm": "Do you really want to undo this visit?",
     "real_day": "Travel Day"
   },
   "itinerary": {

@@ -1,3 +1,4 @@
+// 04.04.2026 13:00 - FEAT: Added 'CRITICAL OVERRIDE' block to completely bypass candidate sourcing if the user provided a specific hotel name or link in Step 1.
 // 22.03.2026 10:00 - FIX: Added strict inverse rule to ABSOLUTELY forbid campsites if vehicle is a normal car.
 // 19.03.2026 16:30 - FEAT: Enforce persona directives.
 // src/core/prompts/templates/hotelScout.ts
@@ -16,6 +17,8 @@ export const buildHotelScoutPrompt = (payload: any): string => {
     ? "STRATEGY: ROUNDTRIP STOP. Find a convenient rest stop near the route." 
     : "STRATEGY: STATIONARY BASE. Find a central 'Base Camp' for day-trips.";
 
+  const hasPreSelected = !!context.pre_selected_hotel && context.pre_selected_hotel.length > 2;
+
   const contextData = {
     search_hub: context.search_hub,
     duration: context.stay_duration,
@@ -23,6 +26,7 @@ export const buildHotelScoutPrompt = (payload: any): string => {
     budget_level: context.budget, 
     vehicle: isCamper ? "Large Vehicle (Camper/RV)" : "Car",
     trip_mode: strategyContext,
+    target_hotel_override: hasPreSelected ? context.pre_selected_hotel : "None (Free Search)",
     persona_directive: context.persona_directive || ""
   };
 
@@ -38,17 +42,21 @@ Check the "Vehicle" and "Budget" constraints immediately.
    - Do not suggest luxury resorts if budget is 'low'. Do not suggest hostels if budget is 'high'.
 
 # PHASE 2: SOURCING STRATEGY
-Target Location: **"${context.search_hub}"**.
+${hasPreSelected 
+  ? `CRITICAL OVERRIDE: The user has explicitly requested this specific hotel or provided this booking link: "${context.pre_selected_hotel}". 
+Your ONLY task is to extract/research the exact data for THIS ONE specific hotel. Do NOT suggest alternatives. Provide exactly 1 result.` 
+  : `Target Location: **"${context.search_hub}"**.
 Context: ${context.location_reasoning}
 
 **Your Selection Criteria:**
 1. **Proximity:** The place must be logically close to the target hub to minimize driving.
 2. **Social Proof:** Look for high rating counts (>100 reviews) to ensure reliability.
 3. **Vibe:** Match the traveler group (e.g. playground for kids, quiet for couples).
-4. **Pets:** ${context.travelers.pets ? "MUST allow pets (Dog friendly)." : "Pet policy is irrelevant."}
+4. **Pets:** ${context.travelers.pets ? "MUST allow pets (Dog friendly)." : "Pet policy is irrelevant."}`
+}
 
 # PHASE 3: DATA ACCURACY & OUTPUT
-- Provide 2-3 top candidates.
+- Provide ${hasPreSelected ? 'EXACTLY 1 candidate' : '2-3 top candidates'}.
 - **Coordinates:** You MUST provide accurate Latitude/Longitude for the Map View.
 - **Address (CRITICAL GEOCODING RULE):** The 'address' field must be clean and machine-readable for OpenStreetMap. Use 'Street, Number, ZIP, City, Country' if available. If it's a natural sight or has no street, use the specific local identifier (e.g. 'Plaza de la Iglesia', 'Camino a...'). STRICTLY FORBIDDEN: Never use descriptive prose, brackets like '(Leuchtturm)', or abbreviations like 's/n' in the address.
 - **Reviews (MANDATORY):** You MUST find the **exact number** of Google Reviews (e.g. 1342, not "1000+").
@@ -84,4 +92,4 @@ Context: ${context.location_reasoning}
     .withSelfCheck(['research']) 
     .build();
 };
-// --- END OF FILE 95 Zeilen ---
+// --- END OF FILE 101 Zeilen ---

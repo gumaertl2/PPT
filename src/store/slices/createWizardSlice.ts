@@ -1,3 +1,5 @@
+// 04.04.2026 17:30 - FIX: Added ultimate fallback (targetIndex = 0) so hotel selection never fails silently.
+// 04.04.2026 13:00 - UX/FIX: Implemented isolated "Auto-Ignore" logic. When a hotel is selected, only the competitors for THAT EXACT STOP are hidden.
 // 05.02.2026 18:00 - NEW: WIZARD SLICE.
 // Extracted from createProjectSlice to separate UI-Input logic from Project-IO logic.
 // src/store/slices/createWizardSlice.ts
@@ -376,8 +378,21 @@ export const createWizardSlice: StateCreator<any, [], [], WizardSlice> = (set) =
 
       const logistics = state.project.userInputs.logistics;
       const mode = logistics.mode;
+      const newPlaces = { ...state.project.data.places };
 
       if (mode === 'stationaer') {
+          const isDeselecting = logistics.stationary.hotel === placeId;
+
+          Object.values(newPlaces).forEach((p: any) => {
+              if (p.category === 'hotel' || p.category === 'accommodation') {
+                 if (isDeselecting) {
+                     newPlaces[p.id] = { ...p, userPriority: 0 };
+                 } else {
+                     newPlaces[p.id] = { ...p, userPriority: p.id === placeId ? 1 : -1 };
+                 }
+              }
+          });
+
           return {
               project: {
                   ...state.project,
@@ -385,8 +400,12 @@ export const createWizardSlice: StateCreator<any, [], [], WizardSlice> = (set) =
                       ...state.project.userInputs,
                       logistics: {
                           ...logistics,
-                          stationary: { ...logistics.stationary, hotel: placeId }
+                          stationary: { ...logistics.stationary, hotel: isDeselecting ? '' : placeId }
                       }
+                  },
+                  data: {
+                      ...state.project.data,
+                      places: newPlaces
                   }
               }
           };
@@ -394,23 +413,64 @@ export const createWizardSlice: StateCreator<any, [], [], WizardSlice> = (set) =
       
       else if (mode === 'roundtrip' || mode === 'mobil') {
           const stops = logistics.roundtrip.stops || [];
+          let targetIndex = -1;
           
-          const matchedStopIndex = stops.findIndex((s: RouteStop) => {
-              if (!s.location) return false;
-              const cleanLoc = s.location.replace(/Region\s+/i, '').trim().toLowerCase();
-              if (cleanLoc.length < 3) return false;
+          const existingStopIndex = stops.findIndex((s: RouteStop) => s.hotel === placeId);
+          const isDeselecting = existingStopIndex !== -1;
 
-              const address = (place.address || '').toLowerCase();
-              const reasoning = (place.location_match || '').toLowerCase();
-              const city = (place.city || '').toLowerCase();
+          if (isDeselecting) {
+              targetIndex = existingStopIndex;
+          } else {
+              const matchedStopIndex = stops.findIndex((s: RouteStop) => {
+                  if (!s.location) return false;
+                  const cleanLoc = s.location.replace(/Region\s+/i, '').trim().toLowerCase();
+                  if (cleanLoc.length < 3) return false;
 
-              return address.includes(cleanLoc) || reasoning.includes(cleanLoc) || city.includes(cleanLoc);
-          });
+                  const address = (place.address || '').toLowerCase();
+                  const reasoning = (place.location_match || '').toLowerCase();
+                  const city = (place.city || '').toLowerCase();
 
-          if (matchedStopIndex !== -1) {
+                  return address.includes(cleanLoc) || reasoning.includes(cleanLoc) || city.includes(cleanLoc);
+              });
+
+              if (matchedStopIndex !== -1) {
+                  targetIndex = matchedStopIndex;
+              } else {
+                  targetIndex = stops.findIndex((s: RouteStop) => !s.hotel);
+                  // ULTIMATE FALLBACK: If all slots are "filled" (e.g. with text), we force overwrite the first slot.
+                  if (targetIndex === -1 && stops.length > 0) {
+                      targetIndex = 0;
+                  }
+              }
+          }
+
+          if (targetIndex !== -1) {
               const newStops = [...stops];
-              newStops[matchedStopIndex] = { ...newStops[matchedStopIndex], hotel: placeId };
+              newStops[targetIndex] = { ...newStops[targetIndex], hotel: isDeselecting ? '' : placeId };
               
+              const targetStopLocation = (newStops[targetIndex].location || '').replace(/Region\s+/i, '').trim().toLowerCase();
+
+              // Safe Auto-Ignore: Only affect competitors of the same destination stop
+              if (targetStopLocation && targetStopLocation.length > 2) {
+                  Object.values(newPlaces).forEach((p: any) => {
+                     if (p.category === 'hotel' || p.category === 'accommodation') {
+                         const address = (p.address || '').toLowerCase();
+                         const reasoning = (p.location_match || '').toLowerCase();
+                         const city = (p.city || '').toLowerCase();
+                         
+                         if (address.includes(targetStopLocation) || reasoning.includes(targetStopLocation) || city.includes(targetStopLocation)) {
+                             if (isDeselecting) {
+                                 newPlaces[p.id] = { ...p, userPriority: 0 };
+                             } else {
+                                 newPlaces[p.id] = { ...p, userPriority: p.id === placeId ? 1 : -1 };
+                             }
+                         }
+                     }
+                  });
+              } else if (!isDeselecting) {
+                   newPlaces[placeId] = { ...place, userPriority: 1 };
+              }
+
               return {
                   project: {
                       ...state.project,
@@ -420,30 +480,16 @@ export const createWizardSlice: StateCreator<any, [], [], WizardSlice> = (set) =
                               ...logistics,
                               roundtrip: { ...logistics.roundtrip, stops: newStops }
                           }
+                      },
+                      data: {
+                          ...state.project.data,
+                          places: newPlaces
                       }
                   }
               };
-          } else {
-              const firstEmptyIndex = stops.findIndex((s: RouteStop) => !s.hotel);
-              if (firstEmptyIndex !== -1) {
-                   const newStops = [...stops];
-                   newStops[firstEmptyIndex] = { ...newStops[firstEmptyIndex], hotel: placeId };
-                   return {
-                        project: {
-                            ...state.project,
-                            userInputs: {
-                                ...state.project.userInputs,
-                                logistics: {
-                                    ...logistics,
-                                    roundtrip: { ...logistics.roundtrip, stops: newStops }
-                                }
-                            }
-                        }
-                   };
-              }
           }
       }
       return state;
   })
 });
-// --- END OF FILE 332 Zeilen ---
+// --- END OF FILE 397 Zeilen ---

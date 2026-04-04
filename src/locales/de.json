@@ -98,7 +98,9 @@
     "strategy_pro_desc": "Gemini 2.5 Pro (Deep Analysis)",
     "strategy_fast_desc": "High Speed (1.5k RPM)",
     "free_tier_title": "Ich nutze einen kostenlosen API-Key",
-    "free_tier_desc": "Aktiviert Limit-Schutz (Pausen zwischen API-Aufrufen) & tauscht \"Pro\" automatisch gegen das schnellere \"Thinking\"-Modell aus."
+    "free_tier_desc": "Aktiviert Limit-Schutz (Pausen zwischen API-Aufrufen) & tauscht \"Pro\" automatisch gegen das schnellere \"Thinking\"-Modell aus.",
+    "language_section": "Programm-Sprache / Language",
+    "language_switch_hint": "Klicken zum Wechseln"
   },
   "modal": {
     "manual_title": "KI-Anfrage manuell ausführen",
@@ -186,7 +188,7 @@
     "destination_label": "Ort (Reiseziel)",
     "destination_placeholder": "z.B. Innsbruck",
     "hotel_label": "Gebuchtes Hotel (Optional)",
-    "hotel_placeholder": "Name des Hotels (falls bereits gebucht)",
+    "hotel_placeholder": "Name oder Link (z.B. Booking.com)",
     "roundtrip_region": "Zielgebiet",
     "roundtrip_region_placeholder": "z.B. Schottland",
     "roundtrip_start": "Startort",
@@ -233,7 +235,23 @@
     "constraints_drive_day_hint": "Hin & Zurück (Tageslimit)",
     "auto_calc_total": "Auto-calc: (Tage-2)*3h",
     "auto_calc_hotels": "Auto-calc: Tage/4",
-    "dates_auto_corrected": "Datum wurde automatisch angepasst."
+    "dates_auto_corrected": "Datum wurde automatisch angepasst.",
+    "custom_hotel": {
+      "title": "Hotel-Details (Manuell)",
+      "desc": "Prüfe oder trage dein Hotel hier ein. Es wird sofort als Karte im Reiseführer angelegt und die Entfernungen werden berechnet.",
+      "name_label": "Name der Unterkunft *",
+      "name_placeholder": "z.B. Hotel Sacher",
+      "address_label": "Adresse / Stadt *",
+      "address_placeholder": "Straße, PLZ, Ort (Wichtig für GPS!)",
+      "address_hint": "Die Adresse wird genutzt, um das Hotel auf der Karte zu orten.",
+      "link_label": "Webseite oder Booking-Link",
+      "link_placeholder": "https://...",
+      "save_btn": "Speichern & Übernehmen",
+      "error_name": "Bitte gib zumindest einen Namen ein.",
+      "success_msg": "Hotel erfolgreich übernommen.",
+      "btn_tooltip": "Exaktes Hotel samt Adresse ansehen/anlegen",
+      "btn_manual": "Manuell"
+    }
   },
   "dates": {
     "warning_flexible_title": "Kein fester Reisezeitraum gewählt.",
@@ -459,7 +477,16 @@
     "visited_status": "Besuchsstatus",
     "visited_all": "Alle",
     "visited_unvisited": "Nicht besuchte",
-    "visited_done": "Besuchte"
+    "visited_done": "Besuchte",
+    "hotel_assigned_stop": "🏡 Unterkunft für Station {{stopIndex}} ({{stopName}})",
+    "hotel_assigned_stationary": "🏡 Unterkunft für den Aufenthalt",
+    "hotel_location": "Standort:",
+    "hotel_selected_stop": "Ausgewählt für Station {{assignedStopIndex}} ({{assignedStopName}})",
+    "hotel_option_stop": "Option für Station {{assignedStopIndex}} ({{assignedStopName}})",
+    "hotel_option_stationary": "Option für den Aufenthalt",
+    "duration_hint": "Dauer in Minuten",
+    "distance_to_hotel": "Entfernung zur Unterkunft",
+    "booking_search": "Preise & Verfügbarkeit prüfen"
   },
   "route": {
     "no_results": "Keine Routenvorschläge verfügbar.",
@@ -504,7 +531,9 @@
     "custom_entry_label": "Eigener Eintrag",
     "edit_note": "Notiz bearbeiten",
     "delete_entry": "Eintrag löschen",
-    "undo_checkin": "Check-in rückgängig machen",
+    "mark_visited": "Besucht",
+    "undo_visited": "Besuch rückgängig machen",
+    "undo_confirm": "Willst du diesen Besuch wirklich rückgängig machen?",
     "personal_note_placeholder": "Meine persönliche Notiz...",
     "click_to_edit": "Klicken zum Bearbeiten",
     "delete_confirm": "Diesen Tagebucheintrag wirklich löschen?",
@@ -532,9 +561,6 @@
     "update_gps": "GPS-Daten taggen",
     "edit_title": "Titel",
     "edit_date": "Datum & Uhrzeit",
-    "mark_visited": "Besucht",
-    "undo_visited": "Besuch rückgängig machen",
-    "undo_confirm": "Willst du diesen Besuch wirklich rückgängig machen?",
     "real_day": "Reisetag"
   },
   "itinerary": {

@@ -1,5 +1,5 @@
-// 04.04.2026 11:35 - UX: Enhanced getMeta and sortFn to sort hotels strictly by their chronological station order (targetStopIndex) instead of alphabetically.
-// 22.03.2026 11:30 - UX: Enhanced sortFn to group hotels strictly by their city/station.
+// 04.04.2026 17:30 - FIX: Prevented user-added or user-selected items from being hidden by the rating/duration quality filters.
+// 04.04.2026 11:35 - UX: Enhanced getMeta and sortFn to sort hotels strictly by their chronological station order.
 // src/features/Cockpit/SightsView.tsx
 
 import React, { useMemo, useEffect, useState, useRef } from 'react';
@@ -276,11 +276,14 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
         const duration = p.duration || p.min_duration_minutes || 0;
         const rating = p.rating || 0;
         const currentPrioVal = getRealPriorityValue(p);
-        const currentIsReserve = (p.userPriority === -1) || (duration < minDuration) || (rating > 0 && rating < minRating);
+        
+        // FIX: Prevent user-selected or fixed items from being hidden by rating/duration quality filters
+        const isFilterFail = (duration > 0 && duration < minDuration) || (rating > 0 && rating < minRating);
+        const currentIsReserve = p.userPriority === -1 || (p.userPriority === 0 && !p.isFixed && isFilterFail);
+
         const currentCat = p.category || 'Sonstiges';
         const currentName = p.name || '';
 
-        // --- NEW: Calculate target station for strictly chronological hotel sorting ---
         let targetStopIndex = 999; 
         if (currentCat === 'hotel' || currentCat === 'accommodation') {
             const logistics = project.userInputs.logistics;
@@ -289,19 +292,17 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
                 const hAddr = (p.address || '').toLowerCase();
                 const hName = (p.name || '').toLowerCase();
                 
-                // 1. Is it explicitly selected?
                 logistics.roundtrip.stops.forEach((stop: any, idx: number) => {
                     if (stop.hotel === p.id) {
                         targetStopIndex = idx;
                     }
                 });
                 
-                // 2. If not selected, guess by location string
                 if (targetStopIndex === 999) {
                     logistics.roundtrip.stops.forEach((stop: any, idx: number) => {
                         const sLoc = (stop.location || '').trim().toLowerCase();
                         if (sLoc && sLoc.length > 2 && (hCity.includes(sLoc) || hAddr.includes(sLoc) || hName.includes(sLoc))) {
-                            if (targetStopIndex === 999) targetStopIndex = idx; // take first match
+                            if (targetStopIndex === 999) targetStopIndex = idx; 
                         }
                     });
                 }
@@ -317,7 +318,7 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
         if (!frozenMetaRef.current[p.id]) {
             frozenMetaRef.current[p.id] = metaObj;
         } else {
-            frozenMetaRef.current[p.id].targetStopIndex = targetStopIndex; // Always keep sorting accurate
+            frozenMetaRef.current[p.id].targetStopIndex = targetStopIndex; 
         }
 
         return frozenMetaRef.current[p.id];
@@ -358,7 +359,10 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
 
       const liveDuration = p.duration || p.min_duration_minutes || 0;
       const liveRating = p.rating || 0;
-      const liveIsReserve = (p.userPriority === -1) || (liveDuration < minDuration) || (liveRating > 0 && liveRating < minRating);
+      
+      // FIX: Apply same robust filter logic here to prevent disappearance of selected items
+      const liveFilterFail = (liveDuration > 0 && liveDuration < minDuration) || (liveRating > 0 && liveRating < minRating);
+      const liveIsReserve = p.userPriority === -1 || (p.userPriority === 0 && !p.isFixed && liveFilterFail);
 
       const placeWithMeta = { ...p, _meta: meta, _liveIsReserve: liveIsReserve };
 
@@ -380,7 +384,6 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
       const catCompare = aMeta.cat.localeCompare(bMeta.cat);
       if (catCompare !== 0) return catCompare;
 
-      // --- NEW: Strict chronological sorting for hotels within the same category ---
       if (aMeta.cat === 'hotel' || aMeta.cat === 'accommodation') {
           if (aMeta.targetStopIndex !== bMeta.targetStopIndex) {
               return aMeta.targetStopIndex - bMeta.targetStopIndex;
@@ -569,4 +572,4 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     </div>
   );
 };
-// --- END OF FILE 650 Zeilen ---
+// --- END OF FILE 654 Zeilen ---

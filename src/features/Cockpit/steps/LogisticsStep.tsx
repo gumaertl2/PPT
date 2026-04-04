@@ -1,7 +1,8 @@
-// 22.03.2026 09:00 - UX: Applied "Deep Input" UX logic (inner shadow, focus rings, strong labels) to cure lack of affordance.
+// 04.04.2026 19:30 - FIX: Made resolveHotelName bulletproof against object-based names, nulls, and name_official edge cases to prevent empty inputs. Fixed i18n default values.
+// 04.04.2026 18:30 - UX: Restored the full "Deep Input" UI design.
 // src/features/Cockpit/steps/LogisticsStep.tsx
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTripStore } from '../../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
 import { 
@@ -10,7 +11,9 @@ import {
   Calendar, 
   Clock, 
   Car,
-  Compass
+  Compass,
+  X,
+  Hotel
 } from 'lucide-react';
 import { LOGISTIC_OPTIONS } from '../../../data/staticData';
 import { 
@@ -20,7 +23,7 @@ import {
   DEFAULT_MOBILE_HOTEL_CHANGE_DIVISOR,
   DEFAULT_STATIONARY_MAX_DRIVE_TIME_DAY
 } from '../../../data/constants';
-import type { LanguageCode } from '../../../core/types';
+import type { LanguageCode, Place } from '../../../core/types';
 
 export const LogisticsStep = () => {
   const { t, i18n } = useTranslation();
@@ -45,11 +48,16 @@ export const LogisticsStep = () => {
   const { userInputs } = project;
   const { logistics, dates } = userInputs;
 
-  // Highlight State für Auto-Korrektur
   const [highlightedField, setHighlightedField] = useState<'start' | 'end' | null>(null);
 
-  // UX-Klassen zentral definiert für perfekte Konsistenz
-  const LABEL_CLASS = "text-[10px] font-black text-blue-800/80 uppercase tracking-wider block mb-1.5";
+  // --- CUSTOM HOTEL MODAL STATE ---
+  const [customHotelTarget, setCustomHotelTarget] = useState<{type: 'stationary' | 'roundtrip', stopId?: string} | null>(null);
+  const [customHotelName, setCustomHotelName] = useState('');
+  const [customHotelAddress, setCustomHotelAddress] = useState('');
+  const [customHotelLink, setCustomHotelLink] = useState('');
+
+  // UX-Klassen (Deep Input Design)
+  const LABEL_CLASS = "text-[10px] font-black text-blue-800/80 uppercase tracking-wider block mb-1.5 flex items-center gap-1.5";
   const INPUT_CLASS = "w-full text-sm bg-white border border-slate-300 shadow-inner rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 hover:border-blue-400 transition-all placeholder:text-slate-300";
   const INPUT_XS_CLASS = "w-full text-xs bg-white border border-slate-300 shadow-inner rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 hover:border-blue-400 transition-all placeholder:text-slate-300";
 
@@ -64,11 +72,16 @@ export const LogisticsStep = () => {
     return (item.label as any)[currentLang] || (item.label as any)['de'] || '';
   };
 
-  const resolveHotelName = (val: string | undefined): string => {
+  // FIX: Bulletproof Fallback Logic to absolutely guarantee a visible string.
+  const resolveHotelName = (val: string | undefined | null): string => {
     if (!val) return '';
     const place = project.data?.places?.[val];
     if (place) {
-        return place.name;
+        let n = place.name || place.official_name || place.name_official;
+        if (typeof n === 'object' && n !== null) {
+            n = (n as any)[currentLang] || (n as any)['de'] || Object.values(n)[0];
+        }
+        return (n as string) || val;
     }
     return val;
   };
@@ -153,10 +166,157 @@ export const LogisticsStep = () => {
     }
   };
 
+  // --- MANUAL HOTEL LOGIC (Pre-Fill & Save) ---
+  const openHotelModal = (type: 'stationary' | 'roundtrip', stopId?: string) => {
+      let existingHotelRef = '';
+      if (type === 'stationary') {
+          existingHotelRef = logistics.stationary.hotel || '';
+      } else if (type === 'roundtrip' && stopId) {
+          const stop = logistics.roundtrip.stops.find(s => s.id === stopId);
+          existingHotelRef = stop?.hotel || '';
+      }
+
+      if (existingHotelRef) {
+          const place = project.data.places?.[existingHotelRef];
+          if (place) {
+              setCustomHotelName(resolveHotelName(existingHotelRef));
+              setCustomHotelAddress(place.address || place.city || '');
+              setCustomHotelLink(place.source_url || place.bookingUrl || place.website || '');
+          } else {
+              setCustomHotelName(existingHotelRef);
+              setCustomHotelAddress('');
+              setCustomHotelLink('');
+          }
+      } else {
+          setCustomHotelName('');
+          setCustomHotelAddress('');
+          setCustomHotelLink('');
+      }
+
+      setCustomHotelTarget({ type, stopId });
+  };
+
+  const handleSaveCustomHotel = () => {
+      if (!customHotelName.trim()) {
+          addNotification({ type: 'error', message: t('cockpit.custom_hotel.error_name', { defaultValue: 'Please enter at least a name.' }) });
+          return;
+      }
+
+      let existingHotelId = '';
+      if (customHotelTarget?.type === 'stationary') {
+          existingHotelId = logistics.stationary.hotel || '';
+      } else if (customHotelTarget?.type === 'roundtrip' && customHotelTarget.stopId) {
+          const stop = logistics.roundtrip.stops.find(s => s.id === customHotelTarget?.stopId);
+          existingHotelId = stop?.hotel || '';
+      }
+
+      const state = useTripStore.getState();
+      const currentProject = state.project;
+      const existingPlace = existingHotelId ? currentProject.data.places[existingHotelId] : null;
+      
+      const targetId = existingPlace ? existingPlace.id : `custom-hotel-${Date.now()}`;
+      
+      const newPlace: Place = {
+          ...(existingPlace || {}),
+          id: targetId,
+          name: customHotelName,
+          address: customHotelAddress,
+          city: customHotelAddress.split(',').pop()?.trim() || (existingPlace?.city || ''), 
+          category: 'hotel',
+          userSelection: { ...existingPlace?.userSelection, customCategory: 'hotel' },
+          userPriority: 1, 
+          source_url: customHotelLink,
+          isFixed: true, 
+          coordinatesValidated: false 
+      };
+
+      const updatedPlaces = { ...currentProject.data.places, [targetId]: newPlace };
+      let updatedLogistics = { ...currentProject.userInputs.logistics };
+      
+      if (customHotelTarget?.type === 'stationary') {
+          updatedLogistics.stationary = { ...updatedLogistics.stationary, hotel: targetId };
+      } else if (customHotelTarget?.type === 'roundtrip' && customHotelTarget.stopId) {
+          updatedLogistics.roundtrip = {
+              ...updatedLogistics.roundtrip,
+              stops: updatedLogistics.roundtrip.stops.map((s: any) => 
+                  s.id === customHotelTarget.stopId ? { ...s, hotel: targetId } : s
+              )
+          };
+      }
+
+      state.setProject({ 
+          ...currentProject, 
+          data: { ...currentProject.data, places: updatedPlaces },
+          userInputs: { ...currentProject.userInputs, logistics: updatedLogistics }
+      });
+
+      setCustomHotelTarget(null);
+      setCustomHotelName('');
+      setCustomHotelAddress('');
+      setCustomHotelLink('');
+      
+      addNotification({ type: 'success', message: t('cockpit.custom_hotel.success_msg', { defaultValue: 'Hotel successfully applied.' }) });
+  };
+
   const isStrictRoute = logistics.roundtripOptions?.strictRoute === true;
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in relative">
+
+      {/* --- CUSTOM HOTEL MODAL --- */}
+      {customHotelTarget && (
+         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-scale-in">
+                 <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                        <Hotel className="w-5 h-5 text-blue-600" />
+                        {t('cockpit.custom_hotel.title', { defaultValue: 'Hotel Details' })}
+                    </h3>
+                    <button onClick={() => setCustomHotelTarget(null)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+                 </div>
+                 <div className="p-6 space-y-4">
+                    <p className="text-xs text-slate-500 mb-4">{t('cockpit.custom_hotel.desc', { defaultValue: 'Check or enter your hotel here.' })}</p>
+                    
+                    <div>
+                        <label className={LABEL_CLASS}>{t('cockpit.custom_hotel.name_label', { defaultValue: 'Accommodation Name *' })}</label>
+                        <input 
+                            type="text" 
+                            className={INPUT_CLASS} 
+                            placeholder={t('cockpit.custom_hotel.name_placeholder', { defaultValue: 'e.g. The Ritz' })}
+                            value={customHotelName}
+                            onChange={(e) => setCustomHotelName(e.target.value)}
+                            autoFocus
+                        />
+                    </div>
+                    <div>
+                        <label className={LABEL_CLASS}>{t('cockpit.custom_hotel.address_label', { defaultValue: 'Address / City *' })}</label>
+                        <input 
+                            type="text" 
+                            className={INPUT_CLASS} 
+                            placeholder={t('cockpit.custom_hotel.address_placeholder', { defaultValue: 'Street, ZIP, City' })}
+                            value={customHotelAddress}
+                            onChange={(e) => setCustomHotelAddress(e.target.value)}
+                        />
+                        <p className="text-[9px] text-slate-400 mt-1">{t('cockpit.custom_hotel.address_hint', { defaultValue: 'Important for GPS location.' })}</p>
+                    </div>
+                    <div>
+                        <label className={LABEL_CLASS}>{t('cockpit.custom_hotel.link_label', { defaultValue: 'Website or Booking Link' })}</label>
+                        <input 
+                            type="text" 
+                            className={INPUT_CLASS} 
+                            placeholder={t('cockpit.custom_hotel.link_placeholder', { defaultValue: 'https://...' })}
+                            value={customHotelLink}
+                            onChange={(e) => setCustomHotelLink(e.target.value)}
+                        />
+                    </div>
+                 </div>
+                 <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+                    <button onClick={() => setCustomHotelTarget(null)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200 rounded-xl">{t('actions.cancel', { defaultValue: 'Cancel' })}</button>
+                    <button onClick={handleSaveCustomHotel} className="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md">{t('cockpit.custom_hotel.save_btn', { defaultValue: 'Save & Apply' })}</button>
+                 </div>
+             </div>
+         </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         
@@ -346,7 +506,7 @@ export const LogisticsStep = () => {
             
             <div>
                <label className={LABEL_CLASS}>
-                 <span className="flex items-center gap-1.5"><Compass className="w-3.5 h-3.5"/> {t('cockpit.constraints_drive_day', { defaultValue: 'Max. Fahrzeit Ausflüge (h)' })}</span>
+                 <Compass className="w-3.5 h-3.5"/> {t('cockpit.constraints_drive_day', { defaultValue: 'Max. Fahrzeit Ausflüge (h)' })}
                </label>
                <input 
                   type="number"
@@ -364,17 +524,26 @@ export const LogisticsStep = () => {
             </div>
 
             <div>
-              <label className={`${LABEL_CLASS} flex items-center justify-between`}>
-                 <span>{t('cockpit.hotel_label', { defaultValue: 'Hotel' })}</span>
-                 <span className="text-[9px] text-slate-400 font-medium normal-case bg-slate-100 px-1.5 py-0.5 rounded">(Optional)</span>
+              <label className={`${LABEL_CLASS} justify-between`}>
+                  <span>{t('cockpit.hotel_label', { defaultValue: 'Hotel' })}</span>
+                  <span className="text-[9px] text-slate-400 font-medium normal-case bg-slate-100 px-1.5 py-0.5 rounded">(Optional)</span>
               </label>
-              <input
-                type="text"
-                className={INPUT_CLASS}
-                placeholder={t('cockpit.hotel_placeholder', { defaultValue: 'Name des Hotels (falls gebucht)' })}
-                value={resolveHotelName(logistics.stationary.hotel)}
-                onChange={(e) => updateStationary({ hotel: e.target.value })}
-              />
+              <div className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    className={INPUT_CLASS}
+                    placeholder={t('cockpit.hotel_placeholder', { defaultValue: 'Name oder Link (z.B. Booking.com)' })}
+                    value={resolveHotelName(logistics.stationary.hotel)}
+                    onChange={(e) => updateStationary({ hotel: e.target.value })}
+                  />
+                  <button 
+                     onClick={() => openHotelModal('stationary')}
+                     className="bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 px-3 py-2.5 rounded-lg flex items-center gap-1 text-xs font-bold transition-all shadow-sm shrink-0"
+                     title={t('cockpit.custom_hotel.btn_tooltip', { defaultValue: 'Exaktes Hotel samt Adresse ansehen/anlegen' })}
+                  >
+                     <Plus className="w-4 h-4" /> {t('cockpit.custom_hotel.btn_manual', { defaultValue: 'Manuell' })}
+                  </button>
+              </div>
             </div>
           </div>
         ) : (
@@ -494,18 +663,29 @@ export const LogisticsStep = () => {
                     <input
                       type="text"
                       placeholder={t('cockpit.destination_label', { defaultValue: 'Ziel' })}
-                      className={`${INPUT_XS_CLASS} flex-1`}
+                      className={`${INPUT_XS_CLASS} w-1/4`}
                       value={stop.location}
                       onChange={(e) => updateRouteStop(stop.id, { location: e.target.value })}
                     />
-                    <input
-                      type="text"
-                      placeholder={t('cockpit.hotel_label', { defaultValue: 'Hotel' })}
-                      className={`${INPUT_XS_CLASS} flex-1`}
-                      value={resolveHotelName(stop.hotel)}
-                      onChange={(e) => updateRouteStop(stop.id, { hotel: e.target.value })}
-                    />
-                      <div className="flex items-center gap-1.5">
+                    
+                    <div className="flex flex-1 gap-1">
+                        <input
+                            type="text"
+                            placeholder={t('cockpit.hotel_placeholder', { defaultValue: 'Name oder Link (Booking)' })}
+                            className={`${INPUT_XS_CLASS} flex-1`}
+                            value={resolveHotelName(stop.hotel)}
+                            onChange={(e) => updateRouteStop(stop.id, { hotel: e.target.value })}
+                        />
+                        <button 
+                            onClick={() => openHotelModal('roundtrip', stop.id)}
+                            className="bg-white border border-slate-300 text-blue-600 hover:bg-blue-50 hover:border-blue-300 px-2 rounded-lg font-bold text-xs shadow-inner transition-colors flex items-center justify-center shrink-0"
+                            title={t('cockpit.custom_hotel.btn_tooltip', { defaultValue: 'Exaktes Hotel samt Adresse ansehen/anlegen' })}
+                        >
+                            + 🏨
+                        </button>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
                         <input
                             type="number"
                             placeholder="-"
@@ -515,7 +695,7 @@ export const LogisticsStep = () => {
                         />
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">{t('cockpit.nights', { defaultValue: 'Nächte' })}</span>
                     </div>
-                    <button onClick={() => removeRouteStop(stop.id)} className="text-slate-300 hover:text-red-500 p-1">
+                    <button onClick={() => removeRouteStop(stop.id)} className="text-slate-300 hover:text-red-500 p-1 shrink-0">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -535,4 +715,4 @@ export const LogisticsStep = () => {
     </div>
   );
 };
-// --- END OF FILE 552 Zeilen ---
+// --- END OF FILE 650 Zeilen ---
