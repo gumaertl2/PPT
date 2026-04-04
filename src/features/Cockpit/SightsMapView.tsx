@@ -1,5 +1,5 @@
+// 04.04.2026 20:30 - UX: Filtered out ignored places (userPriority === -1) from the map. Unselected hotel competitors (which get set to -1 by Auto-Ignore) will now dynamically disappear from the map.
 // 21.03.2026 21:15 - FIX: Restored accidentally removed 'isSelected' definition in the displayPlaces mapping loop.
-// 21.03.2026 21:00 - FIX: Fixed UUID length check (30 instead of 20) for hotel IDs and ensured effectiveCategory is used for manual Hotel overrides.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -72,7 +72,8 @@ const MapPrintPreviewModal: React.FC<{
 }> = ({ isOpen, onClose, places, uiState, hotelInfo, visitedSequence, scheduledPlaces, t }) => {
     
     const [currentZoom, setCurrentZoom] = useState(10);
-    const validPlaces = useMemo(() => places.filter(p => p.location && p.location.lat && p.location.lng), [places]);
+    // UX FIX: Exclude ignored items (userPriority === -1) from print map
+    const validPlaces = useMemo(() => places.filter(p => p.location && p.location.lat && p.location.lng && p.userPriority !== -1), [places]);
     
     const defaultCenter: [number, number] = useMemo(() => {
         if (validPlaces.length === 0) return [48.1351, 11.5820];
@@ -293,7 +294,8 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
   const tripStart = project.userInputs.dates?.start || ''; 
   const tripEnd = project.userInputs.dates?.end || '';
 
-  const validPlaces = useMemo(() => places.filter(p => p.location && p.location.lat && p.location.lng), [places]);
+  // UX FIX: Exclude ignored items (userPriority === -1) from regular map view
+  const validPlaces = useMemo(() => places.filter(p => p.location && p.location.lat && p.location.lng && p.userPriority !== -1), [places]);
   
   const defaultCenter: [number, number] = useMemo(() => {
       if (validPlaces.length === 0) return [48.1351, 11.5820];
@@ -306,7 +308,8 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
   }, [validPlaces]);
 
   const allPlacesFromStore = useMemo(() => Object.values(project.data.places), [project.data.places]);
-  const allValidPlacesForLegend = useMemo(() => (allPlacesFromStore as Place[]).filter(p => p.location && p.location.lat && p.location.lng), [allPlacesFromStore]);
+  // UX FIX: Exclude ignored items from map legend
+  const allValidPlacesForLegend = useMemo(() => (allPlacesFromStore as Place[]).filter(p => p.location && p.location.lat && p.location.lng && p.userPriority !== -1), [allPlacesFromStore]);
 
   const hotelInfo = useMemo(() => {
       const names = new Set<string>();
@@ -329,10 +332,13 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
   }, [project.userInputs.logistics]);
 
   const validPlacesIncludedHotels = useMemo(() => {
-      const baseValid = places.filter(p => p.location && p.location.lat && p.location.lng);
+      // Base valid already filtered out userPriority === -1
+      const baseValid = places.filter(p => p.location && p.location.lat && p.location.lng && p.userPriority !== -1);
       
       const allValidHotels = allPlacesFromStore.filter((p: Place) => {
           if (!p.location || !p.location.lat || !p.location.lng) return false;
+          if (p.userPriority === -1) return false; // CRITICAL: Prevent rejected competitors from showing
+          
           const cat = p.userSelection?.customCategory || p.category || '';
           return hotelInfo.ids.has(p.id) || 
                  hotelInfo.names.has(p.name?.toLowerCase() || '') || 
@@ -785,4 +791,4 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
     </>
   );
 };
-// --- END OF FILE 720 Zeilen ---
+// --- END OF FILE 722 Zeilen ---

@@ -1,5 +1,4 @@
-// 04.04.2026 17:30 - FIX: Prevented user-added or user-selected items from being hidden by the rating/duration quality filters.
-// 04.04.2026 11:35 - UX: Enhanced getMeta and sortFn to sort hotels strictly by their chronological station order.
+// 04.04.2026 22:00 - UX: Un-frozen isReserve status for hotels so they instantly vanish on auto-ignore. Added prominent UI headers (🏡 Station 1: ...) to visually separate and chronologically sort hotels instead of piling them up under "Hotels".
 // src/features/Cockpit/SightsView.tsx
 
 import React, { useMemo, useEffect, useState, useRef } from 'react';
@@ -277,7 +276,6 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
         const rating = p.rating || 0;
         const currentPrioVal = getRealPriorityValue(p);
         
-        // FIX: Prevent user-selected or fixed items from being hidden by rating/duration quality filters
         const isFilterFail = (duration > 0 && duration < minDuration) || (rating > 0 && rating < minRating);
         const currentIsReserve = p.userPriority === -1 || (p.userPriority === 0 && !p.isFixed && isFilterFail);
 
@@ -288,23 +286,28 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
         if (currentCat === 'hotel' || currentCat === 'accommodation') {
             const logistics = project.userInputs.logistics;
             if (logistics.mode === 'mobil' && logistics.roundtrip?.stops) {
-                const hCity = (p.city || '').toLowerCase();
-                const hAddr = (p.address || '').toLowerCase();
-                const hName = (p.name || '').toLowerCase();
+                const stops = logistics.roundtrip.stops;
+                let idx = stops.findIndex((s: any) => s.hotel === p.id);
                 
-                logistics.roundtrip.stops.forEach((stop: any, idx: number) => {
-                    if (stop.hotel === p.id) {
-                        targetStopIndex = idx;
-                    }
-                });
-                
-                if (targetStopIndex === 999) {
-                    logistics.roundtrip.stops.forEach((stop: any, idx: number) => {
-                        const sLoc = (stop.location || '').trim().toLowerCase();
-                        if (sLoc && sLoc.length > 2 && (hCity.includes(sLoc) || hAddr.includes(sLoc) || hName.includes(sLoc))) {
-                            if (targetStopIndex === 999) targetStopIndex = idx; 
-                        }
+                if (idx !== -1) {
+                    targetStopIndex = idx;
+                } else {
+                    const hCity = (p.city || '').toLowerCase();
+                    const hAddr = (p.address || '').toLowerCase();
+                    const hName = (p.name || '').toLowerCase();
+                    const hReasoning = (p.location_match || '').toLowerCase();
+                    
+                    const guessIdx = stops.findIndex((s: any) => {
+                        const sLoc = (s.location || '').replace(/Region\s+/i, '').trim().toLowerCase();
+                        if (sLoc.length < 3) return false;
+                        const match1 = hCity.includes(sLoc) || (hCity.length > 2 && sLoc.includes(hCity));
+                        const match2 = hAddr.includes(sLoc) || (hAddr.length > 2 && sLoc.includes(hAddr));
+                        const match3 = hName.includes(sLoc) || (hName.length > 2 && sLoc.includes(hName));
+                        const match4 = hReasoning.includes(sLoc);
+                        return match1 || match2 || match3 || match4;
                     });
+                    
+                    if (guessIdx !== -1) targetStopIndex = guessIdx;
                 }
             }
         }
@@ -319,6 +322,11 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
             frozenMetaRef.current[p.id] = metaObj;
         } else {
             frozenMetaRef.current[p.id].targetStopIndex = targetStopIndex; 
+            // UX FIX: Un-freeze priority and reserve status ONLY for hotels so they instantly drop out of the view on auto-ignore!
+            if (currentCat === 'hotel' || currentCat === 'accommodation') {
+                frozenMetaRef.current[p.id].prioVal = currentPrioVal;
+                frozenMetaRef.current[p.id].isReserve = currentIsReserve;
+            }
         }
 
         return frozenMetaRef.current[p.id];
@@ -360,7 +368,6 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
       const liveDuration = p.duration || p.min_duration_minutes || 0;
       const liveRating = p.rating || 0;
       
-      // FIX: Apply same robust filter logic here to prevent disappearance of selected items
       const liveFilterFail = (liveDuration > 0 && liveDuration < minDuration) || (liveRating > 0 && liveRating < minRating);
       const liveIsReserve = p.userPriority === -1 || (p.userPriority === 0 && !p.isFixed && liveFilterFail);
 
@@ -473,8 +480,23 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
         } 
         else {
             let key = t('sights.group_general', { defaultValue: 'Allgemein' });
-            if (sortMode === 'category') key = resolveCategoryLabel(meta.cat);
-            else if (sortMode === 'alphabetical') key = meta.name ? meta.name[0].toUpperCase() : '?';
+            if (sortMode === 'category') {
+                // UX FIX: Explicitly break out hotels into visible Station groups instead of burying them under one "Hotels" header
+                if (meta.cat === 'hotel' || meta.cat === 'accommodation') {
+                    if (project.userInputs.logistics.mode === 'mobil' && meta.targetStopIndex !== 999) {
+                        const stop = project.userInputs.logistics.roundtrip.stops[meta.targetStopIndex];
+                        key = `🏡 Station ${meta.targetStopIndex + 1}: ${stop?.location || ''}`;
+                    } else if (project.userInputs.logistics.mode === 'stationaer') {
+                        key = `🏡 Unterkunft / Hotel`;
+                    } else {
+                        key = resolveCategoryLabel(meta.cat);
+                    }
+                } else {
+                    key = resolveCategoryLabel(meta.cat);
+                }
+            } else if (sortMode === 'alphabetical') {
+                key = meta.name ? meta.name[0].toUpperCase() : '?';
+            }
             
             if (!groups[key]) groups[key] = [];
             groups[key].push(p);
@@ -491,6 +513,18 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
           t('sights.ignored', { defaultValue: '❌ Reserve / Ignoriert' })
         ];
         groupKeys.sort((a, b) => priorityOrder.indexOf(a) - priorityOrder.indexOf(b));
+    } else if (sortMode === 'category') {
+        // UX FIX: Make sure "Station 1" sorts before "Station 2"
+        groupKeys.sort((a, b) => {
+            const matchA = a.match(/Station (\d+)/);
+            const matchB = b.match(/Station (\d+)/);
+            if (matchA && matchB) {
+                return parseInt(matchA[1]) - parseInt(matchB[1]);
+            }
+            if (matchA) return -1; // Stations float to the top
+            if (matchB) return 1;
+            return a.localeCompare(b);
+        });
     }
 
     return groupKeys.map((groupKey) => {
@@ -572,4 +606,4 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     </div>
   );
 };
-// --- END OF FILE 654 Zeilen ---
+// --- END OF FILE 676 Zeilen ---

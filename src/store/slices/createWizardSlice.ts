@@ -1,7 +1,4 @@
-// 04.04.2026 17:30 - FIX: Added ultimate fallback (targetIndex = 0) so hotel selection never fails silently.
-// 04.04.2026 13:00 - UX/FIX: Implemented isolated "Auto-Ignore" logic. When a hotel is selected, only the competitors for THAT EXACT STOP are hidden.
-// 05.02.2026 18:00 - NEW: WIZARD SLICE.
-// Extracted from createProjectSlice to separate UI-Input logic from Project-IO logic.
+// 04.04.2026 22:00 - UX/FIX: Implemented bi-directional string matching for getStopIndex to flawlessly identify and auto-ignore competitor hotels.
 // src/store/slices/createWizardSlice.ts
 
 import type { StateCreator } from 'zustand';
@@ -14,7 +11,6 @@ import type {
 } from '../../core/types';
 
 export interface WizardSlice {
-  // Specific Setters (Wizard)
   setTravelers: (data: Partial<TripUserProfile['travelers']>) => void;
   setDates: (data: Partial<TripUserProfile['dates']>) => void;
   setLogisticMode: (mode: 'stationaer' | 'mobil' | 'roundtrip') => void;
@@ -30,7 +26,6 @@ export interface WizardSlice {
   setStrategy: (strategyId: string) => void;
   setRoundtripOptions: (data: Partial<{ waypoints: string; strictRoute: boolean }>) => void;
 
-  // Complex Objects
   addRouteStop: () => void;
   removeRouteStop: (id: string) => void;
   updateRouteStop: (id: string, data: Partial<RouteStop>) => void;
@@ -50,7 +45,6 @@ export interface WizardSlice {
   setCustomPreference: (interestId: string, text: string) => void;
   setAiOutputLanguage: (lang: string) => void;
 
-  // Logic Linker
   assignHotelToLogistics: (placeId: string) => void;
 }
 
@@ -382,16 +376,13 @@ export const createWizardSlice: StateCreator<any, [], [], WizardSlice> = (set) =
 
       if (mode === 'stationaer') {
           const isDeselecting = logistics.stationary.hotel === placeId;
-
+          
           Object.values(newPlaces).forEach((p: any) => {
-              if (p.category === 'hotel' || p.category === 'accommodation') {
-                 if (isDeselecting) {
-                     newPlaces[p.id] = { ...p, userPriority: 0 };
-                 } else {
-                     newPlaces[p.id] = { ...p, userPriority: p.id === placeId ? 1 : -1 };
-                 }
+              if (p.id !== placeId && (p.category === 'hotel' || p.category === 'accommodation')) {
+                  newPlaces[p.id] = { ...p, userPriority: isDeselecting ? 0 : -1 };
               }
           });
+          newPlaces[placeId] = { ...place, userPriority: isDeselecting ? 0 : 1 };
 
           return {
               project: {
@@ -413,63 +404,48 @@ export const createWizardSlice: StateCreator<any, [], [], WizardSlice> = (set) =
       
       else if (mode === 'roundtrip' || mode === 'mobil') {
           const stops = logistics.roundtrip.stops || [];
-          let targetIndex = -1;
           
-          const existingStopIndex = stops.findIndex((s: RouteStop) => s.hotel === placeId);
-          const isDeselecting = existingStopIndex !== -1;
-
-          if (isDeselecting) {
-              targetIndex = existingStopIndex;
-          } else {
-              const matchedStopIndex = stops.findIndex((s: RouteStop) => {
-                  if (!s.location) return false;
-                  const cleanLoc = s.location.replace(/Region\s+/i, '').trim().toLowerCase();
-                  if (cleanLoc.length < 3) return false;
-
-                  const address = (place.address || '').toLowerCase();
-                  const reasoning = (place.location_match || '').toLowerCase();
-                  const city = (place.city || '').toLowerCase();
-
-                  return address.includes(cleanLoc) || reasoning.includes(cleanLoc) || city.includes(cleanLoc);
+          // Bulletproof Bi-Directional Index Finder
+          const getStopIndex = (p: any) => {
+              let idx = stops.findIndex((s: RouteStop) => s.hotel === p.id);
+              if (idx !== -1) return idx;
+              
+              const hCity = (p.city || '').toLowerCase();
+              const hAddr = (p.address || '').toLowerCase();
+              const hName = (p.name || '').toLowerCase();
+              const hReasoning = (p.location_match || '').toLowerCase();
+              
+              return stops.findIndex((s: RouteStop) => {
+                  const sLoc = (s.location || '').replace(/Region\s+/i, '').trim().toLowerCase();
+                  if (sLoc.length < 3) return false;
+                  
+                  const match1 = hCity.includes(sLoc) || (hCity.length > 2 && sLoc.includes(hCity));
+                  const match2 = hAddr.includes(sLoc) || (hAddr.length > 2 && sLoc.includes(hAddr));
+                  const match3 = hName.includes(sLoc) || (hName.length > 2 && sLoc.includes(hName));
+                  const match4 = hReasoning.includes(sLoc);
+                  
+                  return match1 || match2 || match3 || match4;
               });
+          };
 
-              if (matchedStopIndex !== -1) {
-                  targetIndex = matchedStopIndex;
-              } else {
-                  targetIndex = stops.findIndex((s: RouteStop) => !s.hotel);
-                  // ULTIMATE FALLBACK: If all slots are "filled" (e.g. with text), we force overwrite the first slot.
-                  if (targetIndex === -1 && stops.length > 0) {
-                      targetIndex = 0;
-                  }
-              }
-          }
-
+          let targetIndex = getStopIndex(place);
+          if (targetIndex === -1 && stops.length > 0) targetIndex = 0; 
+          
           if (targetIndex !== -1) {
+              const isDeselecting = stops[targetIndex].hotel === placeId;
               const newStops = [...stops];
               newStops[targetIndex] = { ...newStops[targetIndex], hotel: isDeselecting ? '' : placeId };
               
-              const targetStopLocation = (newStops[targetIndex].location || '').replace(/Region\s+/i, '').trim().toLowerCase();
-
-              // Safe Auto-Ignore: Only affect competitors of the same destination stop
-              if (targetStopLocation && targetStopLocation.length > 2) {
-                  Object.values(newPlaces).forEach((p: any) => {
-                     if (p.category === 'hotel' || p.category === 'accommodation') {
-                         const address = (p.address || '').toLowerCase();
-                         const reasoning = (p.location_match || '').toLowerCase();
-                         const city = (p.city || '').toLowerCase();
-                         
-                         if (address.includes(targetStopLocation) || reasoning.includes(targetStopLocation) || city.includes(targetStopLocation)) {
-                             if (isDeselecting) {
-                                 newPlaces[p.id] = { ...p, userPriority: 0 };
-                             } else {
-                                 newPlaces[p.id] = { ...p, userPriority: p.id === placeId ? 1 : -1 };
-                             }
-                         }
-                     }
-                  });
-              } else if (!isDeselecting) {
-                   newPlaces[placeId] = { ...place, userPriority: 1 };
-              }
+              // Smart Index Filter: Clean up ONLY competitors targeting the exact same station index
+              Object.values(newPlaces).forEach((p: any) => {
+                  if (p.id !== placeId && (p.category === 'hotel' || p.category === 'accommodation')) {
+                      if (getStopIndex(p) === targetIndex) {
+                          newPlaces[p.id] = { ...p, userPriority: isDeselecting ? 0 : -1 };
+                      }
+                  }
+              });
+              
+              newPlaces[placeId] = { ...place, userPriority: isDeselecting ? 0 : 1 };
 
               return {
                   project: {
@@ -492,4 +468,4 @@ export const createWizardSlice: StateCreator<any, [], [], WizardSlice> = (set) =
       return state;
   })
 });
-// --- END OF FILE 397 Zeilen ---
+// --- END OF FILE 381 Zeilen ---

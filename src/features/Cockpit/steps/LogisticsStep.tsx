@@ -1,5 +1,4 @@
-// 04.04.2026 19:30 - FIX: Made resolveHotelName bulletproof against object-based names, nulls, and name_official edge cases to prevent empty inputs. Fixed i18n default values.
-// 04.04.2026 18:30 - UX: Restored the full "Deep Input" UI design.
+// 04.04.2026 21:30 - UX: Updated custom hotel save logic to utilize the "Smart Index Filter".
 // src/features/Cockpit/steps/LogisticsStep.tsx
 
 import React, { useEffect, useState } from 'react';
@@ -56,7 +55,6 @@ export const LogisticsStep = () => {
   const [customHotelAddress, setCustomHotelAddress] = useState('');
   const [customHotelLink, setCustomHotelLink] = useState('');
 
-  // UX-Klassen (Deep Input Design)
   const LABEL_CLASS = "text-[10px] font-black text-blue-800/80 uppercase tracking-wider block mb-1.5 flex items-center gap-1.5";
   const INPUT_CLASS = "w-full text-sm bg-white border border-slate-300 shadow-inner rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 hover:border-blue-400 transition-all placeholder:text-slate-300";
   const INPUT_XS_CLASS = "w-full text-xs bg-white border border-slate-300 shadow-inner rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 hover:border-blue-400 transition-all placeholder:text-slate-300";
@@ -72,7 +70,6 @@ export const LogisticsStep = () => {
     return (item.label as any)[currentLang] || (item.label as any)['de'] || '';
   };
 
-  // FIX: Bulletproof Fallback Logic to absolutely guarantee a visible string.
   const resolveHotelName = (val: string | undefined | null): string => {
     if (!val) return '';
     const place = project.data?.places?.[val];
@@ -166,7 +163,6 @@ export const LogisticsStep = () => {
     }
   };
 
-  // --- MANUAL HOTEL LOGIC (Pre-Fill & Save) ---
   const openHotelModal = (type: 'stationary' | 'roundtrip', stopId?: string) => {
       let existingHotelRef = '';
       if (type === 'stationary') {
@@ -203,17 +199,19 @@ export const LogisticsStep = () => {
       }
 
       let existingHotelId = '';
+      let targetStopIndex = -1;
+      const state = useTripStore.getState();
+      const currentProject = state.project;
+
       if (customHotelTarget?.type === 'stationary') {
           existingHotelId = logistics.stationary.hotel || '';
       } else if (customHotelTarget?.type === 'roundtrip' && customHotelTarget.stopId) {
-          const stop = logistics.roundtrip.stops.find(s => s.id === customHotelTarget?.stopId);
-          existingHotelId = stop?.hotel || '';
+          const stops = currentProject.userInputs.logistics.roundtrip.stops;
+          targetStopIndex = stops.findIndex(s => s.id === customHotelTarget?.stopId);
+          existingHotelId = targetStopIndex !== -1 ? (stops[targetStopIndex].hotel || '') : '';
       }
 
-      const state = useTripStore.getState();
-      const currentProject = state.project;
       const existingPlace = existingHotelId ? currentProject.data.places[existingHotelId] : null;
-      
       const targetId = existingPlace ? existingPlace.id : `custom-hotel-${Date.now()}`;
       
       const newPlace: Place = {
@@ -232,16 +230,45 @@ export const LogisticsStep = () => {
 
       const updatedPlaces = { ...currentProject.data.places, [targetId]: newPlace };
       let updatedLogistics = { ...currentProject.userInputs.logistics };
-      
+
+      // Apply Smart Index Filter to clear out AI competitors when creating a custom hotel
       if (customHotelTarget?.type === 'stationary') {
           updatedLogistics.stationary = { ...updatedLogistics.stationary, hotel: targetId };
-      } else if (customHotelTarget?.type === 'roundtrip' && customHotelTarget.stopId) {
+          Object.values(updatedPlaces).forEach((p: any) => {
+              if (p.id !== targetId && (p.category === 'hotel' || p.category === 'accommodation')) {
+                  updatedPlaces[p.id] = { ...p, userPriority: -1 };
+              }
+          });
+      } else if (customHotelTarget?.type === 'roundtrip' && targetStopIndex !== -1) {
+          const stops = updatedLogistics.roundtrip.stops;
           updatedLogistics.roundtrip = {
               ...updatedLogistics.roundtrip,
-              stops: updatedLogistics.roundtrip.stops.map((s: any) => 
-                  s.id === customHotelTarget.stopId ? { ...s, hotel: targetId } : s
+              stops: stops.map((s: any, idx: number) => 
+                  idx === targetStopIndex ? { ...s, hotel: targetId } : s
               )
           };
+          
+          const getStopIndex = (p: any) => {
+              let idx = stops.findIndex((s: any) => s.hotel === p.id);
+              if (idx !== -1) return idx;
+              const hCity = (p.city || '').toLowerCase();
+              const hAddr = (p.address || '').toLowerCase();
+              const hName = (p.name || '').toLowerCase();
+              const hReasoning = (p.location_match || '').toLowerCase();
+              return stops.findIndex((s: any) => {
+                  const sLoc = (s.location || '').replace(/Region\s+/i, '').trim().toLowerCase();
+                  if (sLoc.length < 3) return false;
+                  return hCity.includes(sLoc) || hAddr.includes(sLoc) || hName.includes(sLoc) || hReasoning.includes(sLoc);
+              });
+          };
+
+          Object.values(updatedPlaces).forEach((p: any) => {
+              if (p.id !== targetId && (p.category === 'hotel' || p.category === 'accommodation')) {
+                  if (getStopIndex(p) === targetStopIndex) {
+                      updatedPlaces[p.id] = { ...p, userPriority: -1 };
+                  }
+              }
+          });
       }
 
       state.setProject({ 
@@ -533,7 +560,7 @@ export const LogisticsStep = () => {
                     type="text"
                     className={INPUT_CLASS}
                     placeholder={t('cockpit.hotel_placeholder', { defaultValue: 'Name oder Link (z.B. Booking.com)' })}
-                    value={resolveHotelName(logistics.stationary.hotel)}
+                    value={resolveHotelName(logistics.stationary.hotel) || ''}
                     onChange={(e) => updateStationary({ hotel: e.target.value })}
                   />
                   <button 
@@ -658,22 +685,23 @@ export const LogisticsStep = () => {
 
               <div className="space-y-2">
                 {logistics.roundtrip.stops.map((stop, index) => (
-                  <div key={stop.id} className="flex gap-2 items-center bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                    <span className="text-xs font-black text-slate-400 w-5 text-center">{index + 1}.</span>
+                  <div key={stop.id} className="grid grid-cols-[20px_1fr_1.5fr_auto_auto] gap-2 items-center bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                    <span className="text-xs font-black text-slate-400 text-center">{index + 1}.</span>
+                    
                     <input
                       type="text"
                       placeholder={t('cockpit.destination_label', { defaultValue: 'Ziel' })}
-                      className={`${INPUT_XS_CLASS} w-1/4`}
-                      value={stop.location}
+                      className={`${INPUT_XS_CLASS} min-w-0`}
+                      value={stop.location || ''}
                       onChange={(e) => updateRouteStop(stop.id, { location: e.target.value })}
                     />
                     
-                    <div className="flex flex-1 gap-1">
+                    <div className="flex gap-1 min-w-0">
                         <input
                             type="text"
                             placeholder={t('cockpit.hotel_placeholder', { defaultValue: 'Name oder Link (Booking)' })}
-                            className={`${INPUT_XS_CLASS} flex-1`}
-                            value={resolveHotelName(stop.hotel)}
+                            className={`${INPUT_XS_CLASS} flex-1 min-w-0`}
+                            value={resolveHotelName(stop.hotel) || ''}
                             onChange={(e) => updateRouteStop(stop.id, { hotel: e.target.value })}
                         />
                         <button 
@@ -693,8 +721,9 @@ export const LogisticsStep = () => {
                             value={stop.duration || ''}
                             onChange={(e) => updateRouteStop(stop.id, { duration: parseInt(e.target.value) })}
                         />
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">{t('cockpit.nights', { defaultValue: 'Nächte' })}</span>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide hidden sm:inline">{t('cockpit.nights', { defaultValue: 'Nächte' })}</span>
                     </div>
+                    
                     <button onClick={() => removeRouteStop(stop.id)} className="text-slate-300 hover:text-red-500 p-1 shrink-0">
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -715,4 +744,4 @@ export const LogisticsStep = () => {
     </div>
   );
 };
-// --- END OF FILE 650 Zeilen ---
+// --- END OF FILE 683 Zeilen ---

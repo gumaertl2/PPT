@@ -1,5 +1,4 @@
-// 04.04.2026 12:10 - FIX: Removed unused 'useMemo' import to resolve Vercel build error TS6133.
-// 04.04.2026 11:35 - UX: Added intelligent pre-selection badge for intended roundtrip stops and integrated dynamic Booking.com date search logic.
+// 04.04.2026 22:00 - UX/FIX: Refactored target stop matching logic to bi-directional includes() for flawless label detection, matching the main store perfectly.
 // src/features/Cockpit/SightCard/SightCardMeta.tsx
 
 import React from 'react';
@@ -108,7 +107,6 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
       const logistics = project.userInputs.logistics;
       if (logistics.mode === 'mobil' && logistics.roundtrip?.stops) {
           
-          // 1. Is it explicitly selected?
           logistics.roundtrip.stops.forEach((stop: any, idx: number) => {
               if (stop.hotel === data.id) {
                   assignedStopIndex = idx + 1;
@@ -117,18 +115,25 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
               }
           });
 
-          // 2. If not selected, guess the intended target stop
           if (!isActuallySelected) {
               const hCity = (data.city || '').toLowerCase();
               const hAddr = (data.address || '').toLowerCase();
               const hName = (data.name || '').toLowerCase();
+              const hReasoning = (data.location_match || '').toLowerCase();
               
               logistics.roundtrip.stops.forEach((stop: any, idx: number) => {
-                  const sLoc = (stop.location || '').trim().toLowerCase();
-                  if (sLoc && sLoc.length > 2 && (hCity.includes(sLoc) || hAddr.includes(sLoc) || hName.includes(sLoc))) {
-                      if (assignedStopIndex === -1) {
-                          assignedStopIndex = idx + 1;
-                          assignedStopName = stop.location || '';
+                  const sLoc = (stop.location || '').replace(/Region\s+/i, '').trim().toLowerCase();
+                  if (sLoc && sLoc.length > 2) {
+                      const match1 = hCity.includes(sLoc) || (hCity.length > 2 && sLoc.includes(hCity));
+                      const match2 = hAddr.includes(sLoc) || (hAddr.length > 2 && sLoc.includes(hAddr));
+                      const match3 = hName.includes(sLoc) || (hName.length > 2 && sLoc.includes(hName));
+                      const match4 = hReasoning.includes(sLoc);
+
+                      if (match1 || match2 || match3 || match4) {
+                          if (assignedStopIndex === -1) {
+                              assignedStopIndex = idx + 1;
+                              assignedStopName = stop.location || '';
+                          }
                       }
                   }
               });
@@ -140,13 +145,13 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
           if (isActuallySelected) {
               assignedBadge = (
                   <div className="inline-flex w-fit items-center gap-1.5 px-2.5 py-1 mb-2 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-sm">
-                      ✅ {t('sights.hotel_selected_stop', { defaultValue: `Ausgewählt für Station ${assignedStopIndex} (${assignedStopName})` })}
+                      ✅ {t('sights.hotel_selected_stop', { assignedStopIndex, assignedStopName, defaultValue: `Ausgewählt für Station ${assignedStopIndex} (${assignedStopName})` })}
                   </div>
               );
           } else {
               assignedBadge = (
                   <div className="inline-flex w-fit items-center gap-1.5 px-2.5 py-1 mb-2 rounded-md text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200 shadow-sm">
-                      <Target className="w-3.5 h-3.5" /> {t('sights.hotel_option_stop', { defaultValue: `Option für Station ${assignedStopIndex} (${assignedStopName})` })}
+                      <Target className="w-3.5 h-3.5" /> {t('sights.hotel_option_stop', { assignedStopIndex, assignedStopName, defaultValue: `Option für Station ${assignedStopIndex} (${assignedStopName})` })}
                   </div>
               );
           }
@@ -355,4 +360,4 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
     </>
   );
 };
-// --- END OF FILE 291 Zeilen ---
+// --- END OF FILE 295 Zeilen ---
