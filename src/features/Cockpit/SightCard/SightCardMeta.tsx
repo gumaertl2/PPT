@@ -1,8 +1,8 @@
+// 04.04.2026 12:10 - FIX: Removed unused 'useMemo' import to resolve Vercel build error TS6133.
 // 04.04.2026 11:35 - UX: Added intelligent pre-selection badge for intended roundtrip stops and integrated dynamic Booking.com date search logic.
-// 22.03.2026 11:30 - UX: Added visual assignment badges and consolidated buttons.
 // src/features/Cockpit/SightCard/SightCardMeta.tsx
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Sun, CloudRain, ExternalLink, Check, BookOpen, Globe, Search, Map as MapIcon, Sparkles, MapPin, Target } from 'lucide-react';
 import { VALID_POI_CATEGORIES, INTEREST_DATA } from '../../../data/interests';
 import { useTripStore } from '../../../store/useTripStore';
@@ -355,4 +355,4 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
     </>
   );
 };
-// --- END OF FILE 292 Zeilen ---
+// --- END OF FILE 291 Zeilen ---
