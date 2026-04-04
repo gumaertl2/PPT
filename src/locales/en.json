@@ -533,7 +533,9 @@
     "update_gps": "Tag GPS Data",
     "edit_title": "Title",
     "edit_date": "Date & Time",
-    "undo_confirm": "Do you really want to undo this check-in?",
+    "mark_visited": "Visited",
+    "undo_visited": "Undo visit",
+    "undo_confirm": "Do you really want to undo this visit?",
     "real_day": "Travel Day"
   },
   "itinerary": {

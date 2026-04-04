@@ -1,9 +1,9 @@
-// 21.03.2026 21:00 - FIX: Enhanced ultimate fallback for distanceToHotel to respect user's manual category changes (effectiveCategory).
-// 21.03.2026 20:30 - FIX: Added robust fallback logic for 'distanceToHotel' to gracefully handle cases where 'mobil' mode is selected but no stops are defined.
+// 04.04.2026 11:35 - UX: Added intelligent pre-selection badge for intended roundtrip stops and integrated dynamic Booking.com date search logic.
+// 22.03.2026 11:30 - UX: Added visual assignment badges and consolidated buttons.
 // src/features/Cockpit/SightCard/SightCardMeta.tsx
 
 import React, { useMemo } from 'react';
-import { Sun, CloudRain, ExternalLink, Check, BookOpen, Globe, Search, Map as MapIcon, Sparkles, MapPin } from 'lucide-react';
+import { Sun, CloudRain, ExternalLink, Check, BookOpen, Globe, Search, Map as MapIcon, Sparkles, MapPin, Target } from 'lucide-react';
 import { VALID_POI_CATEGORIES, INTEREST_DATA } from '../../../data/interests';
 import { useTripStore } from '../../../store/useTripStore';
 import { calculateDistance } from '../../../core/utils/geo';
@@ -74,11 +74,7 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
 
   const getSmartGuideLink = () => {
       if (data.guide_link) return data.guide_link;
-      
-      if (data.awards && data.awards.length > 0) {
-          return `https://www.google.com/search?q=${encodeURIComponent(getGoogleSearchQuery())}`;
-      }
-      
+      if (data.awards && data.awards.length > 0) return `https://www.google.com/search?q=${encodeURIComponent(getGoogleSearchQuery())}`;
       return !isHotel ? sourceUrl : null;
   };
 
@@ -89,7 +85,6 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
 
   const guideLink = getSmartGuideLink();
 
-  // --- ENTFERNUNGS-BERECHNUNG ZUM HOTEL ---
   const resolveHotelLocation = (hotelRef: string | undefined) => {
       if (!hotelRef) return null;
       const allPlaces = project.data?.places || {};
@@ -100,12 +95,107 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
       return null;
   };
 
-  const distanceToHotel = useMemo(() => {
-      if (!data.location?.lat || !data.location?.lng || isHotel) return null;
-      
+  // --- HOTEL SPECIFIC LOGIC ---
+  let assignedBadge = null;
+  let bookingSearchUrl = null;
+  let computedDistanceToHotel = null;
+
+  if (isHotel) {
+      let assignedStopIndex = -1;
+      let assignedStopName = '';
+      let isActuallySelected = false;
+
+      const logistics = project.userInputs.logistics;
+      if (logistics.mode === 'mobil' && logistics.roundtrip?.stops) {
+          
+          // 1. Is it explicitly selected?
+          logistics.roundtrip.stops.forEach((stop: any, idx: number) => {
+              if (stop.hotel === data.id) {
+                  assignedStopIndex = idx + 1;
+                  assignedStopName = stop.location || '';
+                  isActuallySelected = true;
+              }
+          });
+
+          // 2. If not selected, guess the intended target stop
+          if (!isActuallySelected) {
+              const hCity = (data.city || '').toLowerCase();
+              const hAddr = (data.address || '').toLowerCase();
+              const hName = (data.name || '').toLowerCase();
+              
+              logistics.roundtrip.stops.forEach((stop: any, idx: number) => {
+                  const sLoc = (stop.location || '').trim().toLowerCase();
+                  if (sLoc && sLoc.length > 2 && (hCity.includes(sLoc) || hAddr.includes(sLoc) || hName.includes(sLoc))) {
+                      if (assignedStopIndex === -1) {
+                          assignedStopIndex = idx + 1;
+                          assignedStopName = stop.location || '';
+                      }
+                  }
+              });
+          }
+      }
+
+      // --- BADGE RENDER ---
+      if (assignedStopIndex !== -1 && assignedStopName) {
+          if (isActuallySelected) {
+              assignedBadge = (
+                  <div className="inline-flex w-fit items-center gap-1.5 px-2.5 py-1 mb-2 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-sm">
+                      ✅ {t('sights.hotel_selected_stop', { defaultValue: `Ausgewählt für Station ${assignedStopIndex} (${assignedStopName})` })}
+                  </div>
+              );
+          } else {
+              assignedBadge = (
+                  <div className="inline-flex w-fit items-center gap-1.5 px-2.5 py-1 mb-2 rounded-md text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200 shadow-sm">
+                      <Target className="w-3.5 h-3.5" /> {t('sights.hotel_option_stop', { defaultValue: `Option für Station ${assignedStopIndex} (${assignedStopName})` })}
+                  </div>
+              );
+          }
+      } else if (logistics.mode === 'stationaer') {
+         if (logistics.stationary?.hotel === data.id) {
+              assignedBadge = <div className="inline-flex w-fit items-center gap-1.5 px-2.5 py-1 mb-2 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-sm">✅ {t('sights.hotel_assigned_stationary', { defaultValue: `Ausgewählte Unterkunft` })}</div>;
+         } else {
+              assignedBadge = <div className="inline-flex w-fit items-center gap-1.5 px-2.5 py-1 mb-2 rounded-md text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200 shadow-sm"><Target className="w-3.5 h-3.5" /> {t('sights.hotel_option_stationary', { defaultValue: `Option für den Aufenthalt` })}</div>;
+         }
+      } else if (data.city) {
+          assignedBadge = <div className="inline-flex w-fit items-center gap-1.5 px-2.5 py-1 mb-2 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 shadow-sm">📍 {t('sights.hotel_location', { defaultValue: 'Standort:' })} {data.city}</div>;
+      }
+
+      // --- BOOKING.COM URL WITH DATES ---
+      let checkinDate: Date | null = null;
+      let checkoutDate: Date | null = null;
+
+      if (logistics.mode === 'mobil' && logistics.roundtrip?.stops) {
+          let dayOffset = 0;
+          const startDate = project.userInputs.dates?.start ? new Date(project.userInputs.dates.start) : null;
+
+          logistics.roundtrip.stops.forEach((stop: any, idx: number) => {
+              if ((idx + 1) === assignedStopIndex && startDate) {
+                  checkinDate = new Date(startDate);
+                  checkinDate.setDate(checkinDate.getDate() + dayOffset);
+                  checkoutDate = new Date(checkinDate);
+                  checkoutDate.setDate(checkoutDate.getDate() + (stop.duration || 1));
+              }
+              dayOffset += (stop.duration || 1);
+          });
+      } else if (logistics.mode === 'stationaer') {
+          if (project.userInputs.dates?.start && project.userInputs.dates?.end) {
+              checkinDate = new Date(project.userInputs.dates.start);
+              checkoutDate = new Date(project.userInputs.dates.end);
+          }
+      }
+
+      const bQuery = encodeURIComponent((data.official_name || data.name || '') + ' ' + (data.city || ''));
+      let bUrl = `https://www.booking.com/searchresults.html?ss=${bQuery}`;
+      if (checkinDate && checkoutDate) {
+          bUrl += `&checkin_year=${checkinDate.getFullYear()}&checkin_month=${checkinDate.getMonth()+1}&checkin_monthday=${checkinDate.getDate()}`;
+          bUrl += `&checkout_year=${checkoutDate.getFullYear()}&checkout_month=${checkoutDate.getMonth()+1}&checkout_monthday=${checkoutDate.getDate()}`;
+      }
+      bookingSearchUrl = bUrl;
+
+  } else {
+      let targetHotelLoc: {lat: number, lng: number} | null = null;
       const logistics = project.userInputs.logistics;
       const itinerary = project.itinerary;
-      let targetHotelLoc: {lat: number, lng: number} | null = null;
 
       if (logistics.mode === 'stationaer') {
           targetHotelLoc = resolveHotelLocation(logistics.stationary?.hotel);
@@ -118,7 +208,6 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
                   }
               });
           }
-
           if (assignedDay >= 0 && logistics.roundtrip.stops && logistics.roundtrip.stops.length > 0) {
               let dayCounter = 0;
               for (const stop of logistics.roundtrip.stops) {
@@ -130,7 +219,6 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
                   dayCounter += nights;
               }
           }
-
           if (!targetHotelLoc && logistics.roundtrip.stops && logistics.roundtrip.stops.length > 0) {
               let minDist = Infinity;
               logistics.roundtrip.stops.forEach((s: any) => {
@@ -146,13 +234,10 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
           }
       }
 
-      // ULTIMATIVER FALLBACK (Wenn weder Stationär noch Mobil saubere Daten haben)
       if (!targetHotelLoc) {
           targetHotelLoc = resolveHotelLocation(logistics.stationary?.hotel);
-          
           if (!targetHotelLoc) {
               const anyHotel = Object.values(project.data?.places || {}).find((p: any) => {
-                  // FIX: Nutzt die effektive Kategorie (inklusive der manuellen Anpassung des Nutzers)
                   const cat = p.userSelection?.customCategory || p.category || '';
                   return cat.toLowerCase() === 'hotel' || cat.toLowerCase() === 'accommodation';
               });
@@ -162,13 +247,10 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
           }
       }
 
-      if (targetHotelLoc) {
-          return calculateDistance(data.location.lat, data.location.lng, targetHotelLoc.lat, targetHotelLoc.lng);
+      if (targetHotelLoc && data.location?.lat && data.location?.lng) {
+          computedDistanceToHotel = calculateDistance(data.location.lat, data.location.lng, targetHotelLoc.lat, targetHotelLoc.lng);
       }
-
-      return null;
-  }, [data.location, data.id, isHotel, project.userInputs.logistics, project.itinerary, project.data?.places]);
-
+  }
 
   const renderSpecialBadge = () => {
       if (specialType === 'wildcard') {
@@ -202,64 +284,75 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
       );
   };
 
+  const bestWebLink = websiteUrl || sourceUrl || (!isHotel ? bookingUrl : null);
+
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 mb-1">
-        {renderCategory()}
-        
-        <div className="flex items-center gap-1" title={t('sights.duration_hint', { defaultValue: 'Dauer in Minuten' })}>
-           <span className="text-gray-400">|</span><span className="text-gray-400">⏱</span>
-           <input 
-              type="number" 
-              min="0" 
-              step="5" 
-              value={customDuration || 0} 
-              onChange={(e) => { e.stopPropagation(); onDurationChange(e); }} 
-              onClick={(e) => e.stopPropagation()} 
-              className="w-10 bg-transparent border-b border-gray-300 p-0 text-center text-xs focus:border-indigo-500 focus:ring-0" 
-           />
-           <span className="text-[10px] font-medium">Min</span>
-        </div>
-        
-        {/* DISTANZ ZUM HOTEL */}
-        {distanceToHotel !== null && (
-            <div className="flex items-center gap-0.5 text-slate-400" title={t('sights.distance_to_hotel', { defaultValue: 'Entfernung zur Unterkunft' })}>
-                <span className="text-gray-400 mr-0.5">|</span>
-                <MapPin className="w-3 h-3" />
-                <span className="text-[10px] font-medium">{distanceToHotel < 1 ? (distanceToHotel * 1000).toFixed(0) + ' m' : distanceToHotel.toFixed(1) + ' km'}</span>
-            </div>
-        )}
-        
-        <div className="flex-1"></div>
-
-        {/* INTERNAL MAP BUTTON */}
-        <button onClick={onShowMap} className="text-gray-400 hover:text-indigo-600 transition-colors mr-1" title={t('sights.show_on_our_map', { defaultValue: 'Auf unserer Karte zeigen' })}>
-          <MapIcon className="w-3.5 h-3.5" />
-        </button>
-        
-        {/* GOOGLE MAPS LINK */}
-        <a href={getGoogleMapsUrl()} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700 transition-colors mr-1" title={t('sights.open_google_maps', { defaultValue: 'Auf Google Maps öffnen' })}>
-          <MapPin className="w-3.5 h-3.5" />
-        </a>
-
-        {isHotel && (
-          <div className="flex items-center gap-1 mr-2">
-             {bookingUrl && (<a href={ensureAbsoluteUrl(bookingUrl)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] font-bold text-white bg-blue-600 hover:bg-blue-700 px-2 py-0.5 rounded shadow-sm transition-colors">Booking <ExternalLink className="w-3 h-3" /></a>)}
-             <button onClick={onHotelSelect} className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-all shadow-sm ${isSelected ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700' : 'bg-white text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300'}`}>
-                {isSelected ? (<><Check className="w-3 h-3" /> {t('sights.selected', { defaultValue: 'Ausgewählt' })}</>) : (t('sights.select', { defaultValue: 'Wählen' }))}
-            </button>
+    <>
+      {assignedBadge}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 mb-1">
+          {renderCategory()}
+          
+          <div className="flex items-center gap-1" title={t('sights.duration_hint', { defaultValue: 'Dauer in Minuten' })}>
+             <span className="text-gray-400">|</span><span className="text-gray-400">⏱</span>
+             <input 
+                type="number" 
+                min="0" 
+                step="5" 
+                value={customDuration || 0} 
+                onChange={(e) => { e.stopPropagation(); onDurationChange(e); }} 
+                onClick={(e) => e.stopPropagation()} 
+                className="w-10 bg-transparent border-b border-gray-300 p-0 text-center text-xs focus:border-indigo-500 focus:ring-0" 
+             />
+             <span className="text-[10px] font-medium">Min</span>
           </div>
-        )}
-        
-        {guideLink && (
-            <a href={ensureAbsoluteUrl(guideLink)} target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:text-amber-700 transition-colors" title={data.awards && data.awards.length > 0 ? t('sights.search_guide', { award: data.awards[0], defaultValue: 'Suche im Guide' }) : t('sights.open_guide', { defaultValue: 'Zum Guide Eintrag' })}>
-                <BookOpen className="w-3.5 h-3.5" />
-            </a>
-        )}
+          
+          {computedDistanceToHotel !== null && (
+              <div className="flex items-center gap-0.5 text-slate-400" title={t('sights.distance_to_hotel', { defaultValue: 'Entfernung zur Unterkunft' })}>
+                  <span className="text-gray-400 mr-0.5">|</span>
+                  <MapPin className="w-3 h-3" />
+                  <span className="text-[10px] font-medium">{computedDistanceToHotel < 1 ? (computedDistanceToHotel * 1000).toFixed(0) + ' m' : computedDistanceToHotel.toFixed(1) + ' km'}</span>
+              </div>
+          )}
+          
+          <div className="flex-1"></div>
 
-        {websiteUrl && (<a href={ensureAbsoluteUrl(websiteUrl)} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:text-indigo-700 transition-colors" title={t('sights.website', { defaultValue: 'Zur Website' })}><Globe className="w-3.5 h-3.5" /></a>)}
-        
-        <a href={`https://www.google.com/search?q=${encodeURIComponent(getGoogleSearchQuery())}`} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-600 transition-colors" title={t('sights.web_search', { query: getGoogleSearchQuery(), defaultValue: 'Web-Suche' })}><Search className="w-3.5 h-3.5" /></a>
-    </div>
+          <button onClick={onShowMap} className="text-gray-400 hover:text-indigo-600 transition-colors mr-1" title={t('sights.show_on_our_map', { defaultValue: 'Auf unserer Karte zeigen' })}>
+            <MapIcon className="w-3.5 h-3.5" />
+          </button>
+          
+          <a href={getGoogleMapsUrl()} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700 transition-colors mr-1" title={t('sights.open_google_maps', { defaultValue: 'Auf Google Maps öffnen' })}>
+            <MapPin className="w-3.5 h-3.5" />
+          </a>
+
+          {isHotel && (
+            <div className="flex items-center gap-1 mr-1">
+               <button onClick={onHotelSelect} className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-all shadow-sm ${isSelected ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700' : 'bg-white text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300'}`}>
+                  {isSelected ? (<><Check className="w-3 h-3" /> {t('sights.selected', { defaultValue: 'Ausgewählt' })}</>) : (t('sights.select', { defaultValue: 'Wählen' }))}
+              </button>
+            </div>
+          )}
+
+          {isHotel && bookingSearchUrl && (
+               <a href={bookingSearchUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] font-bold text-white bg-blue-600 hover:bg-blue-700 px-2 py-0.5 rounded shadow-sm transition-colors mr-1" title={t('sights.booking_search', { defaultValue: 'Preise & Verfügbarkeit prüfen' })}>
+                   Booking.com <ExternalLink className="w-3 h-3" />
+               </a>
+          )}
+          
+          {bestWebLink && (
+               <a href={ensureAbsoluteUrl(bestWebLink)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-white hover:bg-slate-50 border border-slate-200 px-2 py-0.5 rounded shadow-sm transition-colors mr-1" title={t('sights.website', { defaultValue: 'Zur Website' })}>
+                  <Globe className="w-3 h-3" /> Website
+               </a>
+          )}
+          
+          {guideLink && !isHotel && (
+              <a href={ensureAbsoluteUrl(guideLink)} target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:text-amber-700 transition-colors mr-1" title={data.awards && data.awards.length > 0 ? t('sights.search_guide', { award: data.awards[0], defaultValue: 'Suche im Guide' }) : t('sights.open_guide', { defaultValue: 'Zum Guide Eintrag' })}>
+                  <BookOpen className="w-3.5 h-3.5" />
+              </a>
+          )}
+          
+          <a href={`https://www.google.com/search?q=${encodeURIComponent(getGoogleSearchQuery())}`} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-600 transition-colors ml-1" title={t('sights.web_search', { query: getGoogleSearchQuery(), defaultValue: 'Web-Suche' })}><Search className="w-3.5 h-3.5" /></a>
+      </div>
+    </>
   );
 };
-// --- END OF FILE 207 Zeilen ---
+// --- END OF FILE 292 Zeilen ---

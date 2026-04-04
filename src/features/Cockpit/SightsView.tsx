@@ -1,5 +1,5 @@
-// 19.03.2026 10:00 - FIX: Ignored visitedFilter and other UI filters when isPrint is true, ensuring the full travel guide is generated even if printed from the Diary view.
-// 17.03.2026 15:00 - FEAT: Handed down setViewMode to SightsMapView.
+// 04.04.2026 11:35 - UX: Enhanced getMeta and sortFn to sort hotels strictly by their chronological station order (targetStopIndex) instead of alphabetically.
+// 22.03.2026 11:30 - UX: Enhanced sortFn to group hotels strictly by their city/station.
 // src/features/Cockpit/SightsView.tsx
 
 import React, { useMemo, useEffect, useState, useRef } from 'react';
@@ -74,7 +74,6 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
 
   const showPlanningMode = uiState.showPlanningMode || false;
   
-  // FIX: Wir erkennen den Druck-Modus zuverlässig
   const isPrint = !!overrideSortMode || uiState.isPrintMode;
   const activeSortMode = overrideSortMode || (uiState.sortMode as string) || 'category';
   const isTourMode = activeSortMode === 'tour';
@@ -194,7 +193,6 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
           const count = (tour.suggested_order_ids || []).filter((id: string) => {
               const p = places.find(pl => pl.id === id);
               if (!p) return false;
-              // FIX: Ignoriere visitedFilter im Druck-Modus, da sonst Touren unvollständig gedruckt werden
               if (!isPrint && uiState.visitedFilter === 'visited' && !p.visited) return false;
               if (!isPrint && uiState.visitedFilter === 'unvisited' && p.visited) return false;
               return true;
@@ -225,7 +223,6 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     const mainList: any[] = [];
     const specialList: any[] = []; 
     
-    // FIX: Wenn isPrint = true, ignorieren wir ALLE temporären Filter (Suche, Besucht, Kategorie)
     const term = isPrint ? '' : (uiState.searchTerm || '').toLowerCase();
     const activeFilters = isPrint ? [] : (uiState.categoryFilter || []); 
     const sortMode = activeSortMode;
@@ -283,19 +280,50 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
         const currentCat = p.category || 'Sonstiges';
         const currentName = p.name || '';
 
+        // --- NEW: Calculate target station for strictly chronological hotel sorting ---
+        let targetStopIndex = 999; 
+        if (currentCat === 'hotel' || currentCat === 'accommodation') {
+            const logistics = project.userInputs.logistics;
+            if (logistics.mode === 'mobil' && logistics.roundtrip?.stops) {
+                const hCity = (p.city || '').toLowerCase();
+                const hAddr = (p.address || '').toLowerCase();
+                const hName = (p.name || '').toLowerCase();
+                
+                // 1. Is it explicitly selected?
+                logistics.roundtrip.stops.forEach((stop: any, idx: number) => {
+                    if (stop.hotel === p.id) {
+                        targetStopIndex = idx;
+                    }
+                });
+                
+                // 2. If not selected, guess by location string
+                if (targetStopIndex === 999) {
+                    logistics.roundtrip.stops.forEach((stop: any, idx: number) => {
+                        const sLoc = (stop.location || '').trim().toLowerCase();
+                        if (sLoc && sLoc.length > 2 && (hCity.includes(sLoc) || hAddr.includes(sLoc) || hName.includes(sLoc))) {
+                            if (targetStopIndex === 999) targetStopIndex = idx; // take first match
+                        }
+                    });
+                }
+            }
+        }
+
+        const metaObj = { prioVal: currentPrioVal, isReserve: currentIsReserve, cat: currentCat, name: currentName, targetStopIndex };
+
         if (!showPlanningMode) {
-            return { prioVal: currentPrioVal, isReserve: currentIsReserve, cat: currentCat, name: currentName };
+            return metaObj;
         }
 
         if (!frozenMetaRef.current[p.id]) {
-            frozenMetaRef.current[p.id] = { prioVal: currentPrioVal, isReserve: currentIsReserve, cat: currentCat, name: currentName };
+            frozenMetaRef.current[p.id] = metaObj;
+        } else {
+            frozenMetaRef.current[p.id].targetStopIndex = targetStopIndex; // Always keep sorting accurate
         }
 
         return frozenMetaRef.current[p.id];
     };
 
     uniquePlaces.forEach((p: any) => {
-      // FIX: uses visitedFilter (which is 'all' during print)
       if (visitedFilter === 'visited' && !p.visited) return;
       if (visitedFilter === 'unvisited' && p.visited) return;
 
@@ -351,6 +379,13 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
 
       const catCompare = aMeta.cat.localeCompare(bMeta.cat);
       if (catCompare !== 0) return catCompare;
+
+      // --- NEW: Strict chronological sorting for hotels within the same category ---
+      if (aMeta.cat === 'hotel' || aMeta.cat === 'accommodation') {
+          if (aMeta.targetStopIndex !== bMeta.targetStopIndex) {
+              return aMeta.targetStopIndex - bMeta.targetStopIndex;
+          }
+      }
 
       return aMeta.name.localeCompare(bMeta.name);
     };
@@ -534,4 +569,4 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     </div>
   );
 };
-// --- END OF FILE 620 Zeilen ---
+// --- END OF FILE 650 Zeilen ---

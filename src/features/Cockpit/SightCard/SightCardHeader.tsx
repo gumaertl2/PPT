@@ -1,12 +1,12 @@
+// 04.04.2026 11:20 - UX: Renamed misleading "Check-In" to "Besucht" (Visited) and added i18n translation support for the button.
 // 21.02.2026 14:55 - REFACTOR: Merged custom check-in logic with centralized ExpenseEntryButton.
-// 20.02.2026 19:15 - UX: Dimmed title color if the place is marked as a reserve item.
-// 20.02.2026 13:10 - LAYOUT: Moved Check-In and Note buttons to the Header.
 // src/features/Cockpit/SightCard/SightCardHeader.tsx
 
 import React from 'react';
-import { BedDouble, CheckCircle2, MapPin, PenLine } from 'lucide-react';
+import { BedDouble, CheckCircle2, Check, PenLine } from 'lucide-react';
 import { useTripStore } from '../../../store/useTripStore';
 import { ExpenseEntryButton } from '../ExpenseEntryButton';
+import { useTranslation } from 'react-i18next';
 
 interface SightCardHeaderProps {
   placeId?: string; 
@@ -41,6 +41,7 @@ export const SightCardHeader: React.FC<SightCardHeaderProps> = ({
   onToggleNote,
   isReserve
 }) => {
+  const { t } = useTranslation();
   const { project } = useTripStore();
   const travelerNames = project.userInputs.travelers.travelerNames || '';
 
@@ -58,11 +59,11 @@ export const SightCardHeader: React.FC<SightCardHeaderProps> = ({
             <button
                 onClick={onToggleVisited}
                 className="flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-1.5 py-1 rounded shadow-sm hover:bg-red-50 hover:text-red-700 hover:border-red-300 transition-all group shrink-0 no-print"
-                title="Check-in rückgängig machen"
+                title={t('diary.undo_visited', { defaultValue: 'Besuch rückgängig machen' })}
             >
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 group-hover:hidden" />
-                <span className="hidden sm:inline group-hover:hidden">Besucht {dateStr && `(${dateStr})`}</span>
-                <span className="inline sm:hidden group-hover:hidden">Besucht</span>
+                <span className="hidden sm:inline group-hover:hidden">{t('diary.mark_visited', { defaultValue: 'Besucht' })} {dateStr && `(${dateStr})`}</span>
+                <span className="inline sm:hidden group-hover:hidden">{t('diary.mark_visited', { defaultValue: 'Besucht' })}</span>
                 <span className="hidden group-hover:inline">✖ Undo</span>
             </button>
         );
@@ -72,9 +73,9 @@ export const SightCardHeader: React.FC<SightCardHeaderProps> = ({
         <button
             onClick={onToggleVisited}
             className="flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-white border border-slate-200 px-1.5 py-1 rounded hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 transition-all shrink-0 no-print shadow-sm"
-            title="Hier einchecken (für Reisetagebuch)"
+            title={t('diary.mark_visited', { defaultValue: 'Besucht' })}
         >
-            <MapPin className="w-3 h-3" /> <span className="hidden sm:inline">Check-in</span>
+            <Check className="w-3 h-3" /> <span className="hidden sm:inline">{t('diary.mark_visited', { defaultValue: 'Besucht' })}</span>
         </button>
     );
   };

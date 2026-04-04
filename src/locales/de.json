@@ -532,7 +532,9 @@
     "update_gps": "GPS-Daten taggen",
     "edit_title": "Titel",
     "edit_date": "Datum & Uhrzeit",
-    "undo_confirm": "Willst du diesen Check-in wirklich rückgängig machen?",
+    "mark_visited": "Besucht",
+    "undo_visited": "Besuch rückgängig machen",
+    "undo_confirm": "Willst du diesen Besuch wirklich rückgängig machen?",
     "real_day": "Reisetag"
   },
   "itinerary": {
