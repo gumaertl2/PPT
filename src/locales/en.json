@@ -253,7 +253,9 @@
       "btn_tooltip": "View/add exact hotel with address",
       "btn_manual": "Manual"
     },
-    "hotel_manager": {
+   "hotel_manager": {
+      "title": "Manage Accommodations",
+      "tooltip": "Manage accommodations separately",
       "stationary_group": "🏡 Accommodation / Hotel (Stationary)",
       "station_group": "🏡 Station {{index}}: {{name}}",
       "other_group": "🏡 Other Accommodations",

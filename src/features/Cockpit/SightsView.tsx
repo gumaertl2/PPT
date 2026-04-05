@@ -1,6 +1,5 @@
+// 05.04.2026 14:00 - FIX: Updated the "Manage Hotels" button text and tooltip to properly target the new cockpit.hotel_manager.title keys in JSON.
 // 05.04.2026 13:30 - FIX: Added global hook to open the HotelManagerModal from the map.
-// 05.04.2026 12:30 - FIX: Added .toLowerCase() to category checks.
-// 05.04.2026 12:15 - UX: Completely removed hotels from the regular SightsView.
 // src/features/Cockpit/SightsView.tsx
 
 import React, { useMemo, useEffect, useState, useRef } from 'react';
@@ -564,10 +563,10 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
                         <button 
                             onClick={() => setIsHotelModalOpen(true)} 
                             className="flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm border bg-emerald-600 hover:bg-emerald-700 text-white border-transparent hover:shadow-md mr-auto"
-                            title="Unterkünfte separat verwalten"
+                            title={t('cockpit.hotel_manager.tooltip', { defaultValue: 'Unterkünfte separat verwalten' })}
                         >
                             <BedDouble className="w-4 h-4" /> 
-                            {t('cockpit.manage_hotels', { defaultValue: 'Unterkünfte verwalten' })} ({allHotels.length})
+                            {t('cockpit.hotel_manager.title', { defaultValue: 'Unterkünfte verwalten' })} ({allHotels.length})
                         </button>
 
                         <button onClick={handleBatchLiveCheck} disabled={isLiveChecking} className={`flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm border ${isLiveChecking ? 'bg-amber-50 text-amber-500 border-amber-100 cursor-not-allowed' : 'bg-white hover:bg-amber-50 text-amber-600 border-amber-200 hover:border-amber-300 hover:shadow-md'}`}>

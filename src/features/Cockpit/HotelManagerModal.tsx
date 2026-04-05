@@ -1,5 +1,5 @@
-// 05.04.2026 18:00 - FIX: Extracted setUIState correctly from useTripStore to fix the broken "jump to map" button inside the modal.
-// 05.04.2026 13:30 - FIX: Implemented full i18n support, decoupled sorting logic from translated strings.
+// 05.04.2026 14:00 - FIX: Updated i18n keys to point cleanly to cockpit.hotel_manager.title.
+// 05.04.2026 13:45 - FIX: Removed unused 'e' parameter in onShowMapOverride to resolve Vercel TS6133 build error.
 // src/features/Cockpit/HotelManagerModal.tsx
 
 import React, { useMemo, useEffect } from 'react';
@@ -111,7 +111,7 @@ export const HotelManagerModal: React.FC<HotelManagerModalProps> = ({ isOpen, on
             <div className="px-4 sm:px-6 py-4 bg-white border-b border-slate-200 flex justify-between items-center shrink-0">
                 <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
                     <BedDouble className="w-6 h-6 text-emerald-600" />
-                    {t('cockpit.manage_hotels', { defaultValue: 'Unterkünfte verwalten' })}
+                    {t('cockpit.hotel_manager.title', { defaultValue: 'Unterkünfte verwalten' })}
                 </h2>
                 <button onClick={onClose} className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full transition-colors">
                     <X className="w-5 h-5" />
@@ -149,7 +149,7 @@ export const HotelManagerModal: React.FC<HotelManagerModalProps> = ({ isOpen, on
                                                 showPriorityControls={showPlanningMode} 
                                                 detailLevel={overrideDetailLevel || 'standard'} 
                                                 isReserve={place.userPriority === -1} 
-                                                onShowMapOverride={(e) => {
+                                                onShowMapOverride={() => {
                                                     setUIState({ selectedPlaceId: place.id, viewMode: 'map' });
                                                     onClose();
                                                 }}

@@ -252,7 +252,9 @@
       "btn_tooltip": "Exaktes Hotel samt Adresse ansehen/anlegen",
       "btn_manual": "Manuell"
     },
-    "hotel_manager": {
+      "hotel_manager": {
+      "title": "Unterkünfte verwalten",
+      "tooltip": "Unterkünfte separat verwalten",
       "stationary_group": "🏡 Unterkunft / Hotel (Stationär)",
       "station_group": "🏡 Station {{index}}: {{name}}",
       "other_group": "🏡 Weitere Unterkünfte",
