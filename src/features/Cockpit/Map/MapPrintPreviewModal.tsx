@@ -1,7 +1,8 @@
+// 05.04.2026 19:45 - FIX: Removed unused 'useEffect' import to resolve Vercel TS6133 build error.
 // 05.04.2026 18:30 - ARCHITECTURE: Extracted print preview modal to reduce main map file size.
 // src/features/Cockpit/Map/MapPrintPreviewModal.tsx
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { MapContainer, Marker, Tooltip } from 'react-leaflet';
 import { Printer, X } from 'lucide-react';
