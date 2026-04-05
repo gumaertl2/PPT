@@ -1,3 +1,4 @@
+// 05.04.2026 20:15 - FIX: Removed global region/country append from getGoogleSearchQuery to fix search bugs for cross-border trips.
 // 04.04.2026 22:00 - UX/FIX: Refactored target stop matching logic to bi-directional includes() for flawless label detection, matching the main store perfectly.
 // src/features/Cockpit/SightCard/SightCardMeta.tsx
 
@@ -56,19 +57,14 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
 
   const getGoogleSearchQuery = () => {
     const name = data.name || data.official_name || data.name_official || '';
-    const city = data.city || (data.address ? data.address.split(',').pop()?.trim() : '') || '';
-    
-    const { logistics } = project.userInputs;
-    const tripRegion = logistics.mode === 'stationaer' ? logistics.stationary.region : logistics.roundtrip.region;
-    const tripCountry = logistics.target_countries?.[0] || '';
-    
-    const regionStr = tripRegion && !city.includes(tripRegion) ? tripRegion : '';
-    const countryStr = tripCountry && !city.includes(tripCountry) ? tripCountry : '';
+    // We prioritize the full address if available, as it usually contains city + country, otherwise fallback to city
+    const locationInfo = data.address ? data.address : (data.city || '');
     
     const awardContext = data.awards && data.awards.length > 0 ? data.awards[0] : '';
     const context = awardContext || (isFood ? 'Restaurant' : '');
 
-    return `${name} ${city} ${regionStr} ${countryStr} ${context}`.replace(/\s+/g, ' ').trim();
+    // Removed the global region/country append. Rely strictly on the place's own data.
+    return `${name} ${locationInfo} ${context}`.replace(/\s+/g, ' ').trim();
   };
 
   const getSmartGuideLink = () => {
@@ -189,7 +185,9 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
           }
       }
 
-      const bQuery = encodeURIComponent((data.official_name || data.name || '') + ' ' + (data.city || ''));
+      // Updated Booking.com search logic to match the new Google Search logic
+      const bLocationInfo = data.address ? data.address : (data.city || '');
+      const bQuery = encodeURIComponent((data.official_name || data.name || '') + ' ' + bLocationInfo);
       let bUrl = `https://www.booking.com/searchresults.html?ss=${bQuery}`;
       if (checkinDate && checkoutDate) {
           bUrl += `&checkin_year=${checkinDate.getFullYear()}&checkin_month=${checkinDate.getMonth()+1}&checkin_monthday=${checkinDate.getDate()}`;
@@ -360,4 +358,4 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
     </>
   );
 };
-// --- END OF FILE 295 Zeilen ---
+// --- END OF FILE 291 Zeilen ---
