@@ -1,4 +1,6 @@
-// 04.04.2026 22:00 - UX: Un-frozen isReserve status for hotels so they instantly vanish on auto-ignore. Added prominent UI headers (🏡 Station 1: ...) to visually separate and chronologically sort hotels instead of piling them up under "Hotels".
+// 05.04.2026 13:30 - FIX: Added global hook to open the HotelManagerModal from the map.
+// 05.04.2026 12:30 - FIX: Added .toLowerCase() to category checks.
+// 05.04.2026 12:15 - UX: Completely removed hotels from the regular SightsView.
 // src/features/Cockpit/SightsView.tsx
 
 import React, { useMemo, useEffect, useState, useRef } from 'react';
@@ -11,6 +13,7 @@ import type { LanguageCode, Place, DetailLevel, CockpitViewMode } from '../../co
 import { SightsMapView } from './SightsMapView';
 import { DayPlannerView } from './DayPlannerView'; 
 import { LiveScout } from '../../services/LiveScout'; 
+import { HotelManagerModal } from './HotelManagerModal';
 
 import { 
   FileText,
@@ -18,7 +21,8 @@ import {
   Layout,
   Navigation,
   Zap,
-  RefreshCw
+  RefreshCw,
+  BedDouble
 } from 'lucide-react';
 
 const TRAVEL_PACE_CONFIG: Record<string, { startHour: number; endHour: number; breakMinutes: number; bufferMinutes: number }> = {
@@ -67,6 +71,7 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
   const [isLocating, setIsLocating] = useState(false);
   const [isLiveChecking, setIsLiveChecking] = useState(false);
   const [liveCheckProgress, setLiveCheckProgress] = useState({ current: 0, total: 0 });
+  const [isHotelModalOpen, setIsHotelModalOpen] = useState(false);
 
   const { userInputs, data, analysis } = project; 
   const places = Object.values(data.places || {}) as Place[];
@@ -85,6 +90,17 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
           frozenMetaRef.current = {};
       }
   }, [showPlanningMode]);
+
+  // Hook for the Map to trigger the modal
+  useEffect(() => {
+      (window as any).__openHotelModal = (placeId: string) => {
+          setUIState({ selectedPlaceId: placeId });
+          setIsHotelModalOpen(true);
+      };
+      return () => {
+          delete (window as any).__openHotelModal;
+      };
+  }, [setUIState]);
 
   useEffect(() => {
     if (overrideSortMode) return;
@@ -129,6 +145,9 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
               let shortestDist = Infinity;
 
               places.forEach(p => {
+                  const cat = (p.userSelection?.customCategory || p.category || '').toLowerCase();
+                  if (cat === 'hotel' || cat === 'accommodation') return;
+                  
                   if (p.location && p.location.lat && p.location.lng) {
                       const dist = calculateDistance(myLat, myLng, p.location.lat, p.location.lng);
                       if (dist < shortestDist) {
@@ -174,6 +193,9 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     const totalBudget = Math.floor(dailyMinutes * daysCount);
 
     places.forEach((p: any) => {
+      const cat = (p.userSelection?.customCategory || p.category || '').toLowerCase();
+      if (cat === 'hotel' || cat === 'accommodation') return;
+
       const prio = p.userPriority || 0;
       if (prio > 0 || p.isFixed) {
          const dur = p.duration || p.min_duration_minutes || 60;
@@ -184,6 +206,13 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     return { total: totalBudget, used: totalMinutes, remaining: totalBudget - totalMinutes };
   }, [userInputs, places]);
 
+  const allHotels = useMemo(() => {
+      return places.filter(p => {
+          const cat = p.userSelection?.customCategory || p.category || '';
+          return cat.toLowerCase() === 'hotel' || cat.toLowerCase() === 'accommodation';
+      });
+  }, [places]);
+
   const tourOptions = useMemo(() => {
       const tourGuide = (analysis as any)?.tourGuide;
       const tours = (tourGuide?.guide?.tours || []) as any[];
@@ -192,6 +221,8 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
           const count = (tour.suggested_order_ids || []).filter((id: string) => {
               const p = places.find(pl => pl.id === id);
               if (!p) return false;
+              const cat = (p.userSelection?.customCategory || p.category || '').toLowerCase();
+              if (cat === 'hotel' || cat === 'accommodation') return false;
               if (!isPrint && uiState.visitedFilter === 'visited' && !p.visited) return false;
               if (!isPrint && uiState.visitedFilter === 'unvisited' && p.visited) return false;
               return true;
@@ -282,37 +313,7 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
         const currentCat = p.category || 'Sonstiges';
         const currentName = p.name || '';
 
-        let targetStopIndex = 999; 
-        if (currentCat === 'hotel' || currentCat === 'accommodation') {
-            const logistics = project.userInputs.logistics;
-            if (logistics.mode === 'mobil' && logistics.roundtrip?.stops) {
-                const stops = logistics.roundtrip.stops;
-                let idx = stops.findIndex((s: any) => s.hotel === p.id);
-                
-                if (idx !== -1) {
-                    targetStopIndex = idx;
-                } else {
-                    const hCity = (p.city || '').toLowerCase();
-                    const hAddr = (p.address || '').toLowerCase();
-                    const hName = (p.name || '').toLowerCase();
-                    const hReasoning = (p.location_match || '').toLowerCase();
-                    
-                    const guessIdx = stops.findIndex((s: any) => {
-                        const sLoc = (s.location || '').replace(/Region\s+/i, '').trim().toLowerCase();
-                        if (sLoc.length < 3) return false;
-                        const match1 = hCity.includes(sLoc) || (hCity.length > 2 && sLoc.includes(hCity));
-                        const match2 = hAddr.includes(sLoc) || (hAddr.length > 2 && sLoc.includes(hAddr));
-                        const match3 = hName.includes(sLoc) || (hName.length > 2 && sLoc.includes(hName));
-                        const match4 = hReasoning.includes(sLoc);
-                        return match1 || match2 || match3 || match4;
-                    });
-                    
-                    if (guessIdx !== -1) targetStopIndex = guessIdx;
-                }
-            }
-        }
-
-        const metaObj = { prioVal: currentPrioVal, isReserve: currentIsReserve, cat: currentCat, name: currentName, targetStopIndex };
+        const metaObj = { prioVal: currentPrioVal, isReserve: currentIsReserve, cat: currentCat, name: currentName };
 
         if (!showPlanningMode) {
             return metaObj;
@@ -320,13 +321,6 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
 
         if (!frozenMetaRef.current[p.id]) {
             frozenMetaRef.current[p.id] = metaObj;
-        } else {
-            frozenMetaRef.current[p.id].targetStopIndex = targetStopIndex; 
-            // UX FIX: Un-freeze priority and reserve status ONLY for hotels so they instantly drop out of the view on auto-ignore!
-            if (currentCat === 'hotel' || currentCat === 'accommodation') {
-                frozenMetaRef.current[p.id].prioVal = currentPrioVal;
-                frozenMetaRef.current[p.id].isReserve = currentIsReserve;
-            }
         }
 
         return frozenMetaRef.current[p.id];
@@ -336,11 +330,14 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
       if (visitedFilter === 'visited' && !p.visited) return;
       if (visitedFilter === 'unvisited' && p.visited) return;
 
+      const originalCat = p.category || 'Sonstiges'; 
+      const checkCat = (p.userSelection?.customCategory || originalCat).toLowerCase();
+
+      if (checkCat === 'hotel' || checkCat === 'accommodation') return;
+      if (ignoreList.includes(originalCat)) return; 
+
       const meta = getMeta(p);
       const cat = meta.cat;
-      const originalCat = p.category || 'Sonstiges'; 
-
-      if (ignoreList.includes(originalCat) && originalCat !== 'hotel') return; 
 
       if (term) {
           const searchableText = [p.name, p.official_name, p.category, p.description, p.detailContent, p.address].filter(Boolean).join(' ').toLowerCase();
@@ -390,12 +387,6 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
 
       const catCompare = aMeta.cat.localeCompare(bMeta.cat);
       if (catCompare !== 0) return catCompare;
-
-      if (aMeta.cat === 'hotel' || aMeta.cat === 'accommodation') {
-          if (aMeta.targetStopIndex !== bMeta.targetStopIndex) {
-              return aMeta.targetStopIndex - bMeta.targetStopIndex;
-          }
-      }
 
       return aMeta.name.localeCompare(bMeta.name);
     };
@@ -481,19 +472,7 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
         else {
             let key = t('sights.group_general', { defaultValue: 'Allgemein' });
             if (sortMode === 'category') {
-                // UX FIX: Explicitly break out hotels into visible Station groups instead of burying them under one "Hotels" header
-                if (meta.cat === 'hotel' || meta.cat === 'accommodation') {
-                    if (project.userInputs.logistics.mode === 'mobil' && meta.targetStopIndex !== 999) {
-                        const stop = project.userInputs.logistics.roundtrip.stops[meta.targetStopIndex];
-                        key = `🏡 Station ${meta.targetStopIndex + 1}: ${stop?.location || ''}`;
-                    } else if (project.userInputs.logistics.mode === 'stationaer') {
-                        key = `🏡 Unterkunft / Hotel`;
-                    } else {
-                        key = resolveCategoryLabel(meta.cat);
-                    }
-                } else {
-                    key = resolveCategoryLabel(meta.cat);
-                }
+                key = resolveCategoryLabel(meta.cat);
             } else if (sortMode === 'alphabetical') {
                 key = meta.name ? meta.name[0].toUpperCase() : '?';
             }
@@ -514,17 +493,7 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
         ];
         groupKeys.sort((a, b) => priorityOrder.indexOf(a) - priorityOrder.indexOf(b));
     } else if (sortMode === 'category') {
-        // UX FIX: Make sure "Station 1" sorts before "Station 2"
-        groupKeys.sort((a, b) => {
-            const matchA = a.match(/Station (\d+)/);
-            const matchB = b.match(/Station (\d+)/);
-            if (matchA && matchB) {
-                return parseInt(matchA[1]) - parseInt(matchB[1]);
-            }
-            if (matchA) return -1; // Stations float to the top
-            if (matchB) return 1;
-            return a.localeCompare(b);
-        });
+        groupKeys.sort((a, b) => a.localeCompare(b));
     }
 
     return groupKeys.map((groupKey) => {
@@ -549,6 +518,16 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
 
   return (
     <div className="pb-24 sights-view-root print:pb-0">
+      
+      {/* HOTEL MANAGER MODAL INTEGRATION */}
+      {isHotelModalOpen && (
+          <HotelManagerModal 
+             isOpen={isHotelModalOpen} 
+             onClose={() => setIsHotelModalOpen(false)} 
+             overrideDetailLevel={overrideDetailLevel} 
+          />
+      )}
+
       {showPlanningMode && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6 flex flex-col md:flex-row items-center justify-between gap-4 sticky top-20 z-10 animate-in fade-in slide-in-from-top-2 print:hidden">
            <div className="flex items-center gap-6 w-full justify-center md:justify-start">
@@ -578,8 +557,19 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
                     {showPlanningMode ? <Briefcase className="w-3 h-3" /> : <FileText className="w-3 h-3" />}
                     {t('sights.candidates', { defaultValue: 'ORTE & KANDIDATEN' })} ({filteredLists.main.length})
                 </div>
+                
                 {!overrideSortMode && (
                     <div className="flex justify-end mb-4 print:hidden pt-2 gap-2 flex-wrap">
+                        
+                        <button 
+                            onClick={() => setIsHotelModalOpen(true)} 
+                            className="flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm border bg-emerald-600 hover:bg-emerald-700 text-white border-transparent hover:shadow-md mr-auto"
+                            title="Unterkünfte separat verwalten"
+                        >
+                            <BedDouble className="w-4 h-4" /> 
+                            {t('cockpit.manage_hotels', { defaultValue: 'Unterkünfte verwalten' })} ({allHotels.length})
+                        </button>
+
                         <button onClick={handleBatchLiveCheck} disabled={isLiveChecking} className={`flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm border ${isLiveChecking ? 'bg-amber-50 text-amber-500 border-amber-100 cursor-not-allowed' : 'bg-white hover:bg-amber-50 text-amber-600 border-amber-200 hover:border-amber-300 hover:shadow-md'}`}>
                             {isLiveChecking ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4 text-amber-500 fill-current" />}
                             {isLiveChecking ? t('sights.live_check_progress', { current: liveCheckProgress.current, total: liveCheckProgress.total, defaultValue: `Update läuft... (${liveCheckProgress.current}/${liveCheckProgress.total})` }) : t('sights.live_check_btn', { defaultValue: 'Live-Update (Auswahl)' })}
@@ -590,6 +580,7 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
                         </button>
                     </div>
                 )}
+                
                 <div className="mt-2">{renderGroupedList(filteredLists.main)}</div>
             </div>
 
@@ -606,4 +597,4 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     </div>
   );
 };
-// --- END OF FILE 676 Zeilen ---
+// --- END OF FILE 629 Zeilen ---

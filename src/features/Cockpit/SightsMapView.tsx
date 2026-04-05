@@ -1,5 +1,5 @@
-// 04.04.2026 20:30 - UX: Filtered out ignored places (userPriority === -1) from the map. Unselected hotel competitors (which get set to -1 by Auto-Ignore) will now dynamically disappear from the map.
-// 21.03.2026 21:15 - FIX: Restored accidentally removed 'isSelected' definition in the displayPlaces mapping loop.
+// 05.04.2026 13:30 - FIX: In SightsMapView, replaced standard "Show in Guide" button with "Open in Hotel Manager" button for hotel popups.
+// 04.04.2026 20:30 - UX: Filtered out ignored places (userPriority === -1) from the map.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -72,7 +72,6 @@ const MapPrintPreviewModal: React.FC<{
 }> = ({ isOpen, onClose, places, uiState, hotelInfo, visitedSequence, scheduledPlaces, t }) => {
     
     const [currentZoom, setCurrentZoom] = useState(10);
-    // UX FIX: Exclude ignored items (userPriority === -1) from print map
     const validPlaces = useMemo(() => places.filter(p => p.location && p.location.lat && p.location.lng && p.userPriority !== -1), [places]);
     
     const defaultCenter: [number, number] = useMemo(() => {
@@ -294,7 +293,6 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
   const tripStart = project.userInputs.dates?.start || ''; 
   const tripEnd = project.userInputs.dates?.end || '';
 
-  // UX FIX: Exclude ignored items (userPriority === -1) from regular map view
   const validPlaces = useMemo(() => places.filter(p => p.location && p.location.lat && p.location.lng && p.userPriority !== -1), [places]);
   
   const defaultCenter: [number, number] = useMemo(() => {
@@ -308,7 +306,6 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
   }, [validPlaces]);
 
   const allPlacesFromStore = useMemo(() => Object.values(project.data.places), [project.data.places]);
-  // UX FIX: Exclude ignored items from map legend
   const allValidPlacesForLegend = useMemo(() => (allPlacesFromStore as Place[]).filter(p => p.location && p.location.lat && p.location.lng && p.userPriority !== -1), [allPlacesFromStore]);
 
   const hotelInfo = useMemo(() => {
@@ -332,12 +329,11 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
   }, [project.userInputs.logistics]);
 
   const validPlacesIncludedHotels = useMemo(() => {
-      // Base valid already filtered out userPriority === -1
       const baseValid = places.filter(p => p.location && p.location.lat && p.location.lng && p.userPriority !== -1);
       
       const allValidHotels = allPlacesFromStore.filter((p: Place) => {
           if (!p.location || !p.location.lat || !p.location.lng) return false;
-          if (p.userPriority === -1) return false; // CRITICAL: Prevent rejected competitors from showing
+          if (p.userPriority === -1) return false; 
           
           const cat = p.userSelection?.customCategory || p.category || '';
           return hotelInfo.ids.has(p.id) || 
@@ -683,7 +679,6 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
                            <button onClick={(e) => { e.stopPropagation(); updatePlace(place.id, { userPriority: userPrio === -1 ? 0 : -1, isFixed: false }); }} className={`flex-1 py-1 rounded text-[9px] font-bold transition-colors border shadow-sm ${userPrio === -1 ? 'bg-gray-800 text-white border-gray-900' : 'bg-slate-50 text-slate-400 hover:bg-gray-100 border-slate-200'}`}>Ignore</button>
                         </div>
 
-                        {/* --- SILENT CLAMPING WITH VISUAL HIGHLIGHTING --- */}
                         {isFixed && (
                            <div className="flex flex-col gap-1 bg-purple-50 px-2 py-1.5 rounded-md text-xs mt-1 mb-2 border border-purple-100 no-print animate-in slide-in-from-top-1">
                               <span className="font-bold text-purple-800 flex items-center gap-1"><CalendarClock className="w-3.5 h-3.5" /> {currentLang === 'en' ? 'Fixed Appointment' : 'Fixtermin'}</span>
@@ -718,9 +713,12 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
 
                         <button 
                           onClick={() => {
-                              if (uiState.visitedFilter === 'visited') {
-                                  if (isFullscreen) setIsFullscreen(false);
-                                  setUIState({ selectedPlaceId: place.id });
+                              if (isFullscreen) setIsFullscreen(false);
+                              setUIState({ selectedPlaceId: place.id });
+                              
+                              if (isHotel && (window as any).__openHotelModal) {
+                                  (window as any).__openHotelModal(place.id);
+                              } else if (uiState.visitedFilter === 'visited') {
                                   if (setViewMode) setViewMode('plan');
                               } else {
                                   let targetSortMode = uiState.sortMode || 'category';
@@ -730,13 +728,18 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
                                       const isVisibleInCurrentView = dayNum && (targetFilter.length === 0 || targetFilter.some(f => f.includes(String(dayNum))));
                                       if (!isVisibleInCurrentView) { targetSortMode = 'category' as any; targetFilter = []; }
                                   }
-                                  if (isFullscreen) setIsFullscreen(false);
-                                  setUIState({ viewMode: 'list', selectedPlaceId: place.id, sortMode: targetSortMode, categoryFilter: targetFilter });
+                                  setUIState({ viewMode: 'list', sortMode: targetSortMode, categoryFilter: targetFilter });
                               }
                           }}
-                          className="w-full mt-1 flex items-center justify-center gap-2 bg-slate-900 text-white py-2 rounded-lg text-xs font-bold hover:bg-black transition-colors shadow-sm"
+                          className={`w-full mt-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-colors shadow-sm ${isHotel ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-slate-900 text-white hover:bg-black'}`}
                         >
-                          <ExternalLink size={12} /> {(uiState.visitedFilter === 'visited' || forceDiaryMode) ? t('map.show_in_diary', { defaultValue: currentLang === 'en' ? 'Show in Diary' : 'Im Tagebuch zeigen' }) : t('map.show_in_guide', { defaultValue: currentLang === 'en' ? 'Show in Guide' : 'Im Reiseführer zeigen' })}
+                          <ExternalLink size={12} /> 
+                          {isHotel 
+                              ? t('hotel_manager.open_modal_map_btn', { defaultValue: 'Im Hotel-Manager öffnen' }) 
+                              : ((uiState.visitedFilter === 'visited' || forceDiaryMode) 
+                                  ? t('map.show_in_diary', { defaultValue: currentLang === 'en' ? 'Show in Diary' : 'Im Tagebuch zeigen' }) 
+                                  : t('map.show_in_guide', { defaultValue: currentLang === 'en' ? 'Show in Guide' : 'Im Reiseführer zeigen' }))
+                          }
                         </button>
                       </div>
                     </Popup>
@@ -791,4 +794,4 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
     </>
   );
 };
-// --- END OF FILE 722 Zeilen ---
+// --- END OF FILE 731 Zeilen ---

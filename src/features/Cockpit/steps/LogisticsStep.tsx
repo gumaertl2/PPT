@@ -1,4 +1,4 @@
-// 04.04.2026 22:30 - FIX: Resolved Vercel TS build errors by removing unused React import and applying (as any) casting to dynamic properties (city, name_official) not explicitly defined in the Place interface.
+// 05.04.2026 12:30 - FIX: Added .toLowerCase() to category checks to properly auto-ignore capital "Hotel" competitors.
 // 04.04.2026 21:30 - UX: Updated custom hotel save logic to utilize the "Smart Index Filter".
 // src/features/Cockpit/steps/LogisticsStep.tsx
 
@@ -50,7 +50,6 @@ export const LogisticsStep = () => {
 
   const [highlightedField, setHighlightedField] = useState<'start' | 'end' | null>(null);
 
-  // --- CUSTOM HOTEL MODAL STATE ---
   const [customHotelTarget, setCustomHotelTarget] = useState<{type: 'stationary' | 'roundtrip', stopId?: string} | null>(null);
   const [customHotelName, setCustomHotelName] = useState('');
   const [customHotelAddress, setCustomHotelAddress] = useState('');
@@ -232,11 +231,11 @@ export const LogisticsStep = () => {
       const updatedPlaces = { ...currentProject.data.places, [targetId]: newPlace as Place };
       let updatedLogistics = { ...currentProject.userInputs.logistics };
 
-      // Apply Smart Index Filter to clear out AI competitors when creating a custom hotel
       if (customHotelTarget?.type === 'stationary') {
           updatedLogistics.stationary = { ...updatedLogistics.stationary, hotel: targetId };
           Object.values(updatedPlaces).forEach((p: any) => {
-              if (p.id !== targetId && (p.category === 'hotel' || p.category === 'accommodation')) {
+              const cat = p.userSelection?.customCategory || p.category || '';
+              if (p.id !== targetId && (cat.toLowerCase() === 'hotel' || cat.toLowerCase() === 'accommodation')) {
                   updatedPlaces[p.id] = { ...p, userPriority: -1 };
               }
           });
@@ -264,7 +263,8 @@ export const LogisticsStep = () => {
           };
 
           Object.values(updatedPlaces).forEach((p: any) => {
-              if (p.id !== targetId && (p.category === 'hotel' || p.category === 'accommodation')) {
+              const cat = p.userSelection?.customCategory || p.category || '';
+              if (p.id !== targetId && (cat.toLowerCase() === 'hotel' || cat.toLowerCase() === 'accommodation')) {
                   if (getStopIndex(p) === targetStopIndex) {
                       updatedPlaces[p.id] = { ...p, userPriority: -1 };
                   }
@@ -745,4 +745,4 @@ export const LogisticsStep = () => {
     </div>
   );
 };
-// --- END OF FILE 659 Zeilen ---
+// --- END OF FILE 683 Zeilen ---

@@ -1,5 +1,5 @@
-// 21.03.2026 21:30 - FIX: Added normalizeLevel to properly map German 'kompakt' to internal 'compact' state, fixing the double-click issue on the + button.
-// 21.03.2026 21:00 - FIX: isHotel now strictly evaluates effectiveCategory.
+// 05.04.2026 13:00 - FIX: Added onShowMapOverride to support map clicks inside modals, and passed _targetStopIndex to assignHotelToLogistics to fix the station swap bug.
+// 21.03.2026 21:30 - FIX: Added normalizeLevel to properly map German 'kompakt' to internal 'compact' state.
 // src/features/Cockpit/SightCard/index.tsx
 
 import React, { useState, useEffect, useRef } from 'react'; 
@@ -29,6 +29,7 @@ interface SightCardProps {
   showPriorityControls?: boolean;
   detailLevel?: ViewLevel;
   isReserve?: boolean; 
+  onShowMapOverride?: (e: React.MouseEvent) => void;
 }
 
 export const SightCard: React.FC<SightCardProps> = ({ 
@@ -37,7 +38,8 @@ export const SightCard: React.FC<SightCardProps> = ({
   mode = 'selection', 
   showPriorityControls = true,
   detailLevel: overrideDetailLevel,
-  isReserve
+  isReserve,
+  onShowMapOverride
 }) => {
   const { t } = useTranslation(); 
    
@@ -114,7 +116,8 @@ export const SightCard: React.FC<SightCardProps> = ({
 
   const handleHotelSelect = (e: React.MouseEvent) => {
     e.stopPropagation();
-    assignHotelToLogistics(id);
+    // UX FIX: Inject the pre-calculated stop index to prevent AI hallucination bugs during station assignment
+    assignHotelToLogistics(id, (activeData as any)._targetStopIndex);
   };
 
   const handleRegenerate = async () => {
@@ -287,7 +290,11 @@ export const SightCard: React.FC<SightCardProps> = ({
             onCategoryChange={(e) => updatePlace(id, { userSelection: { ...userSelection, customCategory: e.target.value } })}
             onDurationChange={(e) => updatePlace(id, { userSelection: { ...userSelection, customDuration: parseInt(e.target.value) || 0 } })}
             onHotelSelect={handleHotelSelect}
-            onShowMap={(e) => { e.stopPropagation(); setUIState({ selectedPlaceId: id, viewMode: 'map' }); }}
+            onShowMap={(e) => { 
+                e.stopPropagation(); 
+                if (onShowMapOverride) onShowMapOverride(e);
+                else setUIState({ selectedPlaceId: id, viewMode: 'map' }); 
+            }}
             ensureAbsoluteUrl={ensureAbsoluteUrl}
             t={t} 
         />
@@ -342,4 +349,4 @@ export const SightCard: React.FC<SightCardProps> = ({
     </>
   );
 };
-// --- END OF FILE 418 Zeilen ---
+// --- END OF FILE 423 Zeilen ---

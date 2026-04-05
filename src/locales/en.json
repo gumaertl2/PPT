@@ -252,6 +252,13 @@
       "success_msg": "Hotel successfully applied.",
       "btn_tooltip": "View/add exact hotel with address",
       "btn_manual": "Manual"
+    },
+    "hotel_manager": {
+      "stationary_group": "🏡 Accommodation / Hotel (Stationary)",
+      "station_group": "🏡 Station {{index}}: {{name}}",
+      "other_group": "🏡 Other Accommodations",
+      "empty": "No accommodations available.",
+      "open_modal_map_btn": "Open in Hotel Manager"
     }
   },
   "dates": {

@@ -251,6 +251,13 @@
       "success_msg": "Hotel erfolgreich übernommen.",
       "btn_tooltip": "Exaktes Hotel samt Adresse ansehen/anlegen",
       "btn_manual": "Manuell"
+    },
+    "hotel_manager": {
+      "stationary_group": "🏡 Unterkunft / Hotel (Stationär)",
+      "station_group": "🏡 Station {{index}}: {{name}}",
+      "other_group": "🏡 Weitere Unterkünfte",
+      "empty": "Keine Unterkünfte vorhanden.",
+      "open_modal_map_btn": "Im Hotel-Manager öffnen"
     }
   },
   "dates": {

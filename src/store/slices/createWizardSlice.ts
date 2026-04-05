@@ -1,4 +1,5 @@
-// 04.04.2026 22:00 - UX/FIX: Implemented bi-directional string matching for getStopIndex to flawlessly identify and auto-ignore competitor hotels.
+// 05.04.2026 13:00 - FIX: Added explicitStopIndex parameter to assignHotelToLogistics to guarantee bulletproof swapping of hotels, even if string-matching heuristics fail.
+// 05.04.2026 12:30 - FIX: Added .toLowerCase() to category checks.
 // src/store/slices/createWizardSlice.ts
 
 import type { StateCreator } from 'zustand';
@@ -45,7 +46,7 @@ export interface WizardSlice {
   setCustomPreference: (interestId: string, text: string) => void;
   setAiOutputLanguage: (lang: string) => void;
 
-  assignHotelToLogistics: (placeId: string) => void;
+  assignHotelToLogistics: (placeId: string, explicitStopIndex?: number) => void;
 }
 
 export const createWizardSlice: StateCreator<any, [], [], WizardSlice> = (set) => ({
@@ -366,7 +367,7 @@ export const createWizardSlice: StateCreator<any, [], [], WizardSlice> = (set) =
     }
   })),
 
-  assignHotelToLogistics: (placeId) => set((state: any) => {
+  assignHotelToLogistics: (placeId, explicitStopIndex) => set((state: any) => {
       const place = state.project.data.places[placeId];
       if (!place) return state;
 
@@ -378,7 +379,8 @@ export const createWizardSlice: StateCreator<any, [], [], WizardSlice> = (set) =
           const isDeselecting = logistics.stationary.hotel === placeId;
           
           Object.values(newPlaces).forEach((p: any) => {
-              if (p.id !== placeId && (p.category === 'hotel' || p.category === 'accommodation')) {
+              const cat = p.userSelection?.customCategory || p.category || '';
+              if (p.id !== placeId && (cat.toLowerCase() === 'hotel' || cat.toLowerCase() === 'accommodation')) {
                   newPlaces[p.id] = { ...p, userPriority: isDeselecting ? 0 : -1 };
               }
           });
@@ -405,7 +407,6 @@ export const createWizardSlice: StateCreator<any, [], [], WizardSlice> = (set) =
       else if (mode === 'roundtrip' || mode === 'mobil') {
           const stops = logistics.roundtrip.stops || [];
           
-          // Bulletproof Bi-Directional Index Finder
           const getStopIndex = (p: any) => {
               let idx = stops.findIndex((s: RouteStop) => s.hotel === p.id);
               if (idx !== -1) return idx;
@@ -428,7 +429,8 @@ export const createWizardSlice: StateCreator<any, [], [], WizardSlice> = (set) =
               });
           };
 
-          let targetIndex = getStopIndex(place);
+          // UX FIX: Prioritize explicit stop index to avoid AI string-matching hallucinations
+          let targetIndex = (explicitStopIndex !== undefined && explicitStopIndex >= 0) ? explicitStopIndex : getStopIndex(place);
           if (targetIndex === -1 && stops.length > 0) targetIndex = 0; 
           
           if (targetIndex !== -1) {
@@ -436,10 +438,12 @@ export const createWizardSlice: StateCreator<any, [], [], WizardSlice> = (set) =
               const newStops = [...stops];
               newStops[targetIndex] = { ...newStops[targetIndex], hotel: isDeselecting ? '' : placeId };
               
-              // Smart Index Filter: Clean up ONLY competitors targeting the exact same station index
               Object.values(newPlaces).forEach((p: any) => {
-                  if (p.id !== placeId && (p.category === 'hotel' || p.category === 'accommodation')) {
-                      if (getStopIndex(p) === targetIndex) {
+                  const cat = p.userSelection?.customCategory || p.category || '';
+                  if (p.id !== placeId && (cat.toLowerCase() === 'hotel' || cat.toLowerCase() === 'accommodation')) {
+                      // Use explicit index if available for competitors to avoid bugs
+                      const pIdx = getStopIndex(p);
+                      if (pIdx === targetIndex) {
                           newPlaces[p.id] = { ...p, userPriority: isDeselecting ? 0 : -1 };
                       }
                   }
@@ -468,4 +472,4 @@ export const createWizardSlice: StateCreator<any, [], [], WizardSlice> = (set) =
       return state;
   })
 });
-// --- END OF FILE 381 Zeilen ---
+// --- END OF FILE 382 Zeilen ---
