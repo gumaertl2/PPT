@@ -1,3 +1,4 @@
+// 05.04.2026 19:50 - FIX: Restored zoomDelta={0.1} and wheelPxPerZoom={120} to MapContainer for smooth, stepless mouse wheel zooming.
 // 05.04.2026 19:30 - ARCHITECTURE: Ultimate cleanup. Extracted data logic to useMapData hook and massive popup to MapMarkerPopup component. File size dropped from 760+ to ~200 lines.
 // src/features/Cockpit/SightsMapView.tsx
 
@@ -47,7 +48,6 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
   const tripStart = project.userInputs.dates?.start || ''; 
   const tripEnd = project.userInputs.dates?.end || '';
 
-  // DEDICATED HOOK: All heavy map logic resides here now
   const {
       defaultCenter, displayPlaces, hotelInfo, validPlacesIncludedHotels, standaloneExpenses,
       visitedSequence, scheduledPlaces, allValidPlacesForLegend, isUpdatingCoords, updateProgress
@@ -140,7 +140,7 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
             </div>
         )}
 
-        <MapContainer center={defaultCenter} zoom={10} zoomSnap={0.1} style={{ height: "100%", width: "100%" }} scrollWheelZoom={!isPrintMode} zoomControl={!isPrintMode} dragging={!isPrintMode} touchZoom={!isPrintMode} doubleClickZoom={!isPrintMode} zoomAnimation={!isPrintMode} fadeAnimation={!isPrintMode} markerZoomAnimation={!isPrintMode}>
+        <MapContainer center={defaultCenter} zoom={10} zoomSnap={0.1} zoomDelta={0.1} wheelPxPerZoom={120} style={{ height: "100%", width: "100%" }} scrollWheelZoom={!isPrintMode} zoomControl={!isPrintMode} dragging={!isPrintMode} touchZoom={!isPrintMode} doubleClickZoom={!isPrintMode} zoomAnimation={!isPrintMode} fadeAnimation={!isPrintMode} markerZoomAnimation={!isPrintMode}>
           <ZoomListener onZoomChange={setCurrentZoom} />
           <PrintMapFitter places={validPlacesIncludedHotels} isPrintMode={isPrintMode} />
           <MapResizer isFullscreen={isFullscreen} />
