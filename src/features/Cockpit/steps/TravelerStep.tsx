@@ -1,4 +1,5 @@
-// 22.03.2026 09:00 - UX: Applied "Deep Input" UX logic (inner shadow, focus rings, strong labels) to cure lack of affordance.
+// 06.04.2026 12:00 - UX: Replaced gear buttons with sleek pen icon (✏️ Edit3) for better affordance. Unified text wording to "Anpassen" via i18n and removed 'X' from modal header.
+// 22.03.2026 09:00 - UX: Applied "Deep Input" UX logic.
 // src/features/Cockpit/steps/TravelerStep.tsx
 
 import React, { useState } from 'react';
@@ -12,8 +13,7 @@ import {
   Sparkles, 
   Wallet, 
   Gauge, 
-  X, 
-  Info,
+  Edit3, 
   Flag,
   Heart,
   Briefcase,
@@ -31,7 +31,6 @@ export const TravelerStep = () => {
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
   
-  // Store Access
   const { 
     project, 
     setTravelers, 
@@ -42,11 +41,9 @@ export const TravelerStep = () => {
   const { userInputs } = project;
   const { travelers, pace, budget, vibe, strategyId, customPreferences } = userInputs;
 
-  // UX-Klassen
   const LABEL_CLASS = "text-[10px] font-black text-blue-800/80 uppercase tracking-wider block mb-1.5 flex items-center gap-1.5";
   const INPUT_CLASS = "w-full text-sm bg-white border border-slate-300 shadow-inner rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 hover:border-blue-400 transition-all placeholder:text-slate-300";
 
-  // --- LOCAL STATE FOR MODAL ---
   const [editConfig, setEditConfig] = useState<{
     key: 'strategyId' | 'vibe' | 'budget' | 'pace';
     title: string;
@@ -55,10 +52,7 @@ export const TravelerStep = () => {
     currentText: string;
   } | null>(null);
 
-  // Helper um den spezifischen Key für eine Option zu generieren
   const getSpecificKey = (key: string, optionId: string) => `saved_${key}_${optionId}`;
-  
-  // Helper für den globalen Key (für Prompt-Generierung)
   const getGlobalKey = (key: string) => `cat_${key}`;
 
   const openEditor = (
@@ -137,9 +131,11 @@ export const TravelerStep = () => {
 
     return (
       <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm mb-4">
-        <h3 className="text-xs font-bold text-slate-700 uppercase mb-4 flex items-center gap-2 tracking-wide">
+        <h3 className="text-xs font-bold text-slate-700 uppercase flex items-center gap-2 tracking-wide mb-1">
           <Icon className={`w-4 h-4 ${iconColor}`} /> {title}
         </h3>
+        {/* Unified helper text */}
+        <p className="text-[10px] text-slate-500 mb-4 ml-6Leading-relaxed">{t('wizard.customizer.hint_text', { defaultValue: 'Wähle eine Vorgabe oder passe den Text zu 100 % an deine Wünsche an.' })}</p>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {Object.values(options).map((opt: any) => {
@@ -153,29 +149,30 @@ export const TravelerStep = () => {
               <div
                 key={opt.id}
                 onClick={() => handleSelectOption(key, opt.id)}
-                className={`relative p-3.5 rounded-xl border cursor-pointer transition-all group flex flex-col justify-center min-h-[56px] ${
+                className={`relative p-3.5 rounded-xl border cursor-pointer transition-all group flex flex-col justify-center min-h-[56px] gap-2 ${
                   isActive 
                     ? `${colors.activeBorder} ${colors.activeBg} shadow-md ring-1 ${colors.ring}` 
                     : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50 hover:shadow-sm'
                 }`}
                 title={textForEditor}
               >
-                <div className="flex items-center justify-between w-full">
+                <div className="flex items-center justify-between w-full gap-2">
                   <span className={`text-sm font-bold ${isActive ? colors.activeText : 'text-slate-700'}`}>
                     {opt.label[currentLang]}
                   </span>
                   
+                  {/* Sleek Pen Icon Button */}
                   <button
                     onClick={(e) => openEditor(e, key, opt.id, opt.label[currentLang], textForEditor)}
-                    className={`p-1.5 rounded-full transition-colors z-10
+                    className={`p-1.5 rounded-md border transition-colors z-10
                       ${hasSavedTextForThisOption
-                        ? 'text-amber-500 bg-amber-50 border border-amber-200' 
-                        : 'text-slate-300 hover:bg-slate-100 hover:text-slate-500' 
+                        ? 'text-amber-700 bg-amber-100 border-amber-200 shadow-inner' 
+                        : 'text-slate-500 bg-slate-100 border-slate-200 hover:bg-slate-200 hover:text-slate-700' 
                       }
                     `}
-                    title={t('actions.edit')}
+                    title={hasSavedTextForThisOption ? t('wizard.customizer.tooltip_customized') : t('wizard.customizer.tooltip_customize')}
                   >
-                    <Info className="w-4 h-4" />
+                    <Edit3 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
@@ -323,36 +320,43 @@ export const TravelerStep = () => {
       {/* --- EDITOR MODAL --- */}
       {editConfig && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up">
-            <div className="px-5 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-              <h3 className="font-bold text-slate-800">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up flex flex-col">
+            
+            <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
                 <span className={
                     editConfig.key === 'vibe' ? 'text-amber-500' :
                     editConfig.key === 'budget' ? 'text-green-600' :
                     editConfig.key === 'pace' ? 'text-purple-500' : 'text-blue-600'
                 }>
                     {editConfig.optionLabel}
-                </span> {t('actions.edit')}
+                </span> 
+                <span className="text-slate-400 font-normal text-sm ml-1 px-2 py-0.5 border border-slate-200 bg-white rounded-md">
+                   {t('wizard.customizer.modal_title', { defaultValue: 'Passe den Text gerne individuell an' })}
+                </span>
               </h3>
-              <button onClick={() => setEditConfig(null)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+              {/* REMOVED 'X' from header as per UX suggestion */}
             </div>
-            <div className="p-5">
+            
+            <div className="p-6">
               <label className="text-[10px] font-black text-blue-800 uppercase tracking-wide block mb-2">{t('profile.prompt_meaning')}</label>
               <textarea 
-                className="w-full h-32 p-3 text-sm bg-white border border-slate-300 shadow-inner rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 leading-relaxed"
+                className="w-full h-40 p-4 text-sm bg-white border border-slate-300 shadow-inner rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 leading-relaxed resize-y"
                 value={editConfig.currentText}
                 onChange={(e) => setEditConfig({...editConfig, currentText: e.target.value})}
               />
-              <p className="text-[10px] text-slate-400 mt-2">{t('profile.prompt_hint')}</p>
+              <p className="text-[10px] text-slate-400 mt-3">{t('profile.prompt_hint')}</p>
             </div>
-            <div className="px-5 py-3 bg-slate-50 flex justify-end gap-3 border-t border-slate-100">
-              <button onClick={() => setEditConfig(null)} className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg text-sm font-medium">{t('actions.cancel')}</button>
-              <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-sm font-bold shadow-sm">{t('actions.save')}</button>
+
+            <div className="px-6 py-4 bg-slate-50 flex justify-end gap-3 border-t border-slate-100">
+              <button onClick={() => setEditConfig(null)} className="px-5 py-2.5 text-slate-600 bg-white border border-slate-300 hover:bg-slate-100 rounded-xl text-sm font-bold shadow-sm transition-colors">{t('actions.cancel')}</button>
+              <button onClick={handleSave} className="px-5 py-2.5 bg-blue-600 text-white hover:bg-blue-700 rounded-xl text-sm font-bold shadow-md transition-colors">{t('actions.save')}</button>
             </div>
+
           </div>
         </div>
       )}
     </div>
   );
 };
-// --- END OF FILE 364 Zeilen ---
+// --- END OF FILE 371 Zeilen ---

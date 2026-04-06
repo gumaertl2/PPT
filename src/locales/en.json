@@ -179,6 +179,14 @@
     "errors": {
       "missing_places": "Please run the foundation analysis first to generate places.",
       "missing_routes": "Please run foundation analysis and route planning first."
+    },
+    "customizer": {
+      "tooltip_customize": "✏️ Customize the text for this category",
+      "tooltip_customized": "✅ Text customized for this category",
+      "modal_title": "Feel free to customize the text individually",
+      "modal_subtitle": "Override the AI's default rules here.",
+      "hint_text": "Select a preset or customize the text 100% to your wishes.",
+      "interests_banner": "Tip: Like a category but have special requests? Click on the pen ✏️ to give the AI exact guidelines (e.g., 'Only modern art')!"
     }
   },
   "cockpit": {

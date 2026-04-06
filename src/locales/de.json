@@ -178,6 +178,14 @@
     "errors": {
       "missing_places": "Bitte führen Sie zuerst die Fundamentalanalyse durch, um Orte zu generieren.",
       "missing_routes": "Bitte führen Sie zuerst die Fundamentalanalyse und die Routenplanung durch."
+    },
+    "customizer": {
+      "tooltip_customize": "✏️ Passe den Text für diese Kategorie an",
+      "tooltip_customized": "✅ Text für diese Kategorie angepasst",
+      "modal_title": "Passe den Text gerne individuell an",
+      "modal_subtitle": "Überschreibe hier die Standard-Regeln der KI.",
+      "hint_text": "Wähle eine Vorgabe oder passe den Text zu 100 % an deine Wünsche an.",
+      "interests_banner": "Tipp: Gefällt dir eine Kategorie, aber du hast spezielle Wünsche? Klicke auf den Stift ✏️, um der KI exakte Vorgaben (z.B. 'Nur moderne Kunst') mitzugeben!"
     }
   },
   "cockpit": {
