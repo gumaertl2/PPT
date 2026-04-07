@@ -1,3 +1,4 @@
+// 07.04.2026 17:35 - FEAT: Updated screenshot dimensions, fixed mobile2.png format, added related_applications and injectRegister for PWABuilder.
 // 07.04.2026 17:15 - FEAT: Added third screenshot (mobile2.jpg) to PWA manifest.
 // 07.04.2026 16:30 - FEAT: Added App Store required PWA manifest fields (id, orientation, categories, lang, dir, screenshots).
 // 17.03.2026 18:00 - FIX: Added start_url and scope to PWA manifest to force Apple Safari into true standalone mode (hiding the URL bar).
@@ -12,6 +13,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      injectRegister: 'auto', // Zwingt den Service Worker zur sofortigen Registrierung
       registerType: 'prompt', 
       includeAssets: ['logo.png'], 
       manifest: {
@@ -26,17 +28,19 @@ export default defineConfig({
         categories: ['travel', 'productivity'],
         lang: 'de-DE',
         dir: 'ltr',
-        start_url: '/', // WICHTIG: Zwingt Apple Safari in den echten App-Modus
-        scope: '/',     // WICHTIG: Definiert das geschlossene "Revier" der App
+        start_url: '/', 
+        scope: '/',     
+        prefer_related_applications: false, // Für die Stores: PWA ist das Hauptprodukt
+        related_applications: [],
         icons: [
           {
             src: '/logo.png',
-            sizes: '192x192',
+            sizes: '1024x1024',
             type: 'image/png'
           },
           {
             src: '/logo.png',
-            sizes: '512x512',
+            sizes: '1024x1024',
             type: 'image/png',
             purpose: 'any maskable'
           }
@@ -44,19 +48,19 @@ export default defineConfig({
         screenshots: [
           {
             src: '/screenshots/mobile1.png',
-            sizes: '1170x2532',
+            sizes: '1738x1430',
             type: 'image/png',
             form_factor: 'narrow'
           },
           {
             src: '/screenshots/desktop1.png',
-            sizes: '2560x1440',
+            sizes: '1534x1444',
             type: 'image/png',
             form_factor: 'wide'
           },
           {
             src: '/screenshots/mobile2.png',
-            sizes: '1170x2532',
+            sizes: '1682x1510',
             type: 'image/png',
             form_factor: 'narrow'
           }
@@ -84,4 +88,4 @@ export default defineConfig({
     })
   ],
 })
-// --- END OF FILE 84 Zeilen ---
+// --- END OF FILE 90 Zeilen ---
