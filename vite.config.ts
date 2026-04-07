@@ -49,7 +49,7 @@ export default defineConfig({
             short_name: 'Planen',
             description: 'Starte den Papatours Wizard',
             url: '/',
-            icons: [{ src: '/logo.png', sizes: '1014x1024', type: 'image/png' }]
+            icons: [{ src: '/logo.png', sizes: '1024x1024', type: 'image/png' }]
           }
         ],
         launch_handler: {
@@ -66,12 +66,12 @@ export default defineConfig({
         icons: [
           {
             src: '/logo.png',
-            sizes: '1014x1024',
+            sizes: '1024x1024',
             type: 'image/png'
           },
           {
             src: '/logo.png',
-            sizes: '1014x1024',
+            sizes: '1024x1024',
             type: 'image/png',
             purpose: 'any maskable'
           }
