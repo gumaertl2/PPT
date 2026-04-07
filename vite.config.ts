@@ -1,3 +1,4 @@
+// 07.04.2026 19:00 - FEAT: Final PWABuilder fixes (exact PNG icons and scope_extensions https).
 // 07.04.2026 18:20 - FEAT: Fixed icon dimensions to physical size (1014x1024), added launch_handler and file_handlers.
 // 07.04.2026 18:00 - FEAT: Added advanced PWA features (shortcuts, display_override, iarc, scope_extensions) for max PWABuilder score.
 // 07.04.2026 17:35 - FEAT: Updated screenshot dimensions, fixed mobile2.png format, added related_applications and injectRegister.
@@ -15,7 +16,7 @@ export default defineConfig({
     VitePWA({
       injectRegister: 'auto', 
       registerType: 'prompt', 
-      includeAssets: ['logo.png'], 
+      includeAssets: ['logo.png', 'logo-192.png', 'logo-512.png'], 
       manifest: {
         id: '/papatours/',
         name: 'Papatours Reisebegleiter',
@@ -33,7 +34,7 @@ export default defineConfig({
         scope: '/',     
         iarc_rating_id: 'e84b072d-71b3-4d3e-86ae-31a8ce4e53b7', // Platzhalter für max. Score
         scope_extensions: [
-          { origin: '*.vercel.app' }
+          { origin: 'https://*.vercel.app' }
         ],
         prefer_related_applications: false,
         related_applications: [
@@ -49,7 +50,7 @@ export default defineConfig({
             short_name: 'Planen',
             description: 'Starte den Papatours Wizard',
             url: '/',
-            icons: [{ src: '/logo.png', sizes: '1024x1024', type: 'image/png' }]
+            icons: [{ src: '/logo-192.png', sizes: '192x192', type: 'image/png' }]
           }
         ],
         launch_handler: {
@@ -65,15 +66,20 @@ export default defineConfig({
         ],
         icons: [
           {
-            src: '/logo.png',
-            sizes: '1024x1024',
+            src: '/logo-192.png',
+            sizes: '192x192',
             type: 'image/png'
+          },
+          {
+            src: '/logo-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any maskable'
           },
           {
             src: '/logo.png',
             sizes: '1024x1024',
-            type: 'image/png',
-            purpose: 'any maskable'
+            type: 'image/png'
           }
         ],
         screenshots: [
@@ -119,4 +125,4 @@ export default defineConfig({
     })
   ],
 })
-// --- END OF FILE 122 Zeilen ---
+// --- END OF FILE 131 Zeilen ---
