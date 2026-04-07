@@ -1,3 +1,4 @@
+// 07.04.2026 18:20 - FEAT: Fixed icon dimensions to physical size (1014x1024), added launch_handler and file_handlers.
 // 07.04.2026 18:00 - FEAT: Added advanced PWA features (shortcuts, display_override, iarc, scope_extensions) for max PWABuilder score.
 // 07.04.2026 17:35 - FEAT: Updated screenshot dimensions, fixed mobile2.png format, added related_applications and injectRegister.
 // 07.04.2026 17:15 - FEAT: Added third screenshot.
@@ -48,18 +49,29 @@ export default defineConfig({
             short_name: 'Planen',
             description: 'Starte den Papatours Wizard',
             url: '/',
-            icons: [{ src: '/logo.png', sizes: '192x192', type: 'image/png' }]
+            icons: [{ src: '/logo.png', sizes: '1014x1024', type: 'image/png' }]
+          }
+        ],
+        launch_handler: {
+          client_mode: ['navigate-existing', 'auto']
+        },
+        file_handlers: [
+          {
+            action: '/',
+            accept: {
+              'application/json': ['.json', '.papatours']
+            }
           }
         ],
         icons: [
           {
             src: '/logo.png',
-            sizes: '192x192',
+            sizes: '1014x1024',
             type: 'image/png'
           },
           {
             src: '/logo.png',
-            sizes: '512x512',
+            sizes: '1014x1024',
             type: 'image/png',
             purpose: 'any maskable'
           }
@@ -107,4 +119,4 @@ export default defineConfig({
     })
   ],
 })
-// --- END OF FILE 115 Zeilen ---
+// --- END OF FILE 122 Zeilen ---
