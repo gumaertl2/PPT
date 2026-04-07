@@ -1,3 +1,4 @@
+// 07.04.2026 17:15 - FEAT: Added third screenshot (mobile2.jpg) to PWA manifest.
 // 07.04.2026 16:30 - FEAT: Added App Store required PWA manifest fields (id, orientation, categories, lang, dir, screenshots).
 // 17.03.2026 18:00 - FIX: Added start_url and scope to PWA manifest to force Apple Safari into true standalone mode (hiding the URL bar).
 // 17.03.2026 17:30 - FEAT: Added vite-plugin-pwa.
@@ -52,6 +53,12 @@ export default defineConfig({
             sizes: '2560x1440',
             type: 'image/png',
             form_factor: 'wide'
+          },
+          {
+            src: '/screenshots/mobile2.jpg',
+            sizes: '1170x2532',
+            type: 'image/jpeg',
+            form_factor: 'narrow'
           }
         ]
       },
@@ -77,4 +84,4 @@ export default defineConfig({
     })
   ],
 })
-// --- END OF FILE 76 Zeilen ---
+// --- END OF FILE 84 Zeilen ---
