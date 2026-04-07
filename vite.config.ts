@@ -1,4 +1,5 @@
-// 07.04.2026 19:45 - FIX: Removed experimental PWABuilder fields (note_taking, share_target, widgets) causing TS2353 build errors, and removed conflicting id field.
+// 07.04.2026 19:50 - FIX: Added stable 'id: /' to manifest to resolve PWABuilder warning and ensure unique app identification.
+// 07.04.2026 19:45 - FIX: Removed experimental PWABuilder fields (note_taking, share_target, widgets) causing TS2353 build errors.
 // 07.04.2026 19:30 - FEAT: Max PWABuilder Score (start_url fix, icon split, experimental features).
 // 07.04.2026 19:00 - FEAT: Final PWABuilder fixes (exact PNG icons and scope_extensions https).
 // 07.04.2026 18:20 - FEAT: Fixed icon dimensions to physical size (1014x1024), added launch_handler and file_handlers.
@@ -20,6 +21,7 @@ export default defineConfig({
       registerType: 'prompt', 
       includeAssets: ['logo.png', 'logo-192.png', 'logo-512.png'], 
       manifest: {
+        id: '/',
         name: 'Papatours Reisebegleiter',
         short_name: 'Papatours',
         description: 'Dein intelligenter Reisebegleiter und Live-Tracker',
@@ -138,4 +140,4 @@ export default defineConfig({
     })
   ],
 })
-// --- END OF FILE 136 Zeilen ---
+// --- END OF FILE 137 Zeilen ---
