@@ -1,3 +1,4 @@
+// 07.04.2026 19:45 - FIX: Removed experimental PWABuilder fields (note_taking, share_target, widgets) causing TS2353 build errors, and removed conflicting id field.
 // 07.04.2026 19:30 - FEAT: Max PWABuilder Score (start_url fix, icon split, experimental features).
 // 07.04.2026 19:00 - FEAT: Final PWABuilder fixes (exact PNG icons and scope_extensions https).
 // 07.04.2026 18:20 - FEAT: Fixed icon dimensions to physical size (1014x1024), added launch_handler and file_handlers.
@@ -19,7 +20,6 @@ export default defineConfig({
       registerType: 'prompt', 
       includeAssets: ['logo.png', 'logo-192.png', 'logo-512.png'], 
       manifest: {
-        id: '/papatours/',
         name: 'Papatours Reisebegleiter',
         short_name: 'Papatours',
         description: 'Dein intelligenter Reisebegleiter und Live-Tracker',
@@ -69,45 +69,6 @@ export default defineConfig({
           {
             protocol: 'web+papatours',
             url: '/?url=%s'
-          }
-        ],
-        share_target: {
-          action: '/share',
-          method: 'GET',
-          params: {
-            title: 'title',
-            text: 'text',
-            url: 'url'
-          }
-        },
-        edge_side_panel: {
-          preferred_width: 400
-        },
-        note_taking: {
-          new_note_url: '/new-note'
-        },
-        widgets: [
-          {
-            name: 'Papatours Widget',
-            description: 'Live Trip Status',
-            tag: 'papatours-widget',
-            ms_ac_template: '/widget.json',
-            data: '/widget-data.json',
-            type: 'application/json',
-            screenshots: [
-              {
-                src: '/logo-512.png',
-                sizes: '512x512',
-                label: 'Widget Screenshot'
-              }
-            ],
-            icons: [
-              {
-                src: '/logo-192.png',
-                sizes: '192x192',
-                type: 'image/png'
-              }
-            ]
           }
         ],
         icons: [
@@ -177,4 +138,4 @@ export default defineConfig({
     })
   ],
 })
-// --- END OF FILE 180 Zeilen ---
+// --- END OF FILE 136 Zeilen ---
