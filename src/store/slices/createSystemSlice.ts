@@ -1,3 +1,4 @@
+// 07.04.2026 09:30 - FEAT: Added 'enableCountryHarvester' for Developer Mode control.
 // 23.02.2026 17:05 - FEAT: Added 'isFreeTierKey' to AiSettings for Traffic Shaping & Flash-Thinking routing.
 // 17.02.2026 10:55 - FEAT: Added Global Workflow State (Persistence) to fix View-Switch loss.
 // 14.01.2026 15:45 - FIX: Re-applying Phase 1 (Model Overrides) strictly on verified upload.
@@ -57,6 +58,10 @@ export interface SystemSlice {
   workflow: WorkflowState;
   setWorkflowState: (state: Partial<WorkflowState>) => void;
   resetWorkflow: () => void;
+
+  // Developer Tools
+  enableCountryHarvester: boolean;
+  setCountryHarvester: (enable: boolean) => void;
 
   // Stats
   usageStats: {
@@ -194,6 +199,10 @@ export const createSystemSlice: StateCreator<any, [], [], SystemSlice> = (set, g
 
   resetWorkflow: () => set({ workflow: initialWorkflowState }),
 
+  // --- DEVELOPER TOOLS ---
+  enableCountryHarvester: false,
+  setCountryHarvester: (enable) => set({ enableCountryHarvester: enable }),
+
   // --- STATS ---
   usageStats: { 
     tokens: 0, 
@@ -304,4 +313,4 @@ export const createSystemSlice: StateCreator<any, [], [], SystemSlice> = (set, g
      get().downloadFlightRecorder();
   }
 });
-// --- END OF FILE 297 Zeilen ---
+// --- END OF FILE 301 Zeilen ---

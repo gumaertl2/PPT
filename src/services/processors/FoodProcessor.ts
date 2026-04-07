@@ -1,3 +1,4 @@
+// 07.04.2026 09:30 - FIX: Bound handleGuideHarvesting to new Developer Mode 'enableCountryHarvester' toggle.
 // 16.02.2026 21:00 - FIX: TYPE ASSIGNMENT (Vercel Build Error).
 // 09.02.2026 14:15 - FIX: Integrated 'Rejected' Filter into User's Custom FoodProcessor.
 // 06.02.2026 13:35 - REFACTOR: SIMPLE LINK STORAGE.
@@ -136,6 +137,9 @@ export const FoodProcessor = {
 
 // ... (handleGuideHarvesting logic preserved below, same as before) ...
 function handleGuideHarvesting(items: any[], project: any) {
+    const { enableCountryHarvester } = useTripStore.getState();
+    if (!enableCountryHarvester) return; // FIX: Block automatic download unless developer mode is active
+
     const foundGuides = new Set<string>();
     items.forEach((item: any) => {
         const sources = [...(item.awards || []), ...(item.guides || [])];
@@ -180,4 +184,4 @@ function handleGuideHarvesting(items: any[], project: any) {
         }
     }
 }
-// --- END OF FILE 177 Zeilen ---
+// --- END OF FILE 181 Zeilen ---

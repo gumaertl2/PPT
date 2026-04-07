@@ -1,3 +1,4 @@
+// 07.04.2026 09:30 - FEAT: Added 'enableCountryHarvester' toggle to Developer Mode settings.
 // 22.03.2026 10:30 - UX: Updated API label to "Google Gemini API Key" and made the help link an eye-catching amber CTA button.
 // 24.02.2026 13:15 - FEAT: Added Language Switcher to Settings for better UX during planning and testing.
 // src/features/Cockpit/SettingsModal.tsx
@@ -22,7 +23,8 @@ import {
   Brain,
   Sparkles,
   ShieldCheck,
-  Globe 
+  Globe,
+  DownloadCloud
 } from 'lucide-react';
 import { useTripStore } from '../../store/useTripStore';
 import type { AiStrategy } from '../../store/useTripStore';
@@ -49,7 +51,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     setTaskChunkLimit,
     resetChunkOverrides,
     project, 
-    setLanguage 
+    setLanguage,
+    enableCountryHarvester,
+    setCountryHarvester
   } = useTripStore();
 
   const [keyInput, setKeyInput] = useState(apiKey || '');
@@ -466,7 +470,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               )}
             </section>
 
-            <section>
+            <section className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div 
                 onClick={() => setAiSettings({ debug: !aiSettings.debug })}
                 className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors"
@@ -475,11 +479,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   <div className={`p-2 rounded-lg ${aiSettings.debug ? 'bg-red-100 text-red-600' : 'bg-slate-200 text-slate-500'}`}>
                     <Bug className="w-4 h-4" />
                   </div>
-                  <span className="text-sm font-medium text-slate-700">{t('settings.debug_label', 'Debug-Modus (Flugschreiber)')}</span>
+                  <span className="text-xs font-bold text-slate-700">{t('settings.debug_label', 'Flugschreiber (Debug)')}</span>
                 </div>
                 
-                <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${aiSettings.debug ? 'bg-red-500' : 'bg-slate-300'}`}>
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${aiSettings.debug ? 'translate-x-6' : 'translate-x-1'}`} />
+                <div className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${aiSettings.debug ? 'bg-red-500' : 'bg-slate-300'}`}>
+                  <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${aiSettings.debug ? 'translate-x-5' : 'translate-x-1'}`} />
+                </div>
+              </div>
+
+              <div 
+                onClick={() => setCountryHarvester(!enableCountryHarvester)}
+                className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${enableCountryHarvester ? 'bg-blue-100 text-blue-600' : 'bg-slate-200 text-slate-500'}`}>
+                    <DownloadCloud className="w-4 h-4" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-700">{t('settings.harvester_label', 'Länder Auto-Download')}</span>
+                </div>
+                
+                <div className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${enableCountryHarvester ? 'bg-blue-500' : 'bg-slate-300'}`}>
+                  <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${enableCountryHarvester ? 'translate-x-5' : 'translate-x-1'}`} />
                 </div>
               </div>
             </section>
@@ -501,4 +521,4 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   );
 };
 
-// --- END OF FILE 582 Zeilen ---
+// --- END OF FILE 600 Zeilen ---

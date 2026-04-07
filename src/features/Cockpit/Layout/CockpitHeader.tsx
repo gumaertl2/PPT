@@ -1,3 +1,4 @@
+// 07.04.2026 09:30 - UX: Added Developer Mode entry (Double Click) to Info button and removed setup props from ActionsMenu.
 // 21.03.2026 18:30 - FIX: Passed setViewMode to TripFinanceModal to enable proper "Jump to Map" tab-switching functionality.
 // src/features/Cockpit/Layout/CockpitHeader.tsx
 
@@ -232,6 +233,8 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
 
                  <button 
                    onClick={() => setViewMode('info')}
+                   onDoubleClick={() => setShowSettingsModal(true)}
+                   style={{ touchAction: 'manipulation' }}
                    className={`flex flex-col items-center px-1.5 sm:px-2 py-1 rounded transition-colors shrink-0 ${
                      viewMode === 'info' 
                        ? 'text-blue-600 bg-blue-50' 
@@ -332,7 +335,6 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                 onOpenExport={() => setIsExportModalOpen(true)}
                 onOpenPrint={() => setIsPrintModalOpen(true)}
                 onOpenAdHoc={() => setIsAdHocModalOpen(true)}
-                onOpenSettings={() => setShowSettingsModal(true)}
                 onOpenManual={() => {
                   if (viewMode === 'wizard') {
                     onOpenHelp(); 
@@ -373,4 +375,4 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
     </>
   );
 };
-// --- END OF FILE 387 Zeilen ---
+// --- END OF FILE 386 Zeilen ---

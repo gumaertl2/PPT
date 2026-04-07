@@ -1,3 +1,4 @@
+// 07.04.2026 09:30 - UX: Removed Settings and Flight Recorder from ActionsMenu for end-users.
 // 20.03.2026 17:40 - UX: Moved Info & Quickguide to ActionsMenu, removed Finance.
 // 19.03.2026 13:00 - UX: Avoid double prompting for filename.
 // src/features/Cockpit/Layout/ActionsMenu.tsx
@@ -16,8 +17,6 @@ import {
   Save, 
   Upload, 
   FileText, 
-  Terminal,
-  Settings,
   HelpCircle
 } from 'lucide-react';
 
@@ -34,7 +33,6 @@ interface ActionsMenuProps {
   onOpenExport: () => void;
   onOpenPrint: () => void;
   onOpenAdHoc: () => void;
-  onOpenSettings: () => void;
   onOpenManual: () => void;
   onOpenQuickGuide: () => void;
 }
@@ -46,7 +44,6 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
   onOpenExport,
   onOpenPrint,
   onOpenAdHoc,
-  onOpenSettings,
   onOpenManual,
   onOpenQuickGuide
 }) => {
@@ -63,11 +60,8 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
     loadProject,
     mergeProject, 
     resetProject, 
-    downloadFlightRecorder, 
     setWorkflowModalOpen,
-    uiState,
-    apiKey,
-    usageStats
+    uiState
   } = useTripStore();
 
   const hasAnalysisResult = !!project.analysis.chefPlaner;
@@ -309,33 +303,6 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
           >
             <FileText className="w-4 h-4" /> {t('wizard.actions_menu.new')}
           </button>
-          
-          <button 
-            onClick={() => { downloadFlightRecorder(); setIsOpen(false); }} 
-            className="w-full text-left px-4 py-2 hover:bg-blue-50 text-slate-700 flex items-center gap-3 text-sm font-medium"
-            title={t('tooltips.menu_items.log')}
-          >
-            <Terminal className="w-4 h-4 text-slate-500" /> {t('wizard.actions_menu.log')}
-          </button>
-
-          <div className="h-px bg-slate-100 my-1"></div>
-
-          <button 
-            onClick={() => { setIsOpen(false); onOpenSettings(); }}
-            className={`w-full text-left px-4 py-2 hover:bg-blue-50 flex items-center justify-between gap-3 text-sm font-medium ${apiKey ? 'text-blue-600' : 'text-slate-500'}`}
-            title="Setup & API Konfiguration"
-          >
-             <div className="flex items-center gap-3">
-                <Settings className="w-4 h-4" />
-                <span>Setup</span>
-             </div>
-             {apiKey && (usageStats.tokens > 0) && (
-                 <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
-                     {usageStats.tokens > 1000 ? `${(usageStats.tokens/1000).toFixed(1)}k` : usageStats.tokens}
-                 </span>
-             )}
-          </button>
-
         </div>
       )}
       
@@ -353,4 +320,4 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
     </div>
   );
 };
-// --- END OF FILE 319 Zeilen ---
+// --- END OF FILE 285 Zeilen ---
