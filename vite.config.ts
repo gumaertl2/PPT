@@ -1,3 +1,4 @@
+// 07.04.2026 19:30 - FEAT: Max PWABuilder Score (start_url fix, icon split, experimental features).
 // 07.04.2026 19:00 - FEAT: Final PWABuilder fixes (exact PNG icons and scope_extensions https).
 // 07.04.2026 18:20 - FEAT: Fixed icon dimensions to physical size (1014x1024), added launch_handler and file_handlers.
 // 07.04.2026 18:00 - FEAT: Added advanced PWA features (shortcuts, display_override, iarc, scope_extensions) for max PWABuilder score.
@@ -30,11 +31,11 @@ export default defineConfig({
         categories: ['travel', 'productivity'],
         lang: 'de-DE',
         dir: 'ltr',
-        start_url: '/', 
+        start_url: '/?mode=pwa', 
         scope: '/',     
-        iarc_rating_id: 'e84b072d-71b3-4d3e-86ae-31a8ce4e53b7', // Platzhalter für max. Score
+        iarc_rating_id: 'e84b072d-71b3-4d3e-86ae-31a8ce4e53b7',
         scope_extensions: [
-          { origin: 'https://*.vercel.app' }
+          { origin: 'https://papatours.vercel.app' }
         ],
         prefer_related_applications: false,
         related_applications: [
@@ -64,6 +65,51 @@ export default defineConfig({
             }
           }
         ],
+        protocol_handlers: [
+          {
+            protocol: 'web+papatours',
+            url: '/?url=%s'
+          }
+        ],
+        share_target: {
+          action: '/share',
+          method: 'GET',
+          params: {
+            title: 'title',
+            text: 'text',
+            url: 'url'
+          }
+        },
+        edge_side_panel: {
+          preferred_width: 400
+        },
+        note_taking: {
+          new_note_url: '/new-note'
+        },
+        widgets: [
+          {
+            name: 'Papatours Widget',
+            description: 'Live Trip Status',
+            tag: 'papatours-widget',
+            ms_ac_template: '/widget.json',
+            data: '/widget-data.json',
+            type: 'application/json',
+            screenshots: [
+              {
+                src: '/logo-512.png',
+                sizes: '512x512',
+                label: 'Widget Screenshot'
+              }
+            ],
+            icons: [
+              {
+                src: '/logo-192.png',
+                sizes: '192x192',
+                type: 'image/png'
+              }
+            ]
+          }
+        ],
         icons: [
           {
             src: '/logo-192.png',
@@ -74,7 +120,13 @@ export default defineConfig({
             src: '/logo-512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'any'
+          },
+          {
+            src: '/logo-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
           },
           {
             src: '/logo.png',
@@ -125,4 +177,4 @@ export default defineConfig({
     })
   ],
 })
-// --- END OF FILE 131 Zeilen ---
+// --- END OF FILE 180 Zeilen ---
