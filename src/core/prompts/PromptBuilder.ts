@@ -1,6 +1,5 @@
-// 08.04.2026 15:30 - FIX: Full file rewritten to fix esbuild syntax error (copy-paste glitch).
-// 08.04.2026 15:00 - FIX: Injected dynamic LANGUAGE LOCKDOWN directly from useTripStore.
-// 22.01.2026 22:15 - FIX: Made JSON Start Character dynamic (Support for Arrays '[' vs Objects '{').
+// 08.04.2026 16:45 - FIX: Finalized dynamic LANGUAGE LOCKDOWN prioritizing userInputs.aiOutputLanguage.
+// 08.04.2026 15:30 - FIX: Full file rewritten to fix esbuild syntax error.
 // src/core/prompts/PromptBuilder.ts
 
 import { useTripStore } from '../../store/useTripStore';
@@ -71,11 +70,12 @@ Nutze diese Hierarchie bei jedem Konflikt zwischen Anweisungen:
 
   public build(isListMode: boolean = false): string {
     
-    // --- NEW: DYNAMIC LANGUAGE LOCKDOWN ---
-    let targetLangName = "English"; // Fallback
+    // --- DYNAMIC LANGUAGE LOCKDOWN ---
+    let targetLangName = "English"; 
     try {
         const state = useTripStore.getState();
-        const langCode = state.project?.meta?.language || 'en';
+        // FIX: Auslesen der tatsächlichen Zielsprache (Schritt 5) mit Fallback auf UI-Sprache
+        const langCode = state.project?.userInputs?.aiOutputLanguage || state.project?.meta?.language || 'en';
         
         const langMap: Record<string, string> = {
             'de': 'German', 'en': 'English', 'es': 'Spanish', 'fr': 'French', 
@@ -86,7 +86,7 @@ Nutze diese Hierarchie bei jedem Konflikt zwischen Anweisungen:
         };
         targetLangName = langMap[langCode] || langCode;
     } catch (e) {
-        console.warn("PromptBuilder: Could not read language from store, defaulting to English.");
+        console.warn("PromptBuilder: Could not read language from store.");
     }
 
     const dynamicSystemGuard = `
@@ -107,4 +107,4 @@ Context: Frontend will crash on key-translation, missing IDs or uncompleted batc
     return this.parts.join('\n\n');
   }
 }
-// --- END OF FILE 109 Zeilen ---
+// --- END OF FILE 110 Zeilen ---

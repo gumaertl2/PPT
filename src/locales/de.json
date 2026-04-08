@@ -31,7 +31,7 @@
     "hours": "Std.",
     "nights": "Nächte"
   },
-  "status": {
+"status": {
     "workflow_start": "Starte Workflow: {{step}}...",
     "analysis_start": "Starte Fundamentalanalyse...",
     "sending": "Sende Anfrage an KI für {{step}} (kann dauern)...",
@@ -39,7 +39,8 @@
     "error": "Ein Fehler ist aufgetreten.",
     "retry": "Fehler erkannt. Neuer Versuch {{count}}...",
     "action_retry": "Wiederholen",
-    "action_skip": "Überspringen"
+    "action_skip": "Überspringen",
+    "please_wait": "Bitte warten, dies kann einen Moment dauern..."
   },
   "analysis": {
     "title": "Ergebnis der Analyse",

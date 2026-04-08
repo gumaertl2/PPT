@@ -1,6 +1,6 @@
+// 08.04.2026 15:45 - FIX: Removed local language instruction to prevent SSOT conflicts with PromptBuilder.
 // 19.03.2026 17:15 - FEAT: Enforced validation of 'vibe', 'budget', and 'pace' in the prompt instructions.
 // 23.02.2026 14:40 - PROMPT HARDENING: Forced 'validated_hotels' population to bridge the data gap for map visibility.
-// 06.02.2026 21:20 - FEATURE: Added Geography Correction (City -> Country inference).
 // src/core/prompts/templates/chefPlaner.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -32,10 +32,7 @@ You must strictly adhere to the 'logistics_briefing':
 2. **GEOGRAPHY FIX**: Check if the user entered a **City** (e.g. "Kopenhagen", "Munich") but the system expects a **Country**.
    - IF destination is a City, identify the correct Country (e.g. "Dänemark") and fill 'inferred_country'.
 3. **HOTEL-VALIDATION**: Look at 'hotels_to_validate' in the context. For each hotel, find the official name and precise address. You **MUST** populate the structured array 'validated_hotels' with these results. Do not just describe them in text.
-4. **STRATEGY**: Write specific instructions (field 'strategic_briefing') for the "Collector" agent.
-
-# LANGUAGE
-Generate ALL user-facing text in **${meta.targetLanguageName}**.`;
+4. **STRATEGY**: Write specific instructions (field 'strategic_briefing') for the "Collector" agent.`;
 
   // 3. OUTPUT SCHEMA
   const outputSchema = {
@@ -77,7 +74,7 @@ Generate ALL user-facing text in **${meta.targetLanguageName}**.`;
   };
 
   return new PromptBuilder()
-    .withOS() // Enforces JSON-Only
+    .withOS() 
     .withRole(role)
     .withContext(context, "PROJECT CONTEXT")
     .withInstruction(instructions)
@@ -85,4 +82,4 @@ Generate ALL user-facing text in **${meta.targetLanguageName}**.`;
     .withSelfCheck(['basic', 'planning'])
     .build();
 };
-// --- END OF FILE 107 Zeilen ---
+// --- END OF FILE 102 Zeilen ---

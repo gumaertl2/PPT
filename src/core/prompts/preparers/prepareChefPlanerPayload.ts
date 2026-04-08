@@ -1,6 +1,6 @@
+// 08.04.2026 15:45 - FIX: Removed legacy local language resolution to ensure SSOT via PromptBuilder.
 // 19.03.2026 17:15 - FEAT: Injected 'vibe', 'budget', and 'pace' into context so the Architect can validate feasibility based on persona.
 // 27.02.2026 13:55 - FEAT: Injected 'localMobility' into ChefPlaner logistics briefing so the AI knows how the user travels.
-// 24.01.2026 19:30 - FEAT: New Preparer for ChefPlaner.
 // src/core/prompts/preparers/prepareChefPlanerPayload.ts
 
 import type { TripProject, LocalizedContent } from '../../types';
@@ -16,16 +16,7 @@ const EXCLUDED_INTERESTS = [
     'city_info', 'general_info'           
 ];
 
-// --- HELPER FUNCTIONS (Ported from Template) ---
-
-const getFullLanguageName = (code: string): string => {
-  const map: Record<string, string> = {
-    'de': 'German', 'en': 'English', 'es': 'Spanish', 'fr': 'French',
-    'it': 'Italian', 'tr': 'Turkish', 'pt': 'Portuguese', 'nl': 'Dutch',
-    'pl': 'Polish', 'ru': 'Russian', 'ja': 'Japanese', 'zh': 'Chinese'
-  };
-  return map[code] || 'German';
-};
+// --- HELPER FUNCTIONS ---
 
 const extractHotels = (userInputs: TripProject['userInputs']) => {
   const hotels: any[] = [];
@@ -72,9 +63,6 @@ const getMonthName = (dateStr: string, lang: 'de' | 'en'): string => {
 export const prepareChefPlanerPayload = (project: TripProject, feedback?: string) => {
     const { userInputs, meta } = project;
     const uiLang = meta.language === 'en' ? 'en' : 'de';
-
-    const desiredLangCode = userInputs.aiOutputLanguage || meta.language;
-    const targetLanguageName = getFullLanguageName(desiredLangCode);
 
     const safeInterestIds = userInputs.selectedInterests.filter(id => 
         !EXCLUDED_INTERESTS.includes(id.toLowerCase())
@@ -176,14 +164,12 @@ export const prepareChefPlanerPayload = (project: TripProject, feedback?: string
             custom_preferences: userInputs.customPreferences,
             vibe: userInputs.vibe,
             budget: userInputs.budget,
-            pace: userInputs.pace,
-            target_output_language: targetLanguageName
+            pace: userInputs.pace
         },
         meta: {
             target_sights_count: targetSightsCount,
-            targetLanguageName,
             feedbackSection 
         }
     };
 };
-// --- END OF FILE 179 Zeilen ---
+// --- END OF FILE 164 Zeilen ---

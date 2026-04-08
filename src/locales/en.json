@@ -32,7 +32,7 @@
     "hours": "hrs",
     "nights": "nights"
   },
-  "status": {
+"status": {
     "workflow_start": "Starting Workflow: {{step}}...",
     "analysis_start": "Starting Foundation Analysis...",
     "sending": "Sending request to AI for {{step}} (may take a while)...",
@@ -40,7 +40,8 @@
     "error": "An error occurred.",
     "retry": "Error detected. Attempt {{count}}...",
     "action_retry": "Retry",
-    "action_skip": "Skip"
+    "action_skip": "Skip",
+    "please_wait": "Please wait, this may take a moment..."
   },
   "analysis": {
     "title": "Analysis Result",

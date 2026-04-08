@@ -1,9 +1,11 @@
-// src/features/shared/NotificationSystem.tsx
+// src/features/Shared/NotificationSystem.tsx
+// 08.04.2026 - FEAT: Added i18n support to the loading modal message.
 // 13.01.2026 - FIX: Removed missing import 'AppNotification' and defined locally. Fixed implicit any.
 // UPDATE: Implemented Centered Loading Modal (Blocking) + Toast System for others.
 
 import React from 'react';
-import { useTripStore } from '../../store/useTripStore'; // FIX: Removed AppNotification import
+import { useTranslation } from 'react-i18next';
+import { useTripStore } from '../../store/useTripStore'; 
 import { 
   CheckCircle2, 
   AlertCircle, 
@@ -26,6 +28,7 @@ interface AppNotification {
 
 export const NotificationSystem: React.FC = () => {
   const { notifications, dismissNotification } = useTripStore();
+  const { t } = useTranslation();
 
   if (notifications.length === 0) return null;
 
@@ -51,13 +54,12 @@ export const NotificationSystem: React.FC = () => {
               {loadingNotification.message}
             </h3>
             <p className="text-sm text-slate-500 mb-6">
-              Bitte warten, dies kann einen Moment dauern...
+              {t('status.please_wait', 'Bitte warten, dies kann einen Moment dauern...')}
             </p>
 
             {/* ACTIONS (z.B. Abbrechen) */}
             {loadingNotification.actions && loadingNotification.actions.length > 0 && (
               <div className="flex gap-3 w-full justify-center">
-                {/* FIX: Typed action and idx as any to resolve TS7006 */}
                 {loadingNotification.actions.map((action: any, idx: number) => (
                   <button
                     key={idx}
@@ -66,7 +68,7 @@ export const NotificationSystem: React.FC = () => {
                       px-4 py-2 rounded-lg font-medium text-sm transition-colors w-full
                       ${action.variant === 'outline' 
                         ? 'border border-slate-200 text-slate-600 hover:bg-slate-50' 
-                        : 'bg-red-50 text-red-600 hover:bg-red-100' // Default für Cancel im Modal eher rot/dezent
+                        : 'bg-red-50 text-red-600 hover:bg-red-100' 
                       }
                     `}
                   >
@@ -179,4 +181,4 @@ const Toast: React.FC<{
     </div>
   );
 };
-// --- END OF FILE 158 Zeilen ---
+// --- END OF FILE 160 Zeilen ---

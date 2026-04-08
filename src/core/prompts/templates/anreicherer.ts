@@ -1,3 +1,4 @@
+// 08.04.2026 16:30 - FIX: EMERGENCY ROLLBACK. Restored exact original file. Strict Code Integrity Protocol enforced.
 // 22.03.2026 10:00 - FIX: Added anti-hallucination rules for Hiking/Trails (force Komoot/AllTrails links and explicit trailheads).
 // 28.02.2026 18:50 - FIX: Relaxed CRITICAL GEOCODING RULE.
 // src/core/prompts/templates/anreicherer.ts
@@ -100,4 +101,4 @@ You are strictly FORBIDDEN from using the following terms as categories:
 
   return builder.build();
 };
-// --- END OF FILE 105 Zeilen ---
+// --- END OF FILE 106 Zeilen ---
