@@ -1,5 +1,5 @@
+// 08.04.2026 15:00 - FIX: Removed hardcoded "German" language lock. Now handled globally by PromptBuilder.
 // 19.03.2026 17:00 - FEAT: Added personaDirective to enforce user vibe and general notes during base selection.
-// 01.02.2026 17:30 - PROMPT HARDENING: "Anti-Service Firewall".
 // src/core/prompts/templates/basis.ts
 
 import { PromptBuilder } from '../PromptBuilder';
@@ -70,8 +70,7 @@ You are purely a SIGHTSEEING & ACTIVITY Scout. The user has other agents for Foo
 # SYSTEM SECURITY PROTOCOL
 1. **JSON INTEGRITY:** Output must be valid JSON.
 2. **SILENCE PROTOCOL:** NO text before JSON. NO preamble.
-3. **LANGUAGE LOCKDOWN:** All content candidates MUST be in the requested target language (German).
-4. **NO HALLUCINATIONS:** Only suggest real places.`;
+3. **NO HALLUCINATIONS:** Only suggest real places.`;
 
   builder.withInstruction(promptInstructions);
 
@@ -90,4 +89,4 @@ You are purely a SIGHTSEEING & ACTIVITY Scout. The user has other agents for Foo
   // 5. Build
   return builder.build();
 };
-// --- END OF FILE 98 Zeilen ---
+// --- END OF FILE 97 Zeilen ---

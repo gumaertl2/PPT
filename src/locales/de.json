@@ -281,7 +281,7 @@
     "placeholder_activity": "z.B. Opernbesuch, Ankunft Flug",
     "auto_corrected": "Datum wurde automatisch auf den Reisezeitraum angepasst."
   },
-  "misc": {
+"misc": {
     "notes_label": "Sonstige Wünsche & Anmerkungen",
     "notes_placeholder": "z.B. Wir lieben Fotografie... Mittagspause um 13 Uhr...",
     "notes_hint": "Diese Hinweise werden als globale Anweisung an alle KI-Rollen weitergegeben.",
@@ -297,7 +297,19 @@
     "lang_it": "Italienisch",
     "lang_pt": "Portugiesisch",
     "lang_nl": "Niederländisch",
-    "lang_pl": "Polnisch"
+    "lang_pl": "Polnisch",
+    "lang_cs": "Tschechisch",
+    "lang_sv": "Schwedisch",
+    "lang_da": "Dänisch",
+    "lang_fi": "Finnisch",
+    "lang_el": "Griechisch",
+    "lang_ru": "Russisch",
+    "lang_uk": "Ukrainisch",
+    "lang_ja": "Japanisch",
+    "lang_zh": "Chinesisch",
+    "lang_hi": "Hindi",
+    "lang_ar": "Arabisch",
+    "lang_tr": "Türkisch"
   },
   "review": {
     "ready_title": "Bereit zur Erstellung?",

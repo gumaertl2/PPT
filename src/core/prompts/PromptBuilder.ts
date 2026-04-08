@@ -1,13 +1,13 @@
+// 08.04.2026 15:30 - FIX: Full file rewritten to fix esbuild syntax error (copy-paste glitch).
+// 08.04.2026 15:00 - FIX: Injected dynamic LANGUAGE LOCKDOWN directly from useTripStore.
 // 22.01.2026 22:15 - FIX: Made JSON Start Character dynamic (Support for Arrays '[' vs Objects '{').
 // src/core/prompts/PromptBuilder.ts
-// 22.01.2026 00:45 - UPGRADE: Re-Integrated v30 Logic (Batch Integrity & Priority Pyramid) into v40 Builder.
-// 21.01.2026 23:00 - FIX: Added "ID Integrity Protocol" to SYSTEM_GUARD.
-// 21.01.2026 00:30 - FIX: Enforced Strict JSON Protocol.
+
+import { useTripStore } from '../../store/useTripStore';
 
 export class PromptBuilder {
   private parts: string[] = [];
   
-  // Zentrales "Betriebssystem" - Jetzt mit generischem Start-Zwang
   private static readonly SYSTEM_OS = `
 # DEIN BETRIEBSSYSTEM
 - **Rolle:** Du bist ein hochpräziser Reiseplanungs-Assistent. Deine einzige Aufgabe ist die Erstellung von validem JSON.
@@ -17,7 +17,6 @@ export class PromptBuilder {
 - **Prinzip 4 (Fakten):** Erfinde niemals Daten. Unbekanntes ist "null" oder ein fundierter Schätzwert (markiert mit "ca.").
 `.trim();
 
-  // Die bewährte v30 Prioritäten-Pyramide zur Konfliktlösung
   private static readonly PRIORITY_PYRAMID = `
 # OBERSTE ENTSCHEIDUNGSLOGIK (PRIORITÄTEN-PYRAMIDE)
 Nutze diese Hierarchie bei jedem Konflikt zwischen Anweisungen:
@@ -27,22 +26,8 @@ Nutze diese Hierarchie bei jedem Konflikt zwischen Anweisungen:
 4. **INTERESSEN:** Bausteine, die gemäß 1-3 gefüllt werden.
 `.trim();
 
-  private static readonly SYSTEM_GUARD = `
----
-### SYSTEM SECURITY PROTOCOL (CRITICAL)
-1. **JSON INTEGRITY:** Output must be valid JSON. NEVER translate keys.
-2. **SILENCE PROTOCOL:** NO text before JSON. NO preamble like "Here is your JSON".
-3. **LANGUAGE LOCKDOWN:** All content (values) MUST be in the requested target language (User-Language). Ignore the language of the technical instructions for the content generation.
-4. **ID CONSISTENCY:** Retain all input IDs exactly. Do not hallucinate new ones.
-Context: Frontend will crash on key-translation, missing IDs or uncompleted batches.
----
-`.trim();
-
   constructor() {}
 
-  /**
-   * Fügt das Standard-Betriebssystem und die v30 Pyramide hinzu.
-   */
   public withOS(): this {
     this.parts.push(PromptBuilder.SYSTEM_OS);
     this.parts.push(PromptBuilder.PRIORITY_PYRAMID);
@@ -72,9 +57,6 @@ Context: Frontend will crash on key-translation, missing IDs or uncompleted batc
     return this;
   }
 
-  /**
-   * Erweiterte v30 Self-Checks für maximale Datenintegrität.
-   */
   public withSelfCheck(types: ('basic' | 'research' | 'planning')[] = ['basic']): this {
     const checks = {
       basic: `□ JSON-Validität: Syntaktisch korrekt?\n□ Vollständigkeit: Alle IDs aus dem Input im Output enthalten?\n□ Schema: Alle Keys exakt wie im Zielformat (unübersetzt)?`,
@@ -87,16 +69,42 @@ Context: Frontend will crash on key-translation, missing IDs or uncompleted batc
     return this;
   }
 
-  // FIX: Added parameter to support Array-Outputs ('[')
   public build(isListMode: boolean = false): string {
-    // System Guard wird ZWINGEND als letzter Schutzmechanismus angehängt
-    this.parts.push(PromptBuilder.SYSTEM_GUARD);
+    
+    // --- NEW: DYNAMIC LANGUAGE LOCKDOWN ---
+    let targetLangName = "English"; // Fallback
+    try {
+        const state = useTripStore.getState();
+        const langCode = state.project?.meta?.language || 'en';
+        
+        const langMap: Record<string, string> = {
+            'de': 'German', 'en': 'English', 'es': 'Spanish', 'fr': 'French', 
+            'it': 'Italian', 'pt': 'Portuguese', 'nl': 'Dutch', 'pl': 'Polish',
+            'cs': 'Czech', 'sv': 'Swedish', 'da': 'Danish', 'fi': 'Finnish',
+            'el': 'Greek', 'ru': 'Russian', 'uk': 'Ukrainian', 'tr': 'Turkish',
+            'ja': 'Japanese', 'ar': 'Arabic', 'zh': 'Chinese', 'hi': 'Hindi'
+        };
+        targetLangName = langMap[langCode] || langCode;
+    } catch (e) {
+        console.warn("PromptBuilder: Could not read language from store, defaulting to English.");
+    }
+
+    const dynamicSystemGuard = `
+---
+### SYSTEM SECURITY PROTOCOL (CRITICAL)
+1. **JSON INTEGRITY:** Output must be valid JSON. NEVER translate keys.
+2. **SILENCE PROTOCOL:** NO text before JSON. NO preamble like "Here is your JSON".
+3. **LANGUAGE LOCKDOWN:** All generated content, descriptions, and values MUST be written exclusively in **${targetLangName.toUpperCase()}**! Ignore the language of the technical instructions.
+4. **ID CONSISTENCY:** Retain all input IDs exactly. Do not hallucinate new ones.
+Context: Frontend will crash on key-translation, missing IDs or uncompleted batches.
+---
+`.trim();
+
+    this.parts.push(dynamicSystemGuard);
 
     const startChar = isListMode ? '[' : '{';
-
-    // Finaler Trigger für JSON Start
     this.parts.push(`IMPORTANT: Start your response directly with '${startChar}'. Do not use Markdown code blocks.`);
     return this.parts.join('\n\n');
   }
 }
-// --- END OF FILE 108 Zeilen ---
+// --- END OF FILE 109 Zeilen ---

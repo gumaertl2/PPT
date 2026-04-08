@@ -1,5 +1,5 @@
-// src/features/cockpit/steps/MiscStep.tsx - 07.01.2026 17:45
-// UPDATE: AI Output Language moved to top position
+// 08.04.2026 15:15 - FEAT: Added comprehensive global language list (20 languages).
+// src/features/cockpit/steps/MiscStep.tsx
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -26,12 +26,24 @@ export const MiscStep: React.FC<MiscStepProps> = () => {
     { code: 'pt', label: t('misc.lang_pt') },
     { code: 'nl', label: t('misc.lang_nl') },
     { code: 'pl', label: t('misc.lang_pl') },
+    { code: 'cs', label: t('misc.lang_cs') },
+    { code: 'sv', label: t('misc.lang_sv') },
+    { code: 'da', label: t('misc.lang_da') },
+    { code: 'fi', label: t('misc.lang_fi') },
+    { code: 'el', label: t('misc.lang_el') },
+    { code: 'ru', label: t('misc.lang_ru') },
+    { code: 'uk', label: t('misc.lang_uk') },
+    { code: 'ja', label: t('misc.lang_ja') },
+    { code: 'zh', label: t('misc.lang_zh') },
+    { code: 'hi', label: t('misc.lang_hi') },
+    { code: 'ar', label: t('misc.lang_ar') },
+    { code: 'tr', label: t('misc.lang_tr') }
   ];
 
   return (
     <div className="space-y-8 animate-fade-in">
       
-      {/* 1. SPRACH-AUSWAHL (JETZT OBEN) */}
+      {/* 1. SPRACH-AUSWAHL (OBEN) */}
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
         <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
           <Globe className="w-5 h-5 text-indigo-500" />

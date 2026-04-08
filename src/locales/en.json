@@ -282,7 +282,7 @@
     "placeholder_activity": "e.g. Opera visit, flight arrival",
     "auto_corrected": "Date was automatically adjusted to fit the trip duration."
   },
-  "misc": {
+"misc": {
     "notes_label": "Other Requests & Notes",
     "notes_placeholder": "e.g. We love photography... Lunch break at 1 PM...",
     "notes_hint": "These notes are passed as global instructions to all AI roles.",
@@ -298,7 +298,19 @@
     "lang_it": "Italian",
     "lang_pt": "Portuguese",
     "lang_nl": "Dutch",
-    "lang_pl": "Polish"
+    "lang_pl": "Polish",
+    "lang_cs": "Czech",
+    "lang_sv": "Swedish",
+    "lang_da": "Danish",
+    "lang_fi": "Finnish",
+    "lang_el": "Greek",
+    "lang_ru": "Russian",
+    "lang_uk": "Ukrainian",
+    "lang_ja": "Japanese",
+    "lang_zh": "Chinese",
+    "lang_hi": "Hindi",
+    "lang_ar": "Arabic",
+    "lang_tr": "Turkish"
   },
   "review": {
     "ready_title": "Ready to create?",
