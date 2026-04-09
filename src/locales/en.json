@@ -710,7 +710,7 @@
       "finance": "Travel Wallet"
     }
   },
-  "finance": {
+"finance": {
     "title": "Travel Wallet",
     "tab_settlement": "Settlement",
     "tab_feed": "History",
@@ -781,7 +781,10 @@
     "show_on_map": "Show on Google Maps",
     "map": "Map",
     "gps_failed_hint": "No GPS signal (Device/Browser blocked request)",
-    "expense_saved": "Expense saved!"
+    "expense_saved": "Expense saved!",
+    "missing_names_title": "Who is traveling?",
+    "missing_names_desc": "To split costs, we need to know who is with you. Enter the names (separated by commas) here:",
+    "missing_names_placeholder": "e.g. Max, Lisa, Tom"
   },
   "map": {
     "layer": {

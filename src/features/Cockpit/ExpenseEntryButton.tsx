@@ -1,5 +1,5 @@
-// 21.03.2026 19:30 - FEAT: Integrated LocationPickerModal to allow manual GPS correction. Made header GPS indicators clickable.
-// 21.03.2026 18:45 - FIX: Resolved TypeScript TS2345 error.
+// 09.04.2026 10:25 - FIX: Added fully localized i18n support for the inline names input placeholder.
+// 09.04.2026 10:20 - UX: Added inline traveler names input for zero-friction expense entry when names are missing.
 // src/features/Cockpit/ExpenseEntryButton.tsx
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -35,7 +35,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
     forceOpen = false,
     onClose
 }) => {
-    const { addExpense, project, setProject } = useTripStore();
+    const { addExpense, project, setProject, setTravelers } = useTripStore();
     const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(forceOpen);
     
@@ -62,6 +62,8 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
     const [splitAmong, setSplitAmong] = useState<string[]>([]);
     const [splitExact, setSplitExact] = useState<Record<string, string>>({});
     const [showSplit, setShowSplit] = useState(false);
+    
+    const [tempNames, setTempNames] = useState('');
 
     const [location, setLocation] = useState<{lat: number, lng: number} | null>(defaultLocation);
     const [isFetchingGPS, setIsFetchingGPS] = useState(false);
@@ -99,6 +101,14 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
             }
         }
     }, [forceOpen]);
+
+    useEffect(() => {
+        if (isOpen && names.length > 0 && !paidBy) {
+            setPaidBy(names[0]);
+            setSplitMode('equal');
+            setSplitAmong(names);
+        }
+    }, [isOpen, names.length, paidBy]);
 
     useEffect(() => {
         if (isOpen && !location && navigator.geolocation) {
@@ -153,6 +163,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
             setIsNoteStep(false);
             setNoteText('');
             setPendingPlaceId(null);
+            setTempNames('');
             resetDate();
         } else {
             if (onClose) onClose();
@@ -290,7 +301,6 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                         <Banknote className="w-4 h-4"/> 
                                         {mode === 'standalone' ? t('finance.add_expense', { defaultValue: 'Kosten erfassen' }) : (defaultTitle || t('finance.new_expense', { defaultValue: 'Neue Ausgabe' }))}
                                         
-                                        {/* GPS INDICATOR ALS KLICKBARER BUTTON FÜR DEN PICKER */}
                                         <button 
                                             onClick={(e) => { e.stopPropagation(); setShowLocationPicker(true); }}
                                             className="ml-1 p-1 rounded hover:bg-emerald-200 transition-colors"
@@ -355,8 +365,39 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                     </div>
 
                                     {names.length === 0 ? (
-                                        <div className="text-[10px] text-amber-700 bg-amber-50 p-3 rounded-xl border border-amber-200 leading-relaxed shadow-inner">
-                                            {t('finance.error_no_names', { defaultValue: 'Bitte hinterlege im Planer (Schritt: "Wer & Wie") zuerst die Namen der Reisenden.' })}
+                                        <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 shadow-inner">
+                                            <p className="text-xs text-amber-800 font-bold mb-2 flex items-center gap-1.5">
+                                                <Users className="w-4 h-4" /> {t('finance.missing_names_title', { defaultValue: 'Wer reist mit?' })}
+                                            </p>
+                                            <p className="text-[10px] text-amber-700 mb-3 leading-relaxed">
+                                                {t('finance.missing_names_desc', { defaultValue: 'Um Kosten aufzuteilen, müssen wir wissen, wer dabei ist. Trage die Namen (mit Komma getrennt) hier ein:' })}
+                                            </p>
+                                            <div className="flex gap-2">
+                                                <input 
+                                                    type="text" 
+                                                    value={tempNames}
+                                                    onChange={e => setTempNames(e.target.value)}
+                                                    placeholder={t('finance.missing_names_placeholder', { defaultValue: 'z.B. Max, Lisa, Tom' })} 
+                                                    className="flex-1 text-sm font-bold border-amber-300 rounded-lg p-2 focus:ring-amber-500 focus:border-amber-500 bg-white shadow-sm"
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            if (tempNames.trim()) setTravelers({ travelerNames: tempNames.trim() });
+                                                        }
+                                                    }}
+                                                />
+                                                <button 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (tempNames.trim()) setTravelers({ travelerNames: tempNames.trim() });
+                                                    }}
+                                                    disabled={!tempNames.trim()}
+                                                    className="px-3 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:bg-amber-600 text-white text-xs font-bold rounded-lg transition-colors shadow-sm flex items-center gap-1.5"
+                                                >
+                                                    <Save className="w-4 h-4" /> <span className="hidden xs:inline">{t('actions.save', { defaultValue: 'Speichern' })}</span>
+                                                </button>
+                                            </div>
                                         </div>
                                     ) : (
                                         <>
@@ -444,4 +485,4 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         </div>
     );
 };
-// --- END OF FILE 423 Zeilen ---
+// --- END OF FILE 472 Zeilen ---

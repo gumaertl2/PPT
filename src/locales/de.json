@@ -709,7 +709,7 @@
       "finance": "Reisekasse"
     }
   },
-  "finance": {
+"finance": {
     "title": "Reisekasse",
     "tab_settlement": "Abrechnung",
     "tab_feed": "Historie",
@@ -780,7 +780,10 @@
     "show_on_map": "Auf Google Maps zeigen",
     "map": "Karte",
     "gps_failed_hint": "Kein GPS-Signal (Gerät/Browser blockiert die Anfrage)",
-    "expense_saved": "Ausgabe gespeichert!"
+    "expense_saved": "Ausgabe gespeichert!",
+    "missing_names_title": "Wer reist mit?",
+    "missing_names_desc": "Um Kosten aufzuteilen, müssen wir wissen, wer dabei ist. Trage die Namen (mit Komma getrennt) hier ein:",
+    "missing_names_placeholder": "z.B. Max, Lisa, Tom"
   },
   "map": {
     "layer": {
