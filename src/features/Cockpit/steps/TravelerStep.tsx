@@ -237,7 +237,7 @@ export const TravelerStep = () => {
                 value={travelers.travelerNames || ''}
                 onChange={(e) => setTravelers({ travelerNames: e.target.value })}
               />
-              <p className="text-[9px] text-slate-400 mt-1.5 font-medium px-1">Tipp: Namen durch Komma trennen, um Ausgaben später in der Reisekasse aufteilen zu können.</p>
+              <p className="text-[9px] text-slate-400 mt-1.5 font-medium px-1">{t('profile.traveler_names_hint', { defaultValue: 'Tipp: Namen durch Komma trennen, um Ausgaben später in der Reisekasse aufteilen zu können.' })}</p>
            </div>
            
            {travelers.children > 0 && (

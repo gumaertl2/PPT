@@ -1,6 +1,7 @@
 // 27.02.2026 14:35 - FIX: Removed 'transferPlanner' from the hardcoded stationary warning in the UI, as it is now supported.
 // 19.02.2026 14:45 - FEAT: Added 'showPlanningMode: true' to handleGoToPrios for direct planning access.
 // 19.02.2026 12:00 - FIX: Repaired TypeScript Errors (TS2367, TS2322, TS6133) & restored missing warning block.
+// 09.04.2026 18:45 - i18n: Replaced hardcoded lang logic with useTranslation hook.
 // src/features/Workflow/WorkflowSelectionModal.tsx
 
 import React, { useState } from 'react';
@@ -9,6 +10,7 @@ import { useWorkflowSelection } from '../../hooks/useWorkflowSelection';
 import { WORKFLOW_STEPS } from '../../core/Workflow/steps';
 import type { WorkflowStepId } from '../../core/types';
 import { ConfirmModal } from '../Cockpit/ConfirmModal';
+import { useTranslation } from 'react-i18next';
 import { 
   CheckCircle2, 
   X,
@@ -42,7 +44,8 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
   const [startError, setStartError] = useState<string | null>(null); 
   
   const { selectedSteps, toggleStep, getStepStatus, isStationary, validateStepStart } = useWorkflowSelection(isOpen);
-  const lang = project.meta.language === 'en' ? 'en' : 'de';
+  const { t, i18n } = useTranslation();
+  const currentLang = (i18n.language.substring(0, 2) === 'en' ? 'en' : 'de') as 'de' | 'en';
 
   const handleStartRequest = () => {
     if (selectedSteps.length === 0) return;
@@ -86,7 +89,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
         setShowPrioConfirm(false);
     } catch (err: any) {
         console.error("Workflow Start Error:", err);
-        setStartError(err.message || "Unbekannter Fehler beim Starten.");
+        setStartError(err.message || t('workflow.error_unknown', { defaultValue: 'Unbekannter Fehler beim Starten.' }));
     }
   };
 
@@ -109,10 +112,10 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
             <div>
               <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                 <span className="text-2xl">✨</span> 
-                {lang === 'de' ? 'KI-Workflow starten' : 'Start AI Workflow'}
+                {t('workflow.start_title', { defaultValue: 'KI-Workflow starten' })}
               </h2>
               <p className="text-sm text-slate-500 mt-1">
-                {lang === 'de' ? 'Wählen Sie die Aufgaben für die KI aus.' : 'Select tasks for the AI to perform.'}
+                {t('workflow.start_desc', { defaultValue: 'Wählen Sie die Aufgaben für die KI aus.' })}
               </p>
             </div>
             <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
@@ -127,7 +130,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
                 <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-4 flex items-start gap-2 border border-red-200">
                     <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
                     <div>
-                        <strong className="block font-bold">Fehler beim Starten:</strong>
+                        <strong className="block font-bold">{t('workflow.error_starting', { defaultValue: 'Fehler beim Starten:' })}</strong>
                         <span className="text-sm">{startError}</span>
                     </div>
                 </div>
@@ -176,26 +179,26 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
                   <div className="flex-grow">
                     <div className="flex justify-between items-start">
                       <h3 className={`font-bold ${isWarning && !isSelected ? 'text-slate-400' : 'text-slate-800'}`}>
-                        {step.label[lang]}
+                        {step.label[currentLang] || step.label.de}
                       </h3>
                       <div className="flex gap-2">
                         {isDone && (
                           <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${
                             isSelected ? 'text-amber-700 bg-amber-100' : 'text-green-600 bg-green-100'
                           }`}>
-                            {isSelected ? (lang === 'de' ? 'Neu Ausführen' : 'Re-Run') : (lang === 'de' ? 'Erledigt' : 'Done')}
+                            {isSelected ? t('actions.rerun', { defaultValue: 'Neu Ausführen' }) : t('actions.done', { defaultValue: 'Erledigt' })}
                           </span>
                         )}
                         {step.requiresUserInteraction && !isDone && !isWarning && (
                           <span className="text-[10px] uppercase font-bold tracking-wider text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full flex items-center gap-1">
                             <Settings2 className="w-3 h-3" />
-                            {lang === 'de' ? 'Interaktion' : 'Interactive'}
+                            {t('workflow.interactive', { defaultValue: 'Interaktion' })}
                           </span>
                         )}
                       </div>
                     </div>
                     <p className={`text-sm mt-1 ${isWarning && !isSelected ? 'text-slate-400' : 'text-slate-600'}`}>
-                      {step.description[lang]}
+                      {step.description[currentLang] || step.description.de}
                     </p>
 
                     {/* FIX: Warning is now ONLY shown for routeArchitect if stationary */}
@@ -203,9 +206,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
                        <div className="flex items-center gap-1 mt-2 text-xs text-slate-400">
                         <AlertCircle className="w-3 h-3" />
                         <span>
-                          {lang === 'de' 
-                            ? 'Nicht verfügbar für stationäre Reisen.' 
-                            : 'Not available for stationary trips.'}
+                          {t('workflow.not_available_stationary', { defaultValue: 'Nicht verfügbar für stationäre Reisen.' })}
                         </span>
                       </div>
                     )}
@@ -218,14 +219,14 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
 
           <div className="p-6 border-t border-slate-100 bg-slate-50 rounded-b-xl flex justify-between items-center">
             <div className="text-xs text-slate-500">
-              {selectedSteps.length} {lang === 'de' ? 'Aufgaben gewählt' : 'tasks selected'}
+              {selectedSteps.length} {t('workflow.tasks_selected', { defaultValue: 'Aufgaben gewählt' })}
             </div>
             <div className="flex gap-3">
               <button 
                 onClick={onClose}
                 className="px-4 py-2 text-slate-600 font-semibold hover:bg-slate-200 rounded-lg transition-colors"
               >
-                {lang === 'de' ? 'Abbrechen' : 'Cancel'}
+                {t('actions.cancel', { defaultValue: 'Abbrechen' })}
               </button>
               <button 
                 onClick={handleStartRequest}
@@ -238,8 +239,8 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
               >
                 <Play className="w-4 h-4 fill-current" />
                 {selectedSteps.some(id => getStepStatus(id) === 'done')
-                  ? (lang === 'de' ? 'Aktualisieren' : 'Update')
-                  : (lang === 'de' ? 'Workflow starten' : 'Start Workflow')}
+                  ? t('actions.update', { defaultValue: 'Aktualisieren' })
+                  : t('actions.start_workflow', { defaultValue: 'Workflow starten' })}
               </button>
             </div>
           </div>
@@ -248,12 +249,10 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
 
       <ConfirmModal 
         isOpen={showConfirm}
-        title={lang === 'de' ? 'Schritte erneut ausführen?' : 'Re-run steps?'} 
-        message={lang === 'de' 
-          ? 'Einige der gewählten Schritte wurden bereits ausgeführt. Wenn Sie fortfahren, werden die vorhandenen Daten dieser Schritte überschrieben. Möchten Sie das wirklich?' 
-          : 'Some selected steps have already been executed. If you continue, existing data for these steps will be overwritten. Do you really want to proceed?'}
-        confirmText={lang === 'de' ? 'Ja, überschreiben' : 'Yes, overwrite'} 
-        cancelText={lang === 'de' ? 'Abbrechen' : 'Cancel'} 
+        title={t('workflow.confirm_rerun_title', { defaultValue: 'Schritte erneut ausführen?' })} 
+        message={t('workflow.confirm_rerun_message', { defaultValue: 'Einige der gewählten Schritte wurden bereits ausgeführt. Wenn Sie fortfahren, werden die vorhandenen Daten dieser Schritte überschrieben. Möchten Sie das wirklich?' })}
+        confirmText={t('actions.yes_overwrite', { defaultValue: 'Ja, überschreiben' })} 
+        cancelText={t('actions.cancel', { defaultValue: 'Abbrechen' })} 
         onConfirm={() => executeStart({ mode: 'force' })}
         onCancel={() => setShowConfirm(false)}
       />
@@ -269,19 +268,16 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
                         </div>
                         <div>
                             <h3 className="font-bold text-lg text-slate-900">
-                                {lang === 'de' ? 'Keine Prioritäten gesetzt' : 'No Priorities Set'}
+                                {t('workflow.prio_title', { defaultValue: 'Keine Prioritäten gesetzt' })}
                             </h3>
                             <p className="text-sm text-slate-500">
-                                {lang === 'de' ? 'Tagesplaner Empfehlung' : 'Day Planner Recommendation'}
+                                {t('workflow.prio_subtitle', { defaultValue: 'Tagesplaner Empfehlung' })}
                             </p>
                         </div>
                     </div>
                     
                     <p className="text-slate-600 text-sm mb-6 leading-relaxed">
-                        {lang === 'de' 
-                           ? 'Du hast noch keine Prioritäten (Fix, Prio 1, Prio 2) vergeben. Der Tagesplaner funktioniert am besten, wenn er weiß, was dir wichtig ist.'
-                           : 'You have not set any priorities yet. The Day Planner works best when it knows what is important to you.'
-                        }
+                        {t('workflow.prio_desc', { defaultValue: 'Du hast noch keine Prioritäten (Fix, Prio 1, Prio 2) vergeben. Der Tagesplaner funktioniert am besten, wenn er weiß, was dir wichtig ist.' })}
                     </p>
 
                     <div className="grid grid-cols-1 gap-3">
@@ -290,7 +286,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
                             className="flex items-center justify-center gap-2 p-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
                         >
                             <Settings2 size={18} />
-                            {lang === 'de' ? 'Jetzt Prioritäten vergeben' : 'Assign Priorities Now'}
+                            {t('workflow.prio_btn_set', { defaultValue: 'Jetzt Prioritäten vergeben' })}
                         </button>
                         
                         <button 
@@ -298,7 +294,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
                             className="flex items-center justify-center gap-2 p-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-medium hover:bg-slate-50 transition-colors"
                         >
                             <Play size={18} />
-                            {lang === 'de' ? 'Ohne Prios planen (Zufall)' : 'Plan without Prios (Random)'}
+                            {t('workflow.prio_btn_random', { defaultValue: 'Ohne Prios planen (Zufall)' })}
                         </button>
                     </div>
                 </div>
@@ -316,19 +312,20 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
                         </div>
                         <div>
                             <h3 className="font-bold text-lg text-slate-900">
-                                {lang === 'de' ? 'Smart-Update verfügbar' : 'Smart Update Available'}
+                                {t('workflow.smart_title', { defaultValue: 'Smart-Update verfügbar' })}
                             </h3>
                             <p className="text-sm text-slate-500">
-                                {lang === 'de' ? 'Für "Chefredakteur" Inhalte' : 'For "Editor-in-Chief" content'}
+                                {t('workflow.smart_context', { defaultValue: 'Für "Chefredakteur" Inhalte' })}
                             </p>
                         </div>
                     </div>
                     
                     <p className="text-slate-600 text-sm mb-6 leading-relaxed">
-                        {lang === 'de' 
-                           ? `Es sind bereits Texte vorhanden. Möchtest du nur die ${missingPlaces} fehlenden Texte ergänzen oder alle ${totalPlaces} Texte neu generieren?`
-                           : `Content already exists. Do you want to only fill the ${missingPlaces} missing texts or regenerate all ${totalPlaces} texts?`
-                        }
+                        {t('workflow.smart_description', { 
+                          defaultValue: 'Es sind bereits Texte vorhanden. Möchtest du nur die {{missing}} fehlenden Texte ergänzen oder alle {{total}} Texte neu generieren?',
+                          missing: missingPlaces,
+                          total: totalPlaces
+                        })}
                     </p>
 
                     <div className="grid grid-cols-1 gap-3">
@@ -337,7 +334,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
                             className="flex items-center justify-center gap-2 p-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
                         >
                             <PlusCircle size={18} />
-                            {lang === 'de' ? 'Nur fehlende ergänzen (Smart)' : 'Fill missing only (Smart)'}
+                            {t('workflow.btn_smart', { defaultValue: 'Nur fehlende ergänzen (Smart)' })}
                         </button>
                         
                         <button 
@@ -345,12 +342,12 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
                             className="flex items-center justify-center gap-2 p-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-medium hover:bg-slate-50 transition-colors"
                         >
                             <RefreshCw size={18} />
-                            {lang === 'de' ? 'Alle neu generieren (Langsamer)' : 'Regenerate all (Slower)'}
+                            {t('workflow.btn_force', { defaultValue: 'Alle neu generieren (Langsamer)' })}
                         </button>
                     </div>
 
                     <button onClick={() => setShowSmartConfirm(false)} className="w-full mt-4 text-xs text-slate-400 font-medium hover:text-slate-600">
-                        {lang === 'de' ? 'Abbrechen' : 'Cancel'}
+                        {t('actions.cancel', { defaultValue: 'Abbrechen' })}
                     </button>
                 </div>
             </div>
@@ -359,4 +356,4 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
     </>
   );
 };
-// --- END OF FILE 339 Zeilen ---
+// --- END OF FILE 336 Zeilen ---

@@ -25,13 +25,19 @@
     "none": "Keine",
     "skip": "Überspringen",
     "change": "Ändern",
-    "openMaps": "Auf Google Maps öffnen"
+    "openMaps": "Auf Google Maps öffnen",
+    "backToApp": "Zurück zur App",
+    "yes_overwrite": "Ja, überschreiben",
+    "done": "Erledigt",
+    "rerun": "Neu Ausführen",
+    "update": "Aktualisieren",
+    "start_workflow": "Workflow starten"
   },
   "unit": {
     "hours": "Std.",
     "nights": "Nächte"
   },
-"status": {
+  "status": {
     "workflow_start": "Starte Workflow: {{step}}...",
     "analysis_start": "Starte Fundamentalanalyse...",
     "sending": "Sende Anfrage an KI für {{step}} (kann dauern)...",
@@ -101,7 +107,8 @@
     "free_tier_title": "Ich nutze einen kostenlosen API-Key",
     "free_tier_desc": "Aktiviert Limit-Schutz (Pausen zwischen API-Aufrufen) & tauscht \"Pro\" automatisch gegen das schnellere \"Thinking\"-Modell aus.",
     "language_section": "Programm-Sprache / Language",
-    "language_switch_hint": "Klicken zum Wechseln"
+    "language_switch_hint": "Klicken zum Wechseln",
+    "error_invalid_key": "API Key ungültig oder fehlt. Bitte in den Einstellungen prüfen."
   },
   "modal": {
     "manual_title": "KI-Anfrage manuell ausführen",
@@ -123,6 +130,10 @@
     "error_missing_key": "Bitte geben Sie einen API-Key ein.",
     "error_invalid_file": "Ungültiges Dateiformat. Bitte eine V40 JSON-Datei wählen.",
     "error_read_file": "Fehler beim Lesen der Datei.",
+    "api_placeholder": "sk-... (Leer lassen für manuellen Modus)",
+    "info_sub": "Was ist Papatours?",
+    "quick_guide_title": "Schnellstart-Guide",
+    "quick_guide_sub": "Symbole & Funktionen erklärt",
     "footer": {
       "briefing": "Briefing",
       "description": "Programm-Info",
@@ -261,7 +272,7 @@
       "btn_tooltip": "Exaktes Hotel samt Adresse ansehen/anlegen",
       "btn_manual": "Manuell"
     },
-      "hotel_manager": {
+    "hotel_manager": {
       "title": "Unterkünfte verwalten",
       "tooltip": "Unterkünfte separat verwalten",
       "stationary_group": "🏡 Unterkunft / Hotel (Stationär)",
@@ -269,7 +280,8 @@
       "other_group": "🏡 Weitere Unterkünfte",
       "empty": "Keine Unterkünfte vorhanden.",
       "open_modal_map_btn": "Im Hotel-Manager öffnen"
-    }
+    },
+    "travelers_label": "Reisende"
   },
   "dates": {
     "warning_flexible_title": "Kein fester Reisezeitraum gewählt.",
@@ -282,7 +294,7 @@
     "placeholder_activity": "z.B. Opernbesuch, Ankunft Flug",
     "auto_corrected": "Datum wurde automatisch auf den Reisezeitraum angepasst."
   },
-"misc": {
+  "misc": {
     "notes_label": "Sonstige Wünsche & Anmerkungen",
     "notes_placeholder": "z.B. Wir lieben Fotografie... Mittagspause um 13 Uhr...",
     "notes_hint": "Diese Hinweise werden als globale Anweisung an alle KI-Rollen weitergegeben.",
@@ -330,7 +342,8 @@
     "value_fix": "Fixes Datum",
     "value_no_interests": "Keine Interessen gewählt",
     "value_no_events": "Keine festen Termine eingetragen.",
-    "value_none": "- Keine -"
+    "value_none": "- Keine -",
+    "label_filename": "Dateiname"
   },
   "profile": {
     "group_title": "Art der Reisegruppe",
@@ -353,7 +366,9 @@
     "options_pace": "Reisetempo",
     "manual_edit": "Manuell angepasst",
     "prompt_meaning": "Bedeutung für die KI (Prompt)",
-    "prompt_hint": "Ändern Sie diesen Text, wenn Sie eine feinere Nuance wünschen."
+    "prompt_hint": "Ändern Sie diesen Text, wenn Sie eine feinere Nuance wünschen.",
+    "traveler_names": "Namen der Reisenden",
+    "traveler_names_hint": "Tipp: Namen durch Komma trennen, um Ausgaben später in der Reisekasse aufteilen zu können."
   },
   "interests": {
     "hotel": "Hotels & Unterkünfte",
@@ -516,7 +531,13 @@
     "hotel_option_stationary": "Option für den Aufenthalt",
     "duration_hint": "Dauer in Minuten",
     "distance_to_hotel": "Entfernung zur Unterkunft",
-    "booking_search": "Preise & Verfügbarkeit prüfen"
+    "booking_search": "Preise & Verfügbarkeit prüfen",
+    "close_details": "DETAILS SCHLIESSEN",
+    "note": "Notiz",
+    "personal_note": "Meine persönliche Notiz...",
+    "planning_conflict": "Planungs-Konflikt: ",
+    "allow_flex_day": "Als Ausnahmeregel (Flex-Tag) erlauben?",
+    "flex_day_active": "Flex-Tag aktiv"
   },
   "route": {
     "no_results": "Keine Routenvorschläge verfügbar.",
@@ -618,7 +639,10 @@
     "step1_btn": "Neues Google Sheet öffnen",
     "step2_text": "Erstelle in Google My Maps eine neue Karte und klicke auf \"Importieren\".",
     "step2_btn": "Google My Maps öffnen",
-    "step3_text": "Wähle beim Import dein Google Sheet aus. Nutze die Spalte \"Name\" oder \"Adresse\" für die Position und \"Name\" als Titel."
+    "step3_text": "Wähle beim Import dein Google Sheet aus. Nutze die Spalte \"Name\" oder \"Adresse\" für die Position und \"Name\" als Titel.",
+    "step1_html": "Öffne ein neues <span class=\"font-bold italic\">Google Sheet</span> und füge die Daten in Zelle <span class=\"font-bold\">A1</span> ein (Rechtsklick -&gt; Einfügen).",
+    "step2_html": "Erstelle in <span class=\"font-bold italic\">Google My Maps</span> eine neue Karte und klicke auf <span class=\"font-bold\">&quot;Importieren&quot;</span>.",
+    "step3_html": "Wähle beim Import dein Google Sheet aus. Nutze die Spalte <span class=\"font-medium text-slate-700\">&quot;Name&quot;</span> oder <span class=\"font-medium text-slate-700\">&quot;Adresse&quot;</span> für die Position und <span class=\"font-medium text-slate-700\">&quot;Name&quot;</span> als Titel."
   },
   "print": {
     "title": "PDF Druck & Export",
@@ -670,7 +694,21 @@
     "smart_description": "Es sind bereits Texte vorhanden. Möchtest du nur die {{missing}} fehlenden Texte ergänzen oder alle {{total}} Texte neu generieren?",
     "btn_smart": "Nur fehlende ergänzen (Smart)",
     "btn_force": "Alle neu generieren (Langsamer)",
-    "cancel": "Abbrechen"
+    "cancel": "Abbrechen",
+    "start_title": "KI-Workflow starten",
+    "start_desc": "Wählen Sie die Aufgaben für die KI aus.",
+    "error_starting": "Fehler beim Starten:",
+    "error_unknown": "Unbekannter Fehler beim Starten.",
+    "interactive": "Interaktion",
+    "not_available_stationary": "Nicht verfügbar für stationäre Reisen.",
+    "tasks_selected": "Aufgaben gewählt",
+    "confirm_rerun_title": "Schritte erneut ausführen?",
+    "confirm_rerun_message": "Einige der gewählten Schritte wurden bereits ausgeführt. Wenn Sie fortfahren, werden die vorhandenen Daten dieser Schritte überschrieben. Möchten Sie das wirklich?",
+    "prio_title": "Keine Prioritäten gesetzt",
+    "prio_subtitle": "Tagesplaner Empfehlung",
+    "prio_desc": "Du hast noch keine Prioritäten (Fix, Prio 1, Prio 2) vergeben. Der Tagesplaner funktioniert am besten, wenn er weiß, was dir wichtig ist.",
+    "prio_btn_set": "Jetzt Prioritäten vergeben",
+    "prio_btn_random": "Ohne Prios planen (Zufall)"
   },
   "safeExit": {
     "title": "Papatours verlassen?",
@@ -709,7 +747,7 @@
       "finance": "Reisekasse"
     }
   },
-"finance": {
+  "finance": {
     "title": "Reisekasse",
     "tab_settlement": "Abrechnung",
     "tab_feed": "Historie",

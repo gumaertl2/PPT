@@ -51,10 +51,10 @@ const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => {
             <div className="flex gap-4">
               <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500 shrink-0">1</div>
               <div className="space-y-2">
-                <p className="text-sm text-slate-700">
-                  {/* Hinweis: Wir behalten die HTML-Struktur (bold/italic) manuell bei */}
-                  Öffne ein neues <span className="font-bold italic">Google Sheet</span> und füge die Daten in Zelle <span className="font-bold">A1</span> ein (Rechtsklick -&gt; Einfügen).
-                </p>
+                <p 
+                  className="text-sm text-slate-700"
+                  dangerouslySetInnerHTML={{ __html: t('export.step1_html', { defaultValue: 'Öffne ein neues <span class="font-bold italic">Google Sheet</span> und füge die Daten in Zelle <span class="font-bold">A1</span> ein (Rechtsklick -&gt; Einfügen).' }) }}
+                />
                 <a 
                   href="https://sheets.google.com/create" 
                   target="_blank" 
@@ -70,9 +70,10 @@ const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => {
             <div className="flex gap-4">
               <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500 shrink-0">2</div>
               <div className="space-y-2">
-                <p className="text-sm text-slate-700">
-                  Erstelle in <span className="font-bold italic">Google My Maps</span> eine neue Karte und klicke auf <span className="font-bold">"Importieren"</span>.
-                </p>
+                <p 
+                  className="text-sm text-slate-700"
+                  dangerouslySetInnerHTML={{ __html: t('export.step2_html', { defaultValue: 'Erstelle in <span class="font-bold italic">Google My Maps</span> eine neue Karte und klicke auf <span class="font-bold">&quot;Importieren&quot;</span>.' }) }}
+                />
                 <a 
                   href="https://www.google.com/mymaps" 
                   target="_blank" 
@@ -87,9 +88,10 @@ const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => {
             {/* Schritt 3 */}
             <div className="flex gap-4 pt-2 border-t border-slate-50">
               <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500 shrink-0">3</div>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Wähle beim Import dein Google Sheet aus. Nutze die Spalte <span className="font-medium text-slate-700">"Name"</span> oder <span className="font-medium text-slate-700">"Adresse"</span> für die Position und <span className="font-medium text-slate-700">"Name"</span> als Titel.
-              </p>
+              <p 
+                className="text-xs text-slate-500 leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: t('export.step3_html', { defaultValue: 'Wähle beim Import dein Google Sheet aus. Nutze die Spalte <span class="font-medium text-slate-700">&quot;Name&quot;</span> oder <span class="font-medium text-slate-700">&quot;Adresse&quot;</span> für die Position und <span class="font-medium text-slate-700">&quot;Name&quot;</span> als Titel.' }) }}
+              />
             </div>
           </div>
         </div>
@@ -110,4 +112,4 @@ const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => {
 
 export default ExportModal;
 
-// --- END OF FILE 101 Zeilen ---
+// --- END OF FILE 105 Zeilen ---

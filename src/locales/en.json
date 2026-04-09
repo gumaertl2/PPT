@@ -26,13 +26,19 @@
     "none": "None",
     "skip": "Skip",
     "change": "Change",
-    "openMaps": "Open in Google Maps"
+    "openMaps": "Open in Google Maps",
+    "backToApp": "Back to App",
+    "yes_overwrite": "Yes, overwrite",
+    "done": "Done",
+    "rerun": "Rerun",
+    "update": "Update",
+    "start_workflow": "Start Workflow"
   },
   "unit": {
     "hours": "hrs",
     "nights": "nights"
   },
-"status": {
+  "status": {
     "workflow_start": "Starting Workflow: {{step}}...",
     "analysis_start": "Starting Foundation Analysis...",
     "sending": "Sending request to AI for {{step}} (may take a while)...",
@@ -102,7 +108,8 @@
     "free_tier_title": "I am using a free API key",
     "free_tier_desc": "Enables limit protection (pauses between API calls) & automatically swaps \"Pro\" for the faster \"Thinking\" model.",
     "language_section": "Program Language",
-    "language_switch_hint": "Click to switch"
+    "language_switch_hint": "Click to switch",
+    "error_invalid_key": "API Key invalid or missing. Please check in settings."
   },
   "modal": {
     "manual_title": "Run AI Request Manually",
@@ -124,6 +131,10 @@
     "error_missing_key": "Please enter an API key.",
     "error_invalid_file": "Invalid file format. Please choose a V40 JSON file.",
     "error_read_file": "Error reading file.",
+    "api_placeholder": "sk-... (Leave blank for manual mode)",
+    "info_sub": "What is Papatours?",
+    "quick_guide_title": "Quick Start Guide",
+    "quick_guide_sub": "Symbols & functions explained",
     "footer": {
       "briefing": "Briefing",
       "description": "Program Info",
@@ -262,7 +273,7 @@
       "btn_tooltip": "View/add exact hotel with address",
       "btn_manual": "Manual"
     },
-   "hotel_manager": {
+    "hotel_manager": {
       "title": "Manage Accommodations",
       "tooltip": "Manage accommodations separately",
       "stationary_group": "🏡 Accommodation / Hotel (Stationary)",
@@ -270,7 +281,8 @@
       "other_group": "🏡 Other Accommodations",
       "empty": "No accommodations available.",
       "open_modal_map_btn": "Open in Hotel Manager"
-    }
+    },
+    "travelers_label": "Travelers"
   },
   "dates": {
     "warning_flexible_title": "No fixed period chosen.",
@@ -283,7 +295,7 @@
     "placeholder_activity": "e.g. Opera visit, flight arrival",
     "auto_corrected": "Date was automatically adjusted to fit the trip duration."
   },
-"misc": {
+  "misc": {
     "notes_label": "Other Requests & Notes",
     "notes_placeholder": "e.g. We love photography... Lunch break at 1 PM...",
     "notes_hint": "These notes are passed as global instructions to all AI roles.",
@@ -331,7 +343,8 @@
     "value_fix": "Fixed Dates",
     "value_no_interests": "No interests chosen",
     "value_no_events": "No fixed appointments entered.",
-    "value_none": "- None -"
+    "value_none": "- None -",
+    "label_filename": "Filename"
   },
   "profile": {
     "group_title": "Travel Group Type",
@@ -354,7 +367,9 @@
     "options_pace": "Travel Pace",
     "manual_edit": "Manually Adjusted",
     "prompt_meaning": "Meaning for AI (Prompt)",
-    "prompt_hint": "Change this text for a finer nuance."
+    "prompt_hint": "Change this text for a finer nuance.",
+    "traveler_names": "Traveler Names",
+    "traveler_names_hint": "Tip: Separate names with commas to be able to split expenses later."
   },
   "interests": {
     "hotel": "Hotels & Accommodations",
@@ -509,15 +524,21 @@
     "visited_all": "All",
     "visited_unvisited": "Unvisited",
     "visited_done": "Visited",
-    "hotel_assigned_stop": "🏡 Unterkunft für Station {{stopIndex}} ({{stopName}})",
-    "hotel_assigned_stationary": "🏡 Unterkunft für den Aufenthalt",
-    "hotel_location": "Standort:",
+    "hotel_assigned_stop": "🏡 Accommodation for Station {{stopIndex}} ({{stopName}})",
+    "hotel_assigned_stationary": "🏡 Accommodation for the stay",
+    "hotel_location": "Location:",
     "hotel_selected_stop": "Selected for Station {{assignedStopIndex}} ({{assignedStopName}})",
     "hotel_option_stop": "Option for Station {{assignedStopIndex}} ({{assignedStopName}})",
     "hotel_option_stationary": "Option for Stay",
     "duration_hint": "Duration in minutes",
     "distance_to_hotel": "Distance to accommodation",
-    "booking_search": "Check prices & availability"
+    "booking_search": "Check prices & availability",
+    "close_details": "CLOSE DETAILS",
+    "note": "Note",
+    "personal_note": "My personal note...",
+    "planning_conflict": "Planning Conflict: ",
+    "allow_flex_day": "Allow as exception (Flex Day)?",
+    "flex_day_active": "Flex Day active"
   },
   "route": {
     "no_results": "No route proposals available.",
@@ -619,7 +640,10 @@
     "step1_btn": "Open New Google Sheet",
     "step2_text": "Create a new map in Google My Maps and click \"Import\".",
     "step2_btn": "Open Google My Maps",
-    "step3_text": "Choose your Google Sheet on import. Use the \"Name\" or \"Address\" column for position and \"Name\" as title."
+    "step3_text": "Choose your Google Sheet on import. Use the \"Name\" or \"Address\" column for position and \"Name\" as title.",
+    "step1_html": "Open a new <span class=\"font-bold italic\">Google Sheet</span> and paste the data into cell <span class=\"font-bold\">A1</span> (Right-click -&gt; Paste).",
+    "step2_html": "Create a new map in <span class=\"font-bold italic\">Google My Maps</span> and click <span class=\"font-bold\">&quot;Import&quot;</span>.",
+    "step3_html": "Choose your Google Sheet on import. Use the <span class=\"font-medium text-slate-700\">&quot;Name&quot;</span> or <span class=\"font-medium text-slate-700\">&quot;Address&quot;</span> column for position and <span class=\"font-medium text-slate-700\">&quot;Name&quot;</span> as title."
   },
   "print": {
     "title": "PDF Print & Export",
@@ -671,7 +695,21 @@
     "smart_description": "Texts already exist. Would you like to supplement only the {{missing}} missing texts or regenerate all {{total}} texts?",
     "btn_smart": "Supplement only missing (Smart)",
     "btn_force": "Regenerate all (Slower)",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "start_title": "Start AI Workflow",
+    "start_desc": "Select tasks for the AI.",
+    "error_starting": "Error starting:",
+    "error_unknown": "Unknown error while starting.",
+    "interactive": "Interaction",
+    "not_available_stationary": "Not available for stationary trips.",
+    "tasks_selected": "tasks selected",
+    "confirm_rerun_title": "Rerun steps?",
+    "confirm_rerun_message": "Some of the selected steps have already been executed. If you continue, the existing data for these steps will be overwritten. Do you really want to do this?",
+    "prio_title": "No priorities set",
+    "prio_subtitle": "Day Planner Recommendation",
+    "prio_desc": "You have not set any priorities yet (Fixed, Prio 1, Prio 2). The day planner works best when it knows what is important to you.",
+    "prio_btn_set": "Set priorities now",
+    "prio_btn_random": "Plan without prios (Random)"
   },
   "safeExit": {
     "title": "Leave Papatours?",
@@ -710,7 +748,7 @@
       "finance": "Travel Wallet"
     }
   },
-"finance": {
+  "finance": {
     "title": "Travel Wallet",
     "tab_settlement": "Settlement",
     "tab_feed": "History",

@@ -298,7 +298,7 @@ export const ReviewStep = ({ onEdit, onAnalyze, status, error }: ReviewStepProps
             ) : (
                 <>
                     <Sparkles className="w-6 h-6 group-hover:scale-125 transition-transform" />
-                    <span>Fundamentalanalyse starten</span>
+                    <span>{t('actions.analyze_inputs', { defaultValue: 'Fundamentalanalyse starten' })}</span>
                 </>
             )}
         </button>
@@ -308,7 +308,7 @@ export const ReviewStep = ({ onEdit, onAnalyze, status, error }: ReviewStepProps
             <AlertCircle className="w-5 h-5 flex-shrink-0" />
             <div className="flex-1 text-sm font-bold">
                 {error.includes("401") 
-                    ? "API Key ungültig oder fehlt. Bitte in den Einstellungen prüfen." 
+                    ? t('settings.error_invalid_key', { defaultValue: 'API Key ungültig oder fehlt. Bitte in den Einstellungen prüfen.' }) 
                     : error}
             </div>
           </div>

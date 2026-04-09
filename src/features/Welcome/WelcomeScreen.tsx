@@ -145,7 +145,7 @@ export const WelcomeScreen = () => {
         
         <input 
           type="password" 
-          placeholder="sk-... (Leer lassen für manuellen Modus)"
+          placeholder={t('welcome.api_placeholder', { defaultValue: 'sk-... (Leer lassen für manuellen Modus)' })}
           value={localKey}
           onChange={(e) => {
             setLocalKey(e.target.value);
