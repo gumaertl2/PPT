@@ -1,3 +1,4 @@
+// 09.04.2026 15:45 - DOCS: Added Polyglot Language Lockdown Protocol, Developer Mode (Double-Click) & Zero-Friction Finance Entry to Architecture.
 // 19.03.2026 18:30 - DOCS: Added Targeted Context Matrix (Persona Injection) & Store Migration Layer.
 // 26.02.2026 11:20 - DOCS: Restored full file. Added User-Disclaimer to top. Documented Visual Priority Map Shapes and UI Priority Engine.
 // 22.02.2026 14:40 - RESTRUCTURE: Integrated Smart-Currency, Trip Finance and the Diary Bridge into core architecture sections.
@@ -135,7 +136,7 @@ interface TripProject {
 
 ---
 
-### 4. Prompt-Engineering 2.1 (The "Silence Protocol")
+### 4. Prompt-Engineering 2.1 (The "Silence Protocol" & Polyglot Lockdown)
 
 In V40 nutzen wir das Builder Pattern (\`PromptBuilder\`). Aufgrund von "Chatty AI" Problemen (besonders bei Flash) gilt ein verschärftes Protokoll.
 
@@ -156,7 +157,12 @@ Wir erzwingen JSON-Konformität durch **In-Prompt-Constraints**:
     * **VALUES sind Content:** Der Inhalt (Values) muss in der vom User gewählten Sprache sein (meist Deutsch).
     * *System Guard:* "You must NEVER translate JSON KEYS."
 
-#### B. Context Injection & Builder
+#### B. The Dynamic Language Lockdown (Polyglot SSOT)
+**VERBOTEN:** Agent-Templates dürfen **niemals** eigene Sprachbefehle in ihren Dateien haben (z.B. "# Schreibe in Sprache X").
+* **Der Mechanismus:** Der \`PromptBuilder\` ist die einzige Instanz (Single Source of Truth), die die Sprache diktiert. Er liest live \`project.userInputs.aiOutputLanguage\` (unterstützt 20 Sprachen, z.B. Japanisch, Arabisch) aus dem Store.
+* **Structure Separation:** Der Builder zwingt die KI im System Guard: *"You must NEVER translate JSON KEYS. All generated content and descriptions MUST be written exclusively in [TARGET_LANGUAGE]!"*
+
+#### C. Context Injection & Builder
 1.  **Builder-Klasse:** Instanziierung via \`PromptBuilder\`.
 2.  **Context Injection:** Daten werden strukturiert via \`builder.addContext()\` übergeben, nie als Prosatext.
 3.  **Strict Schema:** Jeder Prompt endet mit einem Zod-kompatiblen JSON-Schema.
@@ -224,33 +230,39 @@ Statt einfacher Filter nutzen wir "Sichten" (Views):
         * *Interaktion:* Klick auf Marker öffnet Popup, verändert aber den Zoom NICHT (Anti-Jumping).
     * **Highlighting:** Aktiver Marker pulsiert und ist größer.
 
-**C. UI-Konzept: Progressive Disclosure (SightCard)**
+**C. Developer Mode (The Secret Cockpit)**
+Einstellungen, Modell-Overrrides und der "Flugschreiber" (Debug-Log) wurden aus dem Endnutzer-UI (ActionsMenu) verbannt.
+* **Access:** Aufrufbar **ausschließlich durch einen Doppelklick auf das Info-Icon ("i")** im \`CockpitHeader\`.
+* **Features:** Matrix-Konfiguration für API-Chunking, Modell-Wahl pro Agent und den Schalter \`enableCountryHarvester\` für den automatischen Download neuer JSON-Datenbanken (z.B. Guide-Quellen).
+
+**D. UI-Konzept: Progressive Disclosure (SightCard)**
 Details werden stufenweise enthüllt, um die UI ruhig zu halten:
 * **Kompakt:** Nur Titel & Icons.
 * **Standard:** + Kurzbeschreibung & KPIs.
 * **Details:** + Volltext & Reasoning.
 * **Steuerung:** Über **+/- Buttons** kann jede Karte individuell "aufgeklappt" werden.
 
-**D. Export & Print**
+**E. Export & Print**
 * **ExportModal:** Ermöglicht das Kopieren der JSON-Daten in die Zwischenablage für externe Tools.
 * **PrintModal / PrintReport:** Generiert eine druckoptimierte HTML-Ansicht (ohne UI-Elemente) für PDF-Export.
 
-**E. Logistics Intelligence (SSOT)**
+**F. Logistics Intelligence (SSOT)**
 Auswahl eines Hotels in der SightCard schreibt die ID via \`assignHotelToLogistics\` direkt in die Logistik-Daten (Step 1).
 
-**F. Live-Tagebuch (Interactive Travel Journal)**
+**G. Live-Tagebuch (Interactive Travel Journal)**
 Das System agiert als aktiver Reisebegleiter:
 * **Check-Ins:** Orte können abgehakt werden (speichert \`visitedAt\` Timestamp).
 * **Notizen:** Jeder Ort hat ein interaktives Feld für persönliche Erlebnisse (\`userNote\`).
 * **Custom Entries (\`custom_diary\`):** Der User kann völlig freie, neue Einträge anlegen, die nicht von der KI kommen. Diese Einträge können direkt mit dem HTML5 GPS des Smartphones getaggt werden.
 
-**G. Smart-Currency & Trip Finance**
+**H. Smart-Currency & Trip Finance**
 * **Datenmodell:** \`TripProject.data\` speichert \`expenses\` und \`currencyConfig\`.
 * **CurrencyConfig Engine:** Speichert eine Hauptwährung und Fremdwährungen inkl. Wechselkurs. Kurse können per freier API (open.er-api.com) abgerufen werden, inkl. 1.75% Banken-Spread.
 * **Settlement Engine:** Im \`TripFinanceModal\` werden alle Ausgaben zur Laufzeit in die \`baseCurrency\` umgerechnet. Die finale Bilanz ("Wer schuldet wem") basiert ausschließlich auf der Hauptwährung.
+* **Zero-Friction Entry:** Sind im Trip noch keine Reisenamen hinterlegt, blockiert das \`ExpenseEntryButton\`-Modal den User nicht mit Fehlermeldungen, sondern bietet eine *Inline-Eingabemaske* für die Namen an. Nach dem Speichern lädt sich das Modal nicht neu, sondern schaltet nahtlos in die Abrechnungs-Ansicht um (Reaktiver Zustand).
 * **Stacking Contexts:** Modale für Währungen und Ausgaben nutzen zwingend \`createPortal(..., document.body)\`, um Z-Index-Fallen zu entgehen.
 
-**H. The Transfer Bridge (Tagebuch <-> Kasse)**
+**I. The Transfer Bridge (Tagebuch <-> Kasse)**
 Es gibt eine strikte Verknüpfung zwischen Notizen (\`category: 'custom_diary'\` in \`places\`) und der Reisekasse (\`expenses\`).
 * "Speichern & Notiz anlegen" (Ausgabe -> Tagebuch)
 * "Speichern & Kosten erfassen" (Tagebuch -> Ausgabe)
@@ -360,7 +372,7 @@ Infrastruktur für typ-sichere KI-Interaktion.
 | Datei | Beschreibung |
 | :--- | :--- |
 | \`TripFinanceModal.tsx\` | Das Haupt-Dashboard der Reisekasse (Abrechnungs-Engine, Bilanzen, Historie). |
-| \`ExpenseEntryButton.tsx\` | Universeller Button (React Portal) zur Erfassung von Ausgaben. |
+| \`ExpenseEntryButton.tsx\` | Universeller Button (React Portal) zur Erfassung von Ausgaben. Enthält die Inline-Namenseingabe. |
 | \`CurrencyConfigModal.tsx\` | Modal für die Smart-Currency Logik inkl. Live-API-Abruf. |
 | \`PlanView.tsx\` | Zeigt Reiseroute und das Live-Reisetagebuch. |
 
@@ -449,4 +461,4 @@ Merk dir, dass ich für das Papatours Projekt immer unter dem Strict Code Integr
 `
   }
 };
-// --- END OF FILE 882 Zeilen ---
+// --- END OF FILE 464 Zeilen ---
