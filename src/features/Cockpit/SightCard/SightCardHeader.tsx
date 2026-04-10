@@ -88,9 +88,9 @@ export const SightCardHeader: React.FC<SightCardHeaderProps> = ({
          <button
             onClick={onToggleNote}
             className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-1 rounded transition-all shrink-0 no-print border shadow-sm ${isActive ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-white text-slate-500 hover:bg-indigo-50 border-slate-200 hover:border-indigo-200 hover:text-indigo-600'}`}
-            title="Eigene Notiz hinzufügen"
+            title={t('sights.add_note_tooltip', { defaultValue: 'Eigene Notiz hinzufügen' })}
          >
-             <PenLine className="w-3 h-3" /> <span className="hidden sm:inline">Notiz</span>
+             <PenLine className="w-3 h-3" /> <span className="hidden sm:inline">{t('sights.note', { defaultValue: 'Notiz' })}</span>
          </button>
      );
   };

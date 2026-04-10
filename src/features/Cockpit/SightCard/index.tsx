@@ -302,9 +302,9 @@ export const SightCard: React.FC<SightCardProps> = ({
         {activeData.isFixed && (
           <div className="flex flex-wrap items-center gap-2 bg-purple-50 px-3 py-2 rounded-md text-xs mb-1 mt-2 border border-purple-100 animate-in slide-in-from-top-1 fade-in">
             <span className="font-bold text-purple-800 flex items-center gap-1"><CalendarClock className="w-3.5 h-3.5" /> Fixtermin:</span>
-            <input type="date" min={tripStart} max={tripEnd} value={activeData.fixedDate || ''} onChange={(e) => updatePlace(id, { fixedDate: e.target.value })} className="bg-white border border-purple-200 rounded px-2 py-0.5 text-purple-900 focus:ring-1 focus:ring-purple-500 focus:border-purple-500" title="Datum" />
-            <input type="time" value={activeData.fixedTime || ''} onChange={(e) => updatePlace(id, { fixedTime: e.target.value })} className="bg-white border border-purple-200 rounded px-2 py-0.5 text-purple-900 focus:ring-1 focus:ring-purple-500 focus:border-purple-500" title="Uhrzeit" />
-            <div className="flex items-center gap-1 bg-white border border-purple-200 rounded px-2 py-0.5 ml-1"><Clock className="w-3 h-3 text-purple-400" /><input type="number" placeholder="Min" value={activeData.visitDuration || ''} onChange={(e) => updatePlace(id, { visitDuration: parseInt(e.target.value) || 0 })} className="w-10 bg-transparent border-none p-0 text-center text-purple-900 focus:ring-0 placeholder:text-purple-300" title="Dauer in Minuten" /></div>
+            <input type="date" min={tripStart} max={tripEnd} value={activeData.fixedDate || ''} onChange={(e) => updatePlace(id, { fixedDate: e.target.value })} className="bg-white border border-purple-200 rounded px-2 py-0.5 text-purple-900 focus:ring-1 focus:ring-purple-500 focus:border-purple-500" title={t('sights.date_tooltip', { defaultValue: 'Datum' })} />
+            <input type="time" value={activeData.fixedTime || ''} onChange={(e) => updatePlace(id, { fixedTime: e.target.value })} className="bg-white border border-purple-200 rounded px-2 py-0.5 text-purple-900 focus:ring-1 focus:ring-purple-500 focus:border-purple-500" title={t('sights.time_tooltip', { defaultValue: 'Uhrzeit' })} />
+            <div className="flex items-center gap-1 bg-white border border-purple-200 rounded px-2 py-0.5 ml-1"><Clock className="w-3 h-3 text-purple-400" /><input type="number" placeholder="Min" value={activeData.visitDuration || ''} onChange={(e) => updatePlace(id, { visitDuration: parseInt(e.target.value) || 0 })} className="w-10 bg-transparent border-none p-0 text-center text-purple-900 focus:ring-0 placeholder:text-purple-300" title={t('sights.duration_hint', { defaultValue: 'Dauer in Minuten' })} /></div>
           </div>
         )}
 
@@ -313,7 +313,7 @@ export const SightCard: React.FC<SightCardProps> = ({
                 <textarea
                     value={activeData.userNote || ''}
                     onChange={(e) => updatePlace(id, { userNote: e.target.value })}
-                    placeholder="Meine persönliche Notiz / Erlebnisbericht..."
+                    placeholder={t('sights.personal_note', { defaultValue: 'Meine persönliche Notiz / Erlebnisbericht...' })}
                     className="w-full text-xs text-indigo-900 bg-indigo-50/50 border border-indigo-100 rounded-md p-2 focus:outline-none focus:ring-1 focus:ring-indigo-300 focus:bg-white placeholder:text-indigo-300 resize-y min-h-[60px]"
                 />
             </div>
