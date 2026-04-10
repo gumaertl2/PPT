@@ -1,3 +1,4 @@
+// 10.04.2026 19:40 - FIX: Resolved case-sensitivity bug causing white screens when AI provides capitalized categories (e.g., "Restaurant" vs "restaurant").
 // 05.04.2026 19:00 - ARCHITECTURE: Extracted massive data processing logic from SightsView into a clean custom hook.
 // src/features/Cockpit/hooks/useSightsData.ts
 
@@ -266,7 +267,7 @@ export const useSightsData = (places: Place[], overrideSortMode?: any) => {
       const checkCat = (p.userSelection?.customCategory || originalCat).toLowerCase();
 
       if (checkCat === 'hotel' || checkCat === 'accommodation') return;
-      if (ignoreList.includes(originalCat)) return; 
+      if (ignoreList.some((i: string) => i.toLowerCase() === originalCat.toLowerCase())) return; 
 
       const meta = getMeta(p);
       const cat = meta.cat;
@@ -278,11 +279,14 @@ export const useSightsData = (places: Place[], overrideSortMode?: any) => {
       
       if (selectedCategory && selectedCategory !== 'all') {
           const pCat = p.userSelection?.customCategory || originalCat;
-          if (pCat !== selectedCategory) return;
+          if (pCat.toLowerCase() !== selectedCategory.toLowerCase()) return;
       }
 
       if (activeFilters.length > 0) {
-          if (sortMode === 'category' && !activeFilters.includes(cat) && !activeFilters.includes(originalCat)) return;
+          if (sortMode === 'category') {
+              const matchesCat = activeFilters.some((f: string) => f.toLowerCase() === cat.toLowerCase() || f.toLowerCase() === originalCat.toLowerCase());
+              if (!matchesCat) return;
+          }
           else if (sortMode === 'priority') {
               const prioValStr = String(meta.prioVal); 
               if (!activeFilters.includes(prioValStr)) return;
@@ -317,7 +321,7 @@ export const useSightsData = (places: Place[], overrideSortMode?: any) => {
       
       if (aMeta.prioVal !== bMeta.prioVal) return bMeta.prioVal - aMeta.prioVal; 
 
-      const catCompare = aMeta.cat.localeCompare(bMeta.cat);
+      const catCompare = aMeta.cat.toLowerCase().localeCompare(bMeta.cat.toLowerCase());
       if (catCompare !== 0) return catCompare;
 
       return aMeta.name.localeCompare(bMeta.name);
@@ -374,4 +378,4 @@ export const useSightsData = (places: Place[], overrideSortMode?: any) => {
       liveCheckProgress
   };
 };
-// --- END OF FILE 295 Zeilen ---
+// --- END OF FILE 299 Zeilen ---
