@@ -52,15 +52,16 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
   
   const currentLang = i18n?.language?.substring(0, 2) || 'de';
 
-  const isFood = (customCategory && ['food', 'restaurant'].includes(customCategory.toLowerCase())) || 
-                 (data.category && ['food', 'restaurant'].includes(data.category.toLowerCase()));
+  const isFood = (customCategory && ['food', 'restaurant'].includes(String(customCategory).toLowerCase())) || 
+                 (data.category && ['food', 'restaurant'].includes(String(data.category).toLowerCase()));
 
   const getGoogleSearchQuery = () => {
     const name = data.name || data.official_name || data.name_official || '';
     // We prioritize the full address if available, as it usually contains city + country, otherwise fallback to city
     const locationInfo = data.address ? data.address : (data.city || '');
     
-    const awardContext = data.awards && data.awards.length > 0 ? data.awards[0] : '';
+    // SAFETY FIX: Ensure awards is an array before checking length
+    const awardContext = Array.isArray(data.awards) && data.awards.length > 0 ? String(data.awards[0]) : '';
     const context = awardContext || (isFood ? 'Restaurant' : '');
 
     // Removed the global region/country append. Rely strictly on the place's own data.
@@ -69,7 +70,7 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
 
   const getSmartGuideLink = () => {
       if (data.guide_link) return data.guide_link;
-      if (data.awards && data.awards.length > 0) return `https://www.google.com/search?q=${encodeURIComponent(getGoogleSearchQuery())}`;
+      if (Array.isArray(data.awards) && data.awards.length > 0) return `https://www.google.com/search?q=${encodeURIComponent(getGoogleSearchQuery())}`;
       return !isHotel ? sourceUrl : null;
   };
 
@@ -85,7 +86,7 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
       const allPlaces = project.data?.places || {};
       const place = allPlaces[hotelRef];
       if (place && place.location?.lat) return { lat: place.location.lat, lng: place.location.lng };
-      const matched = Object.values(allPlaces).find((p: any) => p.name?.toLowerCase() === hotelRef.toLowerCase() || p.official_name?.toLowerCase() === hotelRef.toLowerCase());
+      const matched = Object.values(allPlaces).find((p: any) => String(p.name || '').toLowerCase() === hotelRef.toLowerCase() || String(p.official_name || '').toLowerCase() === hotelRef.toLowerCase());
       if (matched && matched.location?.lat) return { lat: matched.location.lat, lng: matched.location.lng };
       return null;
   };
@@ -112,13 +113,14 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
           });
 
           if (!isActuallySelected) {
-              const hCity = (data.city || '').toLowerCase();
-              const hAddr = (data.address || '').toLowerCase();
-              const hName = (data.name || '').toLowerCase();
-              const hReasoning = (data.location_match || '').toLowerCase();
+              // SAFETY FIX: Force String cast to prevent crash on .toLowerCase()
+              const hCity = String(data.city || '').toLowerCase();
+              const hAddr = String(data.address || '').toLowerCase();
+              const hName = String(data.name || '').toLowerCase();
+              const hReasoning = String(data.location_match || '').toLowerCase();
               
               logistics.roundtrip.stops.forEach((stop: any, idx: number) => {
-                  const sLoc = (stop.location || '').replace(/Region\s+/i, '').trim().toLowerCase();
+                  const sLoc = String(stop.location || '').replace(/Region\s+/i, '').trim().toLowerCase();
                   if (sLoc && sLoc.length > 2) {
                       const match1 = hCity.includes(sLoc) || (hCity.length > 2 && sLoc.includes(hCity));
                       const match2 = hAddr.includes(sLoc) || (hAddr.length > 2 && sLoc.includes(hAddr));
@@ -242,7 +244,7 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
           if (!targetHotelLoc) {
               const anyHotel = Object.values(project.data?.places || {}).find((p: any) => {
                   const cat = p.userSelection?.customCategory || p.category || '';
-                  return cat.toLowerCase() === 'hotel' || cat.toLowerCase() === 'accommodation';
+                  return String(cat).toLowerCase() === 'hotel' || String(cat).toLowerCase() === 'accommodation';
               });
               if (anyHotel && anyHotel.location?.lat) {
                   targetHotelLoc = { lat: anyHotel.location.lat, lng: anyHotel.location.lng };
@@ -348,7 +350,7 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
           )}
           
           {guideLink && !isHotel && (
-              <a href={ensureAbsoluteUrl(guideLink)} target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:text-amber-700 transition-colors mr-1" title={data.awards && data.awards.length > 0 ? t('sights.search_guide', { award: data.awards[0], defaultValue: 'Suche im Guide' }) : t('sights.open_guide', { defaultValue: 'Zum Guide Eintrag' })}>
+              <a href={ensureAbsoluteUrl(guideLink)} target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:text-amber-700 transition-colors mr-1" title={Array.isArray(data.awards) && data.awards.length > 0 ? t('sights.search_guide', { award: data.awards[0], defaultValue: 'Suche im Guide' }) : t('sights.open_guide', { defaultValue: 'Zum Guide Eintrag' })}>
                   <BookOpen className="w-3.5 h-3.5" />
               </a>
           )}
@@ -358,4 +360,4 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
     </>
   );
 };
-// --- END OF FILE 291 Zeilen ---
+// --- END OF FILE 292 Zeilen ---

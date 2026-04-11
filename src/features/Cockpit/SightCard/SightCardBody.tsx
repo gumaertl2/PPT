@@ -81,6 +81,7 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
       return (
           <div className={`flex items-center gap-1.5 px-2 py-1 rounded border font-medium text-xs shadow-sm transition-all ${isLive ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-white text-slate-600 border-slate-200'}`}>
               <Banknote className={`w-3.5 h-3.5 ${isLive ? 'text-emerald-600' : 'text-slate-400'}`} />
+              {/* SAFETY FIX: String wrap */}
               <span>{highlightText(String(finalPrice))}</span>
               {isLive && <span title={t('sights.live_price_tooltip', { defaultValue: 'Live abgerufener Preis' })} className="flex items-center"><Zap className="w-2.5 h-2.5 text-emerald-500 fill-current ml-0.5" /></span>}
           </div>
@@ -130,7 +131,8 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
               {llmHours && (
                   <div className="flex items-center gap-1.5 text-slate-600 text-xs bg-white px-2 py-1 rounded border border-slate-200 shadow-sm">
                       <Clock className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{highlightText(llmHours)}</span>
+                      {/* SAFETY FIX */}
+                      <span>{highlightText(String(llmHours))}</span>
                   </div>
               )}
               <button 
@@ -146,10 +148,10 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
 
   const renderWalkRoute = () => {
     if (!data.waypoints || !Array.isArray(data.waypoints) || data.waypoints.length < 2) return null;
-    const cityContext = data.city || (data.address ? data.address.match(/\d{5}\s+([^,]+)/)?.[1] : '') || '';
+    const cityContext = data.city || (data.address && typeof data.address === 'string' ? data.address.match(/\d{5}\s+([^,]+)/)?.[1] : '') || '';
     const formatWp = (wp: any) => {
         let val = wp.address || wp.name || '';
-        if (cityContext && val && !val.toLowerCase().includes(cityContext.toLowerCase())) val += `, ${cityContext}`;
+        if (cityContext && val && !String(val).toLowerCase().includes(cityContext.toLowerCase())) val += `, ${cityContext}`;
         return val;
     };
     const origin = encodeURIComponent(formatWp(data.waypoints[0]));
@@ -175,6 +177,9 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
     );
   };
 
+  // SAFETY FIX: Master Detail Content Resolver
+  const contentStr = typeof data.detailContent === 'string' ? data.detailContent : (typeof descriptionText === 'string' ? descriptionText : String(data.detailContent || descriptionText || ""));
+
   return (
     <div className="text-sm text-gray-600 mt-2 pt-2 border-t border-gray-100 animate-in fade-in duration-200">
       
@@ -185,7 +190,7 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-orange-600" />
                   <div>
                       <strong className="block font-bold mb-0.5 uppercase tracking-wide text-[10px] text-orange-700">{t('sights.planning_conflict', { defaultValue: 'KI-Planungs-Konflikt (Nicht im Tagesplan)' })}</strong>
-                      <span className="leading-snug">{unassignedInfo.reason}</span>
+                      <span className="leading-snug">{String(unassignedInfo.reason)}</span>
                   </div>
               </div>
               
@@ -220,7 +225,8 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
               <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
               <div className="leading-snug">
                   <span className="font-bold block text-emerald-700 text-[10px] uppercase">{t('sights.strategic_location', { defaultValue: 'Strategische Lage:' })}</span>
-                  <span className="italic">"{highlightText(data.location_match)}"</span>
+                  {/* SAFETY FIX */}
+                  <span className="italic">"{highlightText(String(data.location_match))}"</span>
               </div>
           </div>
       )}
@@ -236,40 +242,43 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
       {data.signature_dish && (
           <div className="flex items-start gap-1.5 mb-2 text-[11px] text-amber-800 bg-amber-50 p-1.5 rounded border border-amber-100">
               <ChefHat className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
-              <span className="font-medium italic">"{highlightText(data.signature_dish)}"</span>
+              {/* SAFETY FIX */}
+              <span className="font-medium italic">"{highlightText(String(data.signature_dish))}"</span>
           </div>
       )}
 
-      {(data.cuisine || (data.vibe && data.vibe.length > 0)) && (
+      {(data.cuisine || (Array.isArray(data.vibe) && data.vibe.length > 0)) && (
           <div className="flex flex-wrap gap-1 mb-2 text-[10px]">
-            {data.cuisine && (<span className="inline-flex items-center gap-1 bg-orange-50 text-orange-800 px-2 py-0.5 rounded border border-orange-100"><Utensils className="w-3 h-3" /> {data.cuisine}</span>)}
-            {data.vibe && data.vibe.map((v: string, i: number) => (<span key={i} className="inline-flex items-center gap-1 bg-purple-50 text-purple-800 px-2 py-0.5 rounded border border-purple-100"><Sparkles className="w-3 h-3" /> {v}</span>))}
+            {data.cuisine && (<span className="inline-flex items-center gap-1 bg-orange-50 text-orange-800 px-2 py-0.5 rounded border border-orange-100"><Utensils className="w-3 h-3" /> {String(data.cuisine)}</span>)}
+            {/* SAFETY FIX: Array check */}
+            {Array.isArray(data.vibe) && data.vibe.map((v: any, i: number) => (<span key={i} className="inline-flex items-center gap-1 bg-purple-50 text-purple-800 px-2 py-0.5 rounded border border-purple-100"><Sparkles className="w-3 h-3" /> {String(v)}</span>))}
           </div>
       )}
 
       {/* FIX: line-clamp-2 removed to show full description text on mobile screens */}
       <p className="leading-snug text-xs mb-2">
-        {highlightText(descriptionText)}
+        {highlightText(String(descriptionText))}
       </p>
       
-      {data.reasoning && (<p className="text-[10px] text-indigo-600 italic mb-2 border-l-2 border-indigo-200 pl-2 leading-tight">"{highlightText(data.reasoning)}"</p>)}
+      {data.reasoning && (<p className="text-[10px] text-indigo-600 italic mb-2 border-l-2 border-indigo-200 pl-2 leading-tight">"{highlightText(String(data.reasoning))}"</p>)}
       
       {data.category === 'special' && data.details?.note && (
         <p className="text-[10px] text-amber-700 italic mb-2 border-l-2 border-amber-300 pl-2 leading-tight bg-amber-50 p-1 rounded-r">
-          <span className="font-bold not-italic">{t('sights.tip', { defaultValue: 'Tipp:' })} </span>"{highlightText(data.details.note)}"
+          <span className="font-bold not-italic">{t('sights.tip', { defaultValue: 'Tipp:' })} </span>"{highlightText(String(data.details.note))}"
         </p>
       )}
 
-      {data.awards && data.awards.length > 0 && (
+      {/* SAFETY FIX: Array check */}
+      {Array.isArray(data.awards) && data.awards.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-2 mt-1">
-          {data.awards.map((award: string, i: number) => (<span key={i} className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full shadow-sm"><Trophy className="w-3 h-3 text-amber-600 fill-amber-100" />{highlightText(award)}</span>))}
+          {data.awards.map((award: any, i: number) => (<span key={i} className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full shadow-sm"><Trophy className="w-3 h-3 text-amber-600 fill-amber-100" />{highlightText(String(award))}</span>))}
         </div>
       )}
 
       <div className="mt-3 bg-slate-50/80 rounded-xl p-3 border border-slate-200 shadow-sm space-y-2.5">
           <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-slate-600">
-              {data.address && (<span className="flex items-start gap-1.5"><MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" /> <span className="leading-snug">{highlightText(data.address)}</span></span>)}
-              {(data.phone || data.phone_number) && (<span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" /><a href={`tel:${data.phone || data.phone_number}`} className="hover:text-blue-600 hover:underline font-medium">{data.phone || data.phone_number}</a></span>)}
+              {data.address && (<span className="flex items-start gap-1.5"><MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" /> <span className="leading-snug">{highlightText(String(data.address))}</span></span>)}
+              {(data.phone || data.phone_number) && (<span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" /><a href={`tel:${String(data.phone || data.phone_number)}`} className="hover:text-blue-600 hover:underline font-medium">{String(data.phone || data.phone_number)}</a></span>)}
           </div>
 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-2 border-t border-slate-200/60">
@@ -281,7 +290,7 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
               <div className="flex items-start gap-1.5 pt-1 text-[10px] text-slate-500">
                   <Info className="w-3 h-3 text-slate-400 shrink-0 mt-0.5" />
                   <span className="leading-snug">
-                      {data.liveStatus.note && <><strong className="text-slate-600">{t('sights.live_note', { defaultValue: 'Live-Hinweis:' })}</strong> {highlightText(data.liveStatus.note)} </>}
+                      {data.liveStatus.note && <><strong className="text-slate-600">{t('sights.live_note', { defaultValue: 'Live-Hinweis:' })}</strong> {highlightText(String(data.liveStatus.note))} </>}
                       <span className="opacity-70">
                           {data.liveStatus.note ? '(' : ''}{t('sights.live_stand', { defaultValue: 'Stand:' })} {new Date(data.liveStatus.lastChecked).toLocaleDateString(t('lang', { defaultValue: 'de-DE' }), { day: '2-digit', month: '2-digit', year: 'numeric' })}{data.liveStatus.note ? ')' : ''}
                       </span>
@@ -292,14 +301,15 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
           {data.logistics && (
               <div className="flex items-start gap-1.5 pt-2 border-t border-slate-200/60 text-[11px] text-slate-600">
                   <Info className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
-                  <span className="leading-snug"><strong className="text-slate-800">{t('sights.planning_note', { defaultValue: 'Planungs-Hinweis:' })} </strong>{highlightText(data.logistics)}</span>
+                  <span className="leading-snug"><strong className="text-slate-800">{t('sights.planning_note', { defaultValue: 'Planungs-Hinweis:' })} </strong>{highlightText(String(data.logistics))}</span>
               </div>
           )}
       </div>
 
-      {isHotel && data.pros && data.pros.length > 0 && (
+      {/* SAFETY FIX: Array check */}
+      {isHotel && Array.isArray(data.pros) && data.pros.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1">
-              {data.pros.map((p: string, idx: number) => (<span key={idx} className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">+ {p}</span>))}
+              {data.pros.map((p: any, idx: number) => (<span key={idx} className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">+ {String(p)}</span>))}
           </div>
       )}
 
@@ -316,7 +326,7 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
           )}
 
           <div className="space-y-3 text-[13px] leading-relaxed text-slate-800 px-1">
-              {(data.detailContent || descriptionText || "").split(/\n\n/).map((section: string, idx: number) => {
+              {contentStr.split(/\n\n/).map((section: string, idx: number) => {
                 const content = section.trim();
                 if (!content) return null;
                 const isHeader = content.length < 100 && (content.startsWith('###') || content.toLowerCase().startsWith('teil') || (content.toLowerCase().includes('top 5') && content.length < 50) || (content.toLowerCase().includes('fakten') && content.length < 50));
@@ -341,4 +351,4 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
     </div>
   );
 };
-// --- END OF FILE 318 Zeilen ---
+// --- END OF FILE 325 Zeilen ---

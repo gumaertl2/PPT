@@ -81,7 +81,7 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
         return (def.label as any)[currentLang] || (def.label as any)['de'] || catId;
     }
     if (catId === 'hotel') return t('interests.hotel', { defaultValue: 'Hotels' });
-    return catId.charAt(0).toUpperCase() + catId.slice(1).replace(/_/g, ' ');
+    return String(catId).charAt(0).toUpperCase() + String(catId).slice(1).replace(/_/g, ' ');
   };
 
   const renderGroupedList = (list: any[], groupByOverride?: 'city') => {
@@ -124,9 +124,10 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
         else {
             let key = t('sights.group_general', { defaultValue: 'Allgemein' });
             if (sortMode === 'category') {
-                key = resolveCategoryLabel(meta.cat);
+                key = resolveCategoryLabel(String(meta.cat));
             } else if (sortMode === 'alphabetical') {
-                key = meta.name ? meta.name[0].toUpperCase() : '?';
+                // SAFETY FIX: Check string type and length to prevent crash
+                key = typeof meta.name === 'string' && meta.name.length > 0 ? meta.name[0].toUpperCase() : '?';
             }
             
             if (!groups[key]) groups[key] = [];
@@ -248,4 +249,4 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     </div>
   );
 };
-// --- END OF FILE 233 Zeilen ---
+// --- END OF FILE 234 Zeilen ---
