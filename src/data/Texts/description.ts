@@ -1,7 +1,9 @@
+// 12.04.2026 14:40 - UX: Updated terminology (AI Workflows -> Reiseführer-Kapitel, Fundament -> Briefing) for full consistency.
 // 18.03.2026 11:15 - DOCS: Updated terminology (Plan -> Tagebuch/Diary) in the manual to reflect the new Live-Tracker feature.
 // 26.02.2026 10:45 - DOCS: Converted Technical Manual to informal "Du" to match the marketing copy.
 // 24.02.2026 19:30 - DOCS: Prepended complete Marketing & Sales Brochure to the technical manual (DE & EN).
 // src/data/Texts/description.ts
+
 /**
  * Inhalt: Programm-Beschreibung / Marketing Broschüre / Handbuch
  */
@@ -13,7 +15,7 @@ export const description = {
 **Dein intelligenter Reisebegleiter. Von der ersten Idee bis zum letzten Abend.**
 > *Erlebe die Freiheit des Reisens – ohne den Stress der Planung.*
 
-Du kennst das Gefühl: Stundenlang Reiseblogs durchforsten, unzählige Tabs offen haben, Notizen verlieren – und am Ende stehst du vor einer Sehenswürdigkeit und weißt nicht einmal, ob sie heute geöffnet hat.
+Du kennst das Gefühl: Stundenlang Reise blogs durchforsten, unzählige Tabs offen haben, Notizen verlieren – und am Ende stehst du vor einer Sehenswürdigkeit und weißt nicht einmal, ob sie heute geöffnet hat.
 
 **Papatours ändert das. Komplett.**
 
@@ -50,7 +52,7 @@ Für jeden Ort liefert dir Papatours sofort:
 
 ### 🎯 Für wen ist Papatours?
 * **Für Individualisten**, die mehr sehen wollen als die üblichen Touristenfallen – aber ohne die stundenlange Eigenrecherche.
-* **Für Familien**, die auf Knopfdruck wissen müssen, was in der Nähe kinderfreundlich und günstig ist.
+* **Für Familien**, die auf Knopfdruck wissen müssen, what in der Nähe kinderfreundlich und günstig ist.
 * **Für Paare**, die sich treiben lassen und spontan per "Radar" entscheiden wollen.
 * **Für Outdoor-Fans**, die präzise Routen auch fernab des Mobilfunknetzes brauchen.
 * **Für Gruppen**, die Reiseerlebnisse teilen, aber Rechnungen fair und einfach trennen wollen.
@@ -136,17 +138,17 @@ Hier findest du alle allgemeinen Texte, die nicht an eine direkte Koordinate geb
 Unter dem Menü-Punkt **"Aktionen"** (oben rechts) findest du mächtige Helfer und Werkzeuge, um deine Reise nachträglich anzupassen:
 
 * 💸 **Reisekasse:** Dein smartes Finanz-Tool. Erfasse Ausgaben direkt im Urlaub, splitte Kosten exakt auf Mitreisende auf und lasse Papatours mit tagesaktuellen Bankenkursen am Ende berechnen, wer wem wie viel schuldet.
-* 🤖 **KI-Workflows:** Das Kontrollzentrum der App (siehe Phase 4). Hier kannst du einzelne KI-Agenten gezielt neu starten.
+* 🤖 **Reiseführer-Kapitel:** Das Kontrollzentrum der App (siehe Phase 4). Hier kannst du einzelne Kapitel des Reiseführers gezielt neu generieren.
 * 📋 **Daten:** Bringt dich zurück zum Start-Assistenten, falls du grundlegende Dinge (z.B. Reisedatum oder Interessen) ändern möchtest.
-* 🏛️ **Fundament:** Zeigt dir die strategische Machbarkeitsprüfung der KI (Chef-Planer).
+* 🏛️ **Briefing:** Zeigt dir die strategische Machbarkeitsprüfung der KI (Chef-Planer).
 * 🗺️ **Route:** Öffnet den Routenplaner (nur bei Rundreisen relevant), um Etappen anzupassen.
 * 🍽️ **Ad-Hoc Food:** Du hast spontan Hunger? Dieses Tool nutzt deinen aktuellen GPS-Standort und sucht sofort nach den besten Restaurants in Gehweite.
 * 🖨️ **Drucken / PDF:** Generiert ein wunderschönes, tintensparendes Dokument deiner Reise (inkl. Reisetagebuch).
 * 📍 **Google Maps Export:** Kopiert alle Orte, um sie direkt in "Google My Maps" einzufügen.
 * 💾 **Speichern & Laden:** Deine Reise wird automatisch gesichert. Hier kannst du die Reise aber als Datei herunterladen, um sie als Backup am PC zu speichern oder an Mitreisende zu senden.
 
-### Phase 4: Die KI-Spezialisten (Workflows)
-Im Menüpunkt "KI-Workflows" kannst du unserem Team aus digitalen Spezialisten bei der Arbeit zusehen oder ihnen gezielt neue Aufträge geben. Das Team besteht aus folgenden Experten:
+### Phase 4: Die KI-Spezialisten (Reiseführer-Kapitel)
+Im Menüpunkt "Reiseführer-Kapitel" kannst du unserem Team aus digitalen Spezialisten bei der Arbeit zusehen oder ihnen gezielt neue Aufträge geben. Das Team besteht aus folgenden Experten:
 
 * 👨‍💼 **Chef-Planer:** Analysiert deine Grundidee auf Machbarkeit, Wetterbedingungen und Logistik.
 * 🕵️ **Sammler:** Durchkämmt die Region nach den besten Orten.
@@ -287,17 +289,17 @@ Here you will find all general texts that are not tied to a direct coordinate:
 Under the **"Actions"** menu (top right), you'll find powerful helpers and tools to adjust your trip later:
 
 * 💸 **Trip Finance:** Your smart financial tool. Record expenses directly on vacation, split costs exactly among travelers, and let Papatours calculate who owes whom how much at the end of the trip using daily bank exchange rates.
-* 🤖 **AI Workflows:** The control center of the app (see Phase 4). Here you can specifically restart individual AI agents.
+* 🤖 **Guide Chapters:** The control center of the app (see Phase 4). Here you can specifically generate individual guide chapters.
 * 📋 **Data:** Takes you back to the starting Wizard if you want to change basic things (e.g., travel dates or interests).
-* 🏛️ **Foundation:** Shows you the AI's strategic feasibility check (Chief Planner).
+* 🏛️ **Briefing:** Shows you the AI's strategic feasibility check (Chief Planner).
 * 🗺️ **Route:** Opens the route planner (only relevant for road trips) to adjust stages.
 * 🍽️ **Ad-Hoc Food:** Suddenly hungry? This tool uses your current GPS location to immediately search for the best restaurants within walking distance.
 * 🖨️ **Print / PDF:** Generates a beautiful, ink-saving document of your trip (incl. travel diary).
 * 📍 **Google Maps Export:** Copies all places to paste directly into "Google My Maps".
 * 💾 **Save & Load:** Your trip is automatically saved (autosave). However, you can download the trip as a file here to keep it as a backup on your PC or send it to fellow travelers.
 
-### Phase 4: The AI Specialists (Workflows)
-In the "AI Workflows" menu, you can watch our team of digital specialists at work or give them specific new assignments. The team consists of the following experts:
+### Phase 4: The AI Specialists (Guide Chapters)
+In the "Guide Chapters" menu, you can watch our team of digital specialists at work or give them specific new assignments. The team consists of the following experts:
 
 * 👨‍💼 **Chief Planner:** Analyzes your basic idea for feasibility, weather conditions, and logistics.
 * 🕵️ **Collector (Places & Sights):** Combs the region for the best spots.

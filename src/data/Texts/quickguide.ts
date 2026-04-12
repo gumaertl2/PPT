@@ -1,3 +1,4 @@
+// 12.04.2026 14:35 - UX: Updated terminology (AI Workflows -> Reiseführer / Guide Chapters) for consistency.
 // 18.03.2026 11:15 - DOCS: Updated terminology (Plan -> Tagebuch/Diary) to reflect the new Live-Tracker feature.
 // 24.02.2026 12:30 - FIX: Added 'Expenses' explanation with [Wallet] icon to section 3 of the Quick Guide.
 // 24.02.2026 11:10 - FEAT: Initial creation of the Quick Guide with icon placeholders.
@@ -19,7 +20,7 @@ Wechsle zwischen den Ansichten, um deine Reise zu verwalten:
 Hinter dem **[Menu] Aktionen-Menü** findest du mächtige Helfer:
 
 * **[Wallet] Reisekasse:** Ausgaben erfassen und Kosten unter Reisenden aufteilen.
-* **[Sparkles] AI Workflows:** Steuere die einzelnen KI-Spezialisten gezielt nach.
+* **[Sparkles] Reiseführer:** Erstelle gezielt einzelne Kapitel des Reiseführers nach.
 * **[Zap] Ad-Hoc Food:** Schnelle Restaurantsuche in deiner direkten Umgebung.
 * **[Printer] Drucken:** Erstelle ein PDF deiner Planung für unterwegs.
 * **[Save] / [Upload] Datentransfer:** Sichere deinen Stand oder lade ein Projekt.
@@ -48,7 +49,7 @@ Switch between views to manage your trip:
 Find powerful helpers behind the **[Menu] Actions Menu**:
 
 * **[Wallet] Trip Finance:** Record expenses and split costs among travelers.
-* **[Sparkles] AI Workflows:** Fine-tune individual AI specialists.
+* **[Sparkles] Guide Chapters:** Specifically generate individual guide chapters.
 * **[Zap] Ad-Hoc Food:** Quick restaurant search in your immediate vicinity.
 * **[Printer] Print:** Create a PDF of your plan for the road.
 * **[Save] / [Upload] Data Transfer:** Backup your status or load a project.
@@ -63,5 +64,4 @@ Use the controls directly on the places (SightCards):
 * **Planning:** Use **Fix**, **Prio 1/2**, or **Ignore** to control the itinerary planner.`
   }
 };
-
 // --- END OF FILE 71 Zeilen ---
