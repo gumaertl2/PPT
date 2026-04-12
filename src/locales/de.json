@@ -4,7 +4,7 @@
     "version": "V40",
     "welcome": "Willkommen beim intelligenten Reise-Architekten"
   },
-  "actions": {
+  ",": {
     "next": "Weiter",
     "back": "Zurück",
     "finish": "Planung abschließen",
@@ -31,7 +31,8 @@
     "done": "Erledigt",
     "rerun": "Neu Ausführen",
     "update": "Aktualisieren",
-    "start_workflow": "Workflow starten"
+    "start_workflow": "Workflow starten",
+    "delete_place": "Ort löschen"
   },
   "unit": {
     "hours": "Std.",
@@ -108,7 +109,10 @@
     "free_tier_desc": "Aktiviert Limit-Schutz (Pausen zwischen API-Aufrufen) & tauscht \"Pro\" automatisch gegen das schnellere \"Thinking\"-Modell aus.",
     "language_section": "Programm-Sprache / Language",
     "language_switch_hint": "Klicken zum Wechseln",
-    "error_invalid_key": "API Key ungültig oder fehlt. Bitte in den Einstellungen prüfen."
+    "error_invalid_key": "API Key ungültig oder fehlt. Bitte in den Einstellungen prüfen.",
+    "error_signature_basis": "Falsche Daten: Die Antwort enthält keine Orte. Hast du versehentlich die Route kopiert?",
+    "error_signature_route": "Falsche Daten: Die Antwort enthält keine Routen. Hast du versehentlich das Fundament kopiert?",
+    "error_signature_days": "Falsche Daten: Die Antwort enthält keinen Tagesplan."
   },
   "modal": {
     "manual_title": "KI-Anfrage manuell ausführen",
@@ -537,7 +541,9 @@
     "personal_note": "Meine persönliche Notiz...",
     "planning_conflict": "Planungs-Konflikt: ",
     "allow_flex_day": "Als Ausnahmeregel (Flex-Tag) erlauben?",
-    "flex_day_active": "Flex-Tag aktiv"
+    "flex_day_active": "Flex-Tag aktiv",
+    "error_data_corrupt": "Datenfehler beim Ort:",
+    "error_view_json": "Defektes JSON ansehen"
   },
   "route": {
     "no_results": "Keine Routenvorschläge verfügbar.",

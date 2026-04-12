@@ -4,7 +4,7 @@
  * Wird angezeigt, wenn kein API-Key hinterlegt ist.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Copy, Check, X, Play } from 'lucide-react';
 
@@ -14,6 +14,7 @@ interface ManualPromptModalProps {
   onClose: () => void;
   onSubmit: (jsonResult: string) => void;
   error?: string | null;
+  stepId?: string; // NEU: Für den Signatur-Check (Türsteher)
 }
 
 export const ManualPromptModal: React.FC<ManualPromptModalProps> = ({ 
@@ -21,11 +22,21 @@ export const ManualPromptModal: React.FC<ManualPromptModalProps> = ({
   isOpen, 
   onClose, 
   onSubmit,
-  error 
+  error,
+  stepId
 }) => {
   const { t } = useTranslation();
   const [jsonInput, setJsonInput] = useState('');
   const [copied, setCopied] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  // Error-State zurücksetzen, wenn das Modal neu geöffnet wird
+  useEffect(() => {
+    if (isOpen) {
+      setLocalError(null);
+      setJsonInput('');
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -41,11 +52,59 @@ export const ManualPromptModal: React.FC<ManualPromptModalProps> = ({
 
   const handleSubmit = () => {
     if (!jsonInput.trim()) return;
-    onSubmit(jsonInput);
+
+    // 1. JSON säubern (Markdown-Blöcke wie ```json entfernen)
+    let cleaned = jsonInput.trim();
+    const match = cleaned.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+    if (match) {
+      cleaned = match[0];
+    }
+
+    // 2. Parsen & Türsteher-Prüfung (Signature Check)
+    try {
+      const parsed = JSON.parse(cleaned);
+
+      if (stepId) {
+        const sId = stepId.toLowerCase();
+        
+        // Prüfung: Fundamentalanalyse
+        if (sId.includes('basis') || sId.includes('foundation')) {
+          if (!parsed.places && !parsed.sights && !parsed.analysis) {
+            setLocalError(t('modal.error_signature_basis', 'Falsche Daten: Die Antwort enthält keine Orte. Hast du versehentlich die Route kopiert?'));
+            return;
+          }
+        }
+        // Prüfung: Routen-Architekt
+        else if (sId.includes('route')) {
+          if (!parsed.route_proposals && !parsed.routes) {
+            setLocalError(t('modal.error_signature_route', 'Falsche Daten: Die Antwort enthält keine Routen. Hast du versehentlich das Fundament kopiert?'));
+            return;
+          }
+        }
+        // Prüfung: Tagesplaner
+        else if (sId.includes('tagesplaner') || sId.includes('itinerary')) {
+          if (!parsed.days && !parsed.itinerary) {
+            setLocalError(t('modal.error_signature_days', 'Falsche Daten: Die Antwort enthält keinen Tagesplan.'));
+            return;
+          }
+        }
+      }
+
+      // Wenn alles passt: Fehler zurücksetzen und bereinigtes JSON übergeben
+      setLocalError(null);
+      onSubmit(cleaned);
+
+    } catch (err) {
+      // Wenn es gar kein gültiges JSON ist
+      setLocalError(t('modal.error_invalid_json', 'Ungültiges JSON-Format. Bitte prüfen Sie den kopierten Text.'));
+      return;
+    }
   };
 
+  const displayError = localError || error;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
         
         {/* HEADER */}
@@ -100,13 +159,19 @@ export const ManualPromptModal: React.FC<ManualPromptModalProps> = ({
             </label>
             <textarea 
               value={jsonInput}
-              onChange={(e) => setJsonInput(e.target.value)}
+              onChange={(e) => {
+                setJsonInput(e.target.value);
+                setLocalError(null); // Fehler beim Tippen/Einfügen ausblenden
+              }}
               placeholder={t('modal.json_placeholder', 'Fügen Sie hier die Antwort der KI ein... (beginnend mit { oder [)')}
-              className="w-full h-48 p-3 text-sm font-mono border-2 border-dashed border-gray-300 rounded-lg focus:border-purple-500 focus:ring-purple-500"
+              className={`w-full h-48 p-3 text-sm font-mono border-2 border-dashed rounded-lg focus:ring-2 focus:outline-none transition-colors ${
+                displayError ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'border-gray-300 focus:border-purple-500 focus:ring-purple-200'
+              }`}
             />
-            {error && (
-              <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg flex items-center gap-2">
-                <X className="w-4 h-4" /> {error}
+            {displayError && (
+              <div className="bg-red-50 border border-red-100 text-red-700 text-sm font-medium p-3 rounded-lg flex items-start gap-2 animate-in fade-in slide-in-from-top-1">
+                <AlertCircleIcon className="w-5 h-5 shrink-0 mt-0.5 text-red-500" /> 
+                <span>{displayError}</span>
               </div>
             )}
           </div>
@@ -135,3 +200,14 @@ export const ManualPromptModal: React.FC<ManualPromptModalProps> = ({
     </div>
   );
 };
+
+// Hilfs-Icon für den Error-State (falls noch nicht importiert)
+const AlertCircleIcon = (props: any) => (
+  <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"></circle>
+    <line x1="12" y1="8" x2="12" y2="12"></line>
+    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+  </svg>
+);
+
+// --- END OF FILE 194 Zeilen ---

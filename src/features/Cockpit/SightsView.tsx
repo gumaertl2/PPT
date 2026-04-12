@@ -1,4 +1,6 @@
-// 05.04.2026 19:00 - ARCHITECTURE: Refactored massive file. Extracted data logic to useSightsData hook. File is now clean and maintainable.
+// 12.04.2026 13:05 - FIX: Added fully interactive and i18n-compliant Fallback UI inside ErrorBoundary with JSON viewer and delete action.
+// 12.04.2026 12:20 - FIX: Wrapped SightCard in ErrorBoundary to prevent White Screen of Death on missing data.
+// 05.04.2026 19:00 - ARCHITECTURE: Refactored massive file. Extracted data logic to useSightsData hook.
 // src/features/Cockpit/SightsView.tsx
 
 import React, { useEffect, useState } from 'react';
@@ -11,6 +13,7 @@ import { SightsMapView } from './SightsMapView';
 import { DayPlannerView } from './DayPlannerView'; 
 import { HotelManagerModal } from './HotelManagerModal';
 import { useSightsData } from './hooks/useSightsData';
+import { ErrorBoundary } from '../Shared/ErrorBoundary';
 
 import { 
   FileText,
@@ -26,7 +29,7 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
   const { t, i18n } = useTranslation(); 
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
 
-  const { project, uiState, setUIState } = useTripStore();
+  const { project, uiState, setUIState, deletePlace } = useTripStore();
   const places = Object.values(project.data.places || {}) as Place[];
   const showPlanningMode = uiState.showPlanningMode || false;
   const activeSortMode = overrideSortMode || (uiState.sortMode as string) || 'category';
@@ -126,7 +129,6 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
             if (sortMode === 'category') {
                 key = resolveCategoryLabel(String(meta.cat));
             } else if (sortMode === 'alphabetical') {
-                // SAFETY FIX: Check string type and length to prevent crash
                 key = typeof meta.name === 'string' && meta.name.length > 0 ? meta.name[0].toUpperCase() : '?';
             }
             
@@ -160,7 +162,29 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
           <div className="space-y-3">
             {items.map(place => (
               <div key={place.id} id={`card-${place.id}`}>
-                  <SightCard id={place.id} data={place} mode="selection" showPriorityControls={showPlanningMode} detailLevel={overrideDetailLevel} isReserve={place._liveIsReserve} />
+                  <ErrorBoundary fallback={
+                    <div className="p-4 border border-red-200 bg-red-50 text-red-600 rounded-xl text-sm shadow-sm my-2">
+                       <div className="font-bold flex items-center justify-between">
+                          <span>⚠️ {t('sights.error_data_corrupt', { defaultValue: 'Datenfehler beim Ort:' })} {place.name || t('common.unknown', { defaultValue: 'Unbekannt' })}</span>
+                          <button 
+                             onClick={() => deletePlace(place.id)} 
+                             className="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-xs shadow-sm transition-colors"
+                          >
+                             🗑 {t('actions.delete_place', { defaultValue: 'Ort löschen' })}
+                          </button>
+                       </div>
+                       <details className="mt-3 text-xs">
+                          <summary className="cursor-pointer text-red-500 hover:text-red-700 font-medium select-none">
+                             ⚙️ {t('sights.error_view_json', { defaultValue: 'Defektes JSON ansehen' })}
+                          </summary>
+                          <pre className="mt-2 p-3 bg-white rounded-lg border border-red-100 overflow-auto max-h-60 text-[10px] text-slate-700 shadow-inner">
+                             {JSON.stringify(place, null, 2)}
+                          </pre>
+                       </details>
+                    </div>
+                  }>
+                      <SightCard id={place.id} data={place} mode="selection" showPriorityControls={showPlanningMode} detailLevel={overrideDetailLevel} isReserve={place._liveIsReserve} />
+                  </ErrorBoundary>
               </div>
             ))}
           </div>
@@ -249,4 +273,4 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     </div>
   );
 };
-// --- END OF FILE 234 Zeilen ---
+// --- END OF FILE 256 Zeilen ---

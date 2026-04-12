@@ -32,7 +32,8 @@
     "done": "Done",
     "rerun": "Rerun",
     "update": "Update",
-    "start_workflow": "Start Workflow"
+    "start_workflow": "Start Workflow",
+    "delete_place": "Delete place"
   },
   "unit": {
     "hours": "hrs",
@@ -117,7 +118,10 @@
     "copied": "Copied!",
     "copy_btn": "Copy Prompt",
     "step2_paste": "Paste Response (JSON) Here",
-    "json_placeholder": "Paste the AI response here... (starting with { or [)"
+    "json_placeholder": "Paste the AI response here... (starting with { or [)",
+    "error_signature_basis": "Invalid data: The response contains no places. Did you accidentally copy the route?",
+    "error_signature_route": "Invalid data: The response contains no routes. Did you accidentally copy the foundation?",
+    "error_signature_days": "Invalid data: The response contains no itinerary."
   },
   "welcome": {
     "subtitle": "Your Intelligent AI Trip Companion",
@@ -538,7 +542,9 @@
     "personal_note": "My personal note...",
     "planning_conflict": "Planning Conflict: ",
     "allow_flex_day": "Allow as exception (Flex Day)?",
-    "flex_day_active": "Flex Day active"
+    "flex_day_active": "Flex Day active",
+    "error_data_corrupt": "Corrupted data at location:",
+    "error_view_json": "View broken JSON"
   },
   "route": {
     "no_results": "No route proposals available.",

@@ -1,3 +1,4 @@
+// 12.04.2026 12:00 - CRITICAL FIX: Replaced viewMode-based stepId with actual manualStepId from store to prevent validation lockouts.
 // 21.03.2026 23:00 - FIX: Prevented the app from jumping to SightsView when 'routeArchitect' was selected in WorkflowModal. It now correctly jumps to the RouteReviewView.
 // 21.03.2026 22:30 - FIX: Relaxed validation for TravelerStep (Step 2).
 // src/features/Cockpit/CockpitWizard.tsx
@@ -45,7 +46,8 @@ export const CockpitWizard = () => {
       isWorkflowModalOpen, 
       setWorkflowModalOpen,
       uiState,
-      setUIState
+      setUIState,
+      manualStepId // FIX: Echte ID aus dem Store geholt anstatt zu raten
   } = useTripStore(); 
   
   const { userInputs } = project;
@@ -158,8 +160,6 @@ export const CockpitWizard = () => {
       if (selectedSteps.length > 0) {
           await startWorkflow(selectedSteps, options); 
           
-          // FIX: Wenn die Route generiert wurde, MUSS die App zur Routenansicht springen,
-          // damit der Nutzer sie bestätigen kann!
           if (selectedSteps.includes('routeArchitect')) {
               setViewMode('routeArchitect');
           } else {
@@ -368,6 +368,7 @@ export const CockpitWizard = () => {
               onClose={cancelWorkflow}
               onSubmit={submitManualResult}
               error={error}
+              stepId={manualStepId || undefined}
             />
 
             <WorkflowSelectionModal
@@ -380,4 +381,4 @@ export const CockpitWizard = () => {
     </div>
   );
 };
-// --- END OF FILE 320 Zeilen ---
+// --- END OF FILE 323 Zeilen ---
