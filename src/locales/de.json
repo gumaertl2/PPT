@@ -4,7 +4,7 @@
     "version": "V40",
     "welcome": "Willkommen beim intelligenten Reise-Architekten"
   },
-  ",": {
+  "actions": {
     "next": "Weiter",
     "back": "Zurück",
     "finish": "Planung abschließen",
@@ -17,7 +17,7 @@
     "edit": "Bearbeiten",
     "yes": "Ja",
     "no": "Nein",
-    "analyze_inputs": "Fundamentalanalyse starten",
+    "analyze_inputs": "Reisebriefing erstellen",
     "analyzing": "Analysiere...",
     "regenerate": "Neu generieren",
     "generate": "Generieren",
@@ -40,7 +40,7 @@
   },
   "status": {
     "workflow_start": "Starte Workflow: {{step}}...",
-    "analysis_start": "Starte Fundamentalanalyse...",
+    "analysis_start": "Erstelle Reisebriefing...",
     "sending": "Sende Anfrage an KI für {{step}} (kann dauern)...",
     "success": "Erfolgreich abgeschlossen.",
     "error": "Ein Fehler ist aufgetreten.",
@@ -50,10 +50,10 @@
     "please_wait": "Bitte warten, dies kann einen Moment dauern..."
   },
   "analysis": {
-    "title": "Ergebnis der Analyse",
-    "subtitle": "Das Fundament Ihrer Reise. Bitte prüfen Sie die Daten.",
-    "errorTitle": "Keine Analyse vorhanden",
-    "errorDesc": "Bitte führen Sie die Analyse erneut aus.",
+    "title": "Ihr Reisebriefing",
+    "subtitle": "Die Auswertung Ihrer Wünsche und die Machbarkeit Ihrer Reise. Bitte prüfen Sie die Details.",
+    "errorTitle": "Kein Briefing vorhanden",
+    "errorDesc": "Bitte erstellen Sie das Reisebriefing erneut.",
     "retry": "Erneut versuchen",
     "correctionsTitle": "Automatische Korrekturen",
     "plausibility": "Plausibilitäts-Check",
@@ -72,11 +72,11 @@
     "feedbackPlaceholder": "z.B. \"Bitte plane weniger Museen\" oder \"Das Hotel in Berlin ist falsch.\"",
     "countLabel": "Anzahl Vorschläge (Zielwert)",
     "smartLimit": "KI-Empfehlung",
-    "rerun": "Analyse mit neuen Vorgaben wiederholen",
+    "rerun": "Briefing mit neuen Vorgaben wiederholen",
     "howToProceed": "Wie möchten Sie fortfahren?",
     "btnRoutePlanner": "Weiter zum Routenplaner",
-    "btnAiWorkflows": "Weiter zu den KI-Workflows",
-    "confirmRerun": "Es gibt bereits eine Fundamentalanalyse.\n\nSoll sie neu erstellt werden?\n(OK = Neu erstellen, Abbrechen = Bestehende anzeigen)"
+    "btnAiWorkflows": "Weiter zum Reiseführer",
+    "confirmRerun": "Es gibt bereits ein Reisebriefing.\n\nSoll es neu erstellt werden?\n(OK = Neu erstellen, Abbrechen = Bestehende anzeigen)"
   },
   "settings": {
     "title": "Einstellungen & API",
@@ -109,10 +109,7 @@
     "free_tier_desc": "Aktiviert Limit-Schutz (Pausen zwischen API-Aufrufen) & tauscht \"Pro\" automatisch gegen das schnellere \"Thinking\"-Modell aus.",
     "language_section": "Programm-Sprache / Language",
     "language_switch_hint": "Klicken zum Wechseln",
-    "error_invalid_key": "API Key ungültig oder fehlt. Bitte in den Einstellungen prüfen.",
-    "error_signature_basis": "Falsche Daten: Die Antwort enthält keine Orte. Hast du versehentlich die Route kopiert?",
-    "error_signature_route": "Falsche Daten: Die Antwort enthält keine Routen. Hast du versehentlich das Fundament kopiert?",
-    "error_signature_days": "Falsche Daten: Die Antwort enthält keinen Tagesplan."
+    "error_invalid_key": "API Key ungültig oder fehlt. Bitte in den Einstellungen prüfen."
   },
   "modal": {
     "manual_title": "KI-Anfrage manuell ausführen",
@@ -120,7 +117,10 @@
     "copied": "Kopiert!",
     "copy_btn": "Prompt kopieren",
     "step2_paste": "Antwort (JSON) hier einfügen",
-    "json_placeholder": "Fügen Sie hier die Antwort der KI ein... (beginnend mit { oder [)"
+    "json_placeholder": "Fügen Sie hier die Antwort der KI ein... (beginnend mit { oder [)",
+    "error_signature_basis": "Falsche Daten: Die Antwort enthält keine Orte. Hast du versehentlich die Route kopiert?",
+    "error_signature_route": "Falsche Daten: Die Antwort enthält keine Routen. Hast du versehentlich das Fundament kopiert?",
+    "error_signature_days": "Falsche Daten: Die Antwort enthält keinen Tagesplan."
   },
   "welcome": {
     "subtitle": "Ihre intelligente KI-Reisebegleitung",
@@ -177,9 +177,9 @@
     },
     "actions_menu": {
       "data": "Daten",
-      "foundation": "Fundament",
+      "foundation": "Briefing",
       "route": "Route",
-      "ai_workflows": "KI-Workflows",
+      "ai_workflows": "Reiseführer",
       "adhoc_food": "Ad-Hoc Food",
       "map_export": "Karten Export",
       "print": "Drucken",
@@ -192,8 +192,8 @@
       "finance": "Reisekasse"
     },
     "errors": {
-      "missing_places": "Bitte führen Sie zuerst die Fundamentalanalyse durch, um Orte zu generieren.",
-      "missing_routes": "Bitte führen Sie zuerst die Fundamentalanalyse und die Routenplanung durch."
+      "missing_places": "Bitte führen Sie zuerst das Reisebriefing durch, um Orte zu generieren.",
+      "missing_routes": "Bitte führen Sie zuerst das Reisebriefing und die Routenplanung durch."
     },
     "customizer": {
       "tooltip_customize": "✏️ Passe den Text für diese Kategorie an",
@@ -212,6 +212,7 @@
     "destination_label": "Ort (Reiseziel)",
     "destination_placeholder": "z.B. Innsbruck",
     "hotel_label": "Gebuchtes Hotel (Optional)",
+    "hotel_label_hint": "Hotelname oder Link",
     "hotel_placeholder": "Name oder Link (z.B. Booking.com)",
     "roundtrip_region": "Zielgebiet",
     "roundtrip_region_placeholder": "z.B. Schottland",
@@ -303,6 +304,7 @@
     "notes_placeholder": "z.B. Wir lieben Fotografie... Mittagspause um 13 Uhr...",
     "notes_hint": "Diese Hinweise werden als globale Anweisung an alle KI-Rollen weitergegeben.",
     "nogos_label": "No-Gos (Ausschlüsse)",
+    "notes_label_hint": "Anweisungen an alle Agenten",
     "nogos_placeholder": "z.B. Keine modernen Museen. Keine Touristenfallen.",
     "nogos_hint": "Definieren Sie hier Themen oder Orte, die der Sammler unbedingt vermeiden soll.",
     "output_lang_label": "Sprache für den KI-Reiseplan",
@@ -665,7 +667,7 @@
     "footer_tip": "Tipp: Wähle im Druckerdialog deines Browsers 'Als PDF speichern'.",
     "sections": {
       "briefing": "Briefing & Strategie",
-      "analysis": "Fundament & Analyse",
+      "analysis": "Briefing & Auswertung",
       "days": "Reiseführer (Tage)",
       "tours": "Reiseführer (Touren)",
       "categories": "Reiseführer (Kategorien)",
@@ -701,7 +703,7 @@
     "btn_smart": "Nur fehlende ergänzen (Smart)",
     "btn_force": "Alle neu generieren (Langsamer)",
     "cancel": "Abbrechen",
-    "start_title": "KI-Workflow starten",
+    "start_title": "Reiseführer-Kapitel erstellen",
     "start_desc": "Wählen Sie die Aufgaben für die KI aus.",
     "error_starting": "Fehler beim Starten:",
     "error_unknown": "Unbekannter Fehler beim Starten.",
@@ -740,9 +742,9 @@
     "menu": "Projekt-Aktionen",
     "menu_items": {
       "data": "Zurück zum Wizard (Eingabedaten)",
-      "foundation": "Ergebnisse der Fundamentalanalyse prüfen",
+      "foundation": "Ergebnisse des Reisebriefings prüfen",
       "route": "Routenplanung öffnen",
-      "ai_workflows": "KI-Agenten steuern (Texte, Bilder...)",
+      "ai_workflows": "Kapitel generieren (Texte, Bilder...)",
       "adhoc_food": "Spontane Restaurant-Suche starten",
       "map_export": "Orte für Google Maps exportieren",
       "print": "Reisebericht drucken / PDF",
@@ -879,7 +881,7 @@
       "zoom_high": "Detail (Z16)",
       "btn_minimize": "Karte ausrichten",
       "btn_restore": "Ausschnitt wählen & Fortfahren",
-      "offline_hint": "Stoppt den Live-Datenverbrauch.",
+      "offline_hint": "Stops live data usage.",
       "error_no_name": "Bitte gib einen Namen für die Region ein.",
       "error_offline": "Keine Internetverbindung. Download nicht möglich.",
       "error_layer": "Fehler beim Laden der Kartenebene. Bitte wechsle die Ebene.",

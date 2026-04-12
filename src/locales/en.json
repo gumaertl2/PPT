@@ -18,7 +18,7 @@
     "edit": "Edit",
     "yes": "Yes",
     "no": "No",
-    "analyze_inputs": "Start Foundation Analysis",
+    "analyze_inputs": "Create Trip Briefing",
     "analyzing": "Analyzing...",
     "regenerate": "Regenerate",
     "generate": "Generate",
@@ -41,7 +41,7 @@
   },
   "status": {
     "workflow_start": "Starting Workflow: {{step}}...",
-    "analysis_start": "Starting Foundation Analysis...",
+    "analysis_start": "Creating Trip Briefing...",
     "sending": "Sending request to AI for {{step}} (may take a while)...",
     "success": "Successfully completed.",
     "error": "An error occurred.",
@@ -51,10 +51,10 @@
     "please_wait": "Please wait, this may take a moment..."
   },
   "analysis": {
-    "title": "Analysis Result",
-    "subtitle": "The foundation of your trip. Please check the data.",
-    "errorTitle": "No analysis available",
-    "errorDesc": "Please run the analysis again.",
+    "title": "Your Trip Briefing",
+    "subtitle": "The evaluation of your wishes and the feasibility of your trip. Please check the details.",
+    "errorTitle": "No briefing available",
+    "errorDesc": "Please create the trip briefing again.",
     "retry": "Retry",
     "correctionsTitle": "Automatic Corrections",
     "plausibility": "Plausibility Check",
@@ -73,11 +73,11 @@
     "feedbackPlaceholder": "e.g., \"Please plan fewer museums\" or \"The hotel in Berlin is wrong.\"",
     "countLabel": "Number of Proposals (Target)",
     "smartLimit": "AI Recommendation",
-    "rerun": "Repeat Analysis with New Constraints",
+    "rerun": "Repeat Briefing with New Constraints",
     "howToProceed": "How would you like to proceed?",
     "btnRoutePlanner": "Continue to Route Planner",
-    "btnAiWorkflows": "Continue to AI Workflows",
-    "confirmRerun": "An analysis already exists.\n\nShould a new one be created?\n(OK = Create New, Cancel = Show Existing)"
+    "btnAiWorkflows": "Continue to Travel Guide",
+    "confirmRerun": "A trip briefing already exists.\n\nShould a new one be created?\n(OK = Create New, Cancel = Show Existing)"
   },
   "settings": {
     "title": "Settings & API",
@@ -178,9 +178,9 @@
     },
     "actions_menu": {
       "data": "Data",
-      "foundation": "Foundation",
+      "foundation": "Briefing",
       "route": "Route",
-      "ai_workflows": "AI Workflows",
+      "ai_workflows": "Guide",
       "adhoc_food": "Ad-Hoc Food",
       "map_export": "Map Export",
       "print": "Print",
@@ -193,8 +193,8 @@
       "finance": "Travel Wallet"
     },
     "errors": {
-      "missing_places": "Please run the foundation analysis first to generate places.",
-      "missing_routes": "Please run foundation analysis and route planning first."
+      "missing_places": "Please run the trip briefing first to generate places.",
+      "missing_routes": "Please run the trip briefing and route planning first."
     },
     "customizer": {
       "tooltip_customize": "✏️ Customize the text for this category",
@@ -666,7 +666,7 @@
     "footer_tip": "Tip: Choose 'Save as PDF' in your browser's print dialog.",
     "sections": {
       "briefing": "Briefing & Strategy",
-      "analysis": "Foundation & Analysis",
+      "analysis": "Briefing & Evaluation",
       "days": "Travel Guide (Days)",
       "tours": "Travel Guide (Tours)",
       "categories": "Travel Guide (Categories)",
@@ -702,7 +702,7 @@
     "btn_smart": "Supplement only missing (Smart)",
     "btn_force": "Regenerate all (Slower)",
     "cancel": "Cancel",
-    "start_title": "Start AI Workflow",
+    "start_title": "Create Guide Chapters",
     "start_desc": "Select tasks for the AI.",
     "error_starting": "Error starting:",
     "error_unknown": "Unknown error while starting.",
@@ -741,9 +741,9 @@
     "menu": "Project Actions",
     "menu_items": {
       "data": "Back to Wizard (Input Data)",
-      "foundation": "Check Foundation Analysis Results",
+      "foundation": "Check Briefing results",
       "route": "Open Route Planning",
-      "ai_workflows": "Control AI Agents (Texts, Images...)",
+      "ai_workflows": "Create Chapters (Texts, Images...)",
       "adhoc_food": "Start Spontaneous Restaurant Search",
       "map_export": "Export places for Google Maps",
       "print": "Print Report / PDF",

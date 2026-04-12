@@ -1,3 +1,4 @@
+// 12.04.2026 14:10 - UX: Updated terminology (Guide Chapters). Updated defaultValues.
 // 27.02.2026 14:35 - FIX: Removed 'transferPlanner' from the hardcoded stationary warning in the UI, as it is now supported.
 // 19.02.2026 14:45 - FEAT: Added 'showPlanningMode: true' to handleGoToPrios for direct planning access.
 // 19.02.2026 12:00 - FIX: Repaired TypeScript Errors (TS2367, TS2322, TS6133) & restored missing warning block.
@@ -112,7 +113,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
             <div>
               <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                 <span className="text-2xl">✨</span> 
-                {t('workflow.start_title', { defaultValue: 'KI-Workflow starten' })}
+                {t('workflow.start_title', { defaultValue: 'Reiseführer-Kapitel erstellen' })}
               </h2>
               <p className="text-sm text-slate-500 mt-1">
                 {t('workflow.start_desc', { defaultValue: 'Wählen Sie die Aufgaben für die KI aus.' })}
@@ -356,4 +357,4 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
     </>
   );
 };
-// --- END OF FILE 336 Zeilen ---
+// 336 Zeilen

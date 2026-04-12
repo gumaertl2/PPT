@@ -1,3 +1,4 @@
+// 12.04.2026 14:10 - UX: Updated terminology (Briefing & Travel Guide). Replaced hardcoded string with t().
 // 07.04.2026 09:30 - UX: Removed Settings and Flight Recorder from ActionsMenu for end-users.
 // 20.03.2026 17:40 - UX: Moved Info & Quickguide to ActionsMenu, removed Finance.
 // 19.03.2026 13:00 - UX: Avoid double prompting for filename.
@@ -252,7 +253,7 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
             className="w-full text-left px-4 py-2 hover:bg-blue-50 text-slate-700 flex items-center gap-3 text-sm font-medium"
             title={t('tooltips.menu_items.ai_workflows')}
           >
-            <Sparkles className="w-4 h-4 text-purple-500" /> AI Workflows
+            <Sparkles className="w-4 h-4 text-purple-500" /> {t('wizard.actions_menu.ai_workflows')}
           </button>
 
           <button 
@@ -320,4 +321,4 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
     </div>
   );
 };
-// --- END OF FILE 285 Zeilen ---
+// 287 Zeilen
