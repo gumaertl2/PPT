@@ -1,7 +1,9 @@
+// 12.04.2026 13:40 - CRITICAL FIX: Resolved TypeScript build errors (verbatimModuleSyntax and unused React import).
 // 12.04.2026 12:20 - FEATURE: Added ErrorBoundary to isolate rendering crashes caused by corrupted data.
 // src/features/Shared/ErrorBoundary.tsx
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { Component } from 'react';
+import type { ErrorInfo, ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
@@ -42,4 +44,4 @@ export class ErrorBoundary extends Component<Props, State> {
     return this.props.children;
   }
 }
-// --- END OF FILE 44 Zeilen ---
+// --- END OF FILE 47 Zeilen ---
