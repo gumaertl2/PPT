@@ -1,3 +1,4 @@
+// 20.04.2026 16:45 - FIX: Strict Anti-Hallucination for Signature Dishes.
 // src/core/prompts/templates/foodEnricher.ts
 // 16.02.2026 21:55 - FINAL: 4-EYES-AUDIT BLENDED WITH DATA RECOVERY.
 // - Logic: Step 0 is the "Strict Door Guard" (Existence, Status, Plausibility).
@@ -48,9 +49,9 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
        -> IF "Permanently Closed" or non-existent: Set "verification_status": "rejected".
     
     2. **LISTING PLAUSIBILITY (The Guide Check):**
-       - Does this place look like something listed in Michelin, Varta, Slow Food or Feinschmecker?
+       - Does this place look like a quality establishment?
        - **REJECT** if it is clearly a fast-food chain (Subway, McDonalds) or a "Dönerbude" without reputation.
-       - **KEEP** if it is a "Gasthof", "Landhotel", or "Fine Dining".
+       - **KEEP** if it is a "Gasthof", "Landhotel", "Fine Dining", or has an award.
 
     3. **DATA RECOVERY (The Rating Fix):** - If 'rating' or 'user_ratings_total' is null or 0, perform a targeted search: "[Name] [Address] Google Rating".
        - Fill in the real-world Google stars and review count.
@@ -67,14 +68,14 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
     B. **'detailContent' (The Chief Editor Story):**
        - **Format:** Use Markdown (### for headlines, ** for bold).
        - **Structure:**
-         1. **### Kulinarisches Erlebnis:** Describe the food, philosophy, and chef's style.
+         1. **### Kulinarisches Erlebnis:** Describe the culinary concept and philosophy. DO NOT invent specific dishes if you don't know the live menu.
          2. **### Atmosphäre:** Describe the interior, vibe, and crowd.
-         3. **### Insider-Tipp:** A specific recommendation.
+         3. **### Insider-Tipp:** A specific recommendation (e.g. "Reserve a table by the window").
        - **Tone:** Passionate, knowledgeable, premium.
 
     # STEP 2: SOFT SKILLS ENRICHMENT
     A. **Vibe:** 3 keywords (e.g. "Rustic", "Elegant", "Lively").
-    B. **Signature Dish:** Infer strictly from cuisine (e.g. "Zwiebelrostbraten" for Bavarian).
+    B. **Signature Dish (ANTI-HALLUCINATION RULE):** Do NOT guess or invent a specific meal. Instead, describe the *specialty category* based on the cuisine (e.g., "Regionale Wildspezialitäten" or "Hausgemachte Pasta"). Never write things like "Zwiebelrostbraten" unless you can prove it is on their menu.
     C. **Logistics:** One practical tip (Parking, Reservation).
     D. **Meta:** Estimate 'priceLevel' (€ to €€€€) and 'openingHours'.
 
@@ -125,4 +126,4 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
 
   return builder.build();
 };
-// --- END OF FILE 135 Zeilen ---
+// --- END OF FILE 136 Zeilen ---

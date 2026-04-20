@@ -1,3 +1,4 @@
+// 20.04.2026 16:45 - FIX: Implemented "Graceful Exit" and Strict Anti-Hallucination for Guide Awards.
 // 28.02.2026 18:50 - FIX: Relaxed CRITICAL GEOCODING RULE.
 // 28.02.2026 18:00 - FIX: Added CRITICAL GEOCODING RULE securely.
 // src/core/prompts/templates/foodScout.ts
@@ -30,7 +31,7 @@ export const buildFoodScoutPrompt = (_project: TripProject, context: any): strin
     
     ### THE MISSION: "THE TRIPLE DRAGNET"
     To find ALL relevant restaurants (Hidden Gems, Neighbors, and List-Runners-Up), you must execute three specific search strategies simultaneously.
-    We are looking for restaurants listed in: **${guideNames}**.
+    We are primarily looking for restaurants listed in: **${guideNames}**.
   `);
 
   builder.withInstruction(`
@@ -63,13 +64,14 @@ export const buildFoodScoutPrompt = (_project: TripProject, context: any): strin
     **STEP 3: AGGREGATION & FILTERING**
     - Compile all unique finds.
     - **Relevance Check:** Is the restaurant in ${targetLocation} OR a direct neighbor (< 10km)? -> KEEP.
-    - **Guide Check:** Is it mentioned in a guide (Snippet or Website)? -> KEEP.
+    - **CRITICAL TRUTH & GRACEFUL EXIT RULE:** If (and only if) there are NO restaurants from the requested guides within the immediate radius, DO NOT expand the radius to distant cities just to find a guide entry. Instead, select the highest-rated local premium restaurants (e.g., highly rated local 'Gasthof').
+    - **NO HALLUCINATION:** NEVER invent or falsely claim a Michelin, Gault&Millau, or any other guide listing if it does not exist. If a place has no official guide award, set the 'awards' array to exactly \`["Local Top Pick"]\`.
     - **Duplication Check:** Ensure "Fürstenfelder" is listed only once.
     - **Address Formatting (CRITICAL GEOCODING RULE):** The 'address' field must be clean and machine-readable for OpenStreetMap. Use 'Street, Number, ZIP, City, Country' if available. If it's a natural sight or has no street, use the specific local identifier (e.g. 'Plaza de la Iglesia', 'Camino a...'). STRICTLY FORBIDDEN: Never use descriptive prose, brackets like '(Leuchtturm)', or abbreviations like 's/n' in the address.
 
     ### OUTPUT (JSON ONLY):
     {
-      "_thought_process": "1. Geo-Profile: Parent Region is X, Neighbors are Y, Z. 2. Net A found: ... 3. Net B found: ... 4. Net C found: ...",
+      "_thought_process": "1. Geo-Profile: Parent Region is X. 2. Net A found: ... 3. Guide Reality Check: No Michelin stars in this small town, falling back to Local Top Picks.",
       "candidates": [
         {
            "name": "Official Name",
@@ -77,7 +79,7 @@ export const buildFoodScoutPrompt = (_project: TripProject, context: any): strin
            "phone": "+49...",
            "website": "...",
            "cuisine": "Style",
-           "awards": ["Guide Name"], 
+           "awards": ["Local Top Pick"], 
            "verification_status": "unverified", 
            "liveStatus": {
               "status": "open",
@@ -91,7 +93,7 @@ export const buildFoodScoutPrompt = (_project: TripProject, context: any): strin
   `);
 
   builder.withOutputSchema({
-    _thought_process: "Detailed log of the 3-Net-Strategy",
+    _thought_process: "Detailed log of the 3-Net-Strategy and Truth Check",
     candidates: [
       {
         name: "Official Name",
@@ -99,7 +101,7 @@ export const buildFoodScoutPrompt = (_project: TripProject, context: any): strin
         phone: "+49...",
         website: "https://...",
         cuisine: "Style",
-        awards: ["Guide Name"],
+        awards: ["Guide Name OR 'Local Top Pick'"],
         rating: 4.5,
         user_ratings_total: 100,
         verification_status: "verified",
@@ -116,4 +118,4 @@ export const buildFoodScoutPrompt = (_project: TripProject, context: any): strin
 
   return builder.build();
 };
-// --- END OF FILE 107 Lines ---
+// --- END OF FILE 110 Lines ---
