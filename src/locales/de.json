@@ -76,7 +76,9 @@
     "howToProceed": "Wie möchten Sie fortfahren?",
     "btnRoutePlanner": "Weiter zum Routenplaner",
     "btnAiWorkflows": "Weiter zum Reiseführer",
-    "confirmRerun": "Es gibt bereits ein Reisebriefing.\n\nSoll es neu erstellt werden?\n(OK = Neu erstellen, Abbrechen = Bestehende anzeigen)"
+    "confirmRerun": "Es gibt bereits ein Reisebriefing.\n\nSoll es neu erstellt werden?\n(OK = Neu erstellen, Abbrechen = Bestehende anzeigen)",
+    "btnRoutePlanner": "Weiter zum Routenplaner",
+    "btnAiWorkflows": "Weiter zum Reiseführer"
   },
   "settings": {
     "title": "Einstellungen & API",
@@ -580,7 +582,9 @@
     "title": "Wähle deine Route",
     "basecamp": "Basis-Lager",
     "confirm_basecamp": "Basis-Lager übernehmen & weiter",
-    "generating_options": "Generiere Optionen..."
+    "generating_options": "Generiere Optionen...",
+    "confirm_basecamp": "Basis-Lager übernehmen & weiter",
+    "confirm_continue": "Route übernehmen & weiter"
   },
   "diary": {
     "title": "Live-Reisetagebuch",

@@ -1,3 +1,4 @@
+// 20.04.2026 13:45 - FIX: Fixed logic bottleneck. Removed local modal trigger to allow CockpitWizard to handle scouting-routing via onNext.
 // 23.02.2026 11:15 - FIX: Swapped Priority in suggestionCount so User-Overrides survive component remounts.
 // 06.02.2026 18:25 - FIX: Made 'onNext' optional for PrintReport compatibility (TS2741).
 // 26.01.2026 10:45 - FIX: Sync Suggestion Count to SearchSettings.
@@ -21,14 +22,14 @@ import { useTripStore } from '../../store/useTripStore';
 import { useTripGeneration } from '../../hooks/useTripGeneration';
 
 interface AnalysisReviewViewProps {
-  onNext?: () => void; // FIX: Optional for Print Mode
+  onNext?: () => void; 
 }
 
 export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }) => {
   const { t } = useTranslation();
   
   // Store Access
-  const { project, setWorkflowModalOpen, updateSearchSettings } = useTripStore();
+  const { project, updateSearchSettings } = useTripStore();
   const { startSingleTask, status } = useTripGeneration(); 
   
   const analysis = project.analysis.chefPlaner;
@@ -38,19 +39,15 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
   
   // INTELLIGENTE INITIALISIERUNG DES COUNTS
   const [suggestionCount, setSuggestionCount] = useState<number>(() => {
-    // 1. Priority: Bereits gespeichertes Setting (SSOT - User Änderung oder vorheriger Sync)
     if (project.userInputs?.searchSettings?.sightsCount) {
         return project.userInputs.searchSettings.sightsCount;
     }
-    // 2. Priority: Smart Recommendation from ChefPlaner (Greift nur beim allerersten Laden)
     if (project.analysis.chefPlaner?.smart_limit_recommendation?.value) {
       return project.analysis.chefPlaner.smart_limit_recommendation.value;
     }
-    // 3. Fallback: Default
     return 50;
   });
 
-  // FIX: Write directly to searchSettings so 'prepareBasisPayload' can read it
   useEffect(() => {
     updateSearchSettings({ sightsCount: suggestionCount });
   }, [suggestionCount, updateSearchSettings]);
@@ -60,9 +57,15 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
     await startSingleTask('chefPlaner', feedback);
   };
 
-  const isMobil = project.userInputs.logistics.mode === 'mobil';
+  // LOGIK FÜR DEN NÄCHSTEN SCHRITT (WIRD IM UI GESTEUERT)
+  const mode = project.userInputs.logistics.mode;
+  const isScoutingNeeded = 
+    mode === 'stationaer' && 
+    !project.userInputs.logistics.stationary.destination && 
+    !!project.userInputs.logistics.stationary.region;
 
-  // Fallback: Wenn gar keine Analyse da ist
+  const showRoutePlannerOption = mode === 'mobil' || mode === 'roundtrip' || isScoutingNeeded;
+
   if (!analysis) {
     return (
       <div className="p-8 text-center bg-red-50 rounded-xl border border-red-200">
@@ -231,20 +234,18 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
           type="button" 
           onClick={(e) => {
              e.preventDefault(); 
-             // FIX: Safety check for optional prop
-             if (isMobil && onNext) {
+             // FIX: Safety check. Always call onNext to let CockpitWizard decide.
+             if (onNext) {
                  onNext();
-             } else if (!isMobil) {
-                 setWorkflowModalOpen(true);
              }
           }}
           className={`w-full group flex items-center justify-center gap-3 p-4 rounded-xl shadow-md hover:shadow-lg hover:scale-[1.01] transition transform ${
-             isMobil 
+             showRoutePlannerOption 
                ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white' 
                : 'bg-gradient-to-r from-purple-600 to-indigo-700 text-white'
           }`}
         >
-          {isMobil ? (
+          {showRoutePlannerOption ? (
              <MapIcon className="w-6 h-6 text-blue-100" />
           ) : (
              <Wand2 className="w-6 h-6 text-purple-200" />
@@ -252,7 +253,7 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
           
           <div className="text-left">
             <span className="block text-lg font-bold">
-               {isMobil ? t('analysis.btnRoutePlanner') : t('analysis.btnAiWorkflows')}
+               {showRoutePlannerOption ? t('analysis.btnRoutePlanner') : t('analysis.btnAiWorkflows')}
             </span>
           </div>
           
@@ -263,4 +264,4 @@ export const AnalysisReviewView: React.FC<AnalysisReviewViewProps> = ({ onNext }
     </div>
   );
 };
-// --- END OF FILE 205 Zeilen ---
+// --- END OF FILE 215 Zeilen ---

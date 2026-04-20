@@ -77,7 +77,9 @@
     "howToProceed": "How would you like to proceed?",
     "btnRoutePlanner": "Continue to Route Planner",
     "btnAiWorkflows": "Continue to Travel Guide",
-    "confirmRerun": "A trip briefing already exists.\n\nShould a new one be created?\n(OK = Create New, Cancel = Show Existing)"
+    "confirmRerun": "A trip briefing already exists.\n\nShould a new one be created?\n(OK = Create New, Cancel = Show Existing)",
+    "btnRoutePlanner": "Continue to Route Planner",
+    "btnAiWorkflows": "Continue to Travel Guide"
   },
   "settings": {
     "title": "Settings & API",
@@ -579,7 +581,10 @@
     "title": "Choose your Route",
     "basecamp": "Base Camp",
     "confirm_basecamp": "Confirm Base Camp & Continue",
-    "generating_options": "Generating options..."
+    "generating_options": "Generating options...",
+    "basecamp_title": "Choose your Base Camp",
+    "basecamp": "Base Camp",
+    "confirm_basecamp": "Confirm Base Camp & Continue"
   },
   "diary": {
     "title": "Live Travel Diary",

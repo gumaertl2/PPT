@@ -1,4 +1,4 @@
-// 20.04.2026 12:45 - FEATURE: Added Smart Basecamp Routing for stationary trips without destination. (Full Integrity Preserved)
+// 20.04.2026 13:45 - FEATURE: Added Smart Basecamp Routing for stationary trips without destination. (Full Integrity Preserved)
 // 12.04.2026 12:00 - CRITICAL FIX: Replaced viewMode-based stepId with actual manualStepId from store to prevent validation lockouts.
 // 21.03.2026 23:00 - FIX: Prevented the app from jumping to SightsView when 'routeArchitect' was selected in WorkflowModal. It now correctly jumps to the RouteReviewView.
 // 21.03.2026 22:30 - FIX: Relaxed validation for TravelerStep (Step 2).
@@ -48,7 +48,7 @@ export const CockpitWizard = () => {
       setWorkflowModalOpen,
       uiState,
       setUIState,
-      manualStepId // FIX: Echte ID aus dem Store geholt anstatt zu raten
+      manualStepId 
   } = useTripStore(); 
   
   const { userInputs } = project;
@@ -82,8 +82,7 @@ export const CockpitWizard = () => {
 
       window.addEventListener('afterprint', handleAfterPrint);
       return () => window.removeEventListener('afterprint', handleAfterPrint);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [uiState.printConfig, setUIState]);
 
   const STEPS = [
     { id: 'logistics', label: t('wizard.steps.logistics'), icon: MapIcon, component: LogisticsStep },
@@ -388,3 +387,4 @@ export const CockpitWizard = () => {
     </div>
   );
 };
+// --- END OF FILE 354 Zeilen ---
