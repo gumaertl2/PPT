@@ -1,3 +1,5 @@
+// 20.04.2026 16:15 - FIX: Mark hotelScout as 'done' if ANY hotels exist in database (Hotelscout success).
+// 20.04.2026 15:35 - FIX: Lock 'infoAutor' and prevent auto-selection if no relevant appendix interests are selected.
 // 27.02.2026 14:25 - FIX: Enabled 'transferPlanner' for stationary trips so it can perform the Local Mobility Reality Check.
 // 23.02.2026 18:15 - FIX: 'basis' step status now ignores pre-populated hotels to accurately reflect completion.
 // 23.02.2026 11:45 - FIX: Prevents auto-selection of 'hotelScout' if a manual hotel is already present.
@@ -33,8 +35,6 @@ export const useWorkflowSelection = (isOpen: boolean) => {
         const validPlaces = Object.values(places).filter((p: any) => p.id !== 'dummy-example-id');
         const hasPlaces = validPlaces.length > 0;
         
-        // FIX: For basis, we only count places that are NOT hotels or restaurants (which might come from other scouts)
-        // This prevents the bug where pre-filled hotels make the system think 'basis' is already done.
         const hasBaseSights = validPlaces.some((p: any) => {
             const cat = (p.category || '').toLowerCase();
             return cat !== 'hotel' && cat !== 'restaurant' && cat !== 'special';
@@ -48,7 +48,6 @@ export const useWorkflowSelection = (isOpen: boolean) => {
                 if (isStationary) return 'locked';
                 return project.analysis.routeArchitect ? 'done' : 'available';
             case 'basis': 
-                // Return 'done' ONLY if actual sights have been collected, not just hotels.
                 return hasBaseSights ? 'done' : 'available';
             
             case 'anreicherer':
@@ -74,7 +73,14 @@ export const useWorkflowSelection = (isOpen: boolean) => {
 
             case 'infoAutor': 
                 const hasInfos = Array.isArray(project.data.content?.infos) && project.data.content.infos.length > 0;
-                return hasInfos ? 'done' : 'available';
+                if (hasInfos) return 'done';
+
+                const infoInterests = ['travel_info', 'city_info', 'arrival', 'budget', 'ignored_places'];
+                const selectedIds = project.userInputs.selectedInterests || [];
+                const hasInfoInterests = selectedIds.some((id: string) => infoInterests.includes(id));
+                
+                if (!hasInfoInterests) return 'locked';
+                return 'available';
 
             case 'foodScout': 
                 if (!canRunPlaceDependent) return 'locked';
@@ -84,7 +90,14 @@ export const useWorkflowSelection = (isOpen: boolean) => {
             case 'hotelScout': 
                 const manualHotel = project.userInputs.logistics?.stationary?.hotel;
                 const hasValidatedHotels = (project.analysis.chefPlaner?.validated_hotels?.length || 0) > 0;
-                if (manualHotel || hasValidatedHotels) return 'done';
+                
+                // FIX: Hartes Prüfen auf existierende Hotels in der Datenbank (Erfolg des Hotelscouts)
+                const hasAnyHotels = validPlaces.some((p: any) => {
+                    const cat = (p.category || '').toLowerCase();
+                    return cat === 'hotel' || cat === 'accommodation' || cat === 'unterkunft';
+                });
+                
+                if (manualHotel || hasValidatedHotels || hasAnyHotels) return 'done';
                 
                 if (!canRunPlaceDependent) return 'locked';
                 return 'available';
@@ -95,7 +108,6 @@ export const useWorkflowSelection = (isOpen: boolean) => {
                 return hasIdeen ? 'done' : 'available';
 
             case 'transferPlanner': 
-                // FIX: transferPlanner is NOW available for stationary trips to check local mobility!
                 const hasDayPlan = project.itinerary.days.length > 0;
                 const canRunTransfer = hasDayPlan || isSelected('initialTagesplaner');
                 return canRunTransfer ? 'available' : 'locked';
@@ -129,7 +141,6 @@ export const useWorkflowSelection = (isOpen: boolean) => {
         if (isOpen && !hasInitializedRef.current) {
             const defaults: WorkflowStepId[] = [];
             const places = project.data.places || {};
-            // For initial defaults, we use the same strict logic: only count real sights
             const validPlaces = Object.values(places).filter((p: any) => p.id !== 'dummy-example-id');
             const hasBaseSights = validPlaces.some((p: any) => {
                 const cat = (p.category || '').toLowerCase();
@@ -140,6 +151,8 @@ export const useWorkflowSelection = (isOpen: boolean) => {
                 const status = getStepStatus(step.id);
                 
                 if (status === 'done') return;
+
+                if (step.id === 'infoAutor' && status === 'locked') return;
                 
                 if (!hasBaseSights) {
                     if (['basis', 'anreicherer', 'tourGuide', 'chefredakteur', 'foodScout', 'hotelScout', 'ideenScout', 'infoAutor'].includes(step.id)) {
@@ -155,7 +168,6 @@ export const useWorkflowSelection = (isOpen: boolean) => {
             });
             
             const validDefaults = defaults.filter(id => {
-                // FIX: Only routeArchitect is blocked for stationary now. TransferPlanner is allowed.
                 if (id === 'routeArchitect' && isStationary) return false;
                 return true;
             });
@@ -196,4 +208,4 @@ export const useWorkflowSelection = (isOpen: boolean) => {
         validateStepStart 
     };
 };
-// --- END OF FILE 221 Zeilen ---
+// --- END OF FILE 223 Zeilen ---
