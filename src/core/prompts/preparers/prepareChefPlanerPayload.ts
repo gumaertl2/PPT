@@ -1,3 +1,4 @@
+// 20.04.2026 14:10 - FIX: Included 'region' fallback for stationary trips so the ChefPlaner doesn't crash before the Basecamp Scout runs.
 // 08.04.2026 15:45 - FIX: Removed legacy local language resolution to ensure SSOT via PromptBuilder.
 // 19.03.2026 17:15 - FEAT: Injected 'vibe', 'budget', and 'pace' into context so the Architect can validate feasibility based on persona.
 // 27.02.2026 13:55 - FEAT: Injected 'localMobility' into ChefPlaner logistics briefing so the AI knows how the user travels.
@@ -96,11 +97,22 @@ export const prepareChefPlanerPayload = (project: TripProject, feedback?: string
         const maxDriveTimeMins = userInputs.logistics.stationary.constraints?.maxDriveTimeDay || 180;
         const maxDriveTimeHours = (maxDriveTimeMins / 60).toFixed(1);
         
+        // FIX: Berücksichtige die Region, falls die Destination noch fehlt!
+        const destination = userInputs.logistics.stationary.destination;
+        const region = userInputs.logistics.stationary.region;
+        const effectiveLocation = destination || region || "Not defined";
+        
+        let scoutingNote = "";
+        if (!destination && region) {
+             scoutingNote = " NOTE: The user has ONLY provided a target region. The exact base-camp city will be scouted in the next step. For now, base your general season and logistics analysis on the provided region.";
+        }
+        
         logisticsBriefing = {
             type: "STATIONARY (Hub & Spoke)",
-            base_location: userInputs.logistics.stationary.destination,
+            base_location: effectiveLocation,
+            mandatory_region: region || null,
             local_mobility_preference: localMobility,
-            constraint_description: `Search Radius Limit: Max ${maxDriveTimeHours} hours travel time (round trip) from base location using ${localMobility}. Ensure sights are realistically reachable!`,
+            constraint_description: `Search Radius Limit: Max ${maxDriveTimeHours} hours travel time (round trip) using ${localMobility}.${scoutingNote}`,
             max_drive_time_day_hours: parseFloat(maxDriveTimeHours)
         };
     } else {
@@ -172,4 +184,3 @@ export const prepareChefPlanerPayload = (project: TripProject, feedback?: string
         }
     };
 };
-// --- END OF FILE 164 Zeilen ---
