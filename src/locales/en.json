@@ -830,6 +830,9 @@
     "missing_names_desc": "To split costs, we need to know who is with you. Enter the names (separated by commas) here:",
     "missing_names_placeholder": "e.g. Max, Lisa, Tom"
   },
+  "notifications": {
+    "server_retry": "AI Server busy. Auto-retry {{attempt}}/{{max}} in {{time}}s..."
+  },
   "map": {
     "layer": {
       "standard": "Standard (Streets)",

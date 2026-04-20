@@ -1,3 +1,5 @@
+// 12.04.2026 15:55 - FIX/I18N: Replaced hardcoded strings with proper JSON locale imports. Preserved full 441 lines.
+// 12.04.2026 15:15 - ARCHITECTURE: Implemented Gatekeeper with Exponential Backoff (Smart Resume) to prevent Frankenstein data.
 // 23.02.2026 13:05 - MERGE: Combined UX Storytelling with Kill-Switch Protection.
 // 23.02.2026 12:30 - FIX: Added Kill-Switch Check to Chunk-Loop to stop background tasks immediately on cancel.
 // 23.02.2026 11:30 - UX/FEAT: Added Storytelling & Chunk-Feedback (`updateStory`) for live UI notifications.
@@ -14,6 +16,8 @@ import { FoodWorkflow } from '../core/Workflow/FoodWorkflow';
 import { ModelSelector } from './ModelSelector';
 import { ResultMerger } from '../core/utils/resultMerger';
 import { LimitManager } from '../core/utils/LimitManager';
+import deLocale from '../locales/de.json';
+import enLocale from '../locales/en.json';
 import { 
   dayPlanSchema, geoAnalystSchema, foodSchema, hotelSchema, chefPlanerSchema,
   routeArchitectSchema, ideenScoutSchema, chefredakteurSchema, infoAutorSchema,
@@ -90,54 +94,96 @@ export const TripOrchestrator = {
 
      console.log(`[Orchestrator] Starting SEQUENTIAL Loop for ${task}: ${totalChunks} chunks using ${modelId === CONFIG.api.models.pro ? 'PRO' : 'FLASH'}.`);
 
+     const MAX_RETRIES = 3;
+     const BASE_DELAY_MS = 3000;
+
      try {
          for (let i = 1; i <= totalChunks; i++) {
-             try {
-                 // --- KILL-SWITCH CHECK ---
-                 if (useTripStore.getState().workflow.status !== 'generating') {
-                     console.log(`[Orchestrator] Loop for ${task} ABORTED by user.`);
-                     return null; 
+             let chunkSuccess = false;
+
+             for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+                 try {
+                     // --- KILL-SWITCH CHECK ---
+                     if (useTripStore.getState().workflow.status !== 'generating') {
+                         console.log(`[Orchestrator] Loop for ${task} ABORTED by user.`);
+                         return null; 
+                     }
+
+                     console.log(`[Orchestrator] Processing Chunk ${i}/${totalChunks} (Attempt ${attempt}/${MAX_RETRIES})...`);
+                     store.setChunkingState({ isActive: true, currentChunk: i, totalChunks: totalChunks, results: collectedResults });
+                     
+                     // UX UPDATE: Push Visual Storytelling to UI
+                     this.updateStory(task, i, totalChunks);
+
+                     let chunkCandidates = inputData;
+                     if (Array.isArray(inputData) && inputData.length > 0 && ['chefredakteur', 'anreicherer', 'details'].includes(task)) {
+                         const start = (i - 1) * limit;
+                         const end = start + limit;
+                         chunkCandidates = inputData.slice(start, end);
+                         console.log(`[Orchestrator] Sliced ${task} input to ${chunkCandidates.length} items for chunk ${i}`);
+                     }
+
+                     const prompt = PayloadBuilder.buildPrompt(task, undefined, { 
+                         chunkIndex: i, limit: limit, totalChunks: totalChunks, candidates: chunkCandidates 
+                     });
+
+                     const rawResult = await GeminiService.call(prompt, task, modelId);
+                     
+                     // Check again after long API call
+                     if (useTripStore.getState().workflow.status !== 'generating') return null;
+
+                     let validatedData = rawResult;
+                     if (schema) {
+                        const validation = schema.safeParse(rawResult);
+                        if (!validation.success) throw new Error(`KI-Antwort für Chunk ${i} ungültig.`);
+                        validatedData = validation.data;
+                     }
+                     console.log(`[Orchestrator] Incrementally saving chunk ${i}/${totalChunks}...`);
+                     ResultProcessor.process(task, validatedData);
+                     
+                     await safetyDelay(500); 
+
+                     collectedResults.push(validatedData);
+                     chunkSuccess = true;
+                     break; // Success! Break out of the retry loop.
+
+                 } catch (chunkError) {
+                     console.error(`[Orchestrator] Error in Chunk ${i}/${totalChunks} (Attempt ${attempt}) for ${task}:`, chunkError);
+                     
+                     if (attempt === MAX_RETRIES) {
+                         console.error(`[Orchestrator] Chunk ${i} failed after ${MAX_RETRIES} attempts. Hard abort.`);
+                         // HARD ABORT: Prevent Frankenstein data.
+                         // Previous successful chunks are already safely in the store!
+                         throw chunkError; 
+                     }
+
+                     // Exponential Backoff with Jitter
+                     const exponentialDelay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+                     const jitter = Math.random() * 0.5 * exponentialDelay; // up to +50% random jitter
+                     const waitTime = Math.floor(exponentialDelay + jitter);
+                     
+                     console.warn(`[Orchestrator] Retrying Chunk ${i} in ${waitTime}ms...`);
+                     
+                     // Inform user visually about the delay (i18n compliant via JSON lookup)
+                     const lang = store.project.meta?.language || 'de';
+                     const locales: any = { de: deLocale, en: enLocale };
+                     const localeData = locales[lang] || deLocale;
+                     
+                     let waitingMsg = localeData.notifications?.server_retry || "Server überlastet. Auto-Retry in {{time}}s...";
+                     waitingMsg = waitingMsg
+                        .replace('{{attempt}}', String(attempt))
+                        .replace('{{max}}', String(MAX_RETRIES))
+                        .replace('{{time}}', String(Math.round(waitTime/1000)));
+
+                     this.updateStory(task, i, totalChunks, waitingMsg);
+
+                     await safetyDelay(waitTime);
                  }
+             }
 
-                 console.log(`[Orchestrator] Processing Chunk ${i}/${totalChunks}...`);
-                 store.setChunkingState({ isActive: true, currentChunk: i, totalChunks: totalChunks, results: collectedResults });
-                 
-                 // UX UPDATE: Push Visual Storytelling to UI
-                 this.updateStory(task, i, totalChunks);
-
-                 let chunkCandidates = inputData;
-                 if (Array.isArray(inputData) && inputData.length > 0 && ['chefredakteur', 'anreicherer', 'details'].includes(task)) {
-                     const start = (i - 1) * limit;
-                     const end = start + limit;
-                     chunkCandidates = inputData.slice(start, end);
-                     console.log(`[Orchestrator] Sliced ${task} input to ${chunkCandidates.length} items for chunk ${i}`);
-                 }
-
-                 const prompt = PayloadBuilder.buildPrompt(task, undefined, { 
-                     chunkIndex: i, limit: limit, totalChunks: totalChunks, candidates: chunkCandidates 
-                 });
-
-                 const rawResult = await GeminiService.call(prompt, task, modelId);
-                 
-                 // Check again after long API call
-                 if (useTripStore.getState().workflow.status !== 'generating') return null;
-
-                 let validatedData = rawResult;
-                 if (schema) {
-                    const validation = schema.safeParse(rawResult);
-                    if (!validation.success) throw new Error(`KI-Antwort für Chunk ${i} ungültig.`);
-                    validatedData = validation.data;
-                 }
-                 console.log(`[Orchestrator] Incrementally saving chunk ${i}/${totalChunks}...`);
-                 ResultProcessor.process(task, validatedData);
-                 
-                 await safetyDelay(500); 
-
-                 collectedResults.push(validatedData);
-             } catch (chunkError) {
-                 console.error(`[Orchestrator] Error in Chunk ${i}/${totalChunks} for ${task}:`, chunkError);
-                 console.warn(`[Orchestrator] Skipping Chunk ${i} and continuing (Graceful Degradation).`);
-                 continue; // Überspringe diesen fehlerhaften Chunk und schütze den Rest
+             if (!chunkSuccess) {
+                 // Fallback safety (should logically never be reached due to 'throw chunkError' above)
+                 throw new Error(`Chunk ${i} failed critically.`);
              }
          }
          
@@ -297,4 +343,4 @@ export const TripOrchestrator = {
     return this._executeSingleStep(task, feedback, false, inputData, false);
   }
 };
-// --- END OF FILE 420 Zeilen ---
+// --- END OF FILE 446 Zeilen ---

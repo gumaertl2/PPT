@@ -831,6 +831,9 @@
     "missing_names_desc": "Um Kosten aufzuteilen, müssen wir wissen, wer dabei ist. Trage die Namen (mit Komma getrennt) hier ein:",
     "missing_names_placeholder": "z.B. Max, Lisa, Tom"
   },
+  "notifications": {
+    "server_retry": "KI-Server überlastet. Automatischer Versuch {{attempt}}/{{max}} in {{time}}s..."
+  },
   "map": {
     "layer": {
       "standard": "Standard (Straße)",
