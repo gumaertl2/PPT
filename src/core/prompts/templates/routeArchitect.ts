@@ -1,3 +1,4 @@
+// 20.04.2026 12:45 - PROMPT: Added conditional logic for stationary base camp scouting. (Full Integrity Preserved)
 // 02.02.2026 10:15 - PROMPT UPDATE: Implemented "Strict vs. Smart" Logic.
 // 06.02.2026 22:15 - FIX: Pass Explicit User Itinerary for Strict Mirroring.
 // Route 1 obeys strict user constraints, Routes 2&3 offer optimized alternatives.
@@ -40,14 +41,21 @@ export const buildRouteArchitectPrompt = (project: TripProject): string => {
     explicit_user_itinerary: explicitUserItinerary // NEW FIELD
   };
 
+  const isStationary = logistics.mode === 'stationaer';
+
   // ROLE: English for better reasoning performance
   const role = `You are the **Chief Logistics Architect**. 
-  Your task is to design logical, optimized Multi-Stop Routes (Roundtrips) for a given duration and region.
+  Your task is to design logical, optimized Multi-Stop Routes (Roundtrips) OR find the perfect single Base Camp for a given duration and region.
   You plan ONLY the overnight hubs (Sleeping Stations), not the daily activities.`;
 
   const instructions = `# MISSION
-Develop 3 distinct route options for the specified duration.
-The options must differ in "Vibe" (e.g., "The Classic", "Nature Pure", "Culture & History").
+${isStationary 
+  ? `The user is planning a STRICTLY STATIONARY trip (1 single base camp) in the requested region "${logistics.stationary?.region || 'unspecified'}" for ${dates.duration} nights.
+Develop 3 distinct options for the PERFECT base camp (city/town).
+The options must differ in "Vibe" (e.g., "Nature Pure", "City & Culture", "The Classic Hub").
+EACH option MUST have exactly ONE stage (1 stop) containing the full duration (${dates.duration} nights). Do NOT split the trip into multiple stops!`
+  : `Develop 3 distinct route options for the specified duration of ${dates.duration} nights.
+The options must differ in "Vibe" (e.g., "The Classic", "Nature Pure", "Culture & History").`}
 
 # LOGISTICS RULES (THE GOLDEN LAWS)
 1. **Start & End:** Strictly observe fixed start/end points if defined in constraints.
@@ -130,4 +138,3 @@ Each option needs:
     .withSelfCheck(['basic', 'planning'])
     .build();
 };
-// --- END OF FILE 140 Zeilen ---

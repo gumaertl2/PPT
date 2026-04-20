@@ -1,3 +1,4 @@
+// 20.04.2026 12:45 - FEATURE: Added Smart Basecamp Routing for stationary trips without destination. (Full Integrity Preserved)
 // 12.04.2026 12:00 - CRITICAL FIX: Replaced viewMode-based stepId with actual manualStepId from store to prevent validation lockouts.
 // 21.03.2026 23:00 - FIX: Prevented the app from jumping to SightsView when 'routeArchitect' was selected in WorkflowModal. It now correctly jumps to the RouteReviewView.
 // 21.03.2026 22:30 - FIX: Relaxed validation for TravelerStep (Step 2).
@@ -137,7 +138,13 @@ export const CockpitWizard = () => {
   const handleContinueFromAnalysis = async () => {
     try {
       const mode = project.userInputs.logistics.mode;
-      if (mode === 'mobil' || mode === 'roundtrip') {
+      
+      const isStationaryScoutingNeeded = 
+          mode === 'stationaer' && 
+          !project.userInputs.logistics.stationary.destination && 
+          !!project.userInputs.logistics.stationary.region;
+
+      if (mode === 'mobil' || mode === 'roundtrip' || isStationaryScoutingNeeded) {
           if (!project.analysis.routeArchitect) {
               await startSingleTask('routeArchitect');
           }
@@ -381,4 +388,3 @@ export const CockpitWizard = () => {
     </div>
   );
 };
-// --- END OF FILE 323 Zeilen ---

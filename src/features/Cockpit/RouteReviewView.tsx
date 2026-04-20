@@ -1,3 +1,4 @@
+// 20.04.2026 12:45 - UI: Added support for stationary base camp selection and storage. (Full Integrity Preserved)
 // 21.03.2026 23:15 - FIX: Removed unused 'Info' icon import to fix TypeScript error TS6133.
 // 21.03.2026 23:00 - UX: Added explicit "Regenerate" button to the empty state screen.
 // src/features/Cockpit/RouteReviewView.tsx
@@ -10,7 +11,8 @@ import {
   RefreshCw, 
   Check, 
   Lock, 
-  ExternalLink
+  ExternalLink,
+  Layout
 } from 'lucide-react'; 
 
 import { useTripStore } from '../../store/useTripStore';
@@ -29,6 +31,8 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
 
   const routeResult = project.analysis.routeArchitect;
   const proposals = routeResult?.routes || [];
+  
+  const isStationary = project.userInputs.logistics.mode === 'stationaer';
 
   const [selectedRouteIndex, setSelectedRouteIndex] = useState<number | null>(null);
   const [keptRouteIndices, setKeptRouteIndices] = useState<Set<number>>(new Set());
@@ -37,10 +41,16 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
   const [showItineraryModal, setShowItineraryModal] = useState(false);
 
   useEffect(() => {
-    const currentStops = project.userInputs.logistics.roundtrip?.stops;
-    if (!currentStops || currentStops.length === 0 || proposals.length === 0) return;
+    let currentLocations = "";
+    if (isStationary) {
+        currentLocations = project.userInputs.logistics.stationary?.destination || "";
+    } else {
+        const currentStops = project.userInputs.logistics.roundtrip?.stops;
+        if (!currentStops || currentStops.length === 0) return;
+        currentLocations = currentStops.map(s => s.location).sort().join('|');
+    }
 
-    const currentLocations = currentStops.map(s => s.location).sort().join('|');
+    if (!currentLocations || proposals.length === 0) return;
 
     const matchingIndex = proposals.findIndex(p => {
         if (!p.stages) return false;
@@ -51,7 +61,7 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
     if (matchingIndex !== -1) {
         setSelectedRouteIndex(matchingIndex);
     }
-  }, [project.userInputs.logistics.roundtrip, proposals]);
+  }, [project.userInputs.logistics, proposals, isStationary]);
 
   const handleToggleKeep = (index: number) => {
     const newSet = new Set(keptRouteIndices);
@@ -73,18 +83,27 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
     const selectedRoute = proposals[selectedRouteIndex];
     if (!selectedRoute || !selectedRoute.stages) return;
 
-    const stops = selectedRoute.stages.map((item, i) => ({
-      id: `stop-${Date.now()}-${i}`,
-      location: item.location_name,
-      duration: typeof item.nights === 'string' ? parseInt(item.nights) : item.nights,
-      hotel: undefined 
-    }));
+    if (isStationary) {
+        const baseLocation = selectedRoute.stages[0]?.location_name || '';
+        updateLogistics('stationary', {
+            ...project.userInputs.logistics.stationary,
+            destination: baseLocation
+        });
+        if (onNext) onNext();
+    } else {
+        const stops = selectedRoute.stages.map((item, i) => ({
+          id: `stop-${Date.now()}-${i}`,
+          location: item.location_name,
+          duration: typeof item.nights === 'string' ? parseInt(item.nights) : item.nights,
+          hotel: undefined 
+        }));
 
-    updateLogistics('roundtrip', {
-      stops: stops,
-    });
+        updateLogistics('roundtrip', {
+          stops: stops,
+        });
 
-    setShowItineraryModal(true);
+        setShowItineraryModal(true);
+    }
   };
 
   const handleItinerarySaved = () => {
@@ -141,14 +160,16 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
     );
   }
 
-  const startLoc = project.userInputs.logistics.roundtrip.startLocation || 
-                   project.userInputs.travelers.origin || 
-                   project.userInputs.logistics.roundtrip.region || 
-                   "";
+  const startLoc = isStationary 
+      ? project.userInputs.logistics.stationary.region || ""
+      : project.userInputs.logistics.roundtrip.startLocation || 
+        project.userInputs.travelers.origin || 
+        project.userInputs.logistics.roundtrip.region || 
+        "";
 
-  const countryContext = project.userInputs.logistics.roundtrip.region || 
-                         project.userInputs.logistics.target_countries?.[0] || 
-                         "";
+  const countryContext = isStationary
+      ? project.userInputs.logistics.stationary.region || project.userInputs.logistics.target_countries?.[0] || ""
+      : project.userInputs.logistics.roundtrip.region || project.userInputs.logistics.target_countries?.[0] || "";
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -158,7 +179,9 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
         <table className="w-full text-sm text-left">
           <thead className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
             <tr>
-              <th className="p-4 w-1/4 min-w-[150px]">{t('route.criteria', { defaultValue: 'Kriterium' })}</th>
+              <th className="p-4 w-1/4 min-w-[150px]">
+                  {isStationary ? t('route.basecamp', { defaultValue: 'Basis-Lager' }) : t('route.criteria', { defaultValue: 'Kriterium' })}
+              </th>
               {proposals.map((route, i) => (
                 <th key={i} className={`p-4 min-w-[200px] border-l border-slate-100 relative ${selectedRouteIndex === i ? 'bg-blue-50/50' : ''}`}>
                   <label className="flex items-start gap-3 cursor-pointer group">
@@ -344,7 +367,10 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
             `}
           >
             <span>✅</span>
-            {t('route.confirm_continue', { defaultValue: 'Route übernehmen & weiter' })}
+            {isStationary 
+                ? t('route.confirm_basecamp', { defaultValue: 'Basis-Lager übernehmen & weiter' }) 
+                : t('route.confirm_continue', { defaultValue: 'Route übernehmen & weiter' })
+            }
           </button>
         </div>
 
@@ -358,4 +384,3 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
     </div>
   );
 };
-// --- END OF FILE 350 Zeilen ---
