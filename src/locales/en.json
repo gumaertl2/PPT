@@ -546,7 +546,7 @@
     "error_data_corrupt": "Corrupted data at location:",
     "error_view_json": "View broken JSON"
   },
-  "route": {
+    "route": {
     "no_results": "No route proposals available.",
     "option": "Option",
     "distance": "Total Distance",
@@ -574,7 +574,12 @@
     "confirm_continue": "Adopt Route & Continue",
     "route_adopted": "Route adopted. Now choose the next steps.",
     "route_planning": "Route Planning",
-    "itinerary_stops": "Itinerary & Stays"
+    "itinerary_stops": "Itinerary & Stays",
+    "basecamp_title": "Choose your Base Camp",
+    "title": "Choose your Route",
+    "basecamp": "Base Camp",
+    "confirm_basecamp": "Confirm Base Camp & Continue",
+    "generating_options": "Generating options..."
   },
   "diary": {
     "title": "Live Travel Diary",

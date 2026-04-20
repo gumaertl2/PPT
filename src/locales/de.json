@@ -547,7 +547,7 @@
     "error_data_corrupt": "Datenfehler beim Ort:",
     "error_view_json": "Defektes JSON ansehen"
   },
-  "route": {
+    "route": {
     "no_results": "Keine Routenvorschläge verfügbar.",
     "option": "Option",
     "distance": "Gesamtstrecke",
@@ -575,7 +575,12 @@
     "confirm_continue": "Route übernehmen & weiter",
     "route_adopted": "Route übernommen. Wählen Sie nun die nächsten Schritte.",
     "route_planning": "Routen-Planung",
-    "itinerary_stops": "Reiseverlauf & Aufenthalte"
+    "itinerary_stops": "Reiseverlauf & Aufenthalte",
+    "basecamp_title": "Wähle dein Basis-Lager",
+    "title": "Wähle deine Route",
+    "basecamp": "Basis-Lager",
+    "confirm_basecamp": "Basis-Lager übernehmen & weiter",
+    "generating_options": "Generiere Optionen..."
   },
   "diary": {
     "title": "Live-Reisetagebuch",

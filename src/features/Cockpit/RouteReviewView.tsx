@@ -1,3 +1,4 @@
+// 20.04.2026 12:55 - FIX: Removed unused 'Layout' import to pass strict TS build.
 // 20.04.2026 12:45 - UI: Added support for stationary base camp selection and storage. (Full Integrity Preserved)
 // 21.03.2026 23:15 - FIX: Removed unused 'Info' icon import to fix TypeScript error TS6133.
 // 21.03.2026 23:00 - UX: Added explicit "Regenerate" button to the empty state screen.
@@ -11,8 +12,7 @@ import {
   RefreshCw, 
   Check, 
   Lock, 
-  ExternalLink,
-  Layout
+  ExternalLink 
 } from 'lucide-react'; 
 
 import { useTripStore } from '../../store/useTripStore';
