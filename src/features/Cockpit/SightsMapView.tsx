@@ -1,3 +1,4 @@
+// 22.04.2026 14:15 - UX-FIX: Resolved TS2339 for wheelPxPerZoom using explicit 'any' cast on map.options.
 // 22.04.2026 14:10 - UX-FIX: DynamicZoomConfig now uses 0.5 for normal planning (better UX) and 0.1 for precision offline mode.
 // 22.04.2026 14:00 - UX-FIX: Implemented DynamicZoomConfig.
 // 05.04.2026 20:00 - FIX: Resolved Vercel TS2322 build error by bypassing missing 'wheelPxPerZoom' type definition in react-leaflet using a spread cast.
@@ -31,12 +32,12 @@ const DynamicZoomConfig = () => {
             // Präzisions-Modus (0.1)
             map.options.zoomSnap = 0.1;
             map.options.zoomDelta = 0.1;
-            map.options.wheelPxPerZoom = 120;
+            (map.options as any).wheelPxPerZoom = 120;
         } else {
             // Flüssiger Planungs-Modus (0.5)
             map.options.zoomSnap = 0.5;
             map.options.zoomDelta = 0.5;
-            map.options.wheelPxPerZoom = 60; 
+            (map.options as any).wheelPxPerZoom = 60; 
         }
     }, [map, uiState.isMapManagerOpen]);
 
@@ -164,7 +165,6 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
             </div>
         )}
 
-        {/* FIX: Removed explicit zoomSnap, zoomDelta, and wheelPxPerZoom from properties. They are handled purely by DynamicZoomConfig now. */}
         <MapContainer 
             center={defaultCenter} 
             zoom={10} 
