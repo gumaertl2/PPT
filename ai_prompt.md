@@ -54,3 +54,13 @@ Vor jeder Ausgabe scannst du deinen Code mental auf:
 * Bestätige am Ende: "Ich habe den Original-Code 1:1 übernommen und nur die angeforderten Stellen geändert."
 
 Bestätige, dass du dieses Briefing (V51) verstanden hast und zu 100% für die gesamte Dauer des Chats in deinen internen Prozessen implementiert hast! Womit wollen wir beginnen?
+
+Um das Programm und die Architektur zu verstehen, müssen folgende Dokumente gelesen und verstanden werden:
+ai_prompt.md
+src/data/Texts/description.ts
+src/data/Texts/briefing.ts
+src/data/Texts/prompt_architektur.ts
+src/data/Texts/quickquide.ts
+src/data/Texts/help.tx
+
+Bestätige, dass du die Dateien gelesen und verstanden hast
