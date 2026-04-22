@@ -1,9 +1,10 @@
+// 22.04.2026 14:00 - UX-FIX: Implemented DynamicZoomConfig. Map now uses fast, fluid zoom (1.0) for normal planning and switches to precision zoom (0.1) ONLY when the Offline Map Manager is open.
 // 05.04.2026 20:00 - FIX: Resolved Vercel TS2322 build error by bypassing missing 'wheelPxPerZoom' type definition in react-leaflet using a spread cast.
 // 05.04.2026 19:50 - FIX: Restored zoomDelta={0.1} and wheelPxPerZoom={120} for smooth zooming.
 // src/features/Cockpit/SightsMapView.tsx
 
 import React, { useEffect, useRef, useState } from 'react';
-import { MapContainer, Marker, Tooltip, Popup } from 'react-leaflet';
+import { MapContainer, Marker, Tooltip, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useTripStore } from '../../store/useTripStore';
@@ -18,6 +19,28 @@ import { ZoomListener, PrintMapFitter } from './Map/MapUtils';
 import { MapPrintPreviewModal } from './Map/MapPrintPreviewModal';
 import { MapMarkerPopup } from './Map/MapMarkerPopup';
 import { useMapData } from './Map/useMapData';
+
+// --- NEU: Dynamische Zoom-Gangschaltung ---
+const DynamicZoomConfig = () => {
+    const map = useMap();
+    const { uiState } = useTripStore();
+    
+    useEffect(() => {
+        if (uiState.isMapManagerOpen) {
+            // Präzisions-Modus für den Offline-Karten Ausschnitt
+            map.options.zoomSnap = 0.1;
+            map.options.zoomDelta = 0.1;
+            map.options.wheelPxPerZoom = 120;
+        } else {
+            // Flüssiger Standard-Modus für schnelles Navigieren
+            map.options.zoomSnap = 1;
+            map.options.zoomDelta = 1;
+            map.options.wheelPxPerZoom = 60; 
+        }
+    }, [map, uiState.isMapManagerOpen]);
+
+    return null;
+};
 
 export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any) => void, forceDiaryMode?: boolean, isPrintMode?: boolean }> = ({ places, setViewMode, forceDiaryMode, isPrintMode }) => {
   const { t, i18n } = useTranslation();
@@ -143,9 +166,6 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
         <MapContainer 
             center={defaultCenter} 
             zoom={10} 
-            zoomSnap={0.1} 
-            zoomDelta={0.1} 
-            {...({ wheelPxPerZoom: 120 } as any)}
             style={{ height: "100%", width: "100%" }} 
             scrollWheelZoom={!isPrintMode} 
             zoomControl={!isPrintMode} 
@@ -156,6 +176,7 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
             fadeAnimation={!isPrintMode} 
             markerZoomAnimation={!isPrintMode}
         >
+          <DynamicZoomConfig />
           <ZoomListener onZoomChange={setCurrentZoom} />
           <PrintMapFitter places={validPlacesIncludedHotels} isPrintMode={isPrintMode} />
           <MapResizer isFullscreen={isFullscreen} />
@@ -220,4 +241,4 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
     </>
   );
 };
-// --- END OF FILE 237 Zeilen ---
+// --- END OF FILE 256 Zeilen ---

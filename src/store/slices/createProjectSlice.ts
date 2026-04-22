@@ -1,3 +1,4 @@
+// 21.04.2026 17:00 - FIX: Enforced 'resetUIFilter' trigger in 'loadProject' and 'resetProject' to prevent cross-file UI ghosting.
 // 19.03.2026 17:45 - FEAT: Added deep-sanitizer to 'loadProject' to ensure old JSON files are dynamically upgraded to the latest data model without crashing.
 // 19.03.2026 13:00 - FEAT: Implemented native File System Access API (showSaveFilePicker).
 // src/store/slices/createProjectSlice.ts
@@ -138,7 +139,6 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
       }
       
       // --- SANITIZER (MIGRATION LAYER FOR JSON FILES) ---
-      // Ensures old JSON files don't crash the app by filling in missing structures
       if (!data.data) data.data = {};
       if (!data.data.places) data.data.places = {};
       if (!data.data.expenses) data.data.expenses = {};
@@ -155,6 +155,11 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
       }
       // --------------------------------------------------
       
+      // FIX: Ensure UI is completely clean when opening a different file
+      if (get().resetUIFilter) {
+          get().resetUIFilter();
+      }
+
       set((state: any) => ({
         ...state,
         project: {
@@ -271,9 +276,13 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
   },
 
   resetProject: () => {
-    const { setUIState } = get();
+    const { setUIState, resetUIFilter } = get();
     if (setUIState) {
         setUIState({ currentFileName: null });
+    }
+    // FIX: Ensure UI is completely clean when making a new project
+    if (resetUIFilter) {
+        resetUIFilter();
     }
     set({ project: createInitialProject(), view: 'welcome', blockingError: null });
   },
@@ -372,4 +381,4 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     };
   }),
 });
-// --- END OF FILE 344 Zeilen ---
+// --- END OF FILE 354 Zeilen ---

@@ -1,3 +1,4 @@
+// 21.04.2026 17:00 - FIX: Expanded 'resetUIFilter' to clear ALL view-dependent filters (category, prio, sorting) to prevent "empty view" ghosting on project change.
 // 16.03.2026 19:00 - FEAT: Added 'visitedFilter' to UIState for a dedicated Visited/Unvisited toggle.
 // 27.02.2026 19:00 - FEAT: Added Intercept States (pendingDayPlan, plannerConflicts) for Human-in-the-Loop DayPlanner.
 // src/store/slices/createUISlice.ts
@@ -38,7 +39,7 @@ export interface UIState {
   mapMode: 'live' | 'offline'; 
   isMapManagerOpen: boolean; 
   mapLayer: 'standard' | 'topo' | 'cycle' | 'satellite';
-  visitedFilter: 'all' | 'visited' | 'unvisited'; // NEU: Unabhängiger Schalter für "Besucht"
+  visitedFilter: 'all' | 'visited' | 'unvisited'; 
 }
 
 export type AppView = 'welcome' | 'wizard' | 'results' | 'analysis_review';
@@ -100,7 +101,7 @@ const initialUIState: UIState = {
   mapMode: 'live',
   isMapManagerOpen: false,
   mapLayer: 'standard',
-  visitedFilter: 'all' // NEU: Initialer Zustand ist "Alle anzeigen"
+  visitedFilter: 'all' 
 };
 
 export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => ({
@@ -129,11 +130,16 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
     uiState: { ...state.uiState, ...updates }
   })),
 
+  // FIX: Reset EVERY view-relevant filter to guarantee a clean slate
   resetUIFilter: () => set((state: any) => ({
     uiState: {
       ...state.uiState,
       searchTerm: '',
       categoryFilter: [],
+      selectedCategory: 'all',
+      selectedPrio: null,
+      sortMode: 'category',
+      showPlanningMode: false,
       selectedPlaceId: null,
       visitedFilter: 'all'
     }
@@ -236,4 +242,4 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
       }
   })
 });
-// --- END OF FILE 261 Zeilen ---
+// --- END OF FILE 264 Zeilen ---
