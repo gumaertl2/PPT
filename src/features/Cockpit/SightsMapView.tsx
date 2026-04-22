@@ -1,4 +1,5 @@
-// 22.04.2026 14:00 - UX-FIX: Implemented DynamicZoomConfig. Map now uses fast, fluid zoom (1.0) for normal planning and switches to precision zoom (0.1) ONLY when the Offline Map Manager is open.
+// 22.04.2026 14:10 - UX-FIX: DynamicZoomConfig now uses 0.5 for normal planning (better UX) and 0.1 for precision offline mode.
+// 22.04.2026 14:00 - UX-FIX: Implemented DynamicZoomConfig.
 // 05.04.2026 20:00 - FIX: Resolved Vercel TS2322 build error by bypassing missing 'wheelPxPerZoom' type definition in react-leaflet using a spread cast.
 // 05.04.2026 19:50 - FIX: Restored zoomDelta={0.1} and wheelPxPerZoom={120} for smooth zooming.
 // src/features/Cockpit/SightsMapView.tsx
@@ -20,21 +21,21 @@ import { MapPrintPreviewModal } from './Map/MapPrintPreviewModal';
 import { MapMarkerPopup } from './Map/MapMarkerPopup';
 import { useMapData } from './Map/useMapData';
 
-// --- NEU: Dynamische Zoom-Gangschaltung ---
+// --- Dynamische Zoom-Gangschaltung ---
 const DynamicZoomConfig = () => {
     const map = useMap();
     const { uiState } = useTripStore();
     
     useEffect(() => {
         if (uiState.isMapManagerOpen) {
-            // Präzisions-Modus für den Offline-Karten Ausschnitt
+            // Präzisions-Modus (0.1)
             map.options.zoomSnap = 0.1;
             map.options.zoomDelta = 0.1;
             map.options.wheelPxPerZoom = 120;
         } else {
-            // Flüssiger Standard-Modus für schnelles Navigieren
-            map.options.zoomSnap = 1;
-            map.options.zoomDelta = 1;
+            // Flüssiger Planungs-Modus (0.5)
+            map.options.zoomSnap = 0.5;
+            map.options.zoomDelta = 0.5;
             map.options.wheelPxPerZoom = 60; 
         }
     }, [map, uiState.isMapManagerOpen]);
@@ -163,6 +164,7 @@ export const SightsMapView: React.FC<{ places: Place[], setViewMode?: (mode: any
             </div>
         )}
 
+        {/* FIX: Removed explicit zoomSnap, zoomDelta, and wheelPxPerZoom from properties. They are handled purely by DynamicZoomConfig now. */}
         <MapContainer 
             center={defaultCenter} 
             zoom={10} 
