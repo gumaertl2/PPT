@@ -75,8 +75,6 @@
     "smartLimit": "AI Recommendation",
     "rerun": "Repeat Briefing with New Constraints",
     "howToProceed": "How would you like to proceed?",
-    "btnRoutePlanner": "Continue to Route Planner",
-    "btnAiWorkflows": "Continue to Travel Guide",
     "confirmRerun": "A trip briefing already exists.\n\nShould a new one be created?\n(OK = Create New, Cancel = Show Existing)",
     "btnRoutePlanner": "Continue to Route Planner",
     "btnAiWorkflows": "Continue to Travel Guide"
@@ -548,7 +546,7 @@
     "error_data_corrupt": "Corrupted data at location:",
     "error_view_json": "View broken JSON"
   },
-    "route": {
+  "route": {
     "no_results": "No route proposals available.",
     "option": "Option",
     "distance": "Total Distance",
@@ -581,10 +579,7 @@
     "title": "Choose your Route",
     "basecamp": "Base Camp",
     "confirm_basecamp": "Confirm Base Camp & Continue",
-    "generating_options": "Generating options...",
-    "basecamp_title": "Choose your Base Camp",
-    "basecamp": "Base Camp",
-    "confirm_basecamp": "Confirm Base Camp & Continue"
+    "generating_options": "Generating options..."
   },
   "diary": {
     "title": "Live Travel Diary",
@@ -841,7 +836,10 @@
     "missing_names_placeholder": "e.g. Max, Lisa, Tom"
   },
   "notifications": {
-    "server_retry": "AI Server busy. Auto-retry {{attempt}}/{{max}} in {{time}}s..."
+    "server_retry": "AI is taking a quick breath ☕. Resuming in {{time}}s (Attempt {{attempt}}/{{max}})..."
+  },
+  "errors": {
+    "429": "The AI needs a quick breather ☕. We are processing a lot of data for you right now. Please wait about a minute and then click 'Retry'."
   },
   "map": {
     "layer": {

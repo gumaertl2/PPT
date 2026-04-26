@@ -74,8 +74,6 @@
     "smartLimit": "KI-Empfehlung",
     "rerun": "Briefing mit neuen Vorgaben wiederholen",
     "howToProceed": "Wie möchten Sie fortfahren?",
-    "btnRoutePlanner": "Weiter zum Routenplaner",
-    "btnAiWorkflows": "Weiter zum Reiseführer",
     "confirmRerun": "Es gibt bereits ein Reisebriefing.\n\nSoll es neu erstellt werden?\n(OK = Neu erstellen, Abbrechen = Bestehende anzeigen)",
     "btnRoutePlanner": "Weiter zum Routenplaner",
     "btnAiWorkflows": "Weiter zum Reiseführer"
@@ -549,7 +547,7 @@
     "error_data_corrupt": "Datenfehler beim Ort:",
     "error_view_json": "Defektes JSON ansehen"
   },
-    "route": {
+  "route": {
     "no_results": "Keine Routenvorschläge verfügbar.",
     "option": "Option",
     "distance": "Gesamtstrecke",
@@ -582,9 +580,7 @@
     "title": "Wähle deine Route",
     "basecamp": "Basis-Lager",
     "confirm_basecamp": "Basis-Lager übernehmen & weiter",
-    "generating_options": "Generiere Optionen...",
-    "confirm_basecamp": "Basis-Lager übernehmen & weiter",
-    "confirm_continue": "Route übernehmen & weiter"
+    "generating_options": "Generiere Optionen..."
   },
   "diary": {
     "title": "Live-Reisetagebuch",
@@ -841,7 +837,10 @@
     "missing_names_placeholder": "z.B. Max, Lisa, Tom"
   },
   "notifications": {
-    "server_retry": "KI-Server überlastet. Automatischer Versuch {{attempt}}/{{max}} in {{time}}s..."
+    "server_retry": "Die KI holt kurz Luft ☕. Weiter in {{time}}s (Versuch {{attempt}}/{{max}})..."
+  },
+  "errors": {
+    "429": "Die KI braucht eine kurze Verschnaufpause ☕. Wir verarbeiten gerade sehr viele Daten für dich. Bitte warte etwa eine Minute und klicke dann nochmal auf 'Wiederholen'."
   },
   "map": {
     "layer": {

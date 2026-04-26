@@ -1,3 +1,4 @@
+// 26.04.2026 13:50 - FIX: Added Exponential Backoff & Retry-Loop to '_executeSingleStep' to prevent 429 API Rate Limit crashes.
 // 12.04.2026 15:55 - FIX/I18N: Replaced hardcoded strings with proper JSON locale imports. Preserved full 441 lines.
 // 12.04.2026 15:15 - ARCHITECTURE: Implemented Gatekeeper with Exponential Backoff (Smart Resume) to prevent Frankenstein data.
 // 23.02.2026 13:05 - MERGE: Combined UX Storytelling with Kill-Switch Protection.
@@ -209,51 +210,88 @@ export const TripOrchestrator = {
          this.updateStory(task, 1, 1);
      }
 
+     const MAX_RETRIES = 3;
+     const BASE_DELAY_MS = 3000;
+
      try {
-         // --- KILL-SWITCH CHECK ---
-         if (useTripStore.getState().workflow.status !== 'generating') return null;
+         for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+             try {
+                 // --- KILL-SWITCH CHECK ---
+                 if (useTripStore.getState().workflow.status !== 'generating') return null;
 
-         let processedInput = inputData;
-         if (task === 'foodScout' && Array.isArray(inputData)) {
-             processedInput = inputData.map(item => typeof item === 'string' ? cleanTownName(item) : item);
-         }
+                 let processedInput = inputData;
+                 if (task === 'foodScout' && Array.isArray(inputData)) {
+                     processedInput = inputData.map(item => typeof item === 'string' ? cleanTownName(item) : item);
+                 }
 
-         const payloadOptions: any = { candidates: processedInput, ...additionalContext };
+                 const payloadOptions: any = { candidates: processedInput, ...additionalContext };
 
-         const prompt = PayloadBuilder.buildPrompt(task, feedback, payloadOptions);
-         const modelId = ModelSelector.resolve(task);
-         
-         if (store.aiSettings.debug) console.log(`[Orchestrator] Single Step: ${task} -> Model: ${modelId === CONFIG.api.models.pro ? 'PRO' : 'FLASH'} ${skipSave ? '(NO SAVE)' : ''}`);
+                 const prompt = PayloadBuilder.buildPrompt(task, feedback, payloadOptions);
+                 const modelId = ModelSelector.resolve(task);
+                 
+                 if (store.aiSettings.debug) console.log(`[Orchestrator] Single Step: ${task} -> Model: ${modelId === CONFIG.api.models.pro ? 'PRO' : 'FLASH'} ${skipSave ? '(NO SAVE)' : ''} (Attempt ${attempt}/${MAX_RETRIES})`);
 
-         const rawResult = await GeminiService.call(prompt, task, modelId, undefined, undefined, enableSearch);
-         
-         // Check again after API call
-         if (useTripStore.getState().workflow.status !== 'generating') return null;
+                 const rawResult = await GeminiService.call(prompt, task, modelId, undefined, undefined, enableSearch);
+                 
+                 // Check again after API call
+                 if (useTripStore.getState().workflow.status !== 'generating') return null;
 
-         const schema = SCHEMA_MAP[task];
-         let validatedData = rawResult;
-         if (schema) {
-            const validation = schema.safeParse(rawResult);
-            if (!validation.success) {
-               console.warn(`[Orchestrator] Validation Failed for ${task}.`, JSON.stringify(rawResult, null, 2));
-               console.error(`[Orchestrator] Schema Errors:`, validation.error);
-               throw new Error(`KI-Antwort entspricht nicht dem V40-Schema für ${task}.`);
-            }
-            validatedData = validation.data;
-         }
-         
-         if (!skipSave) {
-             ResultProcessor.process(task, validatedData);
-             if (task === 'basis') {
-                 console.log("[Orchestrator] Waiting for store consistency after Basis...");
-                 await safetyDelay(2000);
+                 const schema = SCHEMA_MAP[task];
+                 let validatedData = rawResult;
+                 if (schema) {
+                    const validation = schema.safeParse(rawResult);
+                    if (!validation.success) {
+                       console.warn(`[Orchestrator] Validation Failed for ${task}.`, JSON.stringify(rawResult, null, 2));
+                       console.error(`[Orchestrator] Schema Errors:`, validation.error);
+                       throw new Error(`KI-Antwort entspricht nicht dem V40-Schema für ${task}.`);
+                    }
+                    validatedData = validation.data;
+                 }
+                 
+                 if (!skipSave) {
+                     ResultProcessor.process(task, validatedData);
+                     if (task === 'basis') {
+                         console.log("[Orchestrator] Waiting for store consistency after Basis...");
+                         await safetyDelay(2000);
+                     }
+                 }
+                 console.log(`[FLIGHT RECORDER] _executeSingleStep SUCCESS: ${task}`);
+                 return validatedData;
+
+             } catch (stepError) {
+                 console.error(`[FLIGHT RECORDER] _executeSingleStep ERROR in Attempt ${attempt} for ${task}:`, stepError);
+                 
+                 if (attempt === MAX_RETRIES) {
+                     console.error(`[Orchestrator] Single Step ${task} failed after ${MAX_RETRIES} attempts. Hard abort.`);
+                     throw stepError;
+                 }
+
+                 // Exponential Backoff with Jitter
+                 const exponentialDelay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+                 const jitter = Math.random() * 0.5 * exponentialDelay; // up to +50% random jitter
+                 const waitTime = Math.floor(exponentialDelay + jitter);
+                 
+                 console.warn(`[Orchestrator] Retrying Single Step ${task} in ${waitTime}ms...`);
+                 
+                 // Inform user visually about the delay (i18n compliant via JSON lookup)
+                 const lang = store.project.meta?.language || 'de';
+                 const locales: any = { de: deLocale, en: enLocale };
+                 const localeData = locales[lang] || deLocale;
+                 
+                 let waitingMsg = localeData.notifications?.server_retry || "Server überlastet. Auto-Retry in {{time}}s...";
+                 waitingMsg = waitingMsg
+                    .replace('{{attempt}}', String(attempt))
+                    .replace('{{max}}', String(MAX_RETRIES))
+                    .replace('{{time}}', String(Math.round(waitTime/1000)));
+
+                 this.updateStory(task, 1, 1, waitingMsg);
+
+                 await safetyDelay(waitTime);
              }
          }
-         console.log(`[FLIGHT RECORDER] _executeSingleStep SUCCESS: ${task}`);
-         return validatedData;
 
      } catch (error) {
-         console.error(`[FLIGHT RECORDER] _executeSingleStep ERROR: ${task}`, error);
+         console.error(`[FLIGHT RECORDER] _executeSingleStep FATAL ERROR: ${task}`, error);
          throw error;
      } finally {
          store.resetChunking(); // Ensure loading stops
@@ -343,4 +381,4 @@ export const TripOrchestrator = {
     return this._executeSingleStep(task, feedback, false, inputData, false);
   }
 };
-// --- END OF FILE 446 Zeilen ---
+// --- END OF FILE 485 Zeilen ---
