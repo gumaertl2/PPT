@@ -1,0 +1,316 @@
+// 07.04.2026 09:30 - FEAT: Added 'enableCountryHarvester' for Developer Mode control.
+// 23.02.2026 17:05 - FEAT: Added 'isFreeTierKey' to AiSettings for Traffic Shaping & Flash-Thinking routing.
+// 17.02.2026 10:55 - FEAT: Added Global Workflow State (Persistence) to fix View-Switch loss.
+// 14.01.2026 15:45 - FIX: Re-applying Phase 1 (Model Overrides) strictly on verified upload.
+// 16.01.2026 05:50 - FINAL FIX: Consolidated TaskKey import from core/types to resolve TS2459.
+// 16.01.2026 17:30 - FEAT: Added Chunking Infrastructure (chunkLimits & chunkingState) for V30 migration.
+// 16.01.2026 18:45 - FEAT: Added granular chunkOverrides per Task (Phase 1.2).
+// 16.01.2026 20:05 - REFACTOR: Removed local types. Now importing SSOT types from core/types.
+
+import type { StateCreator } from 'zustand';
+import { v4 as uuidv4 } from 'uuid';
+import { SecurityService } from '../../services/security';
+// FIX: Import consolidated types (SSOT)
+import type { 
+  FlightRecorderEntry, 
+  TaskKey, 
+  AiSettings, 
+  ChunkingState,
+  WorkflowStepId 
+} from '../../core/types';
+// NEW: Import types for model config
+import type { ModelType } from '../../data/config'; 
+
+// NEU: Definition des Workflow States
+export interface WorkflowState {
+    status: 'idle' | 'generating' | 'paused' | 'success' | 'error' | 'waiting_for_user';
+    queue: WorkflowStepId[];
+    currentStep: WorkflowStepId | null;
+    error: string | null;
+}
+
+export interface SystemSlice {
+  // API & Security
+  apiKey: string | null;
+  setApiKey: (key: string | null) => void;
+
+  // AI Settings
+  aiSettings: AiSettings;
+  setAiSettings: (settings: Partial<AiSettings>) => void;
+  
+  // Model Overrides
+  setTaskModel: (task: TaskKey, model: ModelType) => void;
+  resetModelOverrides: () => void;
+  
+  // Chunking Limits (Global)
+  setChunkLimit: (mode: 'auto' | 'manual', limit: number) => void;
+
+  // Chunking Limits (Granular / Task-Specific)
+  setTaskChunkLimit: (task: TaskKey, mode: 'auto' | 'manual', limit: number) => void;
+  resetChunkOverrides: () => void;
+
+  // Chunking State Actions
+  chunkingState: ChunkingState;
+  setChunkingState: (state: Partial<ChunkingState>) => void;
+  resetChunking: () => void;
+
+  // Workflow Persistence (NEU)
+  workflow: WorkflowState;
+  setWorkflowState: (state: Partial<WorkflowState>) => void;
+  resetWorkflow: () => void;
+
+  // Developer Tools
+  enableCountryHarvester: boolean;
+  setCountryHarvester: (enable: boolean) => void;
+
+  // Stats
+  usageStats: {
+    tokens: number;      // Legacy Support
+    calls: number;       // Legacy Support
+    totalTokens: number; // New Standard
+    totalCalls: number;  // New Standard
+    byModel: Record<string, { tokens: number; calls: number }>;
+  };
+  // FIX: Explicitly defined signature accepting 1 or 2 arguments
+  addUsageStats: (tokens: number, model?: string) => void;
+
+  // Flugschreiber (Logging)
+  flightRecorderLogs: FlightRecorderEntry[];
+  flightRecorder: FlightRecorderEntry[]; // Alias für UI-Kompatibilität
+  
+  logEvent: (entry: Omit<FlightRecorderEntry, 'id' | 'timestamp'>) => void;
+  addLogEntry: (entry: FlightRecorderEntry) => void; // Alias
+  clearFlightRecorder: () => void;
+  downloadFlightRecorder: () => void;
+  exportLogs: () => void; // Alias
+}
+
+const initialAiSettings: AiSettings = {
+  strategy: 'optimal',
+  debug: false,
+  isFreeTierKey: true, // NEW: Defaults to true for safety
+  modelOverrides: {}, 
+  chunkLimits: {
+      auto: 10,     // Konservativer Startwert
+      manual: 20    // Komfortabler Startwert
+  },
+  chunkOverrides: {} // Init empty
+};
+
+const initialChunkingState: ChunkingState = {
+    isActive: false,
+    currentChunk: 0,
+    totalChunks: 0,
+    dataChunks: [],
+    results: []
+};
+
+// NEU: Initial Workflow State
+const initialWorkflowState: WorkflowState = {
+    status: 'idle',
+    queue: [],
+    currentStep: null,
+    error: null
+};
+
+export const createSystemSlice: StateCreator<any, [], [], SystemSlice> = (set, get) => ({
+  // --- API KEY ---
+  apiKey: SecurityService.loadApiKey(),
+  
+  setApiKey: (key) => {
+    if (key) SecurityService.saveApiKey(key);
+    else SecurityService.clearApiKey();
+    set({ apiKey: key });
+  },
+
+  // --- AI SETTINGS ---
+  aiSettings: initialAiSettings,
+  
+  setAiSettings: (settings) => set((state: any) => ({
+    aiSettings: { ...state.aiSettings, ...settings }
+  })),
+
+  // NEW: Setzt einen spezifischen Task auf ein Modell
+  setTaskModel: (task, model) => set((state: any) => ({
+    aiSettings: {
+        ...state.aiSettings,
+        modelOverrides: {
+            ...state.aiSettings.modelOverrides,
+            [task]: model
+        }
+    }
+  })),
+
+  // NEW: Reset aller Model Overrides
+  resetModelOverrides: () => set((state: any) => ({
+      aiSettings: { ...state.aiSettings, modelOverrides: {} }
+  })),
+
+  // NEU: Setzt das globale Chunk-Limit
+  setChunkLimit: (mode, limit) => set((state: any) => ({
+      aiSettings: {
+          ...state.aiSettings,
+          chunkLimits: {
+              ...state.aiSettings.chunkLimits,
+              [mode]: limit
+          }
+      }
+  })),
+
+  // NEU: Setzt ein spezifisches Chunk-Limit für einen Task
+  setTaskChunkLimit: (task, mode, limit) => set((state: any) => {
+      const currentOverrides = state.aiSettings.chunkOverrides || {};
+      const taskOverrides = currentOverrides[task] || {};
+
+      return {
+          aiSettings: {
+              ...state.aiSettings,
+              chunkOverrides: {
+                  ...currentOverrides,
+                  [task]: {
+                      ...taskOverrides,
+                      [mode]: limit
+                  }
+              }
+          }
+      };
+  }),
+
+  // NEU: Reset aller Chunk Overrides
+  resetChunkOverrides: () => set((state: any) => ({
+      aiSettings: { ...state.aiSettings, chunkOverrides: {} }
+  })),
+
+  // --- CHUNKING STATE ---
+  chunkingState: initialChunkingState,
+
+  setChunkingState: (newState) => set((state: any) => ({
+      chunkingState: { ...state.chunkingState, ...newState }
+  })),
+
+  resetChunking: () => set({ chunkingState: initialChunkingState }),
+
+  // --- WORKFLOW STATE (NEU) ---
+  workflow: initialWorkflowState,
+
+  setWorkflowState: (newState) => set((state: any) => ({
+      workflow: { ...state.workflow, ...newState }
+  })),
+
+  resetWorkflow: () => set({ workflow: initialWorkflowState }),
+
+  // --- DEVELOPER TOOLS ---
+  enableCountryHarvester: false,
+  setCountryHarvester: (enable) => set({ enableCountryHarvester: enable }),
+
+  // --- STATS ---
+  usageStats: { 
+    tokens: 0, 
+    calls: 0, 
+    totalTokens: 0, 
+    totalCalls: 0, 
+    byModel: {} 
+  },
+
+  addUsageStats: (tokens, model) => set((state: any) => {
+    const newStats = { ...state.usageStats };
+    
+    // Update both legacy and new counters
+    newStats.tokens += tokens;
+    newStats.calls += 1;
+    newStats.totalTokens += tokens;
+    newStats.totalCalls += 1;
+
+    if (model) {
+        const currentModelStats = newStats.byModel[model] || { tokens: 0, calls: 0 };
+        newStats.byModel = {
+            ...newStats.byModel,
+            [model]: {
+                tokens: currentModelStats.tokens + tokens,
+                calls: currentModelStats.calls + 1
+            }
+        };
+    }
+
+    return { usageStats: newStats };
+  }),
+
+  // --- FLUGSCHREIBER ---
+  flightRecorderLogs: [],
+  flightRecorder: [], // Init empty
+
+  logEvent: (entry) => set((state: any) => {
+    const fullEntry = { ...entry, id: uuidv4(), timestamp: new Date().toISOString() };
+    return {
+       flightRecorderLogs: [...state.flightRecorderLogs, fullEntry],
+       flightRecorder: [...state.flightRecorder, fullEntry] // Sync Alias
+    };
+  }),
+
+  addLogEntry: (entry) => set((state: any) => ({
+      flightRecorderLogs: [...state.flightRecorderLogs, entry],
+      flightRecorder: [...state.flightRecorder, entry]
+  })),
+
+  clearFlightRecorder: () => set({ flightRecorderLogs: [], flightRecorder: [] }),
+
+  downloadFlightRecorder: () => {
+    const state = get();
+    // Nutze Logs oder Alias, falls Logs leer (Sicherheitsnetz)
+    const logs = state.flightRecorderLogs.length > 0 ? state.flightRecorderLogs : state.flightRecorder;
+    
+    if (logs.length === 0) {
+      if (get().addNotification) {
+         get().addNotification({ type: 'info', message: 'Flugschreiber ist leer.' });
+      }
+      return;
+    }
+
+    // Namensgenerierung basierend auf Projektdaten (Zugriff via get().project)
+    let baseName = "Papatours_Reise";
+    if (state.project && state.project.userInputs) {
+        const { logistics } = state.project.userInputs;
+        if (logistics.mode === 'stationaer') {
+            const dest = logistics.stationary.destination?.trim();
+            const reg = logistics.stationary.region?.trim();
+            if (dest && reg) baseName = `${dest}_${reg}`;
+            else if (dest) baseName = dest;
+            else if (reg) baseName = reg;
+        } else {
+            const reg = logistics.roundtrip.region?.trim();
+            if (reg) baseName = `Rundreise_${reg}`;
+        }
+    }
+
+    const safeName = baseName.replace(/[^a-zA-Z0-9_-]/g, '_'); 
+    const fileName = `${safeName}_log_${new Date().toISOString().slice(0,10)}.json`;
+
+    const exportData = {
+      meta: {
+        appVersion: state.project?.meta?.version || 'unknown',
+        exportDate: new Date().toISOString(),
+        totalLogs: logs.length
+      },
+      logs: logs
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    if (get().addNotification) {
+        get().addNotification({ type: 'success', message: 'Logs exportiert.' });
+    }
+  },
+
+  exportLogs: () => {
+     get().downloadFlightRecorder();
+  }
+});
+// --- END OF FILE 301 Zeilen ---
