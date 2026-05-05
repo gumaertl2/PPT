@@ -4,4 +4,4 @@ src/data/Texts/description.ts
 src/data/Texts/briefing.ts
 src/data/Texts/prompt_architektur.ts
 src/data/Texts/quickquide.ts
-src/data/Texts/help.tx
+src/data/Texts/help.ts
