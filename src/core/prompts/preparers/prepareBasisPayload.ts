@@ -84,6 +84,14 @@ export const prepareBasisPayload = (project: TripProject, chunkIndex: number = 1
     const validatedAppointments = chefPlaner?.validated_appointments || [];
     const existingNames = Object.values(project.data.places || {}).map((p: any) => p.name);
     
+    let travelPeriodContext = "";
+    if (dates.start && dates.end) {
+        travelPeriodContext = `Exact Travel Dates: ${dates.start} to ${dates.end}`;
+    } else {
+        const dur = dates.duration ? `${dates.duration} days` : "Flexible duration";
+        travelPeriodContext = `Duration: ${dur}`;
+    }
+
     const travelMonth = getMonthName(dates.start, uiLang) || "Unknown Season";
     const transportMode = (dates.arrival as any).type || 'car';
     
@@ -156,6 +164,7 @@ export const prepareBasisPayload = (project: TripProject, chunkIndex: number = 1
 
     return {
         context: {
+            travel_period: travelPeriodContext,
             travel_season: travelMonth,
             transport_mode_context: transportContext,
             already_known_places_block: existingNames,
@@ -174,4 +183,4 @@ export const prepareBasisPayload = (project: TripProject, chunkIndex: number = 1
         }
     };
 };
-// --- END OF FILE 196 Zeilen ---
+// --- END OF FILE 175 Zeilen ---

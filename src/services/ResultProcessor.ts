@@ -58,6 +58,23 @@ export const ResultProcessor = {
       // 3. PLANNING & STRATEGY DOMAIN
       case 'chefPlaner':
         PlanningProcessor.processAnalysis(step, data);
+        
+        // NEW: Auto-update user inputs with AI's recommended sight limit
+        const recommendedLimit = data.smartLimit || data.smart_limit;
+        if (recommendedLimit) {
+            const currentStore = useTripStore.getState();
+            currentStore.setProject({
+                ...currentStore.project,
+                userInputs: {
+                    ...currentStore.project.userInputs,
+                    searchSettings: {
+                        ...currentStore.project.userInputs.searchSettings,
+                        count: Number(recommendedLimit)
+                    }
+                }
+            });
+        }
+
         // NEW: Mirror manual hotels to places
         if (data.validated_hotels) ResultProcessor.syncHotelsToPlaces(data.validated_hotels);
         break;
@@ -117,4 +134,4 @@ export const ResultProcessor = {
       if (hasChanges) setProject({ ...project, data: { ...project.data, places: updatedPlaces } });
   }
 };
-// --- END OF FILE 105 Zeilen ---
+// --- END OF FILE 124 Zeilen ---
