@@ -69,7 +69,7 @@ export const ResultProcessor = {
                     ...currentStore.project.userInputs,
                     searchSettings: {
                         ...currentStore.project.userInputs.searchSettings,
-                        count: Number(recommendedLimit)
+                        sightsCount: Number(recommendedLimit)
                     }
                 }
             });
@@ -134,4 +134,4 @@ export const ResultProcessor = {
       if (hasChanges) setProject({ ...project, data: { ...project.data, places: updatedPlaces } });
   }
 };
-// --- END OF FILE 124 Zeilen ---
+// --- END OF FILE 137 Zeilen ---
