@@ -1,3 +1,4 @@
+// 03.06.2026 10:20 - ARCHITECTURE FIX: Implemented Strict Override Pattern. Replaced double appending with an exclusive user-input priority logic.
 // 19.03.2026 16:30 - FEAT: Inject persona directive for the writer.
 // 08.02.2026 22:00 - FIX: Prevent double slicing & enforce ID return.
 // 05.02.2026 21:40 - FIX: Surgical Insertion of Selective Logic.
@@ -80,15 +81,16 @@ export const prepareChefredakteurPayload = (
         const interestId = resolveInterestId(category);
         
         if (interestId) {
-            const guideline = INTEREST_DATA[interestId]?.writingGuideline;
-            if (guideline) {
-                const text = (guideline as any)[lang] || (guideline as any)['de'];
-                if (text) instructions = text;
+            // STRICT OVERRIDE PATTERN
+            if (project.userInputs.customWritingGuidelines?.[interestId]) {
+                instructions = project.userInputs.customWritingGuidelines[interestId];
+            } else {
+                const guideline = INTEREST_DATA[interestId]?.writingGuideline;
+                if (guideline) {
+                    const text = (guideline as any)[lang] || (guideline as any)['de'];
+                    if (text) instructions = text;
+                }
             }
-        }
-
-        if (interestId && project.userInputs.customWritingGuidelines?.[interestId]) {
-            instructions += `\n\nUSER OVERRIDE: ${project.userInputs.customWritingGuidelines[interestId]}`;
         }
 
         if (isDistrict(category)) {
@@ -128,4 +130,4 @@ export const prepareChefredakteurPayload = (
         }
     };
 };
-// --- END OF FILE 147 Zeilen ---
+// --- END OF FILE ---

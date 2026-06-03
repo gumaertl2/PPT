@@ -1,3 +1,7 @@
+// [2026-06-03] - ARCHITECTURE FIX: Reverted strict AI override. User's UI input (sightsCount) is the absolute Single Source of Truth again. User is boss.
+// 03.06.2026 10:40 - ARCHITECTURE FIX: Activated Smart Override. Collector now respects ChefPlaner's logistical limit instead of blindly chasing UI target.
+// 03.06.2026 10:29 - ARCHITECTURE FIX: Implemented Strict Override Pattern. Default texts are dropped if user provides custom input. Added USER OVERRIDE alert tag.
+// 01.06.2026 18:55 - ARCHITECTURE FIX: Implemented Data Bypass for Strategy. Replaced ChefPlaner summary with RAW user strategy inputs.
 // 19.03.2026 17:00 - FEAT: Injected 'basis' persona directive to ensure vibe and wishes drive the initial location sourcing.
 // 23.02.2026 13:25 - FIX: Added Number() coercion to 'globalTarget'.
 // 27.01.2026 16:55 - FIX: Implemented "Ratio-Slicing" for Basis Preparer.
@@ -32,7 +36,6 @@ const getMonthName = (dateStr: string, lang: 'de' | 'en'): string => {
 
 const generateCreativeBriefing = (project: TripProject, activeInterests: string[], lang: 'de' | 'en'): string => {
   const { userInputs } = project;
-
   if (activeInterests.length === 0) {
       if (lang === 'de') {
           return "### CREATIVE BRIEFING\nKEINE SPEZIFISCHEN AKTIVITÄTS-INTERESSEN GEWÄHLT.\nIgnoriere das Thema 'Interessen'. Konzentriere dich zu 100% auf die oben definierte STRATEGIE (Charakter) und den gewünschten VIBE (Emotion). Suche Orte, die diese Stimmung perfekt einfangen.";
@@ -42,33 +45,34 @@ const generateCreativeBriefing = (project: TripProject, activeInterests: string[
   }
 
   let briefing = "### CREATIVE BRIEFING (Interests & Search Rules)\n";
-  
   activeInterests.forEach(id => {
     const def = INTEREST_DATA ? INTEREST_DATA[id] : null;
     if (def) {
       const label = (def.label as any)[lang] || id;
       
-      let searchStrategy = (def.searchStrategy as any)?.[lang];
-
-      if (!searchStrategy) {
+      let defaultSearchStrategy = (def.searchStrategy as any)?.[lang];
+      if (!defaultSearchStrategy) {
            const legacy = (def.aiInstruction as any)?.[lang] || "";
-           searchStrategy = legacy || `Find suitable candidates related to ${label}.`;
+           defaultSearchStrategy = legacy || `Find suitable candidates related to ${label}.`;
       }
       
+      // STRICT OVERRIDE PATTERN
       const customStrat = userInputs.customSearchStrategies?.[id];
-      if (customStrat) {
-          searchStrategy = `CUSTOM STRATEGY OVERRIDE: ${customStrat}`;
+      const customPref = userInputs.customPreferences?.[id];
+      
+      let finalStrategy = "";
+      if (customStrat || customPref) {
+          finalStrategy = "🚨 [USER OVERRIDE] ";
+          if (customStrat) finalStrategy += `Instruction: ${customStrat} `;
+          if (customPref) finalStrategy += `User Wish: "${customPref}"`;
+      } else {
+          finalStrategy = defaultSearchStrategy;
       }
 
-      const customPref = userInputs.customPreferences[id] 
-        ? `(USER SPECIFIC WISH: "${userInputs.customPreferences[id]}")` 
-        : "";
-      
       briefing += `\n**Topic: ${label}**\n`;
-      briefing += `- STRATEGY: ${searchStrategy} ${customPref}\n`;
+      briefing += `- STRATEGY: ${finalStrategy.trim()}\n`;
     }
   });
-
   return briefing;
 };
 
@@ -118,11 +122,11 @@ export const prepareBasisPayload = (project: TripProject, chunkIndex: number = 1
             const start = logistics.roundtrip.startLocation || region;
             const end = logistics.roundtrip.endLocation || start;
             
-            routeString = stops.length > 0
-                 ? `${start} -> ${stops.map(s => s.location).join(" -> ")} -> ${end}`
-                 : `Route from ${start} to ${end} through ${region}`;
+            routeString = stops.length > 0 
+                ? `${start} -> ${stops.map(s => s.location).join(" -> ")} -> ${end}` 
+                : `Route from ${start} to ${end} through ${region}`;
         }
-             
+        
         searchRadiusInstruction = `
         **MODE: ROUNDTRIP**
         Do not search in a single radius. 
@@ -135,7 +139,14 @@ export const prepareBasisPayload = (project: TripProject, chunkIndex: number = 1
          searchRadiusInstruction = `**MODE: STATIONARY**\nBase Location: ${base} (${region}).\nSearch for day-trips reachable from here.`;
     }
     
-    const sammlerBriefing = (strategicBriefing as any)?.sammler_briefing || ""; 
+    // DATA BYPASS: Ignite the raw strategy instead of relying on the ChefPlaner's lossy summary
+    const rawStrategy = userInputs.customPreferences['cat_strategyId'] 
+         || userInputs.customPreferences[`saved_strategyId_${userInputs.strategyId}`]
+        || userInputs.customPreferences[userInputs.strategyId]
+        || `Please follow the general travel style for: ${userInputs.strategyId}`;
+
+    const userStrategyDirective = `### RAW USER STRATEGY (ABSOLUTE PRIORITY)\n${rawStrategy}\n\nCRITICAL RULE: The rules in this section override any conflicting default parameters. Treat numbers (e.g. altitude, distances) as strict filters!`;
+    
     const noGos = userInputs.customPreferences['noGos'] || (uiLang === 'de' ? 'Keine' : 'None');
     
     const userNotes = userInputs.notes ? `USER NOTES: "${userInputs.notes}"` : "";
@@ -143,8 +154,8 @@ export const prepareBasisPayload = (project: TripProject, chunkIndex: number = 1
 
     const rawInterests = userInputs.selectedInterests || [];
     const cleanInterests = rawInterests.filter(id => !EXCLUDED_FOR_BASIS.includes(id));
-
     let activeInterests = cleanInterests;
+
     if (totalChunks > 1 && cleanInterests.length > 0) {
         const itemsPerChunk = Math.ceil(cleanInterests.length / totalChunks);
         const startIndex = (chunkIndex - 1) * itemsPerChunk;
@@ -175,7 +186,7 @@ export const prepareBasisPayload = (project: TripProject, chunkIndex: number = 1
         },
         instructions: {
             search_radius: searchRadiusInstruction,
-            architect_strategy: sammlerBriefing,
+            architect_strategy: userStrategyDirective,
             creative_briefing: creativeBriefingBlock
         },
         constraints: {
@@ -183,4 +194,4 @@ export const prepareBasisPayload = (project: TripProject, chunkIndex: number = 1
         }
     };
 };
-// --- END OF FILE 175 Zeilen ---
+// --- END OF FILE ---

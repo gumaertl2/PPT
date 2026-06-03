@@ -1,3 +1,4 @@
+// 03.06.2026 10:20 - ARCHITECTURE FIX: Implemented Strict Override Pattern. Custom instructions now correctly reach the info module generation.
 // 20.02.2026 15:30 - FEAT: Dynamically extracts all visited cities (districts/city_info) to generate complete A-Z guides.
 // 20.02.2026 15:30 - FIX: Added country/region context to prevent AI from confusing cities (e.g. Wolkenstein in Sachsen vs Italien).
 // 04.02.2026 12:20 - FIX: Restore logic (User Selection required).
@@ -86,8 +87,11 @@ export const prepareInfoAutorPayload = (project: TripProject): any[] => {
     const getInstruction = (id: string) => {
         const def = INTEREST_DATA[id];
         if (!def) return "";
-        const strategy = resolveText(def.searchStrategy, lang);
-        const guide = resolveText(def.writingGuideline, lang);
+        
+        // STRICT OVERRIDE PATTERN
+        const strategy = userInputs.customSearchStrategies?.[id] || resolveText(def.searchStrategy, lang);
+        const guide = userInputs.customWritingGuidelines?.[id] || resolveText(def.writingGuideline, lang);
+        
         return `### SEARCH STRATEGY (WHAT TO FIND)\n${strategy}\n\n### EDITORIAL GUIDELINE (HOW TO WRITE)\n${guide}`;
     };
 
@@ -150,4 +154,4 @@ export const prepareInfoAutorPayload = (project: TripProject): any[] => {
 
     return tasks;
 };
-// --- END OF FILE 148 Zeilen ---
+// --- END OF FILE ---

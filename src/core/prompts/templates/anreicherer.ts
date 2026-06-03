@@ -1,3 +1,4 @@
+// 01.06.2026 12:00 - FIX: Injected global Anti-Hallucination rule for description generation.
 // 08.04.2026 16:30 - FIX: EMERGENCY ROLLBACK. Restored exact original file. Strict Code Integrity Protocol enforced.
 // 22.03.2026 10:00 - FIX: Added anti-hallucination rules for Hiking/Trails (force Komoot/AllTrails links and explicit trailheads).
 // 28.02.2026 18:50 - FIX: Relaxed CRITICAL GEOCODING RULE.
@@ -60,7 +61,7 @@ Map the place to one of these SYSTEM IDs:
 - Concerts -> 'nightlife'
 
 # PROTOCOL D: CONTENT & LOGISTICS (DEEP DIVE)
-- **Description:** Factual, 2 sentences. No marketing fluff.
+- **Description:** Factual, 2 sentences. No marketing fluff. ANTI-HALLUCINATION: NEVER invent architectural styles, historical dates, or interior details. If you lack 100% verified facts, describe the exterior, location, and general atmosphere instead.
 - **Duration:** Estimate realistic visit duration in minutes.
 - **Price:** Research ticket prices or if it's free. Format: "Free" or "Adults ~15€".
 - **Logistics:** Find practical tips (Parking near the spot, best time to visit, public transport stop).
@@ -101,4 +102,4 @@ You are strictly FORBIDDEN from using the following terms as categories:
 
   return builder.build();
 };
-// --- END OF FILE 106 Zeilen ---
+// --- END OF FILE ---

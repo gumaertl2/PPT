@@ -1,3 +1,5 @@
+// 01.06.2026 19:05 - ARCHITECTURE FIX: Implemented Data Bypass for strategic_briefing. Removed dependency on ChefPlaner.
+// 01.06.2026 12:00 - FIX: Injected Strict Anti-Hallucination Protocol to prevent invented details.
 // 19.03.2026 16:30 - FEAT: Added Persona Injection.
 // 08.02.2026 13:30 - FIX: Added CRITICAL EXECUTION RULES to prevent skipping IDs.
 // 01.02.2026 22:00 - PROMPT HYBRID: Merged V40 Structure with Legacy Logic.
@@ -37,7 +39,15 @@ export const buildChefredakteurPrompt = (
         if (!tasks || tasks.length === 0) return null;
         
         dataPlaces = project.data.places || {};
-        strategicBriefing = (project.analysis.chefPlaner as any)?.strategic_briefing?.sammler_briefing || "";
+        
+        // DATA BYPASS: Ignite the raw strategy directly from userInputs instead of relying on the ChefPlaner
+        const rawStrategy = project.userInputs.customPreferences['cat_strategyId'] 
+            || project.userInputs.customPreferences[`saved_strategyId_${project.userInputs.strategyId}`]
+            || project.userInputs.customPreferences[project.userInputs.strategyId]
+            || `Please follow the general travel style for: ${project.userInputs.strategyId}`;
+
+        strategicBriefing = `### RAW USER STRATEGY (ABSOLUTE PRIORITY)\n${rawStrategy}`;
+        
         chunkInfo = totalChunks > 1 ? ` (Block ${currentChunk}/${totalChunks})` : '';
         personaDirective = buildPersonaDirective(project.userInputs, 'writer');
     }
@@ -113,6 +123,11 @@ ${aufgabenListe}
 1. **Fact Anchor:** You MUST treat the provided "HARD FACTS" as absolute truth.
 2. **Deep Dive:** Perform live internet research for history & stories.
 3. **Conflict Resolution:** If research contradicts "HARD FACTS", trust the "HARD FACTS".
+4. **STRICT FACTUALITY (ANTI-HALLUCINATION):**
+   - **Verify First:** Do you have 100% verified knowledge from your training data or live research regarding specific interior details, architectural styles, historical dates, or specific artworks for this exact place?
+   - **No Inventions:** If you cannot absolutely verify these details, it is STRICTLY FORBIDDEN to invent or hallucinate them just to make the text sound complete.
+   - **Fallback Strategy:** If hard facts are missing, fall back to the META-LEVEL: describe the visible exterior, its integration into the town/landscape, the general atmosphere (vibe), or its overall significance.
+   - **Quality over Quantity:** A shorter, 100% factually correct text is always better than a long text with invented details.
 
 # OUTPUT FORMAT (STRICT JSON)
 Return a SINGLE valid JSON object.
@@ -153,4 +168,4 @@ Structure:
 
     return builder.build();
 };
-// --- END OF FILE 153 Zeilen ---
+// --- END OF FILE ---

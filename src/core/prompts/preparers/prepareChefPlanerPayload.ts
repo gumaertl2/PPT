@@ -1,3 +1,4 @@
+// 03.06.2026 10:20 - ARCHITECTURE FIX: Implemented Strict Override Pattern. Default texts are now completely dropped if user provides custom input.
 // 20.04.2026 14:10 - FIX: Included 'region' fallback for stationary trips so the ChefPlaner doesn't crash before the Basecamp Scout runs.
 // 08.04.2026 15:45 - FIX: Removed legacy local language resolution to ensure SSOT via PromptBuilder.
 // 19.03.2026 17:15 - FEAT: Injected 'vibe', 'budget', and 'pace' into context so the Architect can validate feasibility based on persona.
@@ -71,17 +72,36 @@ export const prepareChefPlanerPayload = (project: TripProject, feedback?: string
 
     const activeInterests = safeInterestIds.map(id => {
         const def = INTEREST_DATA ? INTEREST_DATA[id] : null;
+        const label = resolveText(def?.label, uiLang) || id;
+        
+        // STRICT OVERRIDE PATTERN
+        let finalInstruction = resolveText(def?.aiInstruction, uiLang);
+        if (userInputs.customSearchStrategies?.[id]) {
+            finalInstruction = userInputs.customSearchStrategies[id];
+        }
+
         return { 
             id, 
-            label: resolveText(def?.label, uiLang) || id, 
-            instruction: resolveText(def?.aiInstruction, uiLang) 
+            label, 
+            instruction: finalInstruction 
         };
     });
 
     const strategyDef = STRATEGY_OPTIONS ? STRATEGY_OPTIONS[userInputs.strategyId] : null;
+    
+    // STRICT OVERRIDE PATTERN FOR STRATEGY
+    let finalStrategyInstruction = resolveText(strategyDef?.promptInstruction, uiLang);
+    const customStrategy = userInputs.customPreferences?.['cat_strategyId'] 
+            || userInputs.customPreferences?.[`saved_strategyId_${userInputs.strategyId}`]
+            || userInputs.customPreferences?.[userInputs.strategyId];
+            
+    if (customStrategy) {
+        finalStrategyInstruction = customStrategy;
+    }
+
     const strategyInfo = {
         name: resolveText(strategyDef?.label, uiLang) || userInputs.strategyId,
-        instruction: resolveText(strategyDef?.promptInstruction, uiLang)
+        instruction: finalStrategyInstruction
     };
 
     const extractedHotels = extractHotels(userInputs);
@@ -184,3 +204,4 @@ export const prepareChefPlanerPayload = (project: TripProject, feedback?: string
         }
     };
 };
+// --- END OF FILE ---

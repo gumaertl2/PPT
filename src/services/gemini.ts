@@ -1,3 +1,4 @@
+// [2026-06-03] - ARCHITECTURE FIX: Dynamisches Traffic-Shaping nach Modellgrenzen (6.5s / 12.5s) integriert und Lite-Modell für Massen-Tasks im Free-Tier hinzugefügt.
 // 23.02.2026 17:35 - FEAT: Added Free Tier Traffic Shaper (Queue) & Model Downgrade.
 // 12.02.2026 17:35 - FIX: Implemented hard Thinking-Budget switching (Speed vs. Quality).
 // 09.02.2026 19:10 - FIX: Removed 'responseMimeType: application/json' when Google Search Tool is active (API constraint).
@@ -197,23 +198,18 @@ export const GeminiService = {
       throw new NoRetryError("Kein API-Key gefunden. Bitte Key in den Einstellungen speichern.", 401);
     }
 
-    // --- TRAFFIC SHAPING (FREE TIER ONLY) ---
-    // Enforce strict 4.5s delay between requests for Free Tier users
+    // --- REFACTORED MODEL RESOLUTION & DOWNGRADE (MOVED FOR TRAFFIC SHAPING) ---
+    let targetModelId = modelIdOverride || 'gemini-2.5-pro:generateContent';
+
+    // FREE TIER DOWNGRADE & ROUTING: Prevent Pro model calls and route mechanical tasks to Lite
     if (isFreeTier) {
-        queuePromise = queuePromise.then(async () => {
-            const now = Date.now();
-            const timeSinceLast = now - lastRequestTime;
-            const requiredDelay = 4500; // 4.5 seconds
-            
-            if (timeSinceLast < requiredDelay) {
-                const delay = requiredDelay - timeSinceLast;
-                if (isDebug) console.log(`[Traffic Shaper] Delaying request by ${delay}ms to protect Free Tier limits.`);
-                if (onRetryDelay) onRetryDelay(delay, "Limit-Schutz (Free Tier) aktiv...");
-                await new Promise(resolve => setTimeout(resolve, delay));
-            }
-            lastRequestTime = Date.now();
-        });
-        await queuePromise;
+        if (taskName === 'anreicherer' || taskName === 'geoAnalyst') {
+            if (isDebug) console.log(`[GeminiService] Free Tier Active: Routing mechanical task ${taskName} to Flash-Lite`);
+            targetModelId = 'gemini-2.5-flash-lite:generateContent';
+        } else if (targetModelId === 'gemini-2.5-pro:generateContent') {
+            if (isDebug) console.log(`[GeminiService] Free Tier Active: Downgrading Pro to Flash-Thinking for ${taskName}`);
+            targetModelId = 'gemini-2.5-flash-thinking';
+        }
     }
 
     let selectedModelKey: ModelType = 'pro'; 
@@ -222,15 +218,6 @@ export const GeminiService = {
         temperature: 0.4,
         responseMimeType: 'application/json' 
     };
-
-    // --- REFACTORED MODEL RESOLUTION & DOWNGRADE ---
-    let targetModelId = modelIdOverride || 'gemini-2.5-pro:generateContent';
-
-    // FREE TIER DOWNGRADE: Prevent Pro model calls
-    if (isFreeTier && targetModelId === 'gemini-2.5-pro:generateContent') {
-        if (isDebug) console.log(`[GeminiService] Free Tier Active: Downgrading Pro to Flash-Thinking for ${taskName}`);
-        targetModelId = 'gemini-2.5-flash-thinking';
-    }
 
     if (targetModelId === 'gemini-2.5-pro:generateContent') {
         modelEndpoint = targetModelId;
@@ -245,6 +232,14 @@ export const GeminiService = {
             thinkingBudget: -1 
         };
     }
+    else if (targetModelId === 'gemini-2.5-flash-lite:generateContent') {
+        modelEndpoint = targetModelId;
+        selectedModelKey = 'flash'; // Treat as flash for rate limit storage key
+        generationConfig.thinkingConfig = {
+            includeThoughts: true,
+            thinkingBudget: 0 
+        };
+    }
     else {
         // Standard Flash -> Pure Speed
         modelEndpoint = 'gemini-2.5-flash:generateContent';
@@ -257,6 +252,31 @@ export const GeminiService = {
 
     if (enableGoogleSearch) {
         delete generationConfig.responseMimeType;
+    }
+
+    // --- TRAFFIC SHAPING (FREE TIER ONLY) ---
+    // Enforce strict delay between requests for Free Tier users based on targeted model
+    if (isFreeTier) {
+        queuePromise = queuePromise.then(async () => {
+            const now = Date.now();
+            const timeSinceLast = now - lastRequestTime;
+            
+            let requiredDelay = 6500; // Default 6.5s for normal flash
+            if (targetModelId === 'gemini-2.5-flash-thinking') {
+                requiredDelay = 12500; // 12.5s for heavy logic
+            } else if (targetModelId === 'gemini-2.5-flash-lite:generateContent') {
+                requiredDelay = 4100; // 4.1s for lite
+            }
+            
+            if (timeSinceLast < requiredDelay) {
+                const delay = requiredDelay - timeSinceLast;
+                if (isDebug) console.log(`[Traffic Shaper] Delaying request by ${delay}ms to protect Free Tier limits (${targetModelId}).`);
+                if (onRetryDelay) onRetryDelay(delay, `Limit-Schutz (Free Tier ${targetModelId.includes('thinking') ? 'Pro' : 'Fast'}) aktiv...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+            lastRequestTime = Date.now();
+        });
+        await queuePromise;
     }
 
     RateLimiter.checkRateLimit(selectedModelKey);
@@ -420,4 +440,4 @@ export const GeminiService = {
     return promise;
   }
 };
-// --- END OF FILE 485 Zeilen ---
+// --- END OF FILE ---

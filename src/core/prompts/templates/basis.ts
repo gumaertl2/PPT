@@ -1,3 +1,5 @@
+// 03.06.2026 10:30 - ARCHITECTURE FIX: Enforced Strict Override Pattern and [USER OVERRIDE] detection.
+// 01.06.2026 19:00 - ARCHITECTURE FIX: Injected Strict User Override Rule for Data Bypass. Zero-Loss validated.
 // 08.04.2026 15:00 - FIX: Removed hardcoded "German" language lock. Now handled globally by PromptBuilder.
 // 19.03.2026 17:00 - FEAT: Added personaDirective to enforce user vibe and general notes during base selection.
 // src/core/prompts/templates/basis.ts
@@ -6,7 +8,6 @@ import { PromptBuilder } from '../PromptBuilder';
 
 export const buildBasisPrompt = (payload: any): string => {
   const { context, instructions, constraints } = payload;
-
   const builder = new PromptBuilder();
 
   // 1. Role Definition
@@ -14,7 +15,6 @@ export const buildBasisPrompt = (payload: any): string => {
   Your **sole task** is to create a qualitatively outstanding list of **SIGHTS & ACTIVITIES** (Points of Interest).
   You are STRICTLY FORBIDDEN from suggesting logistics (Hotels) or services (Restaurants).
   Your reputation depends on the relevance and exclusivity of your selection.`;
-
   builder.withRole(role);
 
   // 2. Context Injection (From Payload)
@@ -26,15 +26,17 @@ export const buildBasisPrompt = (payload: any): string => {
       mandatory_appointments: context.mandatory_appointments,
       no_gos: context.no_gos
   };
-
   builder.withContext(contextData, "DATA BASIS & CONSTRAINTS");
 
   // 3. Instructions (Merging Dynamic Briefing with Static Protocols)
   const promptInstructions = `${context.persona_directive || ''}# LOGISTICS & GEO CONTEXT (MANDATORY)
 ${instructions.search_radius}
 
-# ARCHITECT'S STRATEGY
+# ARCHITECT'S STRATEGY (HARTE USER-VORGABEN / ABSOLUTE PRIORITY)
 "${instructions.architect_strategy}"
+
+🚨 CRITICAL RULE (USER OVERRIDE) 🚨
+Wenn in der "ARCHITECT'S STRATEGY" ODER bei einem spezifischen Thema der Tag "🚨 [USER OVERRIDE]" auftaucht, ist das dein ABSOLUTES GESETZ. Spezifische manuelle Vorgaben des Users (z.B. genaue Höhenmeter, Kilometer, Distanzen oder strikte Ausschlüsse) ÜBERSTIMMEN im Konfliktfall JEDES andere allgemeine Creative Briefing, System-Regelwerk oder Vibe-Setting. Ignoriere sie niemals und behandle sie als harten, physikalischen Filter!
 
 # MISSION 1: THE IMMUTABLE FIXTURES
 - Integrate **all** "mandatory_appointments" from the context.
@@ -53,12 +55,15 @@ For each Topic above:
 
 # EXCLUSION PROTOCOL (THE "DOUBLE BIND" FIREWALL)
 You are purely a SIGHTSEEING & ACTIVITY Scout. The user has other agents for Food and Sleep.
-1. **NO ACCOMMODATION (ABSOLUTE):** - Do NOT suggest Hotels, Camping Sites, Resorts, or Hostels.
+1. **NO ACCOMMODATION (ABSOLUTE):**
+   - Do NOT suggest Hotels, Camping Sites, Resorts, or Hostels.
    - REASON: The 'HotelScout' agent handles these.
-2. **NO GASTRONOMY (ABSOLUTE):** - Do NOT suggest Restaurants, Cafés, Bars, Breweries, or Vineyards.
+2. **NO GASTRONOMY (ABSOLUTE):**
+   - Do NOT suggest Restaurants, Cafés, Bars, Breweries, or Vineyards.
    - **NO EXCEPTIONS:** Even if it is a historic landmark (like "Hofbräuhaus"), DO NOT LIST IT HERE.
    - REASON: The 'FoodScout' agent handles these.
-3. **NO GENERIC INFRASTRUCTURE:** - Avoid supermarkets, gas stations, or generic playgrounds.
+3. **NO GENERIC INFRASTRUCTURE:**
+   - Avoid supermarkets, gas stations, or generic playgrounds.
 
 # RULES
 1. **Deduplication:** NO names from "already_known_places_block".
@@ -71,22 +76,20 @@ You are purely a SIGHTSEEING & ACTIVITY Scout. The user has other agents for Foo
 1. **JSON INTEGRITY:** Output must be valid JSON.
 2. **SILENCE PROTOCOL:** NO text before JSON. NO preamble.
 3. **NO HALLUCINATIONS:** Only suggest real places.`;
-
   builder.withInstruction(promptInstructions);
 
   // 4. Output Schema (Thinking-Safe)
   const outputSchema = {
-      "_thought_process": "String (Briefly analyze strategy, check for forbidden services (Food/Hotel) and filter them out...)",
+      "_thought_process": "String (1. SCAN FOR '🚨 [USER OVERRIDE]': Apply hard filters like altitude or distance FIRST -> 2. Briefly analyze strategy -> 3. Check for forbidden services (Food/Hotel) and filter them out...)",
       "candidates": [
           "String (Name of Candidate 1)",
           "String (Name of Candidate 2)",
           "..."
       ]
   };
-
   builder.withOutputSchema(outputSchema);
 
   // 5. Build
   return builder.build();
 };
-// --- END OF FILE 97 Zeilen ---
+// --- END OF FILE ---
