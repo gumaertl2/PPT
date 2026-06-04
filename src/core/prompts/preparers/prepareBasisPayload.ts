@@ -1,3 +1,4 @@
+// [2026-06-04] - ARCHITECTURE FIX: Preserved ChefPlaner's searchRadiusInstruction in stationary mode to stop the Collector from ignoring the 0.5h limit.
 // [2026-06-03] - ARCHITECTURE FIX: Reverted strict AI override. User's UI input (sightsCount) is the absolute Single Source of Truth again. User is boss.
 // 03.06.2026 10:40 - ARCHITECTURE FIX: Activated Smart Override. Collector now respects ChefPlaner's logistical limit instead of blindly chasing UI target.
 // 03.06.2026 10:29 - ARCHITECTURE FIX: Implemented Strict Override Pattern. Default texts are dropped if user provides custom input. Added USER OVERRIDE alert tag.
@@ -136,7 +137,8 @@ export const prepareBasisPayload = (project: TripProject, chunkIndex: number = 1
     } else if (logistics.mode === 'stationaer') {
          const base = logistics.stationary.destination;
          const region = logistics.stationary.region;
-         searchRadiusInstruction = `**MODE: STATIONARY**\nBase Location: ${base} (${region}).\nSearch for day-trips reachable from here.`;
+         // CHIRURGISCHER EINGRIFF: smarte Anweisung anhängen statt überschreiben
+         searchRadiusInstruction = `**MODE: STATIONARY**\nBase Location: ${base} (${region}).\n${searchRadiusInstruction}`;
     }
     
     // DATA BYPASS: Ignite the raw strategy instead of relying on the ChefPlaner's lossy summary

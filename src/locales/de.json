@@ -83,7 +83,7 @@
     "title": "Einstellungen & API",
     "api_section": "Google Gemini API Key",
     "api_placeholder": "sk-proj-...",
-    "help_link": "Noch keinen Key? → Kostenlos in 2 Min. holen",
+    "help_link": "Noch keinen Key? -> Kostenlos in 2 Min. holen",
     "stats_section": "Verbrauchs-Statistik (Session)",
     "stats_tokens": "Tokens gesamt",
     "stats_calls": "API Aufrufe",
@@ -127,7 +127,7 @@
     "subtitle": "Ihre intelligente KI-Reisebegleitung",
     "api_label": "Google Gemini API Key (Optional)",
     "storage_note": "Gespeichert im LocalStorage (Base64).",
-    "help_link": "Noch keinen Key? → Kostenlos in 2 Min. holen",
+    "help_link": "Noch keinen Key? -> Kostenlos in 2 Min. holen",
     "btn_new": "Neue Reise planen",
     "btn_new_sub": "Startet den Wizard",
     "btn_load": "Reise laden",
@@ -281,9 +281,9 @@
     "hotel_manager": {
       "title": "Unterkünfte verwalten",
       "tooltip": "Unterkünfte separat verwalten",
-      "stationary_group": "🏡 Unterkunft / Hotel (Stationär)",
-      "station_group": "🏡 Station {{index}}: {{name}}",
-      "other_group": "🏡 Weitere Unterkünfte",
+      "stationary_group": "🏠 Unterkunft / Hotel (Stationär)",
+      "station_group": "📍 Station {{index}}: {{name}}",
+      "other_group": "🛏️ Weitere Unterkünfte",
       "empty": "Keine Unterkünfte vorhanden.",
       "open_modal_map_btn": "Im Hotel-Manager öffnen"
     },
@@ -530,8 +530,8 @@
     "visited_all": "Alle",
     "visited_unvisited": "Nicht besuchte",
     "visited_done": "Besuchte",
-    "hotel_assigned_stop": "🏡 Unterkunft für Station {{stopIndex}} ({{stopName}})",
-    "hotel_assigned_stationary": "🏡 Unterkunft für den Aufenthalt",
+    "hotel_assigned_stop": "🏨 Unterkunft für Station {{stopIndex}} ({{stopName}})",
+    "hotel_assigned_stationary": "🏨 Unterkunft für den Aufenthalt",
     "hotel_location": "Standort:",
     "hotel_selected_stop": "Ausgewählt für Station {{assignedStopIndex}} ({{assignedStopName}})",
     "hotel_option_stop": "Option für Station {{assignedStopIndex}} ({{assignedStopName}})",
@@ -558,7 +558,7 @@
     "itinerary": "Reiseverlauf",
     "stop": "Zwischenstopp",
     "why_this_route": "Warum diese Route?",
-    "customize_apply": "Route anpassen & Übernehmen",
+    "customize_apply": "Route anpassen & übernehmen",
     "feedback_label": "Änderungswünsche an die KI (optional):",
     "feedback_placeholder": "z.B. \"Bitte weniger Fahrzeit\" oder \"Lieber über München fahren\"...",
     "error_no_feedback": "Bitte geben Sie Feedback ein.",
@@ -722,7 +722,8 @@
     "prio_subtitle": "Tagesplaner Empfehlung",
     "prio_desc": "Du hast noch keine Prioritäten (Fix, Prio 1, Prio 2) vergeben. Der Tagesplaner funktioniert am besten, wenn er weiß, was dir wichtig ist.",
     "prio_btn_set": "Jetzt Prioritäten vergeben",
-    "prio_btn_random": "Ohne Prios planen (Zufall)"
+    "prio_btn_random": "Ohne Prios planen (Zufall)",
+    "premium_only_food": "Premium-Feature: Die Gastronomie-Recherche ist sehr rechenintensiv. Bitte hinterlegen Sie in den Einstellungen einen eigenen, kostenpflichtigen Google API-Key, um dieses Feature freizuschalten."
   },
   "safeExit": {
     "title": "Papatours verlassen?",
@@ -770,7 +771,7 @@
     "total_costs": "Gesamtkosten",
     "paid_by_summary": "Wer hat gezahlt?",
     "who_owes_who": "Wer schuldet wem?",
-    "perfectly_balanced": "Die Kasse ist perfekt ausgeglichen! 🎉",
+    "perfectly_balanced": "Die Kasse ist perfekt ausgeglichen! 🍻",
     "balances": "Stand (Bilanzen)",
     "expense": "Ausgabe",
     "add_expense": "Ausgabe erfassen",
@@ -798,7 +799,7 @@
     "error_split_sum": "Summe der Aufteilung entspricht nicht dem Gesamtbetrag!",
     "gps_tag": "Aktuellen Standort (GPS) taggen",
     "gps_fetching": "Ortung läuft...",
-    "gps_saved": "Standort gespeichert ✓",
+    "gps_saved": "Standort gespeichert 📍",
     "error_no_gps": "Dein Browser unterstützt kein GPS.",
     "error_gps_failed": "GPS konnte nicht abgerufen werden.",
     "save_and_diary": "Speichern & Notiz anlegen",
@@ -838,10 +839,10 @@
     "missing_names_placeholder": "z.B. Max, Lisa, Tom"
   },
   "notifications": {
-    "server_retry": "Die KI holt kurz Luft ☕. Weiter in {{time}}s (Versuch {{attempt}}/{{max}})..."
+    "server_retry": "Die KI holt kurz Luft 🧘. Weiter in {{time}}s (Versuch {{attempt}}/{{max}})..."
   },
   "errors": {
-    "429": "Die KI braucht eine kurze Verschnaufpause ☕. Wir verarbeiten gerade sehr viele Daten für dich. Bitte warte etwa eine Minute und klicke dann nochmal auf 'Wiederholen'."
+    "429": "Die KI braucht eine kurze Verschnaufpause 🧘. Wir verarbeiten gerade sehr viele Daten für dich. Bitte warte etwa eine Minute und klicke dann nochmal auf 'Wiederholen'."
   },
   "map": {
     "layer": {

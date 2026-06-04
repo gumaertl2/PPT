@@ -1,3 +1,5 @@
+// [2026-06-04] - PROMPT HARDENING: Forced AI to actually update the 'value' integer, not just the reasoning text, when reducing target count.
+// [2026-06-04] - PROMPT HARDENING: Added strict Anti-Sycophancy rule to force ChefPlaner to realistically reduce absurd target counts.
 // 01.06.2026 18:55 - ARCHITECTURE FIX: Degraded to QA/Logistics only. Removed sammler_briefing. Added strict Anti-Hallucination protocols.
 // 08.04.2026 15:45 - FIX: Removed local language instruction to prevent SSOT conflicts with PromptBuilder.
 // 19.03.2026 17:15 - FEAT: Enforced validation of 'vibe', 'budget', and 'pace' in the prompt instructions.
@@ -26,7 +28,7 @@ You must strictly adhere to the 'logistics_briefing':
 1. **Stationary**: Ensure the search radius does not exceed the 'max_drive_time_day_hours' (round trip).
 2. **Roundtrip**: Ensure the legs between stops are feasible within 'max_drive_time_leg_hours'. Respect 'max_hotel_changes'.
 3. **Region Constraint**: If 'mandatory_region' is set, you MUST NOT suggest places outside of it.
-4. **Target Count**: Aim for a strategy that yields approx. **${meta.target_sights_count}** candidates.
+4. **Target Count**: The user requested **${meta.target_sights_count}** candidates. CRITICALLY EVALUATE this! If it is too high (e.g. 50 sights for a 2-day trip in a small radius), you MUST lower the actual integer 'value' in 'smart_limit_recommendation' (e.g., to 15). Do NOT just write the lower number in the text, change the JSON integer!
 5. **Start/End**: Use 'start_location' and 'end_location' as fixed anchors.
 
 # PHASE 3: WORKFLOW STEPS & QA
@@ -74,8 +76,8 @@ You must strictly adhere to the 'logistics_briefing':
     },
     
     "smart_limit_recommendation": { 
-        "reasoning": "String (Why this count?)", 
-        "value": "Integer (Target POI count)" 
+        "reasoning": "String (Why did you reduce the count?)", 
+        "value": "Integer (The NEW, realistic target count. MUST match your reasoning! Do not output the original number if it is unrealistic.)" 
     }
   };
 

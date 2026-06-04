@@ -722,7 +722,8 @@
     "prio_subtitle": "Day Planner Recommendation",
     "prio_desc": "You have not set any priorities yet (Fixed, Prio 1, Prio 2). The day planner works best when it knows what is important to you.",
     "prio_btn_set": "Set priorities now",
-    "prio_btn_random": "Plan without prios (Random)"
+    "prio_btn_random": "Plan without prios (Random)",
+    "premium_only_food": "Premium Feature: Gastronomy research is highly compute-intensive. Please provide your own paid Google API Key in the settings to unlock this feature."
   },
   "safeExit": {
     "title": "Leave Papatours?",

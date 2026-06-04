@@ -1,3 +1,4 @@
+// [2026-06-04] - UX/BUSINESS: Blocked 'foodScout' for Free Tier users to protect API limits. Injected Premium-Upsell warning.
 // 12.04.2026 14:10 - UX: Updated terminology (Guide Chapters). Updated defaultValues.
 // 27.02.2026 14:35 - FIX: Removed 'transferPlanner' from the hardcoded stationary warning in the UI, as it is now supported.
 // 19.02.2026 14:45 - FEAT: Added 'showPlanningMode: true' to handleGoToPrios for direct planning access.
@@ -17,6 +18,7 @@ import {
   X,
   AlertCircle,
   Unlock,
+  Lock,
   Play,
   Settings2,
   RotateCcw,
@@ -38,7 +40,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
   onClose, 
   onStart 
 }) => {
-  const { project, setUIState } = useTripStore();
+  const { project, setUIState, aiSettings } = useTripStore();
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSmartConfirm, setShowSmartConfirm] = useState(false);
   const [showPrioConfirm, setShowPrioConfirm] = useState(false);
@@ -48,12 +50,16 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
   const { t, i18n } = useTranslation();
   const currentLang = (i18n.language.substring(0, 2) === 'en' ? 'en' : 'de') as 'de' | 'en';
 
+  // FREE TIER SHIELD: Dynamically block foodScout if the user is on the free server key
+  const isFreeTier = aiSettings?.isFreeTierKey || false;
+  const activeSelectedSteps = isFreeTier ? selectedSteps.filter(id => id !== 'foodScout') : selectedSteps;
+
   const handleStartRequest = () => {
-    if (selectedSteps.length === 0) return;
+    if (activeSelectedSteps.length === 0) return;
     setStartError(null);
 
     // 1. PRIORITY CHECK
-    if (selectedSteps.includes('initialTagesplaner')) {
+    if (activeSelectedSteps.includes('initialTagesplaner')) {
         const validation = validateStepStart('initialTagesplaner');
         if (!validation.canStart && validation.reason === 'no_priorities') {
             setShowPrioConfirm(true);
@@ -62,7 +68,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
     }
     
     // 2. SMART MODE CHECK
-    const isChefredakteurSelected = selectedSteps.includes('chefredakteur');
+    const isChefredakteurSelected = activeSelectedSteps.includes('chefredakteur');
     const chefredakteurStatus = getStepStatus('chefredakteur');
     const places = project.data.places || {};
     const missingCount = Object.values(places).filter((p: any) => !p.detailContent || p.detailContent.length < 50).length;
@@ -72,7 +78,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
         return;
     }
 
-    const isRerunningDoneSteps = selectedSteps.some(stepId => getStepStatus(stepId) === 'done');
+    const isRerunningDoneSteps = activeSelectedSteps.some(stepId => getStepStatus(stepId) === 'done');
     if (isRerunningDoneSteps) {
       setShowConfirm(true); 
     } else {
@@ -82,7 +88,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
 
   const executeStart = async (options?: { mode: 'smart' | 'force' }) => {
     try {
-        await onStart(selectedSteps, options); 
+        await onStart(activeSelectedSteps, options); 
         onClose();
         
         setShowConfirm(false);
@@ -139,8 +145,9 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
 
             {WORKFLOW_STEPS.map((step) => {
               const status = getStepStatus(step.id);
-              const isSelected = selectedSteps.includes(step.id);
-              const isWarning = status === 'locked'; 
+              const isFreeTierBlocked = isFreeTier && step.id === 'foodScout';
+              const isSelected = activeSelectedSteps.includes(step.id);
+              const isWarning = status === 'locked' || isFreeTierBlocked; 
               const isDone = status === 'done';
               
               let containerClass = "relative flex items-start gap-4 p-4 rounded-lg border-2 transition-all ";
@@ -158,10 +165,17 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
                 containerClass += "border-slate-200 hover:border-blue-300 hover:bg-slate-50";
               }
 
+              const handleContainerClick = () => {
+                if (isFreeTierBlocked) return;
+                toggleStep(step.id);
+              };
+
               return (
-                <div key={step.id} className={containerClass} onClick={() => toggleStep(step.id)}>
+                <div key={step.id} className={containerClass} onClick={handleContainerClick}>
                   <div className="flex-shrink-0 mt-1">
-                    {isWarning && !isSelected ? (
+                    {isFreeTierBlocked ? (
+                      <Lock className="w-6 h-6 text-amber-500" />
+                    ) : isWarning && !isSelected ? (
                       <Unlock className="w-6 h-6 text-slate-300" /> 
                     ) : isDone && !isSelected ? (
                       <CheckCircle2 className="w-6 h-6 text-green-500" />
@@ -190,7 +204,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
                             {isSelected ? t('actions.rerun', { defaultValue: 'Neu Ausführen' }) : t('actions.done', { defaultValue: 'Erledigt' })}
                           </span>
                         )}
-                        {step.requiresUserInteraction && !isDone && !isWarning && (
+                        {step.requiresUserInteraction && !isDone && !isWarning && !isFreeTierBlocked && (
                           <span className="text-[10px] uppercase font-bold tracking-wider text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full flex items-center gap-1">
                             <Settings2 className="w-3 h-3" />
                             {t('workflow.interactive', { defaultValue: 'Interaktion' })}
@@ -202,7 +216,17 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
                       {step.description[currentLang] || step.description.de}
                     </p>
 
-                    {/* FIX: Warning is now ONLY shown for routeArchitect if stationary */}
+                    {/* FREE TIER FOOD SCOUT WARNING */}
+                    {isFreeTierBlocked && (
+                       <div className="flex items-center gap-2 mt-3 text-xs text-amber-700 font-medium bg-amber-50 p-2.5 rounded-md border border-amber-200">
+                        <Lock className="w-4 h-4 shrink-0 text-amber-500" />
+                        <span>
+                          {t('workflow.premium_only_food', { defaultValue: 'Premium-Feature. Bitte hinterlegen Sie in den Einstellungen einen eigenen Google API-Key, um die aufwändige Gastronomie-Recherche freizuschalten.' })}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* WARNING FOR STATIONARY ROUTEARCHITECT */}
                     {isWarning && isStationary && step.id === 'routeArchitect' && (
                        <div className="flex items-center gap-1 mt-2 text-xs text-slate-400">
                         <AlertCircle className="w-3 h-3" />
@@ -220,7 +244,7 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
 
           <div className="p-6 border-t border-slate-100 bg-slate-50 rounded-b-xl flex justify-between items-center">
             <div className="text-xs text-slate-500">
-              {selectedSteps.length} {t('workflow.tasks_selected', { defaultValue: 'Aufgaben gewählt' })}
+              {activeSelectedSteps.length} {t('workflow.tasks_selected', { defaultValue: 'Aufgaben gewählt' })}
             </div>
             <div className="flex gap-3">
               <button 
@@ -231,15 +255,15 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
               </button>
               <button 
                 onClick={handleStartRequest}
-                disabled={selectedSteps.length === 0}
+                disabled={activeSelectedSteps.length === 0}
                 className={`px-6 py-2 font-bold rounded-lg shadow-lg flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
-                  selectedSteps.some(id => getStepStatus(id) === 'done')
+                  activeSelectedSteps.some(id => getStepStatus(id) === 'done')
                     ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-200'
                     : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200'
                 }`}
               >
                 <Play className="w-4 h-4 fill-current" />
-                {selectedSteps.some(id => getStepStatus(id) === 'done')
+                {activeSelectedSteps.some(id => getStepStatus(id) === 'done')
                   ? t('actions.update', { defaultValue: 'Aktualisieren' })
                   : t('actions.start_workflow', { defaultValue: 'Workflow starten' })}
               </button>
@@ -357,4 +381,4 @@ export const WorkflowSelectionModal: React.FC<WorkflowSelectionModalProps> = ({
     </>
   );
 };
-// 336 Zeilen
+// --- END OF FILE ---

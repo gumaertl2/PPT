@@ -1,3 +1,4 @@
+// [2026-06-04] - ARCHITECTURE FIX: Removed strict Region Check. Enricher now accepts all real places suggested by Collector (Serendipity Effect).
 // 01.06.2026 12:00 - FIX: Injected global Anti-Hallucination rule for description generation.
 // 08.04.2026 16:30 - FIX: EMERGENCY ROLLBACK. Restored exact original file. Strict Code Integrity Protocol enforced.
 // 22.03.2026 10:00 - FIX: Added anti-hallucination rules for Hiking/Trails (force Komoot/AllTrails links and explicit trailheads).
@@ -14,11 +15,10 @@ export const buildAnreichererPrompt = (payload: any): string => {
   // 1. Generate Whitelist from System Data (SSOT)
   const allowedCategories = Object.values(INTEREST_DATA)
     .filter(cat => 
-        !cat.isSystem && 
-        !['ignored_places', 'city_info', 'travel_info', 'arrival', 'budget', 'hotel'].includes(cat.id)
+         !cat.isSystem && 
+         !['ignored_places', 'city_info', 'travel_info', 'arrival', 'budget', 'hotel'].includes(cat.id)
     )
     .map(c => c.id);
-
   const validCategoriesString = allowedCategories.join(', ');
 
   builder.withRole(instructions.role || "You are the **Data Precision Expert** ('The Enricher'). Your job is to validate and enrich raw candidates with high-precision geo-data.");
@@ -30,7 +30,6 @@ export const buildAnreichererPrompt = (payload: any): string => {
     progress: context.chunk_progress,
     input_candidates: context.candidates_list 
   };
-  
   builder.withContext(contextData, "DATA CONTEXT");
 
   // 3. Instructions
@@ -45,14 +44,13 @@ You receive a list of candidates, each with a unique 'id'.
 
 # PROTOCOL B: GEO-PRECISION & VALIDATION
 1. **Coordinates:** Find exact Lat/Lng. Do not estimate.
-2. **Address:** Must be navigable. CRITICAL GEOCODING RULE: The 'address' field must be clean and machine-readable for OpenStreetMap. Use 'Street, Number, ZIP, City, Country' if available. If it's a natural sight or has no street, use the specific local identifier (e.g. 'Plaza de la Iglesia', 'Camino a...'). STRICTLY FORBIDDEN: Never use descriptive prose, brackets like '(Leuchtturm)', or abbreviations like 's/n' in the address.
-3. **Region Check:** If the place is not in "${context.search_region}", set "valid": false.
-4. **Hallucination Check:** If you cannot find the place with 99% certainty, set "valid": false.
+2. **Address:** Must be navigable.
+CRITICAL GEOCODING RULE: The 'address' field must be clean and machine-readable for OpenStreetMap. Use 'Street, Number, ZIP, City, Country' if available. If it's a natural sight or has no street, use the specific local identifier (e.g. 'Plaza de la Iglesia', 'Camino a...'). STRICTLY FORBIDDEN: Never use descriptive prose, brackets like '(Leuchtturm)', or abbreviations like 's/n' in the address.
+3. **Universal Acceptance (NO GEO-FILTER):** Set "valid": true for ALL real places. Do NOT disqualify a place just because it is outside "${context.search_region}". If the Collector suggested it, we keep it!
+4. **Hallucination Check:** If (and ONLY if) you cannot find the place at all (100% hallucination), set "valid": false.
 
 # PROTOCOL C: CATEGORY MAPPING (STRICT)
-Map the place to one of these SYSTEM IDs:
-[${validCategoriesString}]
-
+Map the place to one of these SYSTEM IDs: [${validCategoriesString}]
 *Fallback Logic:*
 - Castles, Ruins -> 'architecture'
 - Art, History -> 'museum'
@@ -63,21 +61,21 @@ Map the place to one of these SYSTEM IDs:
 # PROTOCOL D: CONTENT & LOGISTICS (DEEP DIVE)
 - **Description:** Factual, 2 sentences. No marketing fluff. ANTI-HALLUCINATION: NEVER invent architectural styles, historical dates, or interior details. If you lack 100% verified facts, describe the exterior, location, and general atmosphere instead.
 - **Duration:** Estimate realistic visit duration in minutes.
-- **Price:** Research ticket prices or if it's free. Format: "Free" or "Adults ~15€".
+- **Price:** Research ticket prices or if it's free. Format: "Free" or "Adults ~15€"
 - **Logistics:** Find practical tips (Parking near the spot, best time to visit, public transport stop).
 - **Hiking/Trails (ANTI-HALLUCINATION):** If the activity is a hike, trail, or nature walk, the 'website' field MUST contain a link to a reliable trail guide (e.g. Komoot, AllTrails, Outdooractive) and 'logistics' MUST specify the EXACT official trailhead or hiker's parking lot. Do not invent trailheads.
 
 # BLACKLIST (FORBIDDEN TERMS)
 You are strictly FORBIDDEN from using the following terms as categories:
-- ❌ "General" / "Allgemein"
-- ❌ "Sondertage" / "Special"
-- ❌ "Wildcard"
-- ❌ "Sightseeing" (Use 'architecture' or 'districts' instead)
+ "General" / "Allgemein"
+ "Sondertage" / "Special"
+ "Wildcard"
+ "Sightseeing" (Use 'architecture' or 'districts' instead)
 `);
 
   // 4. Output Schema (Object-based for PromptBuilder optimization)
   const outputSchema = {
-    "_thought_process": "String (Verify ID match, check region validity, find exact trailheads if hiking...)",
+    "_thought_process": "String (Verify ID match, find exact trailheads if hiking...)",
     "results": [
       {
         "id": "String (MUST MATCH INPUT ID EXACTLY)",
@@ -97,7 +95,6 @@ You are strictly FORBIDDEN from using the following terms as categories:
       }
     ]
   };
-
   builder.withOutputSchema(outputSchema);
 
   return builder.build();

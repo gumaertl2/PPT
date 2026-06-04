@@ -1,9 +1,7 @@
-// [2026-06-03] - ARCHITECTURE FIX: Dynamisches Traffic-Shaping nach Modellgrenzen (6.5s / 12.5s) integriert und Lite-Modell für Massen-Tasks im Free-Tier hinzugefügt.
+// [2026-06-04] - ARCHITECTURE FIX: Added 'foodScout' to Flash-Lite routing to prevent 429 errors during the aggressive Repair-Loop.
+// 03.06.2026 19:55 - ARCHITECTURE FIX: Implemented dynamic Traffic Shaping based on model limits (6.5s for Flash, 12.5s for Thinking).
+// 03.06.2026 19:50 - FEATURE: Injected gemini-2.5-flash-lite strictly for mechanical 'anreicherer' and 'geoAnalyst' tasks under Free Tier.
 // 23.02.2026 17:35 - FEAT: Added Free Tier Traffic Shaper (Queue) & Model Downgrade.
-// 12.02.2026 17:35 - FIX: Implemented hard Thinking-Budget switching (Speed vs. Quality).
-// 09.02.2026 19:10 - FIX: Removed 'responseMimeType: application/json' when Google Search Tool is active (API constraint).
-// 09.02.2026 17:00 - FEAT: Added Google Search Grounding support via 'tools'.
-// 28.01.2026 18:30 - FIX: Applied 'Thinking Config' correctly when user overrides model to 'Flash+' (thinking).
 // src/services/gemini.ts
 
 import { CONFIG } from '../data/config';
@@ -203,7 +201,8 @@ export const GeminiService = {
 
     // FREE TIER DOWNGRADE & ROUTING: Prevent Pro model calls and route mechanical tasks to Lite
     if (isFreeTier) {
-        if (taskName === 'anreicherer' || taskName === 'geoAnalyst') {
+        // CHIRURGISCHER EINGRIFF: foodScout (Repair Loop) zu den mechanischen Tasks hinzugefügt
+        if (taskName === 'anreicherer' || taskName === 'geoAnalyst' || taskName === 'foodScout') {
             if (isDebug) console.log(`[GeminiService] Free Tier Active: Routing mechanical task ${taskName} to Flash-Lite`);
             targetModelId = 'gemini-2.5-flash-lite:generateContent';
         } else if (targetModelId === 'gemini-2.5-pro:generateContent') {
@@ -271,7 +270,7 @@ export const GeminiService = {
             if (timeSinceLast < requiredDelay) {
                 const delay = requiredDelay - timeSinceLast;
                 if (isDebug) console.log(`[Traffic Shaper] Delaying request by ${delay}ms to protect Free Tier limits (${targetModelId}).`);
-                if (onRetryDelay) onRetryDelay(delay, `Limit-Schutz (Free Tier ${targetModelId.includes('thinking') ? 'Pro' : 'Fast'}) aktiv...`);
+                if (onRetryDelay) onRetryDelay(delay, `Limit-Schutz (Free Tier ${targetModelId.includes('thinking') ? 'Pro' : targetModelId.includes('lite') ? 'Lite' : 'Fast'}) aktiv...`);
                 await new Promise(resolve => setTimeout(resolve, delay));
             }
             lastRequestTime = Date.now();
