@@ -1,3 +1,7 @@
+// [2026-07-31] 17:25 - FIX: Added explicit ARRIVAL and DEPARTURE locations for roundtrips to prevent wrong airport assumptions on the final day.
+// [2026-07-31] 16:32 - FIX: Dynamic hotel name resolution for roundtrips using day.hotel_id from Tagesplaner.
+// [2026-07-31] 16:16 - FIX: Enhanced hotel lookup (name fallback) and injected [ID: ...] tag for seamless transfer planning.
+// [2026-07-31] 16:01 - FIX: Included 'mobil' mode in isRoundtrip check to prevent stationary fallback for roundtrips.
 // 19.03.2026 17:00 - FEAT: Injected 'planner' persona directive.
 // 27.02.2026 18:15 - FEAT: Handled 'allowFlexibleDay' user selection to append [FLEX_DAY] tag for the AI.
 // src/core/prompts/preparers/prepareTagesplanerPayload.ts
@@ -50,7 +54,7 @@ export const prepareTagesplanerPayload = (project: TripProject): TagesplanerPayl
   }
   const exactDaysList = exactDaysArray.join('\n');
 
-  const isRoundtrip = userInputs.logistics.mode === 'roundtrip';
+  const isRoundtrip = userInputs.logistics.mode === 'roundtrip' || userInputs.logistics.mode === 'mobil';
   let accommodationSchedule = "";
   let firstHotel: Place | undefined;
 
@@ -58,20 +62,22 @@ export const prepareTagesplanerPayload = (project: TripProject): TagesplanerPayl
       let currentDay = 1;
       const stops: RouteStop[] = userInputs.logistics.roundtrip.stops || [];
       stops.forEach((stop, index) => {
-          const hotel = stop.hotel ? data.places[stop.hotel] : undefined;
+          const hotel = stop.hotel ? places.find(p => p.id === stop.hotel || p.name === stop.hotel) : undefined;
           if (index === 0) firstHotel = hotel;
           
           const nights = stop.duration || 1; 
           const lastDayOfStop = currentDay + nights - 1;
           const stopCity = stop.name || stop.location || 'Local Area';
+          const hotelTag = hotel?.id ? `[ID: ${hotel.id}] ` : '';
           
-          accommodationSchedule += `- Day ${currentDay} to ${lastDayOfStop}: Stay in ${stopCity} at "${hotel?.name || 'Local Hotel'}" (${hotel?.address || stopCity})\n`;
+          accommodationSchedule += `- Day ${currentDay} to ${lastDayOfStop}: Stay in ${stopCity} at ${hotelTag}"${hotel?.name || 'Local Hotel'}" (${hotel?.address || stopCity})\n`;
           currentDay += nights;
       });
   } else {
       const hotelId = userInputs.logistics.stationary.hotel;
-      firstHotel = hotelId ? data.places[hotelId] : places.find(p => p.category === 'accommodation' || p.category === 'Hotel');
-      accommodationSchedule = `STATIONARY: Stay all ${totalDays} days at "${firstHotel?.name || 'Unterkunft'}" (${firstHotel?.address || 'Stadtzentrum'})`;
+      firstHotel = hotelId ? places.find(p => p.id === hotelId || p.name === hotelId) : places.find(p => p.category === 'accommodation' || p.category === 'Hotel');
+      const hotelTag = firstHotel?.id ? `[ID: ${firstHotel.id}] ` : '';
+      accommodationSchedule = `STATIONARY: Stay all ${totalDays} days at ${hotelTag}"${firstHotel?.name || 'Unterkunft'}" (${firstHotel?.address || 'Stadtzentrum'})`;
   }
 
   const hotelBase = {
@@ -134,6 +140,10 @@ export const prepareTagesplanerPayload = (project: TripProject): TagesplanerPayl
       transportLogistics += ` TRAIN ARRIVAL: Time ${arrival.time || '10:00'}. Start from local station.`;
   }
 
+  if (isRoundtrip && userInputs.logistics.roundtrip) {
+      transportLogistics += ` ARRIVAL LOCATION: ${userInputs.logistics.roundtrip.startLocation}. DEPARTURE LOCATION: ${userInputs.logistics.roundtrip.endLocation}. (Ensure the final day includes a transfer to the DEPARTURE LOCATION if the last hotel is elsewhere!).`;
+  }
+
   return {
     travel_dates: {
         start: startDate,
@@ -161,4 +171,4 @@ TIME BOUNDARIES (CRITICAL):
 - Day End: ${finalEnd}`
   };
 };
-// --- END OF FILE 155 Zeilen ---
+// --- END OF FILE 162 Zeilen ---

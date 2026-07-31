@@ -1,3 +1,4 @@
+// [2026-07-31] 16:32 - FIX: Dynamic hotel name resolution for roundtrips using day.hotel_id from Tagesplaner.
 // 19.03.2026 10:00 - FIX: Ignored active search terms and filters during print mode so the PDF itinerary isn't accidentally blank.
 // 28.02.2026 13:05 - FEAT: Added search term filtering to DayPlannerView.
 // src/features/Cockpit/DayPlannerView.tsx
@@ -44,8 +45,18 @@ export const DayPlannerView: React.FC<DayPlannerViewProps> = ({ places, showPlan
   const travelerNames = userInputs.travelers.travelerNames || '';
   
   const isStationary = userInputs.logistics.mode === 'stationaer';
-  const hotelName = isStationary ? (userInputs.logistics.stationary?.hotel || 'Hotel') : 'Unterkunft';
-  const destinationStr = isStationary && userInputs.logistics.stationary?.destination ? ` in ${userInputs.logistics.stationary.destination}` : '';
+  let baseHotelName = 'Unterkunft';
+  let baseDestinationStr = '';
+  
+  if (isStationary) {
+      const hId = userInputs.logistics.stationary?.hotel;
+      const hPlace = hId ? places.find((p: Place) => p.id === hId) : undefined;
+      baseHotelName = hPlace?.name || 'Hotel';
+      if (userInputs.logistics.stationary?.destination) {
+          baseDestinationStr = ` in ${userInputs.logistics.stationary.destination}`;
+      }
+  }
+  const globalHotelFallback = baseHotelName + baseDestinationStr;
 
   const transferAnalysis = analysis?.transferPlanner?.transfers || [];
 
@@ -84,6 +95,17 @@ export const DayPlannerView: React.FC<DayPlannerViewProps> = ({ places, showPlan
 
       const formattedDate = day.date ? formatTimelineDate(day.date, currentLang) : null;
 
+      // DYNAMIC HOTEL RESOLUTION
+      let dayHotelName = globalHotelFallback;
+      if (day.hotel_id) {
+          const dayHotelPlace = places.find((p: Place) => p.id === day.hotel_id);
+          if (dayHotelPlace) {
+              dayHotelName = dayHotelPlace.name;
+          }
+      } else if (day.hotel) {
+          dayHotelName = day.hotel; // Fallback if old plan with just name string
+      }
+
       return (
         <div key={`day-${i}`} className="mb-8 last:mb-0 print:break-inside-avoid bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
           
@@ -93,7 +115,7 @@ export const DayPlannerView: React.FC<DayPlannerViewProps> = ({ places, showPlan
                   {formattedDate && <span className="text-xs font-bold text-slate-500 bg-white px-2 py-1 rounded shadow-sm border border-slate-200">{formattedDate}</span>}
               </div>
               <div className="px-4 pb-3 pt-0 text-xs font-medium text-slate-500 flex items-center gap-1.5">
-                  <span className="text-sm">🏨</span> {t('sights.overnight', {defaultValue: 'Übernachtung'})}: {hotelName}{destinationStr}
+                  <span className="text-sm">🏨</span> {t('sights.overnight', {defaultValue: 'Übernachtung'})}: {dayHotelName}
                   <ExpenseEntryButton defaultTitle="Übernachtung" placeId={`hotel-${i}`} travelers={travelerNames} mode="planner" />
               </div>
           </div>
@@ -102,7 +124,7 @@ export const DayPlannerView: React.FC<DayPlannerViewProps> = ({ places, showPlan
               {filteredActivities.map((act: any, actIdx: number) => {
                   if (act.type === 'transfer') {
                       let desc = act.description || '';
-                      if (desc.includes('Zentraler Startpunkt')) desc = desc.replace(/Zentraler Startpunkt/gi, hotelName);
+                      if (desc.includes('Zentraler Startpunkt')) desc = desc.replace(/Zentraler Startpunkt/gi, dayHotelName);
                       return (
                           <div key={`transfer-${i}-${actIdx}`} className="relative pl-7 ml-7 py-1">
                               <div className="absolute -left-[1px] top-0 bottom-0 w-0.5 bg-slate-100"></div>
@@ -134,12 +156,14 @@ export const DayPlannerView: React.FC<DayPlannerViewProps> = ({ places, showPlan
                       );
                   }
                   else if (act.type === 'check-in') {
+                      // FIXED: Use dynamic hotel name from parent if location is generic or missing
+                      const checkInLoc = act.location && act.location !== "Local Hotel" && act.location !== "Unterkunft" ? act.location : dayHotelName;
                       return (
                           <div key={`check-in-${i}-${actIdx}`} className="relative pl-7 ml-7 py-1">
                               <div className="absolute -left-[1px] top-0 bottom-0 w-0.5 bg-slate-100"></div>
                               <div className="flex items-center gap-3 px-3 py-2 bg-emerald-50/50 border border-emerald-100 rounded-lg text-sm text-emerald-800">
                                   <Luggage className="w-4 h-4" />
-                                  <span className="font-bold">{act.time && `${act.time} Uhr: `}Check-in: {act.location || hotelName} ({act.duration} Min.)</span>
+                                  <span className="font-bold">{act.time && `${act.time} Uhr: `}Check-in: {checkInLoc} ({act.duration} Min.)</span>
                               </div>
                           </div>
                       );
@@ -181,4 +205,4 @@ export const DayPlannerView: React.FC<DayPlannerViewProps> = ({ places, showPlan
 
   return <>{renderedDays}</>;
 };
-// --- END OF FILE 183 Zeilen ---
+// --- END OF FILE 194 Zeilen ---

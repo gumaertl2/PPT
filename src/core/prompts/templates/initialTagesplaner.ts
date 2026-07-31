@@ -1,3 +1,4 @@
+// [2026-07-31] 16:17 - FIX: Added 'id' field to check-in/check-out objects in JSON schema to enable TransferPlanner GPS mapping.
 // 19.03.2026 17:00 - FEAT: Added personaDirective at the top to enforce constraints like pace and special wishes during orchestration.
 // 27.02.2026 19:52 - LOGIC: Enforced strict Immersive Block Rule (4+ Hours).
 // src/core/prompts/templates/initialTagesplaner.ts
@@ -80,7 +81,7 @@ Output:
       "day_id": "day-1",
       "activities": [
         {"time": "11:00", "type": "transfer", "mode": "drive", "duration": 30, "distance_km": 35.0, "description": "Drive to Hotel."},
-        {"time": "11:30", "type": "check-in", "location": "Hotel A", "duration": 45}
+        {"time": "11:30", "type": "check-in", "id": "hotel-uuid", "location": "Hotel A", "duration": 45}
       ]
     }
   ]
@@ -99,6 +100,7 @@ STRICT REQUIREMENT: You must return ONLY the following JSON structure:
         {
            "type": "check-in",
            "time": "HH:MM",
+           "id": "ID_OF_HOTEL_IF_PROVIDED",
            "location": "Name of Hotel",
            "duration": 45
         },
@@ -141,5 +143,4 @@ ${payload.available_sights}
 RETURN STRICTLY VALID JSON.
 `;
 };
-
-// Zeilenanzahl: 163
+// --- END OF FILE 166 Zeilen ---
