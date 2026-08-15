@@ -1,3 +1,4 @@
+// [2026-08-15] 14:45 - FIX: Passed feedback parameter to buildRouteArchitectPrompt to enable "Keep" functionality.
 // 27.02.2026 14:15 - FIX: Integrated prepareTransferPlannerPayload into PayloadBuilder.
 // 21.02.2026 12:20 - FIX: TS6133 removed unused CONFIG import.
 // 21.02.2026 11:30 - FIX: Aligned chunk limits by replacing local flawed getTaskChunkLimit with LimitManager SSOT.
@@ -34,7 +35,7 @@ import { prepareFoodScoutPayload } from './preparers/prepareFoodScoutPayload';
 import { prepareFoodEnricherPayload } from './preparers/prepareFoodEnricherPayload';
 import { prepareHotelScoutPayload } from './preparers/prepareHotelScoutPayload';
 import { prepareTagesplanerPayload } from './preparers/prepareTagesplanerPayload'; 
-import { prepareTransferPlannerPayload } from './preparers/prepareTransferPlannerPayload'; // FEAT: Imported TransferPlanner Preparer
+import { prepareTransferPlannerPayload } from './preparers/prepareTransferPlannerPayload';
 
 import type { TaskKey, ChunkingState, TripProject, FoodSearchMode } from '../types';
 import { filterByRadius } from '../utils/geo';
@@ -268,7 +269,8 @@ export const PayloadBuilder = {
       
       case 'routeArchitect':
       case 'routenArchitekt': {
-        generatedPrompt = buildRouteArchitectPrompt(project);
+        // FIX: Passed feedback here so the Keep feature works!
+        generatedPrompt = buildRouteArchitectPrompt(project, feedback);
         break;
       }
 
@@ -281,7 +283,6 @@ export const PayloadBuilder = {
 
       case 'transfers':
       case 'transferPlanner': {
-        // FIX: Replaced direct project mapping with clean V40 Payload Prep logic
         const payload = prepareTransferPlannerPayload(project, feedback);
         generatedPrompt = buildTransferPlannerPrompt(payload);
         break;
@@ -304,4 +305,4 @@ export const PayloadBuilder = {
     return generatedPrompt;
   }
 };
-// --- END OF FILE 309 Zeilen ---
+// --- END OF FILE 310 Zeilen ---

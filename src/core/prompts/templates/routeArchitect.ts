@@ -1,3 +1,4 @@
+// [2026-08-15] 14:45 - FIX: Added feedback parameter to process user input, external prompts, and "Kept" routes.
 // 20.04.2026 12:45 - PROMPT: Added conditional logic for stationary base camp scouting. (Full Integrity Preserved)
 // 02.02.2026 10:15 - PROMPT UPDATE: Implemented "Strict vs. Smart" Logic.
 // 06.02.2026 22:15 - FIX: Pass Explicit User Itinerary for Strict Mirroring.
@@ -7,7 +8,7 @@
 import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
 
-export const buildRouteArchitectPrompt = (project: TripProject): string => {
+export const buildRouteArchitectPrompt = (project: TripProject, feedback?: string): string => {
   const { userInputs, analysis } = project;
   const { logistics, dates } = userInputs;
 
@@ -48,6 +49,11 @@ export const buildRouteArchitectPrompt = (project: TripProject): string => {
   Your task is to design logical, optimized Multi-Stop Routes (Roundtrips) OR find the perfect single Base Camp for a given duration and region.
   You plan ONLY the overnight hubs (Sleeping Stations), not the daily activities.`;
 
+  let feedbackSection = "";
+  if (feedback) {
+    feedbackSection = `\n# USER FEEDBACK & REGENERATION COMMANDS (CRITICAL)\nThe user requested changes or kept certain routes. You MUST follow these instructions strictly:\n"""\n${feedback}\n"""\nMake sure to output the exact number of routes requested in the task.`;
+  }
+
   const instructions = `# MISSION
 ${isStationary 
   ? `The user is planning a STRICTLY STATIONARY trip (1 single base camp) in the requested region "${logistics.stationary?.region || 'unspecified'}" for ${dates.duration} nights.
@@ -81,6 +87,7 @@ The field \`location_name\` in \`stages\` is CRITICAL for downstream systems (Ge
 1. **Concrete Cities Only:** You MUST output a specific city, town, or village name (e.g. "Heidelberg", "Freiburg im Breisgau").
 2. ⛔️ **FORBIDDEN:** Do NOT use vague regional terms like "Region Stuttgart", "Schwarzwald Mitte", "Bodenseekreis".
 3. **Resolution:** If the strategy suggests a region, pick the most strategic *Hub City* within that region as the \`location_name\`.
+${feedbackSection}
 
 # OUTPUT SCHEMA (V40 Standard)
 Create a JSON object with key "routes".
@@ -138,3 +145,4 @@ Each option needs:
     .withSelfCheck(['basic', 'planning'])
     .build();
 };
+// --- END OF FILE 119 Zeilen ---
