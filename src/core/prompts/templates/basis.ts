@@ -1,3 +1,4 @@
+// [2026-08-15] 15:18 - FIX: Added Anti-Laziness and Anti-Hallucination Fallback to MISSION 2 to enforce real, concrete sports trails.
 // 03.06.2026 10:30 - ARCHITECTURE FIX: Enforced Strict Override Pattern and [USER OVERRIDE] detection.
 // 01.06.2026 19:00 - ARCHITECTURE FIX: Injected Strict User Override Rule for Data Bypass. Zero-Loss validated.
 // 08.04.2026 15:00 - FIX: Removed hardcoded "German" language lock. Now handled globally by PromptBuilder.
@@ -47,8 +48,10 @@ ${instructions.creative_briefing}
 
 For each Topic above:
 1. Understand the "STRATEGY".
-2. Find 3-5 concrete, high-quality candidates that match this strategy.
-3. Ensure the place is open/accessible in ${context.travel_season}.
+2. **ANTI-LAZINESS (CRITICAL):** If a [USER OVERRIDE] specifies technical data (e.g., altitude, kilometers, specific sports), you MUST provide CONCRETE starting points, exact trail names, or specific providers. Generic entries like "National Park" or "Coast" are STRICTLY FORBIDDEN! You must research the real, navigable location.
+3. **ANTI-HALLUCINATION FALLBACK:** NEVER invent routes, mountains, or places just to satisfy the user's numbers! If the requested metrics (e.g., 1000m altitude) are geographically impossible in the given region, choose the *next best, real-existing* alternative (e.g., the toughest coastal trail available) and honestly explain this physical compromise in your \`_thought_process\`.
+4. Find 3-5 concrete, high-quality candidates that match this strategy.
+5. Ensure the place is open/accessible in ${context.travel_season}.
 
 # MISSION 3: FILL THE REST
 - If the curated selection doesn't reach the target count, fill the rest with absolute "Must-Sees" for the region.
@@ -80,7 +83,7 @@ You are purely a SIGHTSEEING & ACTIVITY Scout. The user has other agents for Foo
 
   // 4. Output Schema (Thinking-Safe)
   const outputSchema = {
-      "_thought_process": "String (1. SCAN FOR '🚨 [USER OVERRIDE]': Apply hard filters like altitude or distance FIRST -> 2. Briefly analyze strategy -> 3. Check for forbidden services (Food/Hotel) and filter them out...)",
+      "_thought_process": "String (1. SCAN FOR '🚨 [USER OVERRIDE]': Apply hard filters like altitude or distance FIRST -> 2. Check for geographical limitations and apply Anti-Hallucination Fallback if needed -> 3. Check for forbidden services (Food/Hotel) and filter them out...)",
       "candidates": [
           "String (Name of Candidate 1)",
           "String (Name of Candidate 2)",
@@ -92,4 +95,4 @@ You are purely a SIGHTSEEING & ACTIVITY Scout. The user has other agents for Foo
   // 5. Build
   return builder.build();
 };
-// --- END OF FILE ---
+// --- END OF FILE 98 Zeilen ---
