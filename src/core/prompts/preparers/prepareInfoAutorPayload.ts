@@ -1,3 +1,4 @@
+// [2026-10-25] [14:56] - FIX: Prioritized confirmed roundtrip.stops over routeArchitect.routes[0] while preserving stationary city mode.
 // 03.06.2026 10:20 - ARCHITECTURE FIX: Implemented Strict Override Pattern. Custom instructions now correctly reach the info module generation.
 // 20.02.2026 15:30 - FEAT: Dynamically extracts all visited cities (districts/city_info) to generate complete A-Z guides.
 // 20.02.2026 15:30 - FIX: Added country/region context to prevent AI from confusing cities (e.g. Wolkenstein in Sachsen vs Italien).
@@ -58,10 +59,10 @@ export const prepareInfoAutorPayload = (project: TripProject): any[] => {
         hubs = [userInputs.logistics.stationary.destination];
     } else {
         destinationRegion = userInputs.logistics.roundtrip.region || "";
-        if (analysis.routeArchitect?.routes?.[0]?.stages) {
-            hubs = analysis.routeArchitect.routes[0].stages.map((s: any) => s.location_name);
-        } else {
+        if (userInputs.logistics.roundtrip.stops && userInputs.logistics.roundtrip.stops.length > 0) {
             hubs = userInputs.logistics.roundtrip.stops.map((s: any) => s.location);
+        } else if (analysis.routeArchitect?.routes?.[0]?.stages) {
+            hubs = analysis.routeArchitect.routes[0].stages.map((s: any) => s.location_name);
         }
     }
 
@@ -154,4 +155,4 @@ export const prepareInfoAutorPayload = (project: TripProject): any[] => {
 
     return tasks;
 };
-// --- END OF FILE ---
+// --- END OF FILE 158 Zeilen ---

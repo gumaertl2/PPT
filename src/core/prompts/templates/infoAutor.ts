@@ -1,3 +1,4 @@
+// [2026-10-25] [14:56] - FIX: Added STRATEGY_OPTIONS fallback when cat_strategyId is empty.
 // [2026-10-25] [13:49] - FIX: Replaced dead sammler_briefing fallback with raw user strategy & ChefPlaner rules.
 // 04.02.2026 12:35 - FIX: Robust Payload Detection & Empty Task Handling.
 // Corrects V40 context detection and prevents "John Doe" hallucinations on empty tasks.
@@ -5,6 +6,7 @@
 
 import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
+import { STRATEGY_OPTIONS } from '../../../data/strategies';
 
 export const buildInfoAutorPrompt = (
     projectOrPayload: TripProject | any,
@@ -44,6 +46,7 @@ export const buildInfoAutorPrompt = (
         chunkInfo = totalChunks > 1 ? ` (Block ${currentChunk}/${totalChunks})` : '';
         strategicBriefing = userInputs.customPreferences?.['cat_strategyId']
             || userInputs.customPreferences?.[`saved_strategyId_${userInputs.strategyId}`]
+            || (STRATEGY_OPTIONS?.[userInputs.strategyId]?.promptInstruction as any)?.de
             || (analysis.chefPlaner as any)?.strategic_briefing?.search_radius_instruction
             || userInputs.strategyId || "";
 
@@ -137,4 +140,4 @@ ${taskList}
         .withSelfCheck(['basic', 'research'])
         .build();
 };
-// --- END OF FILE 140 Zeilen ---
+// --- END OF FILE 143 Zeilen ---

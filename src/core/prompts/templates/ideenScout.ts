@@ -1,3 +1,4 @@
+// [2026-10-25] [14:56] - FIX: Added STRATEGY_OPTIONS fallback when cat_strategyId is empty.
 // [2026-10-25] [13:49] - FIX: Replaced dead sammler_briefing reference with raw user strategy & notes.
 // 22.03.2026 10:00 - FIX: Added Rule 5 to prevent trail/hiking hallucinations and enforce Komoot/AllTrails links.
 // 16.03.2026 18:00 - FIX: Added "Strict Naming" rule to prevent the AI from generating conversational/descriptive POI names.
@@ -5,6 +6,7 @@
 
 import { PromptBuilder } from '../PromptBuilder';
 import type { TripProject } from '../../types';
+import { STRATEGY_OPTIONS } from '../../../data/strategies';
 
 export const buildIdeenScoutPrompt = (
     projectOrPayload: any,
@@ -33,6 +35,7 @@ export const buildIdeenScoutPrompt = (
       tasks = tasksChunk || [];
       const rawStrat = project.userInputs?.customPreferences?.['cat_strategyId']
           || project.userInputs?.customPreferences?.[`saved_strategyId_${project.userInputs?.strategyId}`]
+          || (STRATEGY_OPTIONS?.[project.userInputs?.strategyId]?.promptInstruction as any)?.de
           || project.userInputs?.strategyId || "";
       const notes = project.userInputs?.notes ? ` | User Wishes: ${project.userInputs.notes}` : "";
       const noGos = project.userInputs?.customPreferences?.['noGos'] ? ` | No-Gos: ${project.userInputs.customPreferences['noGos']}` : "";
@@ -129,4 +132,4 @@ Return a SINGLE valid JSON object.`;
     .withSelfCheck(['research', 'planning'])
     .build();
 };
-// --- END OF FILE 132 Zeilen ---
+// --- END OF FILE 135 Zeilen ---

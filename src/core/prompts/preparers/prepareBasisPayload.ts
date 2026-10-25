@@ -1,3 +1,4 @@
+// [2026-10-25] [14:56] - FIX: Prioritized confirmed roundtrip.stops over routeArchitect.routes[0] in mobil mode and added STRATEGY_OPTIONS fallback when cat_strategyId is empty.
 // [2026-10-25] [13:52] - FIX: Included defaultUserPreference in Creative Briefing and filtered out unmodified default overrides.
 // [2026-06-04] - ARCHITECTURE FIX: Preserved ChefPlaner's searchRadiusInstruction in stationary mode to stop the Collector from ignoring the 0.5h limit.
 // [2026-06-03] - ARCHITECTURE FIX: Reverted strict AI override. User's UI input (sightsCount) is the absolute Single Source of Truth again. User is boss.
@@ -11,6 +12,7 @@
 
 import type { TripProject } from '../../types';
 import { INTEREST_DATA } from '../../../data/interests';
+import { STRATEGY_OPTIONS } from '../../../data/strategies';
 import { buildPersonaDirective } from '../PersonaInjector';
 
 const EXCLUDED_FOR_BASIS = [
@@ -118,21 +120,26 @@ export const prepareBasisPayload = (project: TripProject, chunkIndex: number = 1
     
     if (logistics.mode === 'mobil') {
         let routeString = "";
+        const stops = logistics.roundtrip.stops || [];
         const calculatedRoute = routeArchitect?.routes?.[0];
         
-        if (calculatedRoute && calculatedRoute.stages && calculatedRoute.stages.length > 0) {
+        if (stops.length > 0) {
+            const stopNames = stops.map(s => s.location);
+            const matchingRoute = routeArchitect?.routes?.find((r: any) =>
+                r.stages && r.stages.map((st: any) => st.location_name).join('|') === stopNames.join('|')
+            );
+            const waypoints = (matchingRoute as any)?.map_waypoints?.join(", ") || calculatedRoute?.waypoints?.map(w => w.location).join(", ") || "";
+            routeString = `CONFIRMED ROUTE: ${stopNames.join(" -> ")}${waypoints ? `. (Waypoints: ${waypoints})` : ''}`;
+        } else if (calculatedRoute && calculatedRoute.stages && calculatedRoute.stages.length > 0) {
             const stages = calculatedRoute.stages.map(s => s.location_name).join(" -> ");
             const waypoints = calculatedRoute.waypoints?.map(w => w.location).join(", ") || "";
             routeString = `CALCULATED ROUTE: ${stages}. (Waypoints: ${waypoints})`;
         } else {
-            const stops = logistics.roundtrip.stops || [];
             const region = logistics.roundtrip.region || "Region";
             const start = logistics.roundtrip.startLocation || region;
             const end = logistics.roundtrip.endLocation || start;
             
-            routeString = stops.length > 0 
-                ? `${start} -> ${stops.map(s => s.location).join(" -> ")} -> ${end}` 
-                : `Route from ${start} to ${end} through ${region}`;
+            routeString = `Route from ${start} to ${end} through ${region}`;
         }
         
         searchRadiusInstruction = `
@@ -149,9 +156,12 @@ export const prepareBasisPayload = (project: TripProject, chunkIndex: number = 1
     }
     
     // DATA BYPASS: Ignite the raw strategy instead of relying on the ChefPlaner's lossy summary
+    const defaultStrategyText = (STRATEGY_OPTIONS?.[userInputs.strategyId]?.promptInstruction as any)?.[uiLang]
+        || (STRATEGY_OPTIONS?.[userInputs.strategyId]?.promptInstruction as any)?.de;
     const rawStrategy = userInputs.customPreferences['cat_strategyId'] 
          || userInputs.customPreferences[`saved_strategyId_${userInputs.strategyId}`]
         || userInputs.customPreferences[userInputs.strategyId]
+        || defaultStrategyText
         || `Please follow the general travel style for: ${userInputs.strategyId}`;
 
     const userStrategyDirective = `### RAW USER STRATEGY (ABSOLUTE PRIORITY)\n${rawStrategy}\n\nCRITICAL RULE: The rules in this section override any conflicting default parameters. Treat numbers (e.g. altitude, distances) as strict filters!`;
@@ -203,4 +213,4 @@ export const prepareBasisPayload = (project: TripProject, chunkIndex: number = 1
         }
     };
 };
-// --- END OF FILE 206 Zeilen ---
+// --- END OF FILE 216 Zeilen ---

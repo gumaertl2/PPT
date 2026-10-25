@@ -1,3 +1,4 @@
+// [2026-10-25] [14:56] - FIX: Prevented routeArchitect.routes[0] from overwriting confirmed roundtrip.stops while preserving stationary city mode.
 // 04.02.2026 12:55 - FIX: WILDCARD DEFINITION & QUANTITY ENFORCEMENT.
 // - Explicitly requesting "2 ideas" per category.
 // - Redefined Wildcards as "Vibe-Independent", "WOW-Effects" and "Unique".
@@ -34,11 +35,10 @@ export const prepareIdeenScoutPayload = (project: TripProject): any[] => {
             hubs.push(userInputs.logistics.stationary.destination);
         }
     } else {
-        if (userInputs.logistics.roundtrip.stops) {
+        if (userInputs.logistics.roundtrip.stops && userInputs.logistics.roundtrip.stops.length > 0) {
             hubs = userInputs.logistics.roundtrip.stops.map(s => s.location);
-        }
-        // FIX: Extract from RouteArchitect (using location_name as confirmed in data)
-        if (analysis.routeArchitect?.routes?.[0]?.stages) {
+        } else if (analysis.routeArchitect?.routes?.[0]?.stages) {
+            // Fallback: Extract from RouteArchitect only if no confirmed stops exist
             const routeHubs = analysis.routeArchitect.routes[0].stages.map(s => s.location_name);
             if (routeHubs.length > 0) hubs = routeHubs;
         }
@@ -109,4 +109,4 @@ export const prepareIdeenScoutPayload = (project: TripProject): any[] => {
         };
     });
 };
-// --- END OF FILE 110 Zeilen ---
+// --- END OF FILE 112 Zeilen ---
