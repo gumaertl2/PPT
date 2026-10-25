@@ -1,3 +1,4 @@
+// 25.10.2026 13:13 - DOCS: Synced Agent Manifest with current codebase (Triple Dragnet FoodScout, 4-Eyes FoodEnricher, Active Tagesplaner Engine).
 // 01.02.2026 16:50 - FIX: SSOT Sync with Code. Output Keys aligned with templates/types.ts.
 // src/data/Texts/agent_manifest.ts
 
@@ -38,7 +39,7 @@ export const agentManifest = {
       {
         id: "json_only",
         title: "Das 'JSON-Only' Gesetz",
-        description: "Der Prompt muss erzwingen: NO PREAMBLE. START DIRECTLY WITH '{'. Kein Prosa-Text."
+        description: "Der Prompt muss erzwingen: NO PREAMBLE. START DIRECTLY WITH '{' (oder '['). Kein Prosa-Text."
       },
       {
         id: "chain_of_thought",
@@ -53,14 +54,14 @@ export const agentManifest = {
     inputs: {
       hard_facts: ["travelers", "dates", "logistics"],
       soft_factors: ["vibe", "pace", "budget", "selectedInterests"],
-      config: ["notes", "aiOutputLanguage", "searchSettings"]
+      config: ["notes", "aiOutputLanguage", "searchSettings", "customPreferences"]
     },
     components: {
       dispatcher: "PayloadBuilder (Daten-Schleuse)",
-      collector: "Preparer (Extract & Filter)",
+      collector: "Preparer & PersonaInjector (Extract, Filter & Targeted Context)",
       blueprint: "Template (Structure & Context)",
-      standardizer: "PromptBuilder (Role & Schema)",
-      refiner: "ResultProcessor (ID Factory & SSOT)"
+      standardizer: "PromptBuilder (OS, Role, Schema & Language Lockdown)",
+      refiner: "ResultProcessor + Sub-Processors (ID Factory & SSOT)"
     }
   },
 
@@ -71,16 +72,16 @@ export const agentManifest = {
         chefPlaner: {
           file: "chefPlaner.ts",
           role: "Der Stratege.",
-          tasks: ["Fundamentalanalyse", "Machbarkeits-Check"],
+          tasks: ["Fundamentalanalyse", "Machbarkeits-Check", "Tippfehler- & Länderkorrektur"],
           input: ["Komplettes Profil (Travelers, Dates, Logistics, Interests)"],
-          output: ["strategic_briefing", "smart_limit_recommendation", "plausibility_check", "corrections"] // CODE SYNC
+          output: ["strategic_briefing", "smart_limit_recommendation", "plausibility_check", "corrections", "validated_hotels"]
         },
         routeArchitect: {
           file: "routeArchitect.ts",
-          role: "Der Logistik-Meister (Rundreise).",
-          tasks: ["Optimiert Routen-Reihenfolge", "Berechnet Fahrzeiten"],
-          input: ["stops (User-Wahl)", "start/end", "constraints (Max. Fahrzeit/Wechsel)"],
-          output: ["Optimierte stops mit drive_time und distance"]
+          role: "Der Logistik-Meister (Rundreise & Basecamp-Scouting).",
+          tasks: ["Entwickelt 3 Routenvorschläge", "Optimiert Etappen & Fahrzeiten"],
+          input: ["stops (User-Wahl)", "start/end", "constraints (Max. Fahrzeit/Wechsel)", "feedback (Keep-Logik)"],
+          output: ["routes (stages mit drive_time und distance)"]
         },
         geoAnalyst: {
           file: "geoAnalyst.ts",
@@ -97,30 +98,30 @@ export const agentManifest = {
         basis: {
           file: "basis.ts",
           role: "Der Aktivitäten-Scout.",
-          tasks: ["Findet POIs passend zu Interessen"],
-          input: ["destination", "interests (OHNE Services!)"],
-          output: ["candidates (String List)"] // CODE SYNC
+          tasks: ["Findet POIs passend zu Interessen", "Erzwingt [USER OVERRIDE] & konkrete Sport-/Wander-Ziele"],
+          input: ["destination", "interests (OHNE Services!)", "persona_directive (basis)"],
+          output: ["candidates (String List)"]
         },
         hotelScout: {
           file: "hotelScout.ts",
           role: "Der Logistiker (Unterkunft).",
           tasks: ["Findet strategische Unterkunft (Stationär oder Rundreise)"],
-          input: ["logistics_mode", "vehicle_type (Camper!)", "budget", "current_stop"],
-          output: ["places (Category: accommodation, location_match)"]
+          input: ["logistics_mode", "vehicle_type (Camper!)", "budget", "current_stop", "persona_directive (scout)"],
+          output: ["candidates / places (Category: hotel, location_match)"]
         },
         foodScout: {
           file: "foodScout.ts",
-          role: "Der Kulinarik-Experte (Quellen-basiert).",
-          tasks: ["Erstellt Kandidaten-Pool aus Restaurantführern"],
-          input: ["Suchgebiet (Radius Logik)", "Strategie (Guide vs. Ad-Hoc)", "Quellen-Matrix (countries.ts)"],
-          output: ["rawFoodCandidates (Name, Source Link)"]
+          role: "Der Kulinarik-Detektiv (Triple Dragnet).",
+          tasks: ["Sequenzielle Multi-City-Suche in Guides & Nachbarorten", "Graceful Exit auf 'Local Top Pick'", "Quality Doorman Adress-Reparatur"],
+          input: ["target_town + country (Einzelstadt-Schleife)", "guides (countries.ts)"],
+          output: ["candidates (Name, Address, Phone, Website, Awards, LiveStatus)"]
         },
         ideenScout: {
           file: "ideenScout.ts",
           role: "Der Joker.",
-          tasks: ["Alternativen für schlechtes Wetter oder leeren Plan"],
-          input: ["weather_forecast", "current_plan"],
-          output: ["alternatives (Indoor, Hidden Gems)"]
+          tasks: ["Alternativen für Sonnen-/Regentage und Wildcards"],
+          input: ["locations", "interests", "current_plan"],
+          output: ["results (sunny_day_ideas, rainy_day_ideas, wildcard_ideas)"]
         }
       }
     },
@@ -130,23 +131,23 @@ export const agentManifest = {
         anreicherer: {
           file: "anreicherer.ts",
           role: "Der Fakten-Checker.",
-          tasks: ["Sucht harte Fakten zu Namen"],
-          input: ["candidates (Batch 5-10)", "ID Pass-through"],
-          output: ["results (Array with id, official_name, location...)"] // CODE SYNC
+          tasks: ["Sucht harte Fakten, OSM-Adressen & Wander-Trailheads zu Namen", "Universal Acceptance (Serendipity)"],
+          input: ["candidates (Batch)", "ID Pass-through"],
+          output: ["results (Array mit id, valid, category, official_name, location, address, website...)"]
         },
         foodEnricher: {
           file: "foodEnricher.ts",
-          role: "Der Detail-Prüfer (Food).",
-          tasks: ["Reichert Restaurant-Kandidaten an"],
-          input: ["rawFoodCandidates"],
-          output: ["enriched_candidates (Signature Dish, PriceLevel, Ratings)"]
+          role: "Der 4-Augen-Auditor & Gastro-Chefredakteur.",
+          tasks: ["Prüft Existenz & Qualität (Door Guard)", "Data Recovery für Ratings", "Schreibt Kurz-Teaser & Markdown-Story"],
+          input: ["allScoutCandidates (aus FoodWorkflow)"],
+          output: ["enriched_candidates (description, detailContent, signature_dish, awards, verification_status)"]
         },
         transferPlanner: {
           file: "transferPlanner.ts",
           role: "Der Realist.",
-          tasks: ["Berechnet Wegezeiten (Fallback)"],
-          input: ["Geo-Koordinaten"],
-          output: ["transfer_times"]
+          tasks: ["Berechnet und optimiert Wegezeiten zwischen Terminen"],
+          input: ["itinerary", "Geo-Koordinaten"],
+          output: ["transfer_times / optimierte Transfers"]
         }
       }
     },
@@ -156,16 +157,16 @@ export const agentManifest = {
         tourGuide: {
           file: "tourGuide.ts",
           role: "Der Clusterer.",
-          tasks: ["Ordnet Orte logischen Touren/Tagen zu"],
+          tasks: ["Ordnet Orte logischen Touren/Gebieten zu"],
           input: ["places", "duration", "hub"],
           output: ["tour_suggestions (Cluster)"]
         },
         initialTagesplaner: {
           file: "initialTagesplaner.ts",
-          role: "Der Zeit-Manager (Legacy).",
-          tasks: ["Erstellt detaillierten Zeitstrahl"],
-          input: ["Orte", "Öffnungszeiten", "Pace"],
-          output: ["itinerary (Timeline)"]
+          role: "Der Zeit- & Logistik-Architekt (Skeleton Engine).",
+          tasks: ["Erstellt nahtlosen Zeitstrahl (Hotel-Loop, 4h-Immersive-Block, Golden Hour 17:00+)", "Meldet Konflikte für Prio 1/2 & Fix"],
+          input: ["available_sights", "travel_dates", "hotel_base", "persona_directive (planner)"],
+          output: ["itinerary (Timeline)", "unassigned (für PlannerConflictModal)"]
         }
       }
     },
@@ -175,19 +176,19 @@ export const agentManifest = {
         infoAutor: {
           file: "infoAutor.ts",
           role: "Der Reiseführer (Wissen).",
-          tasks: ["Schreibt informative Artikel"],
-          input: ["topics", "context (Ziel, Gruppe)"],
+          tasks: ["Schreibt A-Z Stadtführer (mit Geo-Context Guard) & Regional-Artikel"],
+          input: ["tasks (Themen & besuchte Städte)", "context (Ziel, Gruppe)"],
           output: ["ContentChapter (Markdown)"]
         },
         chefredakteur: {
           file: "chefredakteur.ts",
           role: "Der Detail-Liebhaber.",
-          tasks: ["Schreibt inspirierende Deep-Dives"],
-          input: ["place", "tone (Faktisch/Begeisternd)"],
-          output: ["detailContent (Intro, Highlights)"]
+          tasks: ["Schreibt inspirierende Deep-Dives & Rundgang-Waypoints"],
+          input: ["editorial_tasks (Places)", "persona_directive (writer)"],
+          output: ["detailContent, reasoning, waypoints"]
         }
       }
     }
   }
 };
-// --- END OF FILE 190 Zeilen ---
+// --- END OF FILE 194 Zeilen ---

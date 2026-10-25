@@ -1,3 +1,4 @@
+// 25.10.2026 13:12 - DOCS: Synced Technical Manual (DE & EN) with current code (6 Wizard steps, Header Toolbar layout, Actions Menu & full AI Specialist team).
 // 12.04.2026 14:40 - UX: Updated terminology (AI Workflows -> Reiseführer-Kapitel, Fundament -> Briefing) for full consistency.
 // 18.03.2026 11:15 - DOCS: Updated terminology (Plan -> Tagebuch/Diary) in the manual to reflect the new Live-Tracker feature.
 // 26.02.2026 10:45 - DOCS: Converted Technical Manual to informal "Du" to match the marketing copy.
@@ -102,63 +103,71 @@ Papatours ist eine moderne Web-App der neuesten Generation (PWA). Das bedeutet f
 Dieses Handbuch erklärt dir, wie du die App optimal nutzt: Von der ersten Idee bis zu den Erinnerungen während der Reise.
 
 ### Phase 1: Die Planung (Der Assistent)
-Wenn du eine neue Reise startest, führt dich ein Assistent (Wizard) durch 5 einfache Schritte:
-1. **Cockpit:** Wohin geht es? (Stationär im Hotel oder als Rundreise).
+Wenn du eine neue Reise startest, führt dich ein Assistent (Wizard) durch 6 einfache Schritte:
+1. **Cockpit (Logistik):** Wohin geht es? (Stationär im Hotel oder als Rundreise).
 2. **Wer & Wie:** Wer reist mit und wie ist die allgemeine Stimmung (z.B. entspannt oder sportlich)?
 3. **Interessen:** Was machst du gerne? (z.B. Museen, Wandern, Kulinarik).
 4. **Termine:** Wann reist du und gibt es schon feste Termine (z.B. ein gebuchter Flug)?
-5. **Start:** Hier fassen wir alles zusammen. Ein Klick auf "Generieren" weckt die KI auf!
+5. **Sonstiges:** Besondere Wünsche, No-Gos, Sondertage und die gewünschte Sprache für die KI-Texte (20 Sprachen wählbar).
+6. **Start:** Hier fassen wir alles zusammen. Ein Klick auf "Generieren" weckt die KI auf!
 
 *Tipp: Die KI plant die Route, sucht passende Sehenswürdigkeiten, checkt Öffnungszeiten und schreibt einen kompletten Reiseführer für dich.*
 
-### Phase 2: Die 4 Hauptansichten (Dein Reisebegleiter)
-Sobald die KI fertig ist, verwandelt sich die App in deinen interaktiven Reisebegleiter. Oben in der Menüleiste findest du die vier wichtigsten Schalter:
+### Phase 2: Die Hauptansichten & Kopfleiste (Dein Reisebegleiter)
+Sobald die KI fertig ist, verwandelt sich die App in deinen interaktiven Reisebegleiter. Oben in der Menüleiste findest du links die vier Hauptansichten (neben dem Home-Button und der Live-Suche) sowie rechts den Direktzugriff auf Reisekasse und Schnell-Druck:
 
 📝 **1. Tagebuch (Das Dashboard & Live-Tracker)**
 Hier findest du die Zusammenfassung deiner Reise, deine Routenplanung und (ganz wichtig) dein **Live-Reisetagebuch**. 
 * **Vor Ort:** Nutze den Button "Eigener Eintrag", um spontane Erlebnisse samt deinem aktuellen GPS-Standort festzuhalten. Orte, die du besuchst und eincheckst, tauchen hier automatisch chronologisch auf.
 
 📖 **2. Guide (Der Reiseführer & Katalog)**
-Dies ist das Herzstück. Hier findest du alle von der KI gesammelten Orte (Sehenswürdigkeiten, Restaurants, Natur).
-* **Organisieren:** Sortiere die Liste nach Kategorien, Alphabet oder nach Touren.
+Dies ist das Herzstück. Hier findest du alle von der KI gesammelten Orte (Sehenswürdigkeiten, Restaurants, Hotels, Natur).
+* **Organisieren:** Sortiere die Liste nach Kategorien, Priorität, Touren, Tagen oder Alphabet.
 * **Planen:** Nutze die Prioritäts-Buttons ("Fix", "Prio 1", "Prio 2"), um Orte in deinen Kalender zu schieben oder unpassende Dinge auszublenden ("Ignore").
-* **Notizen:** Klicke auf einen Ort, um eine eigene Notiz für dein Tagebuch hinzuzufügen oder "einzuchecken".
+* **Notizen & Kasse:** Klicke auf einen Ort, um eine eigene Notiz für dein Tagebuch hinzuzufügen, "einzuchecken" oder direkt Ausgaben zu erfassen.
 
-🌍 **3. Karte (Die visuelle Übersicht)**
-Sieh dir alle Orte übersichtlich auf der Landkarte an. Die Farben entsprechen den jeweiligen Kategorien (z.B. Grün für Natur, Rot für Kultur).
-* **Wo bin ich?** Klicke auf das kleine Fadenkreuz-Symbol oben rechts auf der Karte. Die App ortet dich per GPS und zeigt dir mit einem blauen Punkt, wo du gerade stehst.
-
-ℹ️ **4. Info (Das Lexikon)**
+ℹ️ **3. Info (Das Lexikon)**
 Hier findest du alle allgemeinen Texte, die nicht an eine direkte Koordinate gebunden sind:
 * A-Z Stadtführer für alle besuchten Orte.
 * Wissenswertes zur Region, Einreise- und Mautbestimmungen.
 * Eine Budget-Schätzung für deine Reise.
 
+🌍 **4. Karte (Die visuelle Übersicht)**
+Sieh dir alle Orte übersichtlich auf der Landkarte an. Die Farben entsprechen den jeweiligen Kategorien (z.B. Grün für Natur, Rot für Kultur), die Formen deiner Priorität (Kreise für priorisierte Ziele, Quadrate für Standard-Orte).
+* **Wo bin ich?** Klicke auf das kleine Fadenkreuz-Symbol oben rechts auf der Karte. Die App ortet dich per GPS und zeigt dir mit einem blauen Punkt, wo du gerade stehst.
+
+💸 **Direkt in der Kopfleiste: Kasse & Drucken**
+* **Reisekasse (Wallet-Icon oben rechts):** Dein smartes Finanz-Tool. Erfasse Ausgaben direkt im Urlaub, splitte Kosten exakt auf Mitreisende auf und lasse Papatours mit tagesaktuellen Bankenkursen am Ende berechnen, wer wem wie viel schuldet.
+* **Schnell-Drucken (Drucker-Icon oben rechts):** Druckt die aktuelle Ansicht oder öffnet in der Kartenansicht direkt die Kartendruck-Vorschau.
+
 ### Phase 3: Das Aktionen-Menü (Deine Werkzeuge)
 Unter dem Menü-Punkt **"Aktionen"** (oben rechts) findest du mächtige Helfer und Werkzeuge, um deine Reise nachträglich anzupassen:
 
-* 💸 **Reisekasse:** Dein smartes Finanz-Tool. Erfasse Ausgaben direkt im Urlaub, splitte Kosten exakt auf Mitreisende auf und lasse Papatours mit tagesaktuellen Bankenkursen am Ende berechnen, wer wem wie viel schuldet.
-* 🤖 **Reiseführer-Kapitel:** Das Kontrollzentrum der App (siehe Phase 4). Hier kannst du einzelne Kapitel des Reiseführers gezielt neu generieren.
+* ⚡ **Schnellstart-Guide & Handbuch:** Schnelle Hilfe zu allen Icons und Funktionen jederzeit griffbereit.
 * 📋 **Daten:** Bringt dich zurück zum Start-Assistenten, falls du grundlegende Dinge (z.B. Reisedatum oder Interessen) ändern möchtest.
 * 🏛️ **Briefing:** Zeigt dir die strategische Machbarkeitsprüfung der KI (Chef-Planer).
-* 🗺️ **Route:** Öffnet den Routenplaner (nur bei Rundreisen relevant), um Etappen anzupassen.
+* 🗺️ **Route:** Öffnet den Routenplaner (bei Rundreisen oder Basecamp-Suche), um Etappen anzupassen.
+* 🤖 **Reiseführer-Kapitel:** Das Kontrollzentrum der App (siehe Phase 4). Hier kannst du einzelne Kapitel des Reiseführers gezielt neu generieren.
 * 🍽️ **Ad-Hoc Food:** Du hast spontan Hunger? Dieses Tool nutzt deinen aktuellen GPS-Standort und sucht sofort nach den besten Restaurants in Gehweite.
-* 🖨️ **Drucken / PDF:** Generiert ein wunderschönes, tintensparendes Dokument deiner Reise (inkl. Reisetagebuch).
 * 📍 **Google Maps Export:** Kopiert alle Orte, um sie direkt in "Google My Maps" einzufügen.
-* 💾 **Speichern & Laden:** Deine Reise wird automatisch gesichert. Hier kannst du die Reise aber als Datei herunterladen, um sie als Backup am PC zu speichern oder an Mitreisende zu senden.
+* 🖨️ **PDF Report:** Konfiguriert und generiert ein wunderschönes, tintensparendes Gesamtdokument deiner Reise (inkl. Reisetagebuch).
+* 💾 **Speichern & Laden (inkl. Merge):** Deine Reise wird automatisch im Browser gesichert. Hier kannst du sie als JSON-Datei herunterladen oder eine Datei laden (und auf Wunsch intelligent mit deiner aktuellen Reise zusammenführen).
 
 ### Phase 4: Die KI-Spezialisten (Reiseführer-Kapitel)
 Im Menüpunkt "Reiseführer-Kapitel" kannst du unserem Team aus digitalen Spezialisten bei der Arbeit zusehen oder ihnen gezielt neue Aufträge geben. Das Team besteht aus folgenden Experten:
 
-* 👨‍💼 **Chef-Planer:** Analysiert deine Grundidee auf Machbarkeit, Wetterbedingungen und Logistik.
-* 🕵️ **Sammler:** Durchkämmt die Region nach den besten Orten.
-* 🔍 **Anreicherer (Fakten-Check):** Nimmt die gefundenen Orte und recherchiert Adressen, GPS, Websites und Öffnungszeiten.
-* 👨‍🍳 **Food-Scout & Enricher:** Der Feinschmecker. Sucht erstklassige Restaurants, Cafés und Bars.
-* 🛣️ **Routen-Architekt:** (Nur bei Rundreisen). Berechnet die beste Reihenfolge der Stopps.
-* 🗺️ **Tour-Guide (Clustering):** Sortiert alle Sehenswürdigkeiten in sinnvolle Tages-Touren.
-* ✍️ **Chefredakteur:** Schreibt inspirierende, detaillierte Texte und Hintergründe für deine Highlights.
-* 📚 **Info-Autor:** Verfasst die Texte für den "Info"-Tab (A-Z Stadtführer).
-* 💡 **Ideen-Scout:** Der Joker. Er liefert kreative Alternativ-Pläne für Regentage.`
+* 👨‍💼 **Chef-Planer (0. Fundamentalanalyse):** Analysiert deine Grundidee auf Machbarkeit, Wetterbedingungen und Logistik.
+* 🛣️ **Routen-Architekt (0b. Route):** Entwickelt optimale Routenvorschläge und Etappen (für Rundreisen und Regions-Scouting).
+* 🕵️ **Sammler (1. Basis):** Durchkämmt die Region nach den besten Orten passend zu deinen Interessen und Overrides.
+* 🔍 **Daten-Anreicherer (2. Fakten-Check):** Nimmt die gefundenen Orte und recherchiert Adressen, GPS, Websites, Wander-Trailheads und Öffnungszeiten.
+* 🗺️ **Tour-Guide (3. Strukturierung):** Sortiert alle Sehenswürdigkeiten in sinnvolle, geografisch zusammenhängende Tages-Touren.
+* ✍️ **Chefredakteur (4. Detail-Texte):** Schreibt inspirierende, detaillierte Texte und Hintergründe für deine Highlights.
+* 📚 **Info-Autor (5. Reise-Infos A-Z):** Verfasst die Kapitel für den "Info"-Tab (Stadtführer für alle Orte der Route & Regional-Wissen).
+* 👨‍🍳 **Food-Scout & Enricher (6. Restaurants & Genuss):** Durchsucht Restaurantführer (Michelin, Falstaff, Gault&Millau) sowie lokale Top-Gasthöfe entlang deiner Route und prüft alle Details.
+* 🏨 **Hotel-Scout (7. Unterkunft suchen):** Sucht strategisch gelegene Hotels oder Campingplätze passend zu Budget und Route.
+* 💡 **Ideen-Scout (8. Flexibilität & Wetter):** Der Joker. Er liefert kreative Alternativ-Pläne für Regentage, Sonnentage und Wildcards.
+* 📅 **Tagesplaner (9. Tagesplan erstellen):** Baut aus deinen priorisierten Orten, Öffnungszeiten und dem Reisetempo einen realistischen Zeitplan (inkl. Konflikt-Prüfung).
+* 🚗 **Transfer-Planer (10. Transfers optimieren):** Berechnet Wegezeiten und optimiert die Logistik zwischen den geplanten Terminen.`
   },
   en: {
     title: "Papatours Program Info & Manual",
@@ -253,63 +262,71 @@ Papatours is a modern web app of the latest generation (PWA). This means: **No s
 This manual explains how to get the most out of the app: From your initial idea to capturing memories during your trip.
 
 ### Phase 1: Planning (The Wizard)
-When you start a new trip, an assistant (Wizard) guides you through 5 simple steps:
-1. **Cockpit:** Where are you going? (Stationary at a hotel or a road trip).
+When you start a new trip, an assistant (Wizard) guides you through 6 simple steps:
+1. **Cockpit (Logistics):** Where are you going? (Stationary at a hotel or a road trip).
 2. **Who & How:** Who is traveling and what is the general vibe (e.g., relaxed or active)?
 3. **Interests:** What do you enjoy doing? (e.g., museums, hiking, culinary arts).
 4. **Dates:** When are you traveling and are there fixed appointments (e.g., a booked flight)?
-5. **Start:** Here we summarize everything. One click on "Generate" wakes up the AI!
+5. **Miscellaneous:** Special wishes, no-gos, special days, and your preferred AI output language (20 languages available).
+6. **Start:** Here we summarize everything. One click on "Generate" wakes up the AI!
 
 *Tip: The AI will plan the route, find suitable sights, check opening hours, and write a complete travel guide for you.*
 
-### Phase 2: The 4 Main Views (Your Travel Companion)
-Once the AI is finished, the app transforms into your interactive travel companion. You'll find the four main tabs in the top menu bar:
+### Phase 2: Main Views & Header Bar (Your Travel Companion)
+Once the AI is finished, the app transforms into your interactive travel companion. In the top menu bar, you'll find the four main views on the left (next to the Home button and Live Search) and direct access to Trip Finance and Quick Print on the right:
 
 📝 **1. Diary (Dashboard & Live-Tracker)**
 Here you will find the summary of your trip, your route planning, and (importantly) your **Live Travel Diary**. 
 * **On Location:** Use the "Custom Entry" button to capture spontaneous experiences along with your current GPS location. Places you visit and check into will automatically appear here chronologically.
 
 📖 **2. Guide (Travel Guide & Catalog)**
-This is the core. Here you will find all the places collected by the AI (sights, restaurants, nature).
-* **Organize:** Sort the list by categories, alphabetically, or by tours.
+This is the core. Here you will find all the places collected by the AI (sights, restaurants, hotels, nature).
+* **Organize:** Sort the list by categories, priority, tours, days, or alphabetically.
 * **Plan:** Use the priority buttons ("Fix", "Prio 1", "Prio 2") to move places into your calendar or hide unsuitable ones ("Ignore").
-* **Notes:** Click on a place to add a personal note for your diary or to "check in".
+* **Notes & Expenses:** Click on a place to add a personal note for your diary, "check in", or record expenses directly.
 
-🌍 **3. Map (Visual Overview)**
-See all places clearly on the map. The colors correspond to their respective categories (e.g., green for nature, red for culture).
-* **Where am I?** Click the small crosshair icon in the top right corner of the map. The app locates you via GPS and shows you exactly where you are with a blue dot.
-
-ℹ️ **4. Info (The Encyclopedia)**
+ℹ️ **3. Info (The Encyclopedia)**
 Here you will find all general texts that are not tied to a direct coordinate:
 * A-Z City Guide for all visited locations.
 * Useful facts about the region, entry, and toll regulations.
 * A budget estimate for your trip.
 
+🌍 **4. Map (Visual Overview)**
+See all places clearly on the map. The colors correspond to their respective categories (e.g., green for nature, red for culture), and shapes reflect priority (circles for prioritized sights, squares for standard places).
+* **Where am I?** Click the small crosshair icon in the top right corner of the map. The app locates you via GPS and shows you exactly where you are with a blue dot.
+
+💸 **Directly in the Header Bar: Wallet & Print**
+* **Trip Finance (Wallet icon top right):** Your smart financial tool. Record expenses directly on vacation, split costs exactly among travelers, and let Papatours calculate who owes whom how much at the end of the trip using daily bank exchange rates.
+* **Quick Print (Printer icon top right):** Prints the current view or opens the map print preview directly when in Map view.
+
 ### Phase 3: The Actions Menu (Your Tools)
 Under the **"Actions"** menu (top right), you'll find powerful helpers and tools to adjust your trip later:
 
-* 💸 **Trip Finance:** Your smart financial tool. Record expenses directly on vacation, split costs exactly among travelers, and let Papatours calculate who owes whom how much at the end of the trip using daily bank exchange rates.
-* 🤖 **Guide Chapters:** The control center of the app (see Phase 4). Here you can specifically generate individual guide chapters.
+* ⚡ **Quick Start Guide & Manual:** Quick reference for all icons and features at your fingertips.
 * 📋 **Data:** Takes you back to the starting Wizard if you want to change basic things (e.g., travel dates or interests).
 * 🏛️ **Briefing:** Shows you the AI's strategic feasibility check (Chief Planner).
-* 🗺️ **Route:** Opens the route planner (only relevant for road trips) to adjust stages.
+* 🗺️ **Route:** Opens the route planner (for road trips or basecamp scouting) to adjust stages.
+* 🤖 **Guide Chapters:** The control center of the app (see Phase 4). Here you can specifically generate individual guide chapters.
 * 🍽️ **Ad-Hoc Food:** Suddenly hungry? This tool uses your current GPS location to immediately search for the best restaurants within walking distance.
-* 🖨️ **Print / PDF:** Generates a beautiful, ink-saving document of your trip (incl. travel diary).
 * 📍 **Google Maps Export:** Copies all places to paste directly into "Google My Maps".
-* 💾 **Save & Load:** Your trip is automatically saved (autosave). However, you can download the trip as a file here to keep it as a backup on your PC or send it to fellow travelers.
+* 🖨️ **PDF Report:** Configures and generates a beautiful, ink-saving full document of your trip (incl. travel diary).
+* 💾 **Save & Load (incl. Merge):** Your trip is automatically saved in the browser (autosave). Here you can download the trip as a JSON file or load a file (and optionally merge it intelligently with your current trip).
 
 ### Phase 4: The AI Specialists (Guide Chapters)
 In the "Guide Chapters" menu, you can watch our team of digital specialists at work or give them specific new assignments. The team consists of the following experts:
 
-* 👨‍💼 **Chief Planner:** Analyzes your basic idea for feasibility, weather conditions, and logistics.
-* 🕵️ **Collector (Places & Sights):** Combs the region for the best spots.
-* 🔍 **Enricher (Fact-Check):** Takes the found places and researches hard facts: addresses, GPS coordinates, official websites, and opening hours.
-* 👨‍🍳 **Food Scout & Enricher:** The gourmet. Searches for first-class restaurants, cafes, and bars.
-* 🛣️ **Route Architect:** (For road trips only). Calculates the best order of stops.
-* 🗺️ **Tour Guide (Clustering):** Sorts all sights into logical, geographically coherent daily tours.
-* ✍️ **Editor-in-Chief:** Writes inspiring, detailed texts and backgrounds for your highlights.
-* 📚 **Info Author:** Writes the texts for the "Info" tab (A-Z City Guides).
-* 💡 **Idea Scout (Special Days):** The wildcard. Provides creative alternative plans for rainy days.`
+* 👨‍💼 **Chief Planner (0. Fundamental Analysis):** Analyzes your basic idea for feasibility, weather conditions, and logistics.
+* 🛣️ **Route Architect (0b. Route):** Develops optimal route proposals and stages (for road trips and region scouting).
+* 🕵️ **Collector (1. Base Candidates):** Combs the region for the best spots matching your interests and overrides.
+* 🔍 **Data Enricher (2. Fact-Check):** Takes the found places and researches hard facts: addresses, GPS coordinates, websites, trailheads, and opening hours.
+* 🗺️ **Tour Guide (3. Structuring):** Sorts all sights into logical, geographically coherent daily tours.
+* ✍️ **Editor-in-Chief (4. Detail Content):** Writes inspiring, detailed texts and backgrounds for your highlights.
+* 📚 **Info Author (5. Travel Info A-Z):** Writes the chapters for the "Info" tab (A-Z City Guides for all stops & regional knowledge).
+* 👨‍🍳 **Food Scout & Enricher (6. Restaurants & Food):** Searches restaurant guides (Michelin, Falstaff, Gault&Millau) and top local inns along your route and verifies all details.
+* 🏨 **Hotel Scout (7. Find Accommodation):** Searches for strategically located hotels or campsites fitting your budget and route.
+* 💡 **Idea Scout (8. Flexibility & Weather):** The wildcard. Provides creative alternative plans for rainy days, sunny days, and wildcards.
+* 📅 **Itinerary Planner (9. Create Itinerary):** Builds a realistic daily schedule from your prioritized places, opening hours, and travel pace (incl. conflict check).
+* 🚗 **Transfer Planner (10. Optimize Transfers):** Calculates travel times and optimizes logistics between scheduled appointments.`
   }
 };
-// --- END OF FILE 277 Zeilen ---
+// --- END OF FILE 332 Zeilen ---

@@ -1,7 +1,10 @@
+// 25.10.2026 13:08 - FIX: Integrated PromptBuilder (.withOS() & Dynamic Language Lockdown) while preserving 100% of logistics rules.
 // [2026-07-31] 16:17 - FIX: Added 'id' field to check-in/check-out objects in JSON schema to enable TransferPlanner GPS mapping.
 // 19.03.2026 17:00 - FEAT: Added personaDirective at the top to enforce constraints like pace and special wishes during orchestration.
 // 27.02.2026 19:52 - LOGIC: Enforced strict Immersive Block Rule (4+ Hours).
 // src/core/prompts/templates/initialTagesplaner.ts
+
+import { PromptBuilder } from '../PromptBuilder';
 
 export interface TagesplanerPayload {
   travel_dates: {
@@ -23,17 +26,18 @@ export interface TagesplanerPayload {
 }
 
 export const buildInitialTagesplanerPrompt = (payload: TagesplanerPayload): string => {
-  return `
-${payload.persona_directive || ''}SYSTEM INSTRUCTION: TRAVEL LOGISTICS ARCHITECT & SKELETON-ENGINE
+  const builder = new PromptBuilder();
+
+  const role = `${payload.persona_directive || ''}SYSTEM INSTRUCTION: TRAVEL LOGISTICS ARCHITECT & SKELETON-ENGINE
 
 1. PERSONA & CORE MISSION
 Role: You are a Senior Travel Logistics Architect – a pure logistics engine. You combine the knowledge of a luxury concierge with the mathematical precision of a routing algorithm.
 Mission: Solve the "Traveler's Routing Problem" through a seamless, time- and geo-optimized JSON skeleton.
 Skeleton-Focus: NO descriptions for sights (leave 'description' empty). Focus entirely on timing, transfers, and buffer management.
 Tetris-Mindset: Integrate fixed appointments, priorities, and buffers into a fluid timeline without zigzag routing.
-Storytelling: Give each day a thematic "title" (motto) reflecting the day's mood.
+Storytelling: Give each day a thematic "title" (motto) reflecting the day's mood.`;
 
-2. STEP-BY-STEP INSTRUCTIONS
+  const instructions = `2. STEP-BY-STEP INSTRUCTIONS
 - Data Check: Validate the exact days. You MUST output exactly ${payload.travel_dates.total_days} days.
 - Geospatial Clustering: Group sights by proximity to minimize travel time and avoid city-zigzag.
 - Time Calculation: Calculate daily flows strictly following all buffer and logistics rules.
@@ -87,60 +91,63 @@ Output:
   ]
 }
 
-8. OUTPUT FORMAT (JSON ONLY)
-STRICT REQUIREMENT: You must return ONLY the following JSON structure:
-{
-  "_thought_process": "Detailed math: Start -> Duration -> Transfer -> Arrival. Confirming 60m luggage, dynamic lunch breaks, and Golden Hour rule.",
-  "itinerary": [
-    {
-      "day_id": "day-1",
-      "date": "YYYY-MM-DD",
-      "title": "Theme of the day",
-      "activities": [
-        {
-           "type": "check-in",
-           "time": "HH:MM",
-           "id": "ID_OF_HOTEL_IF_PROVIDED",
-           "location": "Name of Hotel",
-           "duration": 45
-        },
-        {
-           "type": "transfer",
-           "time": "HH:MM", 
-           "mode": "walk/transit/drive",
-           "duration": 15,
-           "distance_km": 5.2, 
-           "description": "Logistics note"
-        },
-        {
-           "type": "sight",
-           "id": "ID_FROM_INPUT",
-           "name": "Name",
-           "time": "HH:MM",
-           "duration": 60,
-           "description": ""
-        },
-        {
-           "type": "break",
-           "time": "HH:MM",
-           "duration": 45,
-           "description": "Picnic / Lunch Break"
-        }
-      ]
-    }
-  ],
-  "unassigned": [
-    { "id": "ID", "name": "Name", "reason": "String (Explain logic. MUST be translated into the user's requested language. ONLY FOR PRIO 1, PRIO 2, OR FIXED!)" }
-  ]
-}
-
 INPUT DATA:
 - Total Days: ${payload.travel_dates.total_days}
 - Base Hotel: ${payload.hotel_base.name}
 - Candidate Pool:
-${payload.available_sights}
+${payload.available_sights}`;
 
-RETURN STRICTLY VALID JSON.
-`;
+  const outputSchema = {
+    "_thought_process": "Detailed math: Start -> Duration -> Transfer -> Arrival. Confirming 60m luggage, dynamic lunch breaks, and Golden Hour rule.",
+    "itinerary": [
+      {
+        "day_id": "day-1",
+        "date": "YYYY-MM-DD",
+        "title": "Theme of the day",
+        "activities": [
+          {
+             "type": "check-in",
+             "time": "HH:MM",
+             "id": "ID_OF_HOTEL_IF_PROVIDED",
+             "location": "Name of Hotel",
+             "duration": 45
+          },
+          {
+             "type": "transfer",
+             "time": "HH:MM", 
+             "mode": "walk/transit/drive",
+             "duration": 15,
+             "distance_km": 5.2, 
+             "description": "Logistics note"
+          },
+          {
+             "type": "sight",
+             "id": "ID_FROM_INPUT",
+             "name": "Name",
+             "time": "HH:MM",
+             "duration": 60,
+             "description": ""
+          },
+          {
+             "type": "break",
+             "time": "HH:MM",
+             "duration": 45,
+             "description": "Picnic / Lunch Break"
+          }
+        ]
+      }
+    ],
+    "unassigned": [
+      { "id": "ID", "name": "Name", "reason": "String (Explain logic. MUST be translated into the user's requested language. ONLY FOR PRIO 1, PRIO 2, OR FIXED!)" }
+    ]
+  };
+
+  return builder
+    .withOS()
+    .withRole(role)
+    .withInstruction(instructions)
+    .withOutputSchema(outputSchema)
+    .withSelfCheck(['basic', 'planning'])
+    .build();
 };
-// --- END OF FILE 166 Zeilen ---
+// --- END OF FILE 153 Zeilen ---

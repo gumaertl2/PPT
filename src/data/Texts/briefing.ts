@@ -1,3 +1,5 @@
+// 25.10.2026 13:27 - DOCS: Upgraded Section 11 (Gemini Developer Protocols) with Reuse-Before-Invent, Architecture Veto, Defensive Null-Safety, UX/UI Guidelines & Dual-Mode Transmission Protocol V2.0.
+// 25.10.2026 13:14 - DOCS: Synced Briefing with current codebase (Gemini 2.5 Pro/Flash/Thinking, WizardSlice, withContext, Triple Dragnet Food, PlannerConflictModal, Exponential Backoff).
 // 09.04.2026 15:45 - DOCS: Added Polyglot Language Lockdown Protocol, Developer Mode (Double-Click) & Zero-Friction Finance Entry to Architecture.
 // 19.03.2026 18:30 - DOCS: Added Targeted Context Matrix (Persona Injection) & Store Migration Layer.
 // 26.02.2026 11:20 - DOCS: Restored full file. Added User-Disclaimer to top. Documented Visual Priority Map Shapes and UI Priority Engine.
@@ -22,7 +24,7 @@ export const briefing = {
 
 ### 1. Projektübersicht
 Der "Papa-Tours Reiseplan-Generator V40" ist eine moderne **Progressive Web Application (PWA)**, entwickelt mit **React, TypeScript und Vite**.
-Wie der Vorgänger ist es eine clientseitige Anwendung, die keine eigene Server-Infrastruktur benötigt. Sie nutzt die **Google Gemini API** (Version 1.5 Pro & Flash), um hochkomplexe, logistisch validierte Reisepläne zu generieren.
+Wie der Vorgänger ist es eine clientseitige Anwendung, die keine eigene Server-Infrastruktur benötigt. Sie nutzt die **Google Gemini API** (Version 2.5 Pro, 2.5 Flash & 2.5 Flash-Thinking), um hochkomplexe, logistisch validierte Reisepläne zu generieren.
 
 **Kern-Philosophie V40:**
 Das System behält die Logik der "Orchestrierte Intelligenz" (The Magic Chain) bei, setzt sie aber auf ein **typsicheres, reaktives Fundament**.
@@ -52,23 +54,25 @@ Die UI ist in **Feature-Ordnern** organisiert (\`src/features/...\`).
 Der Store (\`useTripStore\`) ist ein Assembler, der folgende Slices zusammenfügt:
 1.  **ProjectSlice** (\`src/store/slices/createProjectSlice.ts\`):
     * Hält das \`project\`-Objekt (UserInputs, Daten).
-    * Verwaltet Laden (Hybrid: JSON/File) und Speichern.
-2.  **UISlice** (\`src/store/slices/createUISlice.ts\`):
+    * Verwaltet Laden (Hybrid: JSON/File & Merge) und Speichern.
+2.  **WizardSlice** (\`src/store/slices/createWizardSlice.ts\`):
+    * Steuert den 6-stufigen Eingabe-Assistenten (Wizard-Schritte & Navigation).
+3.  **UISlice** (\`src/store/slices/createUISlice.ts\`):
     * Steuert Views (\`welcome\`, \`wizard\`, \`analysis\`).
     * Steuert die **Anreicherer-UI** (Filter, Listenansicht, Map-View-Mode).
-    * Verwaltet \`selectedPlaceId\` für bidirektionale Navigation.
-3.  **SystemSlice** (\`src/store/slices/createSystemSlice.ts\`):
-    * Infrastruktur: API-Key, AI-Settings (Modell-Matrix, Chunk-Limits).
+    * Verwaltet \`selectedPlaceId\` für bidirektionale Navigation sowie \`plannerConflict\` für die Tagesplaner-Konfliktweiche.
+4.  **SystemSlice** (\`src/store/slices/createSystemSlice.ts\`):
+    * Infrastruktur: API-Key, AI-Settings (Modell-Matrix, Chunk-Limits, \`enableCountryHarvester\`).
     * Logging: **Flight Recorder** (Auto-Logging aller KI-Calls).
-4.  **AnalysisSlice** (\`src/store/slices/createAnalysisSlice.ts\`):
-    * Speichert Ergebnisse der KI-Tasks (z.B. ChefPlaner).
+5.  **AnalysisSlice** (\`src/store/slices/createAnalysisSlice.ts\`):
+    * Speichert Ergebnisse der KI-Tasks (z.B. ChefPlaner) und den \`workflow\`-Status.
 
-*WICHTIG (Smart Autosave & Migration Layer):* Der Store nutzt die **Zustand \`persist\` Middleware**. Alle Nutzdaten (\`project\`, \`apiKey\`) und die aktuelle Ansicht (\`view\`) werden in Echtzeit im LocalStorage gespeichert. Temporäre Status (wie \`chunkingState\` oder laufende Workflows) sind auf einer Blacklist, damit die App nach einem Reload (Tab Close) immer stabil am letzten Ort startet. Zusätzlich nutzt das System **Zustand Versioning** (\`version: 1\`). Die \`migrate\`-Funktion fängt alte Caches beim App-Start ab und initialisiert fehlende Strukturen sicher. \`loadProject\` besitzt zudem einen Deep-Sanitizer für importierte JSONs.
+*WICHTIG (Smart Autosave & Migration Layer):* Der Store nutzt die **Zustand \`persist\` Middleware**. Alle Nutzdaten (\`project\`, \`apiKey\`, \`aiSettings\`, \`uiState\`) und die aktuelle Ansicht (\`view\`) werden in Echtzeit im LocalStorage gespeichert. Temporäre Status (wie \`chunkingState\` oder laufende Workflows) sind auf einer Blacklist, damit die App nach einem Reload (Tab Close) immer stabil am letzten Ort startet. Zusätzlich nutzt das System **Zustand Versioning** (\`version: 1\`). Die \`migrate\`-Funktion fängt alte Caches beim App-Start ab und initialisiert fehlende Strukturen sicher. \`loadProject\` besitzt zudem einen Deep-Sanitizer für importierte JSONs.
 
 #### B. DATA PROCESSING LAYER (Neu seit V40.3)
 Um "God Objects" zu vermeiden, wurde die Datenverarbeitung aus der UI entfernt.
 * **ResultProcessor** (\`src/services/ResultProcessor.ts\`):
-    * Zentraler Service für alle KI-Antworten.
+    * Zentraler Dispatcher für alle KI-Antworten (delegiert an \`PlaceProcessor\`, \`FoodProcessor\` und \`PlanningProcessor\`).
     * Beinhaltet die **"ID Factory"** (Strict Type Conversion): Wandelt Strings sofort in Objekte um.
     * Manipuliert den Store direkt via \`useTripStore.getState()\`.
     * **Content Router:** Entscheidet basierend auf der Kategorie, ob Daten in \`data.places\` (Karte/Guide) oder \`data.content.infos\` (InfoView) landen.
@@ -95,7 +99,7 @@ Die Logik zur Erstellung von Prompts wurde entkoppelt, um Templates "dumm" und w
 3.  **Template** (\`src/core/prompts/templates/...\`):
     * **Rein:** Wandelt das vorbereitete Payload-Objekt in den finalen String.
     * Enthält KEINE Geschäftslogik mehr (keine hardcodierten Logistik-Fragen).
-    * Nutzt den **PromptBuilder** für Struktur (Role, Context, Instructions).
+    * Nutzt den **PromptBuilder** für Struktur (OS, Role, Context, Instructions, OutputSchema).
 
 ---
 
@@ -160,12 +164,12 @@ Wir erzwingen JSON-Konformität durch **In-Prompt-Constraints**:
 #### B. The Dynamic Language Lockdown (Polyglot SSOT)
 **VERBOTEN:** Agent-Templates dürfen **niemals** eigene Sprachbefehle in ihren Dateien haben (z.B. "# Schreibe in Sprache X").
 * **Der Mechanismus:** Der \`PromptBuilder\` ist die einzige Instanz (Single Source of Truth), die die Sprache diktiert. Er liest live \`project.userInputs.aiOutputLanguage\` (unterstützt 20 Sprachen, z.B. Japanisch, Arabisch) aus dem Store.
-* **Structure Separation:** Der Builder zwingt die KI im System Guard: *"You must NEVER translate JSON KEYS. All generated content and descriptions MUST be written exclusively in [TARGET_LANGUAGE]!"*
+* **Structure Separation:** Der Builder zwingt die KI im System Guard: *"You must NEVER translate JSON KEYS. All generated content, descriptions, and values MUST be written exclusively in [TARGET_LANGUAGE]!"*
 
 #### C. Context Injection & Builder
 1.  **Builder-Klasse:** Instanziierung via \`PromptBuilder\`.
-2.  **Context Injection:** Daten werden strukturiert via \`builder.addContext()\` übergeben, nie als Prosatext.
-3.  **Strict Schema:** Jeder Prompt endet mit einem Zod-kompatiblen JSON-Schema.
+2.  **Context Injection:** Daten werden strukturiert via \`builder.withContext()\` übergeben, nie als Prosatext.
+3.  **Strict Schema:** Jeder Prompt endet mit einem Zod-kompatiblen JSON-Schema (\`builder.withOutputSchema()\`).
 
 ---
 
@@ -194,8 +198,8 @@ Verständnis-Beispiel für den Task "Anreicherer":
     * Er ruft \`prepareAnreichererPayload(project)\` auf.
 3.  **Preparation (Preparer Logic):**
     * Der Preparer prüft: Welche Orte haben noch keine Details?
-    * Er wendet Limits an (z.B. max 5 pro Batch).
-    * Er gibt ein reines Daten-Objekt (Payload) zurück: \`{ candidates: [...], searchRadius: "5km" }\`.
+    * Er wendet Limits an (via \`LimitManager\`).
+    * Er gibt ein reines Daten-Objekt (Payload) zurück: \`{ context: ..., instructions: ... }\`.
 4.  **Construction (Template):**
     * Der \`PayloadBuilder\` übergibt das Payload an \`templates/anreicherer.ts\`.
     * Das Template nutzt \`PromptBuilder\`, um Role, Context und JSON-Schema zu setzen.
@@ -203,8 +207,8 @@ Verständnis-Beispiel für den Task "Anreicherer":
 5.  **Execution (Orchestrator):**
     * Der Prompt geht an Gemini. Gemini antwortet mit JSON.
 6.  **Processing (ResultProcessor):**
-    * Das JSON landet im \`ResultProcessor\`.
-    * Er matched die neuen Details via ID auf die existierenden Orte im Store.
+    * Das JSON landet im \`ResultProcessor\` (bzw. \`PlaceProcessor\`).
+    * Er matched die neuen Details via ID auf die existierenden Orte im Store (inkl. Core Hotel-Shield).
     * Er speichert die Daten. UI aktualisiert sich.
 
 ---
@@ -231,7 +235,7 @@ Statt einfacher Filter nutzen wir "Sichten" (Views):
     * **Highlighting:** Aktiver Marker pulsiert und ist größer.
 
 **C. Developer Mode (The Secret Cockpit)**
-Einstellungen, Modell-Overrrides und der "Flugschreiber" (Debug-Log) wurden aus dem Endnutzer-UI (ActionsMenu) verbannt.
+Einstellungen, Modell-Overrides und der "Flugschreiber" (Debug-Log) wurden aus dem Endnutzer-UI (ActionsMenu) verbannt.
 * **Access:** Aufrufbar **ausschließlich durch einen Doppelklick auf das Info-Icon ("i")** im \`CockpitHeader\`.
 * **Features:** Matrix-Konfiguration für API-Chunking, Modell-Wahl pro Agent und den Schalter \`enableCountryHarvester\` für den automatischen Download neuer JSON-Datenbanken (z.B. Guide-Quellen).
 
@@ -276,20 +280,20 @@ Titel und GPS-Daten werden nahtlos übergeben, ohne den User durch doppelte Eing
 
 | V40 TaskKey (ID) | Labels | Funktion & Besonderheiten |
 | :--- | :--- | :--- |
-| \`chefPlaner\` | ChefPlaner | Fundamentalanalyse. |
-| \`basis\` | Sammler | **WICHTIG:** Payload-Filter aktiv! Service-Interessen (Hotel/Food) werden hier ausgeblendet ("Double Bind"-Prävention), damit er nur POIs sucht. |
-| \`anreicherer\` | Anreicherer | Sucht Details. Nutzt Batching (Default: 5-10 Items). |
-| \`guide\` | Guide | Erstellt Cluster/Touren für den View-Switcher. |
-| \`details\` | Details | Schreibt lange Texte für "Detail"-View (Liste!). |
-| \`tourGuide\` | Tour Guide | (Neu) Definiert Touren-Logik. |
-| \`infoAutor\` | Info Autor | Erstellt Text-Kapitel für den InfoView (Logik im Preparer). |
+| \`chefPlaner\` | ChefPlaner | Fundamentalanalyse, Smart-Limit & Geografie-/Tippfehler-Korrektur. |
+| \`basis\` | Sammler | **WICHTIG:** Payload-Filter aktiv! Service-Interessen (Hotel/Food) werden ausgeblendet ("Double Bind"-Prävention). Erzwingt \`[USER OVERRIDE]\`. |
+| \`anreicherer\` | Anreicherer | Sucht Details, OSM-Adressen & Trailheads. Nutzt Batching & Universal Acceptance (Serendipity). |
+| \`tourGuide\` | Tour Guide | Erstellt geografische Cluster/Touren für den View-Switcher. |
+| \`chefredakteur\` | Chefredakteur | Schreibt lange Texte & Rundgang-Waypoints für die "Detail"-View (Smart-Mode aktiv). |
+| \`infoAutor\` | Info Autor | Erstellt A-Z Stadtführer (mit Geo-Context Guard) & Regional-Kapitel für den InfoView. |
+| \`initialTagesplaner\` | Tagesplaner | Erstellt den Zeitplan (Hotel-Loop, 4h+ Immersive Block, Golden Hour 17:00+) inkl. Konflikt-Weiche. |
 
 **B. Payload Filtering (Double Bind Fix)**
-Der \`PayloadBuilder\` filtert für den Task \`basis\` (Sammler) aktiv alle Interessen heraus, die Services betreffen (Food, Hotel).
+Der \`PayloadBuilder\` bzw. \`prepareBasisPayload\` filtert für den Task \`basis\` (Sammler) aktiv alle Interessen heraus, die Services betreffen (Food, Hotel) oder reine Anhang-Kapitel sind.
 *Grund:* Der Prompt verbietet Restaurants ("ABSOLUTELY FORBIDDEN"), aber das User-Profil enthält sie. Dies führt zu Halluzinationen. Der Filter löst diesen Konflikt an der Wurzel.
 
-**C. Hintergrund-Agenten**
-Modell-Wahl via Matrix. \`geoAnalyst\`, \`durationEstimator\`, \`foodEnricher\`, \`countryScout\`.
+**C. Hintergrund- & Spezial-Agenten**
+Modell-Wahl via Matrix (\`config.ts\` / \`ModelSelector.ts\`): \`geoAnalyst\`, \`foodScout\`, \`foodEnricher\`, \`hotelScout\`, \`ideenScout\`, \`transferPlanner\`, \`countryScout\`.
 
 **D. The Orchestrator**
 Kapselt \`Select -> Resolve -> Execute -> Validate\`.
@@ -297,76 +301,75 @@ Stellt sicher, dass das "Silence Protocol" (Prompt) und der "Native JSON Mode" (
 
 **E. The Targeted Context Matrix (Persona Injection)**
 Um das Token-Gewicht gering zu halten und Halluzinationen zu verhindern, nutzen wir eine strikte Verteilungslogik für Nutzer-Präferenzen (\`PersonaInjector.ts\`):
-* **Logistics Engine (TourGuide, Transfer):** Bekommen *keine* Persona.
-* **Scouts (Hotel, Food):** Bekommen zwingend **Budget** und **No-Gos**.
-* **Planners (Tagesplaner):** Bekommen zwingend das **Reisetempo (Pace)**.
-* **Writers (Chefredakteur):** Bekommen **Nationalität, Vibe und Hobbys**, aber NIEMALS das Budget.
+* **Role 'basis' (\`basis\`):** Bekommt **Vibe, Wünsche und No-Gos**.
+* **Role 'scout' (\`hotelScout\`):** Bekommt zwingend **Budget, Vibe, Wünsche und No-Gos**.
+* **Role 'planner' (\`initialTagesplaner\`):** Bekommt zwingend das **Reisetempo (Pace), Wünsche und No-Gos**.
+* **Role 'writer' (\`chefredakteur\`):** Bekommt **Nationalität, Vibe und Hobbys**, aber NIEMALS das Budget.
+* **Logistics & Guide Engines (\`tourGuide\`, \`transferPlanner\`, \`anreicherer\`, \`foodScout\`):** Bekommen *keine* Persona.
 
 ---
 
 ## 9. File Inventory (Complete Overview)
 
-Dies ist die "Living Map" der Architektur V40.5. Sie spiegelt das Refactoring vom 04.02.2026 wider.
+Dies ist die "Living Map" der Architektur V40.6+.
 
 ### A. Core Services (The Brain & Nervous System)
 Die monolithischen Services wurden in spezialisierte Module zerlegt.
 
-| Datei | Status | Funktion (V40.5) |
+| Datei | Status | Funktion |
 | :--- | :--- | :--- |
-| \`src/store/useTripStore.ts\` | ✅ Stable | **SSOT State Manager.** Hält den globalen State. Nutzt \`persist\` Middleware für Smart Autosave. |
-| \`src/services/orchestrator.ts\` | ✅ V40.6 | **Workflow Engine.** Steuert die "Magic Chain" und implementiert die "Inverted Search Pipeline". |
-| \`src/hooks/useTripGeneration.ts\` | ✅ V40.6 | **Global Background Worker.** Injected im \`CockpitHeader\`. Beinhaltet den **Abort Guard (Kill-Switch)** für saubere Abbrüche. |
-| \`src/services/ResultProcessor.ts\` | ✅ Refactored | **Central Dispatcher.** Fungiert nur noch als Router. Delegiert die Arbeit an Sub-Prozessoren. |
-| \`src/services/processors/PlaceProcessor.ts\` | 🆕 New | **POI Logic.** Validiert Orte, generiert UUIDs, verhindert Duplikate (Fuzzy Match). |
-| \`src/services/processors/FoodProcessor.ts\` | 🆕 New | **Gastro Logic.** Verarbeitet "Inverted Search" Ergebnisse (Scout vs. Enricher). |
-| \`src/services/processors/PlanningProcessor.ts\`| 🆕 New | **Itinerary Logic.** Verarbeitet Tagespläne und Routen. |
-| \`src/services/LiveScout.ts\` | 🆕 New | **Realtime Service.** Prüft im Hintergrund Status-Updates (z.B. Bilder-Generierung). |
-| \`src/hooks/useLiveStatusWorker.ts\` | 🆕 New | **Polling Hook.** Verbindet UI mit LiveScout. |
+| \`src/store/useTripStore.ts\` | ✅ Stable | **SSOT State Manager.** Hält den globalen State (5 Slices). Nutzt \`persist\` Middleware + Migration Layer (\`v1\`). |
+| \`src/services/orchestrator.ts\` | ✅ V40.6+ | **Workflow Engine.** Steuert die "Magic Chain", das Chunking und den Exponential Backoff Retry-Loop. |
+| \`src/hooks/useTripGeneration.ts\` | ✅ V40.6+ | **Global Background Worker.** Injected im \`CockpitHeader\`. Beinhaltet den **Abort Guard (Kill-Switch)** für saubere Abbrüche. |
+| \`src/services/ResultProcessor.ts\` | ✅ Refactored | **Central Dispatcher.** Fungiert als Router. Delegiert die Arbeit an Sub-Prozessoren. |
+| \`src/services/processors/PlaceProcessor.ts\` | ✅ Active | **POI Logic.** Validiert Orte, generiert UUIDs, schützt Hotels (Core Hotel-Shield) & Detailtexte (Content Guard). |
+| \`src/services/processors/FoodProcessor.ts\` | ✅ Active | **Gastro & Hotel Logic.** Verarbeitet Scout- & Enricher-Ergebnisse, blockiert \`rejected\`-Einträge. |
+| \`src/services/processors/PlanningProcessor.ts\`| ✅ Active | **Itinerary & Analysis Logic.** Verarbeitet ChefPlaner-Korrekturen, Tagespläne (inkl. Conflict Intercept) und Routen. |
+| \`src/services/LiveScout.ts\` | ✅ Active | **Realtime Service.** Prüft im Hintergrund Live-Status-Updates (Öffnungszeiten). |
+| \`src/hooks/useLiveStatusWorker.ts\` | ✅ Active | **Polling Hook.** Verbindet UI mit LiveScout. |
 
 ### B. Prompt Engineering (The Interface)
 Infrastruktur für typ-sichere KI-Interaktion.
 
 | Datei | Funktion |
 | :--- | :--- |
-| \`src/core/prompts/PromptBuilder.ts\` | **Factory.** Erstellt Prompts und erzwingt das "Silence Protocol" (JSON-Only). |
-| \`src/core/prompts/PayloadBuilder.ts\` | **Data Prep.** Sammelt Datenfragmente. Isoliert Agenten vom Gesamt-State. |
-| \`src/core/prompts/PersonaInjector.ts\` | **NEU:** Steuert die Targeted Context Matrix für passgenaue Prompts. |
-| \`src/core/prompts/preparers/*.ts\` | **Filters.** Eine Datei pro Agent. Filtert "Dirty Data" (z.B. \`EXCLUDED_FOR_BASIS\`). |
+| \`src/core/prompts/PromptBuilder.ts\` | **Factory.** Erstellt Prompts, erzwingt das "Silence Protocol" (JSON-Only) und den Dynamic Language Lockdown. |
+| \`src/core/prompts/PayloadBuilder.ts\` | **Data Prep.** Sammelt Datenfragmente und kapselt das Chunk-Slicing via \`LimitManager\`. |
+| \`src/core/prompts/PersonaInjector.ts\` | **Context Matrix.** Steuert die Targeted Context Matrix für rollenspezifische Prompts. |
+| \`src/core/prompts/preparers/*.ts\` | **Filters.** Eine Datei pro Agent. Filtert "Dirty Data" (z.B. Service-Interessen bei \`basis\`). |
 
 ### C. Agent Templates (The Intelligence)
-*Alle Templates implementieren jetzt \`.withOS()\` für maximale Sicherheit.*
 
 #### Phase 1 & 2: Sourcing (Daten-Beschaffung)
 | Template | Aufgabe | Besonderheit |
 | :--- | :--- | :--- |
-| \`basis.ts\` | POI-Scout | **Firewall:** Blockiert Gastro/Hotels strikt. |
-| \`foodScout.ts\` | Gastro-Scout | **Collector:** Sammelt breit ("Broad Search"). |
-| \`geoExpander.ts\` | Geo-Scout | Sucht Nachbarstädte für Cluster-Suche. |
-| \`countryScout.ts\` | Macro-Scout | Liefert Länder-Infos und Sicherheits-Checks. |
+| \`basis.ts\` | POI-Scout | **Firewall & Override:** Blockiert Gastro/Hotels strikt; erzwingt \`🚨 [USER OVERRIDE]\` & echte Trailheads. |
+| \`foodScout.ts\` | Gastro-Scout | **Triple Dragnet:** Sucht über Regional-Listen, Nachbar-Cluster & Ortsteile; Graceful Exit auf \`"Local Top Pick"\`. |
+| \`countryScout.ts\` | Macro-Scout | Liefert Länder-Infos und Guide-Quellen. |
 
 #### Phase 3: Veredelung (Audit & Data)
 | Template | Aufgabe | Besonderheit |
 | :--- | :--- | :--- |
-| \`anreicherer.ts\` | POI-Audit | **Validator:** Blacklist für "Sight"-Kategorie. Lat/Lng Zwang. |
-| \`foodEnricher.ts\` | Gastro-Audit | **Strict Filter:** Nur Guide-gelistete Orte überleben. |
-| \`geoAnalyst.ts\` | Geo-Audit | Validiert Adressen und Koordinaten. |
+| \`anreicherer.ts\` | POI-Audit | **Validator:** OSM-Adress-Zwang, Trailhead-Pflicht, Universal Acceptance (Serendipity) & Kategorie-Mapping. |
+| \`foodEnricher.ts\` | Gastro-Audit | **4-Eyes Auditor:** Door Guard (filtert Fast-Food/Closed), Rating Recovery & Dual-Text Generation. |
+| \`geoAnalyst.ts\` | Geo-Audit | Ermittelt strategische Hubs für die Unterkunftssuche. |
 
 #### Phase 4: Planung (Logistik)
 | Template | Aufgabe | Besonderheit |
 | :--- | :--- | :--- |
-| \`chefPlaner.ts\` | Strategie | Erstellt das "Strategic Briefing". |
-| \`initialTagesplaner.ts\`| Ablauf | **30-Min Rule:** Keine Lücken im Zeitplan erlauben. |
-| \`routeArchitect.ts\` | Routing | Optimiert Fahrzeiten und Reihenfolge. |
-| \`hotelScout.ts\` | Unterkunft | Wählt Base-Camp vs. Rundreise-Stops. |
-| \`transferPlanner.ts\` | Transfer | Berechnet Wege zwischen Clustern. |
+| \`chefPlaner.ts\` | Strategie | Erstellt das "Strategic Briefing", Smart-Limit & Korrekturen. |
+| \`initialTagesplaner.ts\`| Ablauf | **Skeleton Engine:** Hotel-Loop, 30-Min Rule, 4h+ Immersive Block, Golden Hour (17:00+) & Conflict Reporting. |
+| \`routeArchitect.ts\` | Routing | Optimiert Fahrzeiten und Etappen (inkl. Keep-Feedback & Smart Basecamp Routing). |
+| \`hotelScout.ts\` | Unterkunft | Wählt Base-Camp vs. Rundreise-Stops (inkl. Camper-Switch). |
+| \`transferPlanner.ts\` | Transfer | Berechnet und optimiert Wege zwischen geplanten Aktivitäten. |
 
 #### Phase 5: Content (Redaktion)
 | Template | Aufgabe | Besonderheit |
 | :--- | :--- | :--- |
-| \`chefredakteur.ts\` | Deep Content | **Hybrid:** Nutzt Hard-Facts + Web-Research. |
-| \`tourGuide.ts\` | Cluster | Ordnet Orte logischen Tagen zu. |
-| \`infoAutor.ts\` | Wiki | Schreibt allgemeine Kapitel (Kultur, Tipps). |
-| \`ideenScout.ts\` | Joker | Liefert Schlechtwetter-Alternativen. |
+| \`chefredakteur.ts\` | Deep Content | **Hybrid:** Schreibt Deep-Dives und generiert Spaziergang-Waypoints. |
+| \`tourGuide.ts\` | Cluster | Ordnet Orte logischen Tagestouren zu. |
+| \`infoAutor.ts\` | Wiki | Schreibt A-Z Stadtführer (mit Geo-Context Guard) & allgemeine Kapitel. |
+| \`ideenScout.ts\` | Joker | Liefert Sonnen-, Schlechtwetter- und Wildcard-Alternativen. |
 
 ### D. UI & Feature Components (Cockpit)
 | Datei | Beschreibung |
@@ -375,42 +378,44 @@ Infrastruktur für typ-sichere KI-Interaktion.
 | \`ExpenseEntryButton.tsx\` | Universeller Button (React Portal) zur Erfassung von Ausgaben. Enthält die Inline-Namenseingabe. |
 | \`CurrencyConfigModal.tsx\` | Modal für die Smart-Currency Logik inkl. Live-API-Abruf. |
 | \`PlanView.tsx\` | Zeigt Reiseroute und das Live-Reisetagebuch. |
+| \`PlannerConflictModal.tsx\` | Fängt nicht zuweisbare Prio-1/2- und Fix-Orte des Tagesplaners ab und lässt den User entscheiden. |
 
 ### E. Data & Config (The Knowledge)
 | Datei | Beschreibung |
 | :--- | :--- |
-| \`src/data/Texts/prompt_architecture.ts\` | **DOCS SSOT.** Beschreibt die Logik aller Agenten (Inverted Search Pipeline). |
-| \`src/data/Texts/agent_manifest.ts\` | **RULES.** Die 7 unbrechbaren Gesetze der KI-Interaktion. |
+| \`src/data/Texts/prompt_architecture.ts\` | **DOCS SSOT.** Beschreibt die Logik aller Agenten. |
+| \`src/data/Texts/agent_manifest.ts\` | **RULES.** Die 7 unbrechbaren Gesetze der KI-Interaktion & Agenten-Matrix. |
 | \`src/data/interests.ts\` | **Ontology.** Definiert Kategorien und ihre "Deep Dive" Prompts. |
 
 ---
 
 ## 10. Known Issues & Watchlist
 1. **Race Condition (Gefahr):** Der \`chefredakteur\` ist schneller als der \`anreicherer\`.
-   * *Fix V40.5:* \`useTripGeneration.ts\` blockiert Phase 5, bis Anreicherung fertig ist.
-2. **Food Pipeline:** Erfordert zwingend "Collector -> Auditor" Sequenz.
-3. **Kategorie "Sight":** Darf im Endprodukt nicht vorkommen (Indikator für fehlende Anreicherung).
+   * *Fix V40.5:* \`useTripGeneration.ts\` prüft auf rohe Kandidaten (\`Sight\`/\`Sightseeing\`), und die Abhängigkeiten in \`steps.ts\` setzen \`anreicherer\` voraus.
+2. **Food Pipeline:** Läuft über \`FoodWorkflow.ts\` (Multi-City Scout Loop -> Quality Doorman Adress-Reparatur -> FoodEnricher Audit).
+3. **Kategorie "Sight":** Darf nach dem \`anreicherer\` nicht mehr vorkommen (Indikator für fehlende Anreicherung).
 
 
-### 10. The Orchestrator Core & Chunking Strategy
+### 10b. The Orchestrator Core & Chunking Strategy
 Der \`TripOrchestrator\` ist das Gehirn der Anwendung. Er verwaltet nicht nur API-Calls, sondern implementiert komplexe Business-Logik.
 
 **A. Intelligent Sequencing (The Magic Chain)**
 Agenten arbeiten nicht isoliert. Der Orchestrator kennt Abhängigkeiten:
-* **Auto-Trigger:** Erkennt der Orchestrator einen \`foodScout\` Task, startet er automatisch im Anschluss den \`foodEnricher\`.
-* **Resultat:** Wir erhalten nicht nur Namen, sondern angereicherte Details (Öffnungszeiten, Awards) in einem Fluss.
+* **Auto-Trigger (FoodWorkflow):** Erkennt der Orchestrator einen \`foodScout\` Task, führt \`FoodWorkflow.execute\` automatisch den Multi-City-Scout-Loop, den Quality-Doorman-Repair-Loop und im Anschluss den \`foodEnricher\` aus.
+* **Resultat:** Wir erhalten nicht nur Namen, sondern validierte und angereicherte Details (Öffnungszeiten, Awards, Texte) in einem Fluss.
 
 **B. The Chunking Engine (Scaling)**
 Das System verarbeitet große Datenmengen (z.B. 50 Sights) stabil durch "Smart Chunking":
-* **Multi-City Chunking (FoodWorkflow):** Das System scannt dynamisch alle auf der Route besuchten Orte (Logistik-Hubs, Ausflugsziele, \`districts\`) und ruft den \`foodScout\` in einer sequenziellen Schleife für *jede einzelne Stadt* auf, um die KI nicht zu überlasten.
+* **Multi-City Chunking (FoodWorkflow):** Das System scannt dynamisch alle auf der Route besuchten Orte (Logistik-Hubs, Ausflugsziele, \`districts\`, \`city_info\`) und ruft den \`foodScout\` in einer sequenziellen Schleife für *jede einzelne Stadt* auf, um die KI nicht zu überlasten.
 * **Hybrid-Modus:**
     * *Auto (API-Key):* Sequenzielle Abarbeitung im Hintergrund mit Rate-Limit-Schutz (500ms Delay).
     * *Manual:* Fallback auf UI-Loop für Copy-Paste ohne Key.
-* **Incremental Saving:** Ergebnisse werden sofort gespeichert (\`ResultProcessor\`), der User sieht den Fortschritt live.
+* **Incremental Saving:** Ergebnisse werden sofort gespeichert (\`ResultProcessor\`), der User sieht den Fortschritt live (inkl. Visual Storytelling in den Notifications).
 * **Smart Merge:** Arrays (Tagespläne) werden angehängt, Objekte (Places) werden intelligent zusammengeführt.
 
-**C. Defense Layer (Zero Error)**
-* **Model Matrix:** Dynamische Wahl des Modells (Pro vs. Flash) basierend auf Task-Komplexität und User-Settings.
+**C. Defense Layer (Zero Error & Resilience)**
+* **Model Matrix:** Dynamische Wahl des Modells (\`pro\`, \`flash\`, \`thinking\`) basierend auf Task-Komplexität und User-Settings.
+* **Exponential Backoff & Retry-Loop:** Sowohl Einzel-Calls als auch Chunk-Loops fangen API-/429- oder Validierungsfehler ab und wiederholen den Schritt bis zu 3-mal mit exponentiellem Backoff + Jitter, bevor ein harter Abbruch erfolgt (bereits gespeicherte Chunks bleiben sicher im Store).
 * **Zod Firewall:** Jede KI-Antwort wird *nach* dem Empfang gegen das \`validation.ts\` Schema geprüft. Invalide Daten erreichen niemals den Store.
 * **Abort Guard (Kill-Switch):** Bricht der User einen Workflow ab, wird das Loading-Modal sofort zerstört. Falls die KI verspätet antwortet, verweigert der Guard die Speicherung der Daten, um Race Conditions zu verhindern.
 
@@ -423,42 +428,48 @@ Um Race-Conditions zwischen React-State und API zu verhindern, gelten harte phys
 ---
 
 ### 11. Gemini Developer Protocols (Strict Implementation Rules)
-Dieses Protokoll gilt für jeden Entwickler (Mensch oder KI), der Code für Papatours V40 generiert.
+Dieses Protokoll gilt für jeden Entwickler (Mensch oder KI), der Code für Papatours V40/V51 generiert oder bearbeitet. Details und das vollständige 4-teilige Onboarding-Protokoll befinden sich in \`ai_prompt.md\`.
 
 #### A. Separation of Concerns (Core vs. UI)
-* **Keine UI in Core-Logik:** Dateien in \`src/core/workflow\` oder \`src/services\` dürfen niemals JSX zurückgeben. Sie dürfen nicht auf \`document\` oder \`window\` zugreifen. Sie müssen Node-kompatibel und testbar sein.
-* **Keine Business-Logik in der UI:** React-Komponenten (\`src/features/...\`) sind reine "dumme" Views. Sie dürfen Daten nur anzeigen und User-Events feuern. Komplexe Berechnungen (z.B. Routen-Optimierung) sind verboten.
+* **Keine UI in Core-Logik:** Dateien in \`src/core/*\` oder \`src/services/*\` dürfen niemals JSX zurückgeben. Sie dürfen nicht auf \`document\` oder \`window\` zugreifen. Sie müssen Node-kompatibel und testbar sein.
+* **Keine Business-Logik in der UI:** React-Komponenten (\`src/features/...\`) sind reine Views. Sie dürfen Daten nur anzeigen und User-Events feuern. Komplexe Berechnungen (z.B. Routen-Optimierung, Prompt-Strings) sind in der UI verboten.
 
-#### B. State Management (SSOT)
-* **The Only Truth:** \`src/store/useTripStore.ts\` ist die einzige Quelle der Wahrheit.
+#### B. State Management (SSOT) & Backwards Compatibility
+* **The Only Truth:** \`src/store/useTripStore.ts\` (mit seinen 5 Slices) ist die einzige Quelle der Wahrheit.
 * **Mutation Ban:** UI-Komponenten dürfen den State niemals direkt mutieren (kein \`state.value = x\`). Sie müssen definierte Actions aus dem Store aufrufen.
-* **Reactive Rendering:** Kein manuelles \`updateUI()\`. React kümmert sich automatisch um das Re-Rendering bei State-Änderungen.
+* **Defensive Null-Safety & Migration Layer:** Gespeicherte \`.json\`-Reisedateien der Nutzer dürfen niemals unbrauchbar werden! Neue Felder in \`TripProject\` oder \`Place\` müssen immer optional (\`field?: Type\`) sein. Jeder Lesezugriff auf \`project.data.places\`, \`project.analysis\` oder \`project.itinerary\` muss Optional Chaining (\`?.\`) und Fallback-Werte (\`?? []\`) nutzen, um Abstürze bei älteren Spielständen zu verhindern.
 
-#### C. Type Safety & Integrity
-* **Zero Any Policy:** Verwende keine \`any\`-Typen, es sei denn, es ist explizit genehmigt.
-* **Interface Usage:** Greife immer auf die zentralen Interfaces aus \`src/core/types.ts\` zurück.
-* **Module Boundaries:** Ein Prompt-Template importiert keine UI-Komponenten. Eine UI-Komponente ruft niemals direkt die Gemini-API auf (nutze \`useTripGeneration\` oder \`GeminiService\`).
+#### C. Type Safety, Integrity & Reuse-Before-Invent
+* **Zero Any Policy:** Verwende keine \`any\`-Typen. Greife immer auf die zentralen Interfaces aus \`src/core/types.ts\` (\`models.ts\`, \`shared.ts\`, \`workflow.ts\`) zurück.
+* **Module Boundaries:** Ein Prompt-Template importiert keine UI-Komponenten und enthält niemals hardcodierte Sprachbefehle (Language Lockdown läuft exklusiv über \`PromptBuilder.ts\`). Eine UI-Komponente ruft niemals direkt die Gemini-API auf (nutze \`useTripGeneration\` oder \`GeminiService\`).
+* **Reuse-Before-Invent (DRY):** Prüfe vor dem Anlegen neuer Komponenten, Hooks oder Helfer im File Inventory (Sektion 3), ob bereits ein zentraler Baustein existiert (\`ConfirmModal\`, \`InfoModal\`, \`ExpenseEntryButton\`, \`LimitManager\`, \`geo.ts\`, \`ResultProcessor\`).
+* **Aktives Mitdenken (Architektur-Veto-Pflicht):** Verstößt eine Anforderung unbeabsichtigt gegen API-Rate-Limits (Quota-Shield), Daten-Schutzschilde (\`Core Hotel-Shield\`, \`Content Guard\`, \`Food SSOT\`), Prompt-Sicherheit (Double-Bind) oder die Abwärtskompatibilität gespeicherter \`.json\`-Reisen, muss die KI vor der Umsetzung aktiv warnen und eine saubere Lösung vorschlagen.
 
-#### D. The "Strict Code Integrity Protocol" (Process Rules)
+#### D. UX/UI Design-Disziplin
+* **Semantische Farbcodierung:** Blau (\`blue-600\`) für aktive Views/Primär-Aktionen, Warm-Amber (\`amber-500\`) für aktive Filter/Hilfe/Food-Radar, Smaragdgrün (\`emerald-600\`) für Reisekasse & Check-ins, Violett (\`purple-500\`) für KI-Spezialisten, Rot (\`red-600\`) für destruktive Aktionen & Konflikte.
+* **Progressive Disclosure & Kontextuelle Reserve:** \`SightCard\` nutzt 3 Detailstufen (\`+/-\`). Orte in der Reserve (\`-1\`) bleiben in ihrer Kategorie/Tour, wandern ans Ende der Gruppe und werden visuell gedimmt dargestellt.
+* **Portal-Pflicht & Konflikt-Weiche:** Finanz- und Währungs-Modals nutzen zwingend \`createPortal(..., document.body)\`. Nicht zuweisbare \`Prio 1/2\`- oder \`Fix\`-Orte im Tagesplaner triggern das \`PlannerConflictModal\`.
+
+#### E. The "Strict Code Integrity Protocol" & Dual-Mode Workflow
 Jeder Eingriff in den Code folgt dem Protokoll des **"Code-Chirurgen"**:
-1.  **Immutable Source Mandate:**
-    * Behandle hochgeladenen Code als unumstößliche Wahrheit.
-    * Kopiere Code-Blöcke 1:1. Ändere NUR die betroffenen Zeilen.
-    * Rekonstruiere niemals Code aus dem Gedächtnis.
+1.  **Immutable Source Mandate (No Blind Flight):**
+    * Behandle vorhandenen Code als unumstößliche Wahrheit. Ändere NUR die betroffenen Zeilen und rekonstruiere niemals Code aus dem Gedächtnis.
+    * *Modus A (Agentic IDE wie Antigravity):* Lies Zieldateien vorab selbst per File-Tool ein und führe chirurgische Edits direkt in der Datei durch.
+    * *Modus B (Web-Chat ohne Dateizugriff):* Fordere fehlende Dateien mit *"Fehler: Patient fehlt. Bitte lade die Datei [Dateiname] hoch."* an und gib geänderte Dateien nach dem \`OK\` einzeln und vollständig von Zeile 1 bis zum EOF-Marker aus.
 2.  **Three-Step-Operations:**
-    * 1. **Analyse:** Verstehe das Problem.
-    * 2. **Plan:** Nenne Datei und Zeilennummern. Warte auf das 'OK' des Users.
-    * 3. **Chirurgie:** Führe den Fix durch.
+    * 1. **Analyse:** Verstehe das Problem und prüfe Architektur-/Prompt-Gesetze.
+    * 2. **Plan:** Nenne Datei und Zeilennummern. Warte auf das \`OK\` des Users.
+    * 3. **Chirurgie:** Führe den Fix durch, aktualisiere den Datums-Header in Zeile 1 und halte den EOF-Marker (\`// --- END OF FILE [X] Zeilen ---\`) exakt synchron.
 3.  **Zero-Build-Error Check:**
-    * Vor Ausgabe prüfen: Sind alle Imports korrekt? Existieren aufgerufene Funktionen in \`types.ts\`?
+    * Vor Abschluss prüfen: Sind alle Imports/Pfade (Case-Sensitivity: \`Texts\`, \`Workflow\`) korrekt? Wurden unbenutzte Variablen (TS6133) entfernt?
 
-#### E. The "Handshake" (Mandatory Confirmation)
+#### F. The "Handshake" (Mandatory Confirmation)
 **ZWINGENDE REGEL:**
 Jede KI-Instanz, die dieses Briefing analysiert, muss zu Beginn der Interaktion explizit bestätigen:
-*"Ich habe die Papatours V40-Architektur und das Strict Code Integrity Protocol verstanden. Ich werde keine Funktionen entfernen, keine UI-Logik in den Core schreiben und den Code ausschließlich chirurgisch bearbeiten."*
+*"Ich habe die Papatours V40/V51-Architektur und das Strict Code Integrity Protocol verstanden. Ich werde keine Funktionen entfernen, keine UI-Logik in den Core schreiben und den Code ausschließlich chirurgisch bearbeiten."*
 **Ohne diese explizite Bestätigung ist die Generierung von Code untersagt.**
-Merk dir, dass ich für das Papatours Projekt immer unter dem Strict Code Integrity Protocol arbeiten möchte und die Regeln aus Sektion 11 aus dem briefing.tx Dokument gelten. 
+Merk dir, dass ich für das Papatours Projekt immer unter dem Strict Code Integrity Protocol arbeiten möchte und die Regeln aus Sektion 11 aus dem briefing.ts Dokument sowie aus \`ai_prompt.md\` gelten.
 `
   }
 };
-// --- END OF FILE 464 Zeilen ---
+// --- END OF FILE 475 Zeilen ---
