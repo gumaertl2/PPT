@@ -1,3 +1,4 @@
+// [2026-10-25] [13:52] - FIX: Forwarded customPreferences (Field 1) and USER OVERRIDE tags to Chefredakteur editorial tasks.
 // 03.06.2026 10:20 - ARCHITECTURE FIX: Implemented Strict Override Pattern. Replaced double appending with an exclusive user-input priority logic.
 // 19.03.2026 16:30 - FEAT: Inject persona directive for the writer.
 // 08.02.2026 22:00 - FIX: Prevent double slicing & enforce ID return.
@@ -81,15 +82,21 @@ export const prepareChefredakteurPayload = (
         const interestId = resolveInterestId(category);
         
         if (interestId) {
+            const guideline = INTEREST_DATA[interestId]?.writingGuideline;
+            const defaultWriting = guideline ? ((guideline as any)[lang] || (guideline as any)['de'] || '') : '';
+            const customWriting = project.userInputs.customWritingGuidelines?.[interestId]?.trim();
+            
             // STRICT OVERRIDE PATTERN
-            if (project.userInputs.customWritingGuidelines?.[interestId]) {
-                instructions = project.userInputs.customWritingGuidelines[interestId];
-            } else {
-                const guideline = INTEREST_DATA[interestId]?.writingGuideline;
-                if (guideline) {
-                    const text = (guideline as any)[lang] || (guideline as any)['de'];
-                    if (text) instructions = text;
-                }
+            if (customWriting && customWriting !== defaultWriting.trim()) {
+                instructions = `🚨 [USER OVERRIDE]: ${customWriting}`;
+            } else if (defaultWriting) {
+                instructions = defaultWriting;
+            }
+
+            const defaultPref = ((INTEREST_DATA[interestId]?.defaultUserPreference as any)?.[lang] || '').trim();
+            const customPref = project.userInputs.customPreferences?.[interestId]?.trim();
+            if (customPref && customPref !== defaultPref) {
+                instructions += `\n🚨 [USER OVERRIDE / FOCUS]: "${customPref}"`;
             }
         }
 
@@ -130,4 +137,4 @@ export const prepareChefredakteurPayload = (
         }
     };
 };
-// --- END OF FILE ---
+// --- END OF FILE 140 Zeilen ---

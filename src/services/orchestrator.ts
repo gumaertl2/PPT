@@ -1,3 +1,4 @@
+// [2026-10-25] [13:53] - FIX: Registered basisSchema/anreichererSchema in SCHEMA_MAP, filtered chefredakteur chunk counts, and tagged chunk-merged results with _alreadyProcessed.
 // 26.04.2026 13:50 - FIX: Added Exponential Backoff & Retry-Loop to '_executeSingleStep' to prevent 429 API Rate Limit crashes.
 // 12.04.2026 15:55 - FIX/I18N: Replaced hardcoded strings with proper JSON locale imports. Preserved full 441 lines.
 // 12.04.2026 15:15 - ARCHITECTURE: Implemented Gatekeeper with Exponential Backoff (Smart Resume) to prevent Frankenstein data.
@@ -20,6 +21,7 @@ import { LimitManager } from '../core/utils/LimitManager';
 import deLocale from '../locales/de.json';
 import enLocale from '../locales/en.json';
 import { 
+  basisSchema, anreichererSchema,
   dayPlanSchema, geoAnalystSchema, foodSchema, hotelSchema, chefPlanerSchema,
   routeArchitectSchema, ideenScoutSchema, chefredakteurSchema, infoAutorSchema,
   tourGuideSchema, transferPlannerSchema 
@@ -27,6 +29,7 @@ import {
 import type { TaskKey } from '../core/types';
 
 const SCHEMA_MAP: Partial<Record<TaskKey, z.ZodType<any>>> = {
+  basis: basisSchema, anreicherer: anreichererSchema,
   dayplan: dayPlanSchema, initialTagesplaner: dayPlanSchema, geoAnalyst: geoAnalystSchema,
   chefPlaner: chefPlanerSchema, routeArchitect: routeArchitectSchema, routenArchitekt: routeArchitectSchema,
   food: foodSchema, foodScout: foodSchema, foodEnricher: foodSchema,
@@ -188,7 +191,11 @@ export const TripOrchestrator = {
              }
          }
          
-         return ResultMerger.merge(collectedResults, task);
+         const merged = ResultMerger.merge(collectedResults, task);
+         if (merged && typeof merged === 'object') {
+             (merged as any)._alreadyProcessed = true;
+         }
+         return merged;
 
      } catch (error) {
          console.error(`[Orchestrator] Fatal Error in Chunk Loop for ${task}:`, error);
@@ -335,9 +342,14 @@ export const TripOrchestrator = {
         if (['anreicherer', 'chefredakteur', 'details'].includes(task)) {
             if (inputData && Array.isArray(inputData) && inputData.length > 0) {
                 totalItems = inputData.length;
-            } else {
+            } else if (task === 'anreicherer') {
                 const places = project.data.places || {};
                 totalItems = Object.keys(places).length;
+            } else {
+                const validSights = Object.values(project.data.places || {}).filter((p: any) =>
+                    p && p.valid !== false && p.userPriority !== -1 && !['hotel', 'Hotel', 'accommodation', 'Restaurant', 'restaurant', 'food', 'culinary'].includes(p.category)
+                );
+                totalItems = validSights.length;
             }
         }
         else if (task === 'foodEnricher') {
@@ -381,4 +393,4 @@ export const TripOrchestrator = {
     return this._executeSingleStep(task, feedback, false, inputData, false);
   }
 };
-// --- END OF FILE 485 Zeilen ---
+// --- END OF FILE 396 Zeilen ---

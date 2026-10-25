@@ -1,3 +1,4 @@
+// [2026-10-25] [13:48] - FIX: Resolved custom pen overrides for vibe, budget, pace, and interest preferences in ChefPlaner payload.
 // 03.06.2026 10:20 - ARCHITECTURE FIX: Implemented Strict Override Pattern. Default texts are now completely dropped if user provides custom input.
 // 20.04.2026 14:10 - FIX: Included 'region' fallback for stationary trips so the ChefPlaner doesn't crash before the Basecamp Scout runs.
 // 08.04.2026 15:45 - FIX: Removed legacy local language resolution to ensure SSOT via PromptBuilder.
@@ -6,7 +7,7 @@
 // src/core/prompts/preparers/prepareChefPlanerPayload.ts
 
 import type { TripProject, LocalizedContent } from '../../types';
-import { INTEREST_DATA, STRATEGY_OPTIONS } from '../../../data/staticData';
+import { INTEREST_DATA, STRATEGY_OPTIONS, VIBE_OPTIONS, BUDGET_OPTIONS, PACE_OPTIONS } from '../../../data/staticData';
 
 // --- DEFINITIONS & WHITELISTS ---
 
@@ -75,9 +76,14 @@ export const prepareChefPlanerPayload = (project: TripProject, feedback?: string
         const label = resolveText(def?.label, uiLang) || id;
         
         // STRICT OVERRIDE PATTERN
-        let finalInstruction = resolveText(def?.aiInstruction, uiLang);
-        if (userInputs.customSearchStrategies?.[id]) {
-            finalInstruction = userInputs.customSearchStrategies[id];
+        const customStrat = userInputs.customSearchStrategies?.[id];
+        const customPref = userInputs.customPreferences?.[id];
+        const defaultPref = resolveText(def?.defaultUserPreference, uiLang);
+        let finalInstruction = resolveText(def?.aiInstruction || def?.searchStrategy, uiLang);
+        if (customStrat || customPref) {
+            finalInstruction = `🚨 [USER OVERRIDE] ${customStrat ? `Strategy: ${customStrat} ` : ''}${customPref ? `User Wish: "${customPref}"` : ''}`.trim();
+        } else if (defaultPref) {
+            finalInstruction = `${finalInstruction} (Preference: ${defaultPref})`.trim();
         }
 
         return { 
@@ -96,12 +102,20 @@ export const prepareChefPlanerPayload = (project: TripProject, feedback?: string
             || userInputs.customPreferences?.[userInputs.strategyId];
             
     if (customStrategy) {
-        finalStrategyInstruction = customStrategy;
+        finalStrategyInstruction = `🚨 [USER OVERRIDE] ${customStrategy}`;
     }
 
     const strategyInfo = {
         name: resolveText(strategyDef?.label, uiLang) || userInputs.strategyId,
         instruction: finalStrategyInstruction
+    };
+
+    const resolveOption = (key: 'vibe' | 'budget' | 'pace', id: string | undefined, map: Record<string, any>) => {
+        if (!id) return '';
+        const custom = userInputs.customPreferences?.[`cat_${key}`] || userInputs.customPreferences?.[`saved_${key}_${id}`];
+        if (custom) return `${id} — 🚨 [USER OVERRIDE]: ${custom}`;
+        const defInst = resolveText(map?.[id]?.promptInstruction, uiLang);
+        return defInst ? `${id} (${defInst})` : id;
     };
 
     const extractedHotels = extractHotels(userInputs);
@@ -194,9 +208,9 @@ export const prepareChefPlanerPayload = (project: TripProject, feedback?: string
             interests: activeInterests, 
             custom_notes: userInputs.notes,
             custom_preferences: userInputs.customPreferences,
-            vibe: userInputs.vibe,
-            budget: userInputs.budget,
-            pace: userInputs.pace
+            vibe: resolveOption('vibe', userInputs.vibe, VIBE_OPTIONS),
+            budget: resolveOption('budget', userInputs.budget, BUDGET_OPTIONS),
+            pace: resolveOption('pace', userInputs.pace, PACE_OPTIONS)
         },
         meta: {
             target_sights_count: targetSightsCount,
@@ -204,4 +218,4 @@ export const prepareChefPlanerPayload = (project: TripProject, feedback?: string
         }
     };
 };
-// --- END OF FILE ---
+// --- END OF FILE 221 Zeilen ---

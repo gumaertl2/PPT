@@ -1,3 +1,4 @@
+// [2026-10-25] [13:53] - FIX: Prevented redundant second ResultProcessor.process call after chunk-loop tasks.
 // 23.02.2026 12:15 - FIX: Removed 'isMounted' closure trap that caused the workflow queue to halt after the first step.
 // 21.02.2026 12:15 - FIX: Added chunk loop logic to submitManualResult to allow multi-chunk tasks (like Anreicherer) to finish completely in manual mode.
 // 20.02.2026 20:15 - FIX: Added Hard Kill-Switch (Abort Guard) to effectively cancel background tasks and dismiss loading modal immediately.
@@ -132,6 +133,7 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
   }, [aiSettings.debug, logEvent, setManualMode, resetChunking, resetWorkflow, dismissNotification]);
 
   const processResult = useCallback((step: WorkflowStepId | TaskKey, data: any) => {
+      if (data && typeof data === 'object' && (data as any)._alreadyProcessed) return;
       ResultProcessor.process(step, data);
   }, []); 
 
@@ -422,4 +424,4 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
   return { status, currentStep, queue, error, progress, manualPrompt, submitManualResult, startWorkflow, resumeWorkflow, cancelWorkflow, startSingleTask };
 };
-// --- END OF FILE 398 Zeilen ---
+// --- END OF FILE 427 Zeilen ---

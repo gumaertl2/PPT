@@ -1,3 +1,4 @@
+// [2026-10-25] [13:53] - FIX: Added basisSchema and anreichererSchema to close Zod validation firewall gaps.
 // 10.02.2026 22:15 - FIX: Simplified Validation.
 // 11.02.2026 20:00 - FIX: Removed geoExpanderSchema.
 // src/services/validation.ts
@@ -31,6 +32,20 @@ export const validateJson = <T>(
 };
 
 // --- SCHEMAS ---
+
+export const basisSchema = z.object({
+    _thought_process: z.any().optional(),
+    candidates: z.array(z.any()).optional()
+}).passthrough();
+
+export const anreichererSchema = z.union([
+    z.array(z.any()),
+    z.object({
+        _thought_process: z.any().optional(),
+        results: z.array(z.any()).optional(),
+        candidates: z.array(z.any()).optional()
+    }).passthrough()
+]);
 
 export const chefPlanerSchema = z.object({
     _thought_process: z.any().optional(),
@@ -93,6 +108,6 @@ export const geoAnalystSchema = z.object({ strategy: z.string().optional(), reco
 export const ideenScoutSchema = z.object({ sunny_day_ideas: z.array(z.any()).optional(), rainy_day_ideas: z.array(z.any()).optional() }).passthrough();
 export const chefredakteurSchema = z.union([z.array(z.any()), z.object({ sights: z.array(z.any()).optional() }).passthrough()]);
 export const infoAutorSchema = z.union([z.array(z.any()), z.object({ chapters: z.array(z.any()).optional() }).passthrough()]);
-export const tourGuideSchema = z.object({ guide: z.object({ tours: z.array(z.any()).optional() }).passthrough().optional() }).passthrough();
+export const tourGuideSchema = z.object({ guide: z.object({ tours: z.array(z.array(z.any()).or(z.any())).optional() }).passthrough().optional() }).passthrough();
 export const transferPlannerSchema = z.object({ transfers: z.array(z.any()).optional() }).passthrough();
-// --- END OF FILE 169 Zeilen ---
+// --- END OF FILE 113 Zeilen ---

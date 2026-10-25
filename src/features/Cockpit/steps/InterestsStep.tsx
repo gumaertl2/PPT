@@ -1,3 +1,4 @@
+// [2026-10-25] [13:52] - FIX: Prevent unmodified default texts in 3-field interest editor from being saved as custom overrides.
 // 06.04.2026 12:00 - UX: Replaced 'i' info icon with a sleek pen icon (✏️ Edit3) for better affordance. Unified text wording to "Anpassen" via i18n and removed 'X' from modal header.
 // 22.03.2026 09:00 - UX: Applied "Deep Input" UX logic.
 // src/features/Cockpit/steps/InterestsStep.tsx
@@ -82,25 +83,41 @@ export const InterestsStep = () => {
     const storedWriting = customWritingGuidelines[interestId];
     const defaultWriting = (data.writingGuideline as any)?.[currentLang] || '';
     
-    setTempPref(storedPref !== undefined ? storedPref : defaultPref);
-    setTempSearch(storedSearch !== undefined ? storedSearch : defaultSearch);
-    setTempWriting(storedWriting !== undefined ? storedWriting : defaultWriting);
+    setTempPref(storedPref ? storedPref : defaultPref);
+    setTempSearch(storedSearch ? storedSearch : defaultSearch);
+    setTempWriting(storedWriting ? storedWriting : defaultWriting);
     
     setEditingInterestId(interestId);
   };
 
   const saveText = () => {
     if (editingInterestId) {
-      setCustomPreference(editingInterestId, tempPref);
+      const data = INTEREST_DATA[editingInterestId];
+      const defaultPref = ((data?.defaultUserPreference as any)?.[currentLang] || '').trim();
+      const defaultSearch = ((data?.searchStrategy as any)?.[currentLang] || '').trim();
+      const defaultWriting = ((data?.writingGuideline as any)?.[currentLang] || '').trim();
+
+      const cleanPref = tempPref.trim();
+      const cleanSearch = tempSearch.trim();
+      const cleanWriting = tempWriting.trim();
+
+      setCustomPreference(editingInterestId, cleanPref !== defaultPref ? tempPref : '');
       
-      updateProjectInput('customSearchStrategies', { 
-        ...customSearchStrategies, 
-        [editingInterestId]: tempSearch 
-      });
-      updateProjectInput('customWritingGuidelines', { 
-        ...customWritingGuidelines, 
-        [editingInterestId]: tempWriting 
-      });
+      const nextSearch = { ...customSearchStrategies };
+      if (cleanSearch && cleanSearch !== defaultSearch) {
+        nextSearch[editingInterestId] = tempSearch;
+      } else {
+        delete nextSearch[editingInterestId];
+      }
+      updateProjectInput('customSearchStrategies', nextSearch);
+
+      const nextWriting = { ...customWritingGuidelines };
+      if (cleanWriting && cleanWriting !== defaultWriting) {
+        nextWriting[editingInterestId] = tempWriting;
+      } else {
+        delete nextWriting[editingInterestId];
+      }
+      updateProjectInput('customWritingGuidelines', nextWriting);
       
       if (!selectedInterests.includes(editingInterestId)) {
         toggleInterest(editingInterestId);
@@ -374,4 +391,4 @@ export const InterestsStep = () => {
     </div>
   );
 };
-// --- END OF FILE 371 Zeilen ---
+// --- END OF FILE 394 Zeilen ---

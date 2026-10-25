@@ -1,3 +1,4 @@
+// [2026-10-25] [13:49] - FIX: Replaced dead sammler_briefing reference with Data Bypass (raw user strategy, persona directive, selected interests & ChefPlaner logistics).
 // [2026-08-15] 14:45 - FIX: Added feedback parameter to process user input, external prompts, and "Kept" routes.
 // 20.04.2026 12:45 - PROMPT: Added conditional logic for stationary base camp scouting. (Full Integrity Preserved)
 // 02.02.2026 10:15 - PROMPT UPDATE: Implemented "Strict vs. Smart" Logic.
@@ -7,13 +8,24 @@
 
 import type { TripProject } from '../../types';
 import { PromptBuilder } from '../PromptBuilder';
+import { buildPersonaDirective } from '../PersonaInjector';
+import { STRATEGY_OPTIONS } from '../../../data/staticData';
 
 export const buildRouteArchitectPrompt = (project: TripProject, feedback?: string): string => {
   const { userInputs, analysis } = project;
   const { logistics, dates } = userInputs;
 
-  // 1. STRATEGIC BRIEFING
-  const strategicBriefing = (analysis.chefPlaner as any)?.strategic_briefing?.sammler_briefing || "";
+  // 1. STRATEGIC BRIEFING (DATA BYPASS + CHEFPLANER LOGISTICS)
+  const rawStrategy = userInputs.customPreferences?.['cat_strategyId']
+    || userInputs.customPreferences?.[`saved_strategyId_${userInputs.strategyId}`]
+    || userInputs.customPreferences?.[userInputs.strategyId]
+    || (STRATEGY_OPTIONS?.[userInputs.strategyId]?.promptInstruction as any)?.en
+    || (STRATEGY_OPTIONS?.[userInputs.strategyId]?.promptInstruction as any)?.de
+    || userInputs.strategyId;
+  const personaDirective = buildPersonaDirective(userInputs, 'basis');
+  const radiusRule = (analysis.chefPlaner as any)?.strategic_briefing?.search_radius_instruction || "";
+  const itineraryRule = (analysis.chefPlaner as any)?.strategic_briefing?.itinerary_rules || "";
+  const strategicBriefing = `### USER STRATEGY (PRIORITY 1)\n${rawStrategy}\n\n${personaDirective}Selected Interests: ${(userInputs.selectedInterests || []).join(', ')}\n${radiusRule ? `Logistics Radius: ${radiusRule}\n` : ''}${itineraryRule ? `Itinerary Rules: ${itineraryRule}` : ''}`.trim();
 
   // 2. USER ROUTE PREFERENCES
   const roundtripOptions = logistics.roundtripOptions || {};
@@ -145,4 +157,4 @@ Each option needs:
     .withSelfCheck(['basic', 'planning'])
     .build();
 };
-// --- END OF FILE 119 Zeilen ---
+// --- END OF FILE 162 Zeilen ---

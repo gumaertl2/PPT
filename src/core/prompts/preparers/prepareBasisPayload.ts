@@ -1,3 +1,4 @@
+// [2026-10-25] [13:52] - FIX: Included defaultUserPreference in Creative Briefing and filtered out unmodified default overrides.
 // [2026-06-04] - ARCHITECTURE FIX: Preserved ChefPlaner's searchRadiusInstruction in stationary mode to stop the Collector from ignoring the 0.5h limit.
 // [2026-06-03] - ARCHITECTURE FIX: Reverted strict AI override. User's UI input (sightsCount) is the absolute Single Source of Truth again. User is boss.
 // 03.06.2026 10:40 - ARCHITECTURE FIX: Activated Smart Override. Collector now respects ChefPlaner's logistical limit instead of blindly chasing UI target.
@@ -56,18 +57,24 @@ const generateCreativeBriefing = (project: TripProject, activeInterests: string[
            const legacy = (def.aiInstruction as any)?.[lang] || "";
            defaultSearchStrategy = legacy || `Find suitable candidates related to ${label}.`;
       }
+      const defaultPref = (def.defaultUserPreference as any)?.[lang] || "";
       
-      // STRICT OVERRIDE PATTERN
-      const customStrat = userInputs.customSearchStrategies?.[id];
-      const customPref = userInputs.customPreferences?.[id];
+      // STRICT OVERRIDE PATTERN (Ignore unmodified defaults from legacy saves)
+      const rawCustomStrat = userInputs.customSearchStrategies?.[id]?.trim();
+      const rawCustomPref = userInputs.customPreferences?.[id]?.trim();
+      const hasCustomStrat = Boolean(rawCustomStrat && rawCustomStrat !== defaultSearchStrategy.trim());
+      const hasCustomPref = Boolean(rawCustomPref && rawCustomPref !== defaultPref.trim());
       
       let finalStrategy = "";
-      if (customStrat || customPref) {
+      if (hasCustomStrat || hasCustomPref) {
           finalStrategy = "🚨 [USER OVERRIDE] ";
-          if (customStrat) finalStrategy += `Instruction: ${customStrat} `;
-          if (customPref) finalStrategy += `User Wish: "${customPref}"`;
+          if (hasCustomStrat) finalStrategy += `Instruction: ${rawCustomStrat} `;
+          else if (defaultSearchStrategy) finalStrategy += `Base Rule: ${defaultSearchStrategy} `;
+          if (hasCustomPref) finalStrategy += `User Wish: "${rawCustomPref}"`;
       } else {
-          finalStrategy = defaultSearchStrategy;
+          finalStrategy = defaultPref
+              ? `${defaultSearchStrategy} (Focus/Preference: "${defaultPref}")`
+              : defaultSearchStrategy;
       }
 
       briefing += `\n**Topic: ${label}**\n`;
@@ -196,4 +203,4 @@ export const prepareBasisPayload = (project: TripProject, chunkIndex: number = 1
         }
     };
 };
-// --- END OF FILE ---
+// --- END OF FILE 206 Zeilen ---

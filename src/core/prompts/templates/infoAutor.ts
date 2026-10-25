@@ -1,3 +1,4 @@
+// [2026-10-25] [13:49] - FIX: Replaced dead sammler_briefing fallback with raw user strategy & ChefPlaner rules.
 // 04.02.2026 12:35 - FIX: Robust Payload Detection & Empty Task Handling.
 // Corrects V40 context detection and prevents "John Doe" hallucinations on empty tasks.
 // src/core/prompts/templates/infoAutor.ts
@@ -41,7 +42,10 @@ export const buildInfoAutorPrompt = (
         const { logistics } = userInputs;
 
         chunkInfo = totalChunks > 1 ? ` (Block ${currentChunk}/${totalChunks})` : '';
-        strategicBriefing = (analysis.chefPlaner as any)?.strategic_briefing?.sammler_briefing || "";
+        strategicBriefing = userInputs.customPreferences?.['cat_strategyId']
+            || userInputs.customPreferences?.[`saved_strategyId_${userInputs.strategyId}`]
+            || (analysis.chefPlaner as any)?.strategic_briefing?.search_radius_instruction
+            || userInputs.strategyId || "";
 
         // Data Mapping
         if (logistics.mode === 'roundtrip' && logistics.roundtrip.startLocation) {
@@ -133,4 +137,4 @@ ${taskList}
         .withSelfCheck(['basic', 'research'])
         .build();
 };
-// --- END OF FILE 138 Zeilen ---
+// --- END OF FILE 140 Zeilen ---

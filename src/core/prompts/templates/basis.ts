@@ -1,3 +1,4 @@
+// [2026-10-25] [13:52] - FIX: Added missing builder.withOS() call to inject SYSTEM_OS and PRIORITY_PYRAMID into basis prompt.
 // [2026-08-15] 15:18 - FIX: Added Anti-Laziness and Anti-Hallucination Fallback to MISSION 2 to enforce real, concrete sports trails.
 // 03.06.2026 10:30 - ARCHITECTURE FIX: Enforced Strict Override Pattern and [USER OVERRIDE] detection.
 // 01.06.2026 19:00 - ARCHITECTURE FIX: Injected Strict User Override Rule for Data Bypass. Zero-Loss validated.
@@ -10,6 +11,7 @@ import { PromptBuilder } from '../PromptBuilder';
 export const buildBasisPrompt = (payload: any): string => {
   const { context, instructions, constraints } = payload;
   const builder = new PromptBuilder();
+  builder.withOS();
 
   // 1. Role Definition
   const role = `You are a "Chief Curator" for a premium travel guide (The "Collector"). 
@@ -95,4 +97,4 @@ You are purely a SIGHTSEEING & ACTIVITY Scout. The user has other agents for Foo
   // 5. Build
   return builder.build();
 };
-// --- END OF FILE 98 Zeilen ---
+// --- END OF FILE 100 Zeilen ---

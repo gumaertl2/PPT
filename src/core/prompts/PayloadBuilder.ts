@@ -1,3 +1,4 @@
+// [2026-10-25] [13:53] - FIX: Filtered out hotels, restaurants, invalid, and ignored places before slicing in chefredakteur auto-mode.
 // [2026-08-15] 14:45 - FIX: Passed feedback parameter to buildRouteArchitectPrompt to enable "Keep" functionality.
 // 27.02.2026 14:15 - FIX: Integrated prepareTransferPlannerPayload into PayloadBuilder.
 // 21.02.2026 12:20 - FIX: TS6133 removed unused CONFIG import.
@@ -128,7 +129,9 @@ export const PayloadBuilder = {
           if (options?.candidates && options.candidates.length > 0) {
               candidatesToProcess = options.candidates;
           } else {
-              const allPlacesForEditor = Object.values(project.data.places || {}).flat();
+              const allPlacesForEditor = Object.values(project.data.places || {})
+                  .flat()
+                  .filter((p: any) => p && p.valid !== false && p.userPriority !== -1 && !['hotel', 'Hotel', 'accommodation', 'Restaurant', 'restaurant', 'food', 'culinary'].includes(p.category));
               candidatesToProcess = sliceData(allPlacesForEditor, 'chefredakteur', options);
           }
 
@@ -305,4 +308,4 @@ export const PayloadBuilder = {
     return generatedPrompt;
   }
 };
-// --- END OF FILE 310 Zeilen ---
+// --- END OF FILE 311 Zeilen ---

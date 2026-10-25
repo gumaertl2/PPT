@@ -1,3 +1,4 @@
+// [2026-10-25] [13:49] - FIX: Replaced dead sammler_briefing reference with raw user strategy & notes.
 // 22.03.2026 10:00 - FIX: Added Rule 5 to prevent trail/hiking hallucinations and enforce Komoot/AllTrails links.
 // 16.03.2026 18:00 - FIX: Added "Strict Naming" rule to prevent the AI from generating conversational/descriptive POI names.
 // src/core/prompts/templates/ideenScout.ts
@@ -30,7 +31,12 @@ export const buildIdeenScoutPrompt = (
       // Legacy Project Mode
       const project = projectOrPayload as TripProject;
       tasks = tasksChunk || [];
-      strategicBriefing = (project.analysis.chefPlaner as any)?.strategic_briefing?.sammler_briefing || "";
+      const rawStrat = project.userInputs?.customPreferences?.['cat_strategyId']
+          || project.userInputs?.customPreferences?.[`saved_strategyId_${project.userInputs?.strategyId}`]
+          || project.userInputs?.strategyId || "";
+      const notes = project.userInputs?.notes ? ` | User Wishes: ${project.userInputs.notes}` : "";
+      const noGos = project.userInputs?.customPreferences?.['noGos'] ? ` | No-Gos: ${project.userInputs.customPreferences['noGos']}` : "";
+      strategicBriefing = `Strategy: ${rawStrat}${notes}${noGos}`;
   }
 
   // Fallback: Use function parameters for chunk info if not present in payload
@@ -123,4 +129,4 @@ Return a SINGLE valid JSON object.`;
     .withSelfCheck(['research', 'planning'])
     .build();
 };
-// Lines: 120
+// --- END OF FILE 132 Zeilen ---
