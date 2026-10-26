@@ -1,3 +1,4 @@
+// [2026-10-25] [15:04] - FIX: Prioritized confirmed roundtrip.stops over routeArchitect.routes[0] while preserving stationary mode.
 // 23.02.2026 13:10 - MERGE: Full Multi-City Logic & Repair Loop combined with Workflow Kill-Switch.
 // 23.02.2026 11:35 - UX/FEAT: Added Dynamic Storytelling (Live UI-Updates for City Chunking & Repair Loop).
 // 20.02.2026 16:30 - FEAT: Implemented true Multi-City Chunking. Scans all hubs/districts and runs sequential foodScout loop.
@@ -63,10 +64,10 @@ export const FoodWorkflow = {
             const logistics = store.project.userInputs.logistics;
             if (logistics.mode === 'stationaer' && logistics.stationary?.destination) {
                 townList.push(logistics.stationary.destination);
+            } else if (logistics.roundtrip?.stops && logistics.roundtrip.stops.length > 0) {
+                townList.push(...logistics.roundtrip.stops.map((s: any) => s.location));
             } else if (store.project.analysis?.routeArchitect?.routes?.[0]?.stages) {
                 townList.push(...store.project.analysis.routeArchitect.routes[0].stages.map((s: any) => s.location_name));
-            } else if (logistics.roundtrip?.stops) {
-                townList.push(...logistics.roundtrip.stops.map((s: any) => s.location));
             }
 
             const places = Object.values(store.project.data.places || {});
@@ -196,4 +197,4 @@ export const FoodWorkflow = {
         }
     }
 };
-// --- END OF FILE 209 Zeilen ---
+// --- END OF FILE 200 Zeilen ---

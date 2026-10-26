@@ -1,3 +1,4 @@
+// [2026-10-25] [15:05] - FIX: Support e.title (DatesStep UI property) in fixedEvents filter so user appointments reach ChefPlaner.
 // [2026-10-25] [13:48] - FIX: Resolved custom pen overrides for vibe, budget, pace, and interest preferences in ChefPlaner payload.
 // 03.06.2026 10:20 - ARCHITECTURE FIX: Implemented Strict Override Pattern. Default texts are now completely dropped if user provides custom input.
 // 20.04.2026 14:10 - FIX: Included 'region' fallback for stationary trips so the ChefPlaner doesn't crash before the Basecamp Scout runs.
@@ -120,7 +121,9 @@ export const prepareChefPlanerPayload = (project: TripProject, feedback?: string
 
     const extractedHotels = extractHotels(userInputs);
     const rawEvents = userInputs.dates.fixedEvents || [];
-    const fixedEvents = rawEvents.filter(e => e.name && e.name.trim().length > 0);
+    const fixedEvents = rawEvents
+        .filter((e: any) => (e.title && e.title.trim().length > 0) || (e.name && e.name.trim().length > 0))
+        .map((e: any) => ({ ...e, name: e.title || e.name, title: e.title || e.name }));
 
     let logisticsBriefing = {};
     
@@ -218,4 +221,4 @@ export const prepareChefPlanerPayload = (project: TripProject, feedback?: string
         }
     };
 };
-// --- END OF FILE 221 Zeilen ---
+// --- END OF FILE 224 Zeilen ---

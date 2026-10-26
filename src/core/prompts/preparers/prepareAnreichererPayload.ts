@@ -1,3 +1,4 @@
+// [2026-10-25] [15:04] - FIX: Prioritized confirmed roundtrip.stops over routeArchitect.routes[0] in mobil mode while preserving stationary mode.
 // 20.03.2026 13:45 - FIX: Prevent geographic hallucinations by passing existing_address to the Enricher.
 // 27.01.2026 22:40 - FIX: Added 'duration' & 'user_ratings_total' to requested fields.
 // Also added 'NON_PHYSICAL_KEYWORDS' filter to prevent meta-info enrichment.
@@ -25,28 +26,28 @@ export const prepareAnreichererPayload = (
     // 1. GLOBAL GEO CONTEXT
     let globalContext = "";
 
-    // PRIORITY A: Route Architect
-    const calculatedRoute = analysis.routeArchitect?.routes?.[0];
-    
-    if (userInputs.logistics.mode === 'mobil' && calculatedRoute) {
-        const stages = calculatedRoute.stages?.map(s => s.location_name).join(" -> ");
-        globalContext = `Roundtrip Route: ${stages}`;
-        if (calculatedRoute.waypoints) {
-            globalContext += ` (via: ${calculatedRoute.waypoints.map(w => w.location).join(", ")})`;
-        }
-    } 
-    // PRIORITY B: Stationary
-    else if (userInputs.logistics.mode === 'stationaer') {
+    // PRIORITY A: Stationary (City / Hub Trip)
+    if (userInputs.logistics.mode === 'stationaer') {
         const dest = userInputs.logistics.stationary.destination || "";
         const reg = userInputs.logistics.stationary.region || "";
         globalContext = `Stationary Base: ${dest}, ${reg}`.replace(/^, /, "").trim();
     } 
+    // PRIORITY B: Roundtrip / Mobil (Confirmed stops first, then RouteArchitect fallback)
     else {
-        // Roundtrip without Architect
-        const region = userInputs.logistics.roundtrip.region || "Roundtrip Region";
-        globalContext = region;
-        const stops = userInputs.logistics.roundtrip.stops.map(s => s.location).filter(Boolean).join(", ");
-        if (stops) globalContext += ` (Stops: ${stops})`;
+        const stops = userInputs.logistics.roundtrip.stops?.map(s => s.location).filter(Boolean) || [];
+        const calculatedRoute = analysis.routeArchitect?.routes?.[0];
+        if (stops.length > 0) {
+            globalContext = `Roundtrip Route: ${stops.join(" -> ")}`;
+        } else if (calculatedRoute && calculatedRoute.stages && calculatedRoute.stages.length > 0) {
+            const stages = calculatedRoute.stages.map(s => s.location_name).join(" -> ");
+            globalContext = `Roundtrip Route: ${stages}`;
+            if (calculatedRoute.waypoints) {
+                globalContext += ` (via: ${calculatedRoute.waypoints.map(w => w.location).join(", ")})`;
+            }
+        } else {
+            const region = userInputs.logistics.roundtrip.region || "Roundtrip Region";
+            globalContext = region;
+        }
     }
 
     if (!globalContext) globalContext = "Destination of the Trip";
@@ -105,4 +106,4 @@ export const prepareAnreichererPayload = (
         }
     };
 };
-// --- END OF FILE 111 Zeilen ---
+// --- END OF FILE 109 Zeilen ---

@@ -1,3 +1,4 @@
+// [2026-10-25] [15:04] - FIX: Prevent unmodified default texts in TravelerStep pen modal from being saved as custom overrides.
 // 06.04.2026 12:00 - UX: Replaced gear buttons with sleek pen icon (✏️ Edit3) for better affordance. Unified text wording to "Anpassen" via i18n and removed 'X' from modal header.
 // 22.03.2026 09:00 - UX: Applied "Deep Input" UX logic.
 // src/features/Cockpit/steps/TravelerStep.tsx
@@ -50,6 +51,7 @@ export const TravelerStep = () => {
     optionId: string;
     optionLabel: string;
     currentText: string;
+    defaultText: string;
   } | null>(null);
 
   const getSpecificKey = (key: string, optionId: string) => `saved_${key}_${optionId}`;
@@ -67,27 +69,30 @@ export const TravelerStep = () => {
     const specificKey = getSpecificKey(key, optionId);
     const specificText = customPreferences[specificKey];
 
-    const storedText = specificText !== undefined ? specificText : defaultText;
+    const storedText = specificText ? specificText : defaultText;
 
     setEditConfig({
       key,
       title: label,
       optionId,
       optionLabel: label,
-      currentText: storedText
+      currentText: storedText,
+      defaultText
     });
   };
 
   const handleSave = () => {
     if (editConfig) {
-      const { key, optionId, currentText } = editConfig;
+      const { key, optionId, currentText, defaultText } = editConfig;
+      const isModified = currentText.trim() !== (defaultText || '').trim();
+      const valToStore = isModified ? currentText : '';
       
       const specificKey = getSpecificKey(key, optionId);
-      setCustomPreference(specificKey, currentText);
+      setCustomPreference(specificKey, valToStore);
 
       const currentSelection = userInputs[key]; 
       if (currentSelection === optionId) {
-         setCustomPreference(getGlobalKey(key), currentText);
+         setCustomPreference(getGlobalKey(key), valToStore);
       }
 
       setEditConfig(null);
@@ -359,4 +364,4 @@ export const TravelerStep = () => {
     </div>
   );
 };
-// --- END OF FILE 371 Zeilen ---
+// --- END OF FILE 367 Zeilen ---
