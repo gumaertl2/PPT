@@ -1,4 +1,5 @@
-// [2026-10-25] [13:53] - FIX: Registered basisSchema/anreichererSchema in SCHEMA_MAP, filtered chefredakteur chunk counts, and tagged chunk-merged results with _alreadyProcessed.
+// [2026-10-26] [19:15] - FIX: Restored direct ResultMerger.merge return in executeInternalChunkLoop so merged results (e.g. ideenScout) reach analysis store.
+// [2026-10-25] [13:53] - FIX: Registered basisSchema/anreichererSchema in SCHEMA_MAP and filtered chefredakteur chunk counts.
 // 26.04.2026 13:50 - FIX: Added Exponential Backoff & Retry-Loop to '_executeSingleStep' to prevent 429 API Rate Limit crashes.
 // 12.04.2026 15:55 - FIX/I18N: Replaced hardcoded strings with proper JSON locale imports. Preserved full 441 lines.
 // 12.04.2026 15:15 - ARCHITECTURE: Implemented Gatekeeper with Exponential Backoff (Smart Resume) to prevent Frankenstein data.
@@ -191,11 +192,7 @@ export const TripOrchestrator = {
              }
          }
          
-         const merged = ResultMerger.merge(collectedResults, task);
-         if (merged && typeof merged === 'object') {
-             (merged as any)._alreadyProcessed = true;
-         }
-         return merged;
+         return ResultMerger.merge(collectedResults, task);
 
      } catch (error) {
          console.error(`[Orchestrator] Fatal Error in Chunk Loop for ${task}:`, error);
@@ -393,4 +390,4 @@ export const TripOrchestrator = {
     return this._executeSingleStep(task, feedback, false, inputData, false);
   }
 };
-// --- END OF FILE 396 Zeilen ---
+// --- END OF FILE 393 Zeilen ---

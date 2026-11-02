@@ -1,3 +1,4 @@
+// [2026-10-26] [18:19] - FIX: Guarded roundtrip.stops check against unconfirmed duration=0 placeholders when routeArchitect routes exist.
 // [2026-10-25] [14:56] - FIX: Prioritized confirmed roundtrip.stops over routeArchitect.routes[0] in mobil mode and added STRATEGY_OPTIONS fallback when cat_strategyId is empty.
 // [2026-10-25] [13:52] - FIX: Included defaultUserPreference in Creative Briefing and filtered out unmodified default overrides.
 // [2026-06-04] - ARCHITECTURE FIX: Preserved ChefPlaner's searchRadiusInstruction in stationary mode to stop the Collector from ignoring the 0.5h limit.
@@ -122,8 +123,9 @@ export const prepareBasisPayload = (project: TripProject, chunkIndex: number = 1
         let routeString = "";
         const stops = logistics.roundtrip.stops || [];
         const calculatedRoute = routeArchitect?.routes?.[0];
+        const hasConfirmedStops = stops.length > 0 && (stops.some(s => (s.duration || 0) > 0) || !calculatedRoute?.stages?.length);
         
-        if (stops.length > 0) {
+        if (hasConfirmedStops) {
             const stopNames = stops.map(s => s.location);
             const matchingRoute = routeArchitect?.routes?.find((r: any) =>
                 r.stages && r.stages.map((st: any) => st.location_name).join('|') === stopNames.join('|')
@@ -132,7 +134,7 @@ export const prepareBasisPayload = (project: TripProject, chunkIndex: number = 1
             routeString = `CONFIRMED ROUTE: ${stopNames.join(" -> ")}${waypoints ? `. (Waypoints: ${waypoints})` : ''}`;
         } else if (calculatedRoute && calculatedRoute.stages && calculatedRoute.stages.length > 0) {
             const stages = calculatedRoute.stages.map(s => s.location_name).join(" -> ");
-            const waypoints = calculatedRoute.waypoints?.map(w => w.location).join(", ") || "";
+            const waypoints = (calculatedRoute as any).map_waypoints?.join(", ") || calculatedRoute.waypoints?.map(w => w.location).join(", ") || "";
             routeString = `CALCULATED ROUTE: ${stages}. (Waypoints: ${waypoints})`;
         } else {
             const region = logistics.roundtrip.region || "Region";
@@ -213,4 +215,4 @@ export const prepareBasisPayload = (project: TripProject, chunkIndex: number = 1
         }
     };
 };
-// --- END OF FILE 216 Zeilen ---
+// --- END OF FILE 218 Zeilen ---

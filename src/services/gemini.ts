@@ -1,3 +1,4 @@
+// [2026-11-02] [15:14] - FIX: Set includeThoughts to false in thinkingConfig to prevent thought-part text from leaking into JSON extraction or consuming output token budget.
 // [2026-06-04] - ARCHITECTURE FIX: Added 'foodScout' to Flash-Lite routing to prevent 429 errors during the aggressive Repair-Loop.
 // 03.06.2026 19:55 - ARCHITECTURE FIX: Implemented dynamic Traffic Shaping based on model limits (6.5s for Flash, 12.5s for Thinking).
 // 03.06.2026 19:50 - FEATURE: Injected gemini-2.5-flash-lite strictly for mechanical 'anreicherer' and 'geoAnalyst' tasks under Free Tier.
@@ -227,7 +228,7 @@ export const GeminiService = {
         modelEndpoint = 'gemini-2.5-flash:generateContent';
         selectedModelKey = 'thinking';
         generationConfig.thinkingConfig = {
-            includeThoughts: true,
+            includeThoughts: false,
             thinkingBudget: -1 
         };
     }
@@ -235,7 +236,7 @@ export const GeminiService = {
         modelEndpoint = targetModelId;
         selectedModelKey = 'flash'; // Treat as flash for rate limit storage key
         generationConfig.thinkingConfig = {
-            includeThoughts: true,
+            includeThoughts: false,
             thinkingBudget: 0 
         };
     }
@@ -244,7 +245,7 @@ export const GeminiService = {
         modelEndpoint = 'gemini-2.5-flash:generateContent';
         selectedModelKey = 'flash';
         generationConfig.thinkingConfig = {
-            includeThoughts: true,
+            includeThoughts: false,
             thinkingBudget: 0 
         };
     }
@@ -439,4 +440,4 @@ export const GeminiService = {
     return promise;
   }
 };
-// --- END OF FILE ---
+// --- END OF FILE 443 Zeilen ---

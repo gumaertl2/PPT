@@ -1,3 +1,4 @@
+// [2026-10-26] [19:15] - FIX: Ignored unmodified default texts in customPreferences and customSearchStrategies for legacy .json compatibility.
 // [2026-10-25] [15:05] - FIX: Support e.title (DatesStep UI property) in fixedEvents filter so user appointments reach ChefPlaner.
 // [2026-10-25] [13:48] - FIX: Resolved custom pen overrides for vibe, budget, pace, and interest preferences in ChefPlaner payload.
 // 03.06.2026 10:20 - ARCHITECTURE FIX: Implemented Strict Override Pattern. Default texts are now completely dropped if user provides custom input.
@@ -76,13 +77,17 @@ export const prepareChefPlanerPayload = (project: TripProject, feedback?: string
         const def = INTEREST_DATA ? INTEREST_DATA[id] : null;
         const label = resolveText(def?.label, uiLang) || id;
         
-        // STRICT OVERRIDE PATTERN
-        const customStrat = userInputs.customSearchStrategies?.[id];
-        const customPref = userInputs.customPreferences?.[id];
+        // STRICT OVERRIDE PATTERN (Ignore unmodified defaults from legacy saves)
+        const defaultStrat = resolveText(def?.aiInstruction || def?.searchStrategy, uiLang);
         const defaultPref = resolveText(def?.defaultUserPreference, uiLang);
-        let finalInstruction = resolveText(def?.aiInstruction || def?.searchStrategy, uiLang);
-        if (customStrat || customPref) {
-            finalInstruction = `🚨 [USER OVERRIDE] ${customStrat ? `Strategy: ${customStrat} ` : ''}${customPref ? `User Wish: "${customPref}"` : ''}`.trim();
+        const rawCustomStrat = userInputs.customSearchStrategies?.[id]?.trim();
+        const rawCustomPref = userInputs.customPreferences?.[id]?.trim();
+        const hasCustomStrat = Boolean(rawCustomStrat && rawCustomStrat !== defaultStrat.trim());
+        const hasCustomPref = Boolean(rawCustomPref && rawCustomPref !== defaultPref.trim());
+
+        let finalInstruction = defaultStrat;
+        if (hasCustomStrat || hasCustomPref) {
+            finalInstruction = `🚨 [USER OVERRIDE] ${hasCustomStrat ? `Strategy: ${rawCustomStrat} ` : ''}${hasCustomPref ? `User Wish: "${rawCustomPref}"` : ''}`.trim();
         } else if (defaultPref) {
             finalInstruction = `${finalInstruction} (Preference: ${defaultPref})`.trim();
         }
@@ -97,12 +102,13 @@ export const prepareChefPlanerPayload = (project: TripProject, feedback?: string
     const strategyDef = STRATEGY_OPTIONS ? STRATEGY_OPTIONS[userInputs.strategyId] : null;
     
     // STRICT OVERRIDE PATTERN FOR STRATEGY
-    let finalStrategyInstruction = resolveText(strategyDef?.promptInstruction, uiLang);
-    const customStrategy = userInputs.customPreferences?.['cat_strategyId'] 
+    const defaultStratInst = resolveText(strategyDef?.promptInstruction, uiLang);
+    let finalStrategyInstruction = defaultStratInst;
+    const customStrategy = (userInputs.customPreferences?.['cat_strategyId'] 
             || userInputs.customPreferences?.[`saved_strategyId_${userInputs.strategyId}`]
-            || userInputs.customPreferences?.[userInputs.strategyId];
+            || userInputs.customPreferences?.[userInputs.strategyId])?.trim();
             
-    if (customStrategy) {
+    if (customStrategy && customStrategy !== defaultStratInst.trim()) {
         finalStrategyInstruction = `🚨 [USER OVERRIDE] ${customStrategy}`;
     }
 
@@ -113,9 +119,9 @@ export const prepareChefPlanerPayload = (project: TripProject, feedback?: string
 
     const resolveOption = (key: 'vibe' | 'budget' | 'pace', id: string | undefined, map: Record<string, any>) => {
         if (!id) return '';
-        const custom = userInputs.customPreferences?.[`cat_${key}`] || userInputs.customPreferences?.[`saved_${key}_${id}`];
-        if (custom) return `${id} — 🚨 [USER OVERRIDE]: ${custom}`;
         const defInst = resolveText(map?.[id]?.promptInstruction, uiLang);
+        const custom = (userInputs.customPreferences?.[`cat_${key}`] || userInputs.customPreferences?.[`saved_${key}_${id}`])?.trim();
+        if (custom && custom !== defInst.trim()) return `${id} — 🚨 [USER OVERRIDE]: ${custom}`;
         return defInst ? `${id} (${defInst})` : id;
     };
 
@@ -221,4 +227,4 @@ export const prepareChefPlanerPayload = (project: TripProject, feedback?: string
         }
     };
 };
-// --- END OF FILE 224 Zeilen ---
+// --- END OF FILE 230 Zeilen ---

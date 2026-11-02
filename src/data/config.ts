@@ -1,3 +1,4 @@
+// [2026-11-02] [15:13] - CONFIG: Upgraded 'basis' (Collector) default model from 'thinking' to 'pro' for higher curation and topographic precision.
 // 13.02.2026 13:30 - CONFIG: FoodScout forced to PRO.
 // - Logic: Flash/Thinking failed (hallucinations/generic data).
 // - Logic: We need the full reasoning capacity of PRO to verify real existence.
@@ -61,7 +62,7 @@ export const CONFIG = {
       hotelScout: 'thinking',       
       transferPlanner: 'thinking',  
       countryScout: 'thinking',
-      basis: 'thinking',      
+      basis: 'pro',      
       anreicherer: 'thinking' 
     } as Partial<Record<TaskKey, ModelType>>,
 
@@ -112,4 +113,4 @@ export const CONFIG = {
     } as Partial<Record<TaskKey, string>>
   }
 };
-// --- END OF FILE 130 Zeilen ---
+// --- END OF FILE 116 Zeilen ---

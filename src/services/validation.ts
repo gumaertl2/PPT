@@ -1,3 +1,4 @@
+// [2026-10-26] [19:15] - FIX: Wrapped basisSchema in z.union to also accept top-level arrays safely.
 // [2026-10-25] [13:53] - FIX: Added basisSchema and anreichererSchema to close Zod validation firewall gaps.
 // 10.02.2026 22:15 - FIX: Simplified Validation.
 // 11.02.2026 20:00 - FIX: Removed geoExpanderSchema.
@@ -33,10 +34,13 @@ export const validateJson = <T>(
 
 // --- SCHEMAS ---
 
-export const basisSchema = z.object({
-    _thought_process: z.any().optional(),
-    candidates: z.array(z.any()).optional()
-}).passthrough();
+export const basisSchema = z.union([
+    z.array(z.any()),
+    z.object({
+        _thought_process: z.any().optional(),
+        candidates: z.array(z.any()).optional()
+    }).passthrough()
+]);
 
 export const anreichererSchema = z.union([
     z.array(z.any()),
@@ -110,4 +114,4 @@ export const chefredakteurSchema = z.union([z.array(z.any()), z.object({ sights:
 export const infoAutorSchema = z.union([z.array(z.any()), z.object({ chapters: z.array(z.any()).optional() }).passthrough()]);
 export const tourGuideSchema = z.object({ guide: z.object({ tours: z.array(z.array(z.any()).or(z.any())).optional() }).passthrough().optional() }).passthrough();
 export const transferPlannerSchema = z.object({ transfers: z.array(z.any()).optional() }).passthrough();
-// --- END OF FILE 113 Zeilen ---
+// --- END OF FILE 117 Zeilen ---

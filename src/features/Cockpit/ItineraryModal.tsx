@@ -1,3 +1,4 @@
+// [2026-11-02] [12:07] - FIX: Removed double -1 subtraction on totalNights since dates.duration (end - start) already represents exact nights.
 // src/features/Cockpit/ItineraryModal.tsx
 // 15.01.2026 18:00 - FEATURE: Itinerary Manager Modal (V30 Parity).
 // 16.01.2026 01:25 - FIX: Full Internationalization (i18n).
@@ -22,8 +23,8 @@ export const ItineraryModal: React.FC<ItineraryModalProps> = ({ isOpen, onClose,
   // DATA
   const stops = project.userInputs.logistics.roundtrip.stops || [];
   const durationDays = project.userInputs.dates.duration || 0;
-  // Nights = Days - 1 (Standard travel logic), ensuring at least 0
-  const totalNights = Math.max(0, durationDays - 1);
+  // dates.duration (end - start) already represents the exact number of nights
+  const totalNights = Math.max(0, durationDays);
 
   // LOCAL STATE
   // Map stop index to nights count
@@ -210,4 +211,4 @@ export const ItineraryModal: React.FC<ItineraryModalProps> = ({ isOpen, onClose,
     </div>
   );
 };
-// --- END OF FILE 165 Zeilen ---
+// --- END OF FILE 214 Zeilen ---

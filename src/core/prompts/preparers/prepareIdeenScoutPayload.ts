@@ -1,3 +1,4 @@
+// [2026-10-26] [18:22] - FIX: Guarded roundtrip.stops check against unconfirmed duration=0 placeholders when routeArchitect routes exist.
 // [2026-10-25] [14:56] - FIX: Prevented routeArchitect.routes[0] from overwriting confirmed roundtrip.stops while preserving stationary city mode.
 // 04.02.2026 12:55 - FIX: WILDCARD DEFINITION & QUANTITY ENFORCEMENT.
 // - Explicitly requesting "2 ideas" per category.
@@ -35,8 +36,11 @@ export const prepareIdeenScoutPayload = (project: TripProject): any[] => {
             hubs.push(userInputs.logistics.stationary.destination);
         }
     } else {
-        if (userInputs.logistics.roundtrip.stops && userInputs.logistics.roundtrip.stops.length > 0) {
-            hubs = userInputs.logistics.roundtrip.stops.map(s => s.location);
+        const rawStops = userInputs.logistics.roundtrip.stops || [];
+        const hasRouteArchitect = Boolean(analysis.routeArchitect?.routes?.[0]?.stages?.length);
+        const hasConfirmedStops = rawStops.length > 0 && (rawStops.some(s => (s.duration || 0) > 0) || !hasRouteArchitect);
+        if (hasConfirmedStops) {
+            hubs = rawStops.map(s => s.location);
         } else if (analysis.routeArchitect?.routes?.[0]?.stages) {
             // Fallback: Extract from RouteArchitect only if no confirmed stops exist
             const routeHubs = analysis.routeArchitect.routes[0].stages.map(s => s.location_name);
@@ -109,4 +113,4 @@ export const prepareIdeenScoutPayload = (project: TripProject): any[] => {
         };
     });
 };
-// --- END OF FILE 112 Zeilen ---
+// --- END OF FILE 116 Zeilen ---

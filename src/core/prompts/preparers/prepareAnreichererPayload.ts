@@ -1,3 +1,4 @@
+// [2026-10-26] [18:22] - FIX: Guarded roundtrip.stops check against unconfirmed duration=0 placeholders when routeArchitect routes exist.
 // [2026-10-25] [15:04] - FIX: Prioritized confirmed roundtrip.stops over routeArchitect.routes[0] in mobil mode while preserving stationary mode.
 // 20.03.2026 13:45 - FIX: Prevent geographic hallucinations by passing existing_address to the Enricher.
 // 27.01.2026 22:40 - FIX: Added 'duration' & 'user_ratings_total' to requested fields.
@@ -34,9 +35,11 @@ export const prepareAnreichererPayload = (
     } 
     // PRIORITY B: Roundtrip / Mobil (Confirmed stops first, then RouteArchitect fallback)
     else {
-        const stops = userInputs.logistics.roundtrip.stops?.map(s => s.location).filter(Boolean) || [];
+        const rawStops = userInputs.logistics.roundtrip.stops || [];
+        const stops = rawStops.map(s => s.location).filter(Boolean);
         const calculatedRoute = analysis.routeArchitect?.routes?.[0];
-        if (stops.length > 0) {
+        const hasConfirmedStops = stops.length > 0 && (rawStops.some(s => (s.duration || 0) > 0) || !calculatedRoute?.stages?.length);
+        if (hasConfirmedStops) {
             globalContext = `Roundtrip Route: ${stops.join(" -> ")}`;
         } else if (calculatedRoute && calculatedRoute.stages && calculatedRoute.stages.length > 0) {
             const stages = calculatedRoute.stages.map(s => s.location_name).join(" -> ");
@@ -106,4 +109,4 @@ export const prepareAnreichererPayload = (
         }
     };
 };
-// --- END OF FILE 109 Zeilen ---
+// --- END OF FILE 112 Zeilen ---

@@ -1,3 +1,4 @@
+// [2026-10-26] [19:15] - FIX: Preserved existing hotel assignments and user-customized durations in RouteReviewView.tsx while syncing selected route stages.
 // 20.04.2026 12:55 - FIX: Removed unused 'Layout' import to pass strict TS build.
 // 20.04.2026 12:45 - UI: Added support for stationary base camp selection and storage. (Full Integrity Preserved)
 // 21.03.2026 23:15 - FIX: Removed unused 'Info' icon import to fix TypeScript error TS6133.
@@ -75,6 +76,30 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
 
   const handleSelectRoute = (index: number) => {
     setSelectedRouteIndex(index);
+    const selectedRoute = proposals[index];
+    if (!selectedRoute || !selectedRoute.stages) return;
+
+    if (isStationary) {
+        const baseLocation = selectedRoute.stages[0]?.location_name || '';
+        updateLogistics('stationary', {
+            ...project.userInputs.logistics.stationary,
+            destination: baseLocation
+        });
+    } else {
+        const currentStops = project.userInputs.logistics.roundtrip?.stops || [];
+        const stops = selectedRoute.stages.map((item, i) => {
+          const existing = currentStops.find(s => s.location?.toLowerCase().trim() === item.location_name?.toLowerCase().trim());
+          return {
+            id: existing?.id || `stop-${Date.now()}-${i}`,
+            location: item.location_name,
+            duration: typeof item.nights === 'string' ? parseInt(item.nights) : item.nights,
+            hotel: existing?.hotel
+          };
+        });
+        updateLogistics('roundtrip', {
+          stops: stops,
+        });
+    }
   };
 
   const handleConfirmSelection = () => {
@@ -91,12 +116,20 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
         });
         if (onNext) onNext();
     } else {
-        const stops = selectedRoute.stages.map((item, i) => ({
-          id: `stop-${Date.now()}-${i}`,
-          location: item.location_name,
-          duration: typeof item.nights === 'string' ? parseInt(item.nights) : item.nights,
-          hotel: undefined 
-        }));
+        const currentStops = project.userInputs.logistics.roundtrip?.stops || [];
+        const sameRoute = currentStops.length === selectedRoute.stages.length &&
+            currentStops.every((s, idx) => s.location === selectedRoute.stages[idx]?.location_name);
+
+        const stops = selectedRoute.stages.map((item, i) => {
+          const existing = currentStops.find(s => s.location?.toLowerCase().trim() === item.location_name?.toLowerCase().trim());
+          const aiNights = typeof item.nights === 'string' ? parseInt(item.nights) : item.nights;
+          return {
+            id: existing?.id || `stop-${Date.now()}-${i}`,
+            location: item.location_name,
+            duration: (sameRoute && existing && (existing.duration || 0) > 0) ? existing.duration : aiNights,
+            hotel: existing?.hotel
+          };
+        });
 
         updateLogistics('roundtrip', {
           stops: stops,
@@ -384,3 +417,4 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
     </div>
   );
 };
+// --- END OF FILE 420 Zeilen ---

@@ -1,3 +1,4 @@
+// [2026-10-26] [19:15] - FIX: Ignored unmodified default pace texts in customPreferences for legacy .json compatibility.
 // [2026-10-25] [13:48] - FIX: Prioritized user custom pace override (cat_pace / saved_pace_*) before static PACE_OPTIONS fallback.
 // [2026-07-31] 17:25 - FIX: Added explicit ARRIVAL and DEPARTURE locations for roundtrips to prevent wrong airport assumptions on the final day.
 // [2026-07-31] 16:32 - FIX: Dynamic hotel name resolution for roundtrips using day.hotel_id from Tagesplaner.
@@ -125,8 +126,11 @@ export const prepareTagesplanerPayload = (project: TripProject): TagesplanerPayl
   const origin = userInputs.travelers.origin || "Heimatort";
   const paceKey = userInputs.pace || 'balanced';
   const paceConfig = PACE_OPTIONS[paceKey];
-  const customPace = userInputs.customPreferences?.['cat_pace'] || userInputs.customPreferences?.[`saved_pace_${paceKey}`];
-  const paceInstruction = customPace ? `🚨 [USER OVERRIDE] ${customPace}` : (paceConfig?.promptInstruction?.en || paceConfig?.promptInstruction?.de || 'Standard pace.');
+  const defaultPaceDe = (paceConfig?.promptInstruction?.de || '').trim();
+  const defaultPaceEn = (paceConfig?.promptInstruction?.en || '').trim();
+  const customPace = (userInputs.customPreferences?.['cat_pace'] || userInputs.customPreferences?.[`saved_pace_${paceKey}`])?.trim();
+  const isCustomPaceModified = Boolean(customPace && customPace !== defaultPaceDe && customPace !== defaultPaceEn);
+  const paceInstruction = isCustomPaceModified ? `🚨 [USER OVERRIDE] ${customPace}` : (defaultPaceEn || defaultPaceDe || 'Standard pace.');
   
   const smartPace = PACE_LOGISTICS[paceKey as keyof typeof PACE_LOGISTICS] || PACE_LOGISTICS.balanced;
   const finalStart = userInputs.dates.dailyStartTime || smartPace.start;
@@ -173,4 +177,4 @@ TIME BOUNDARIES (CRITICAL):
 - Day End: ${finalEnd}`
   };
 };
-// --- END OF FILE 176 Zeilen ---
+// --- END OF FILE 180 Zeilen ---

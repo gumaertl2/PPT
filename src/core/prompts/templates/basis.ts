@@ -1,3 +1,5 @@
+// [2026-11-02] [15:13] - FIX: Refined Mission 2/3 to stay within selected topics/traveler profile without rigid quotas, and prevented split-complex duplicates.
+// [2026-10-26] [17:21] - FIX: Enforced clean official names + city in candidates array without parenthetical justifications (reasoning stays in _thought_process).
 // [2026-10-25] [13:52] - FIX: Added missing builder.withOS() call to inject SYSTEM_OS and PRIORITY_PYRAMID into basis prompt.
 // [2026-08-15] 15:18 - FIX: Added Anti-Laziness and Anti-Hallucination Fallback to MISSION 2 to enforce real, concrete sports trails.
 // 03.06.2026 10:30 - ARCHITECTURE FIX: Enforced Strict Override Pattern and [USER OVERRIDE] detection.
@@ -52,11 +54,11 @@ For each Topic above:
 1. Understand the "STRATEGY".
 2. **ANTI-LAZINESS (CRITICAL):** If a [USER OVERRIDE] specifies technical data (e.g., altitude, kilometers, specific sports), you MUST provide CONCRETE starting points, exact trail names, or specific providers. Generic entries like "National Park" or "Coast" are STRICTLY FORBIDDEN! You must research the real, navigable location.
 3. **ANTI-HALLUCINATION FALLBACK:** NEVER invent routes, mountains, or places just to satisfy the user's numbers! If the requested metrics (e.g., 1000m altitude) are geographically impossible in the given region, choose the *next best, real-existing* alternative (e.g., the toughest coastal trail available) and honestly explain this physical compromise in your \`_thought_process\`.
-4. Find 3-5 concrete, high-quality candidates that match this strategy.
+4. Find enough concrete, high-quality candidates across the selected topics to naturally reach the total target of **${constraints.target_count} suggestions** (weight organically by real local potential—never force artificial quotas on small towns).
 5. Ensure the place is open/accessible in ${context.travel_season}.
 
-# MISSION 3: FILL THE REST
-- If the curated selection doesn't reach the target count, fill the rest with absolute "Must-Sees" for the region.
+# MISSION 3: FILL THE REST (STRICTLY WITHIN PROFILE & SELECTED TOPICS)
+- If the curated selection doesn't reach the target count, fill the remaining slots strictly within the user's selected topics, strategy, and traveler profile (e.g., NEVER suggest children's miniature/theme parks unless children are traveling or 'family' is selected; do not pad with unselected categories).
 
 # EXCLUSION PROTOCOL (THE "DOUBLE BIND" FIREWALL)
 You are purely a SIGHTSEEING & ACTIVITY Scout. The user has other agents for Food and Sleep.
@@ -71,10 +73,10 @@ You are purely a SIGHTSEEING & ACTIVITY Scout. The user has other agents for Foo
    - Avoid supermarkets, gas stations, or generic playgrounds.
 
 # RULES
-1. **Deduplication:** NO names from "already_known_places_block".
+1. **Deduplication:** NO names from "already_known_places_block". NEVER split a single physical landmark/complex into two separate entries (e.g., do NOT list both a monastery and its attached castle as two candidates).
 2. **Quantity:** Exactly **${constraints.target_count} suggestions**.
 3. **No-Gos:** Strictly avoid "${context.no_gos}".
-4. **Names:** Output precise, official names (e.g., "Eiffelturm" instead of "Tower in Paris").
+4. **Names (STRICT FORMAT - NO DESCRIPTIONS):** Output ONLY the precise official name and city (e.g., "Casa da Música, Porto" or "Wanderung 'PR1 - Rota do Glaciar', Manteigas"). STRICTLY FORBIDDEN: NEVER append parenthetical explanations, descriptions, reasoning, vibe keywords, or technical stats (like "(Neugotische Architektur...)" or "(ca. 16 km, 700m...)") to the candidate string! Write all your justifications and metric checks exclusively inside "_thought_process" (downstream agents will write the descriptions later).
 5. **Route:** Strictly adhere to the defined route corridor (if Roundtrip).
 
 # SYSTEM SECURITY PROTOCOL
@@ -85,10 +87,10 @@ You are purely a SIGHTSEEING & ACTIVITY Scout. The user has other agents for Foo
 
   // 4. Output Schema (Thinking-Safe)
   const outputSchema = {
-      "_thought_process": "String (1. SCAN FOR '🚨 [USER OVERRIDE]': Apply hard filters like altitude or distance FIRST -> 2. Check for geographical limitations and apply Anti-Hallucination Fallback if needed -> 3. Check for forbidden services (Food/Hotel) and filter them out...)",
+      "_thought_process": "String (1. SCAN FOR '🚨 [USER OVERRIDE]': Apply hard filters like altitude or distance FIRST and document all metric/vibe justifications here -> 2. Check for geographical limitations and apply Anti-Hallucination Fallback if needed -> 3. Check for forbidden services (Food/Hotel) and filter them out...)",
       "candidates": [
-          "String (Name of Candidate 1)",
-          "String (Name of Candidate 2)",
+          "String (ONLY 'Official Name, City' - NO parentheses, descriptions, or stats!)",
+          "String (ONLY 'Official Name, City' - NO parentheses, descriptions, or stats!)",
           "..."
       ]
   };
@@ -97,4 +99,4 @@ You are purely a SIGHTSEEING & ACTIVITY Scout. The user has other agents for Foo
   // 5. Build
   return builder.build();
 };
-// --- END OF FILE 100 Zeilen ---
+// --- END OF FILE 102 Zeilen ---

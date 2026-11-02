@@ -1,3 +1,4 @@
+// [2026-10-26] [19:15] - FIX: Ignored unmodified default option texts in customPreferences for legacy .json compatibility.
 // [2026-10-25] [13:47] - FIX: Resolved custom pen overrides (cat_vibe, cat_budget, cat_pace) and rich promptInstructions from options.ts instead of raw IDs.
 // 19.03.2026 16:30 - FEAT: Implemented Targeted Context Matrix. Generates role-specific persona directives.
 // src/core/prompts/PersonaInjector.ts
@@ -14,12 +15,17 @@ const resolveOptionDirective = (
     optionsMap: Record<string, any>
 ): string => {
     if (!optionId) return '';
+    const opt = optionsMap?.[optionId];
+    const defaultDe = (opt?.promptInstruction?.de || '').trim();
+    const defaultEn = (opt?.promptInstruction?.en || '').trim();
     const customText = customPreferences?.[`cat_${key}`] || customPreferences?.[`saved_${key}_${optionId}`];
     if (customText && typeof customText === 'string' && customText.trim().length > 0) {
-        return `${optionId} — 🚨 [USER OVERRIDE]: ${customText.trim()}`;
+        const cleanCustom = customText.trim();
+        if (cleanCustom !== defaultDe && cleanCustom !== defaultEn) {
+            return `${optionId} — 🚨 [USER OVERRIDE]: ${cleanCustom}`;
+        }
     }
-    const opt = optionsMap?.[optionId];
-    const defaultInst = opt?.promptInstruction?.en || opt?.promptInstruction?.de || '';
+    const defaultInst = defaultEn || defaultDe;
     return defaultInst ? `${optionId} (${defaultInst})` : optionId;
 };
 
@@ -59,4 +65,4 @@ export const buildPersonaDirective = (inputs: UserInputs, role: PersonaRole): st
     if (!hasData) return "";
     return directive + "====================================================\n\n";
 };
-// --- END OF FILE 62 Zeilen ---
+// --- END OF FILE 68 Zeilen ---

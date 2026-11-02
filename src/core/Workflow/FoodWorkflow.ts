@@ -1,3 +1,4 @@
+// [2026-10-26] [18:22] - FIX: Guarded roundtrip.stops check against unconfirmed duration=0 placeholders when routeArchitect routes exist.
 // [2026-10-25] [15:04] - FIX: Prioritized confirmed roundtrip.stops over routeArchitect.routes[0] while preserving stationary mode.
 // 23.02.2026 13:10 - MERGE: Full Multi-City Logic & Repair Loop combined with Workflow Kill-Switch.
 // 23.02.2026 11:35 - UX/FEAT: Added Dynamic Storytelling (Live UI-Updates for City Chunking & Repair Loop).
@@ -62,10 +63,13 @@ export const FoodWorkflow = {
             }
 
             const logistics = store.project.userInputs.logistics;
+            const rawStops = logistics.roundtrip?.stops || [];
+            const hasRouteArchitect = Boolean(store.project.analysis?.routeArchitect?.routes?.[0]?.stages?.length);
+            const hasConfirmedStops = rawStops.length > 0 && (rawStops.some((s: any) => (s.duration || 0) > 0) || !hasRouteArchitect);
             if (logistics.mode === 'stationaer' && logistics.stationary?.destination) {
                 townList.push(logistics.stationary.destination);
-            } else if (logistics.roundtrip?.stops && logistics.roundtrip.stops.length > 0) {
-                townList.push(...logistics.roundtrip.stops.map((s: any) => s.location));
+            } else if (hasConfirmedStops) {
+                townList.push(...rawStops.map((s: any) => s.location));
             } else if (store.project.analysis?.routeArchitect?.routes?.[0]?.stages) {
                 townList.push(...store.project.analysis.routeArchitect.routes[0].stages.map((s: any) => s.location_name));
             }
@@ -197,4 +201,4 @@ export const FoodWorkflow = {
         }
     }
 };
-// --- END OF FILE 200 Zeilen ---
+// --- END OF FILE 204 Zeilen ---
