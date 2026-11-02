@@ -1,3 +1,4 @@
+// [2026-11-02] [17:02] - FIX: Added optional chaining to selectedRoute.stages?.[idx] inside closure to resolve TS18048.
 // [2026-10-26] [19:15] - FIX: Preserved existing hotel assignments and user-customized durations in RouteReviewView.tsx while syncing selected route stages.
 // 20.04.2026 12:55 - FIX: Removed unused 'Layout' import to pass strict TS build.
 // 20.04.2026 12:45 - UI: Added support for stationary base camp selection and storage. (Full Integrity Preserved)
@@ -118,7 +119,7 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
     } else {
         const currentStops = project.userInputs.logistics.roundtrip?.stops || [];
         const sameRoute = currentStops.length === selectedRoute.stages.length &&
-            currentStops.every((s, idx) => s.location === selectedRoute.stages[idx]?.location_name);
+            currentStops.every((s, idx) => s.location === selectedRoute.stages?.[idx]?.location_name);
 
         const stops = selectedRoute.stages.map((item, i) => {
           const existing = currentStops.find(s => s.location?.toLowerCase().trim() === item.location_name?.toLowerCase().trim());
@@ -417,4 +418,4 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
     </div>
   );
 };
-// --- END OF FILE 420 Zeilen ---
+// --- END OF FILE 421 Zeilen ---

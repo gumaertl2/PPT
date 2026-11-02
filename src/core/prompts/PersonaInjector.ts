@@ -1,3 +1,4 @@
+// [2026-11-02] [16:58] - FIX: Added travelers composition (Adults/Children/GroupType/Pets) to 'basis' persona directive so Collector respects adult-only vs family/pet constraints.
 // [2026-10-26] [19:15] - FIX: Ignored unmodified default option texts in customPreferences for legacy .json compatibility.
 // [2026-10-25] [13:47] - FIX: Resolved custom pen overrides (cat_vibe, cat_budget, cat_pace) and rich promptInstructions from options.ts instead of raw IDs.
 // 19.03.2026 16:30 - FEAT: Implemented Targeted Context Matrix. Generates role-specific persona directives.
@@ -41,6 +42,12 @@ export const buildPersonaDirective = (inputs: UserInputs, role: PersonaRole): st
     let hasData = false;
 
     if (role === 'basis') {
+        if (travelers) {
+            const kidsInfo = (travelers.children || 0) > 0 ? `${travelers.children} Children` : '0 Children (Adults ONLY)';
+            const petsInfo = travelers.pets ? ', WITH Pet/Dog' : '';
+            directive += `- Travelers: ${travelers.adults ?? 2} Adults, ${kidsInfo} (${travelers.groupType || 'adults'}${petsInfo})\n`;
+            hasData = true;
+        }
         if (resolvedVibe) { directive += `- Preferred Vibe: ${resolvedVibe}\n`; hasData = true; }
         if (notes) { directive += `- User Wishes/Passions: ${notes}\n`; hasData = true; }
         if (noGos) { directive += `- STRICT NO-GOS: ${noGos}\n`; hasData = true; }
@@ -65,4 +72,4 @@ export const buildPersonaDirective = (inputs: UserInputs, role: PersonaRole): st
     if (!hasData) return "";
     return directive + "====================================================\n\n";
 };
-// --- END OF FILE 68 Zeilen ---
+// --- END OF FILE 75 Zeilen ---

@@ -1,3 +1,4 @@
+// [2026-11-02] [16:58] - FIX: Preserved overnight stay durations per stop in CONFIRMED/CALCULATED ROUTE string so Collector weights stops organically.
 // [2026-10-26] [18:19] - FIX: Guarded roundtrip.stops check against unconfirmed duration=0 placeholders when routeArchitect routes exist.
 // [2026-10-25] [14:56] - FIX: Prioritized confirmed roundtrip.stops over routeArchitect.routes[0] in mobil mode and added STRATEGY_OPTIONS fallback when cat_strategyId is empty.
 // [2026-10-25] [13:52] - FIX: Included defaultUserPreference in Creative Briefing and filtered out unmodified default overrides.
@@ -127,13 +128,14 @@ export const prepareBasisPayload = (project: TripProject, chunkIndex: number = 1
         
         if (hasConfirmedStops) {
             const stopNames = stops.map(s => s.location);
+            const stopsWithNights = stops.map(s => (s.duration && s.duration > 0) ? `${s.location} (${s.duration} nights)` : s.location);
             const matchingRoute = routeArchitect?.routes?.find((r: any) =>
                 r.stages && r.stages.map((st: any) => st.location_name).join('|') === stopNames.join('|')
             );
             const waypoints = (matchingRoute as any)?.map_waypoints?.join(", ") || calculatedRoute?.waypoints?.map(w => w.location).join(", ") || "";
-            routeString = `CONFIRMED ROUTE: ${stopNames.join(" -> ")}${waypoints ? `. (Waypoints: ${waypoints})` : ''}`;
+            routeString = `CONFIRMED ROUTE: ${stopsWithNights.join(" -> ")}${waypoints ? `. (Waypoints: ${waypoints})` : ''}`;
         } else if (calculatedRoute && calculatedRoute.stages && calculatedRoute.stages.length > 0) {
-            const stages = calculatedRoute.stages.map(s => s.location_name).join(" -> ");
+            const stages = calculatedRoute.stages.map((s: any) => s.nights ? `${s.location_name} (${s.nights} nights)` : s.location_name).join(" -> ");
             const waypoints = (calculatedRoute as any).map_waypoints?.join(", ") || calculatedRoute.waypoints?.map(w => w.location).join(", ") || "";
             routeString = `CALCULATED ROUTE: ${stages}. (Waypoints: ${waypoints})`;
         } else {
@@ -215,4 +217,4 @@ export const prepareBasisPayload = (project: TripProject, chunkIndex: number = 1
         }
     };
 };
-// --- END OF FILE 218 Zeilen ---
+// --- END OF FILE 220 Zeilen ---

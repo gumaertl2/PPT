@@ -1,3 +1,4 @@
+// [2026-11-02] [16:57] - FEAT: Enabled dynamic thinking (thinkingBudget: -1, includeThoughts: false) for gemini-2.5-pro calls.
 // [2026-11-02] [15:14] - FIX: Set includeThoughts to false in thinkingConfig to prevent thought-part text from leaking into JSON extraction or consuming output token budget.
 // [2026-06-04] - ARCHITECTURE FIX: Added 'foodScout' to Flash-Lite routing to prevent 429 errors during the aggressive Repair-Loop.
 // 03.06.2026 19:55 - ARCHITECTURE FIX: Implemented dynamic Traffic Shaping based on model limits (6.5s for Flash, 12.5s for Thinking).
@@ -222,6 +223,10 @@ export const GeminiService = {
     if (targetModelId === 'gemini-2.5-pro:generateContent') {
         modelEndpoint = targetModelId;
         selectedModelKey = 'pro';
+        generationConfig.thinkingConfig = {
+            includeThoughts: false,
+            thinkingBudget: -1
+        };
     } 
     else if (targetModelId === 'gemini-2.5-flash-thinking') {
         // Alias for "Flash Plus" -> Use Flash with Dynamic Thinking
@@ -440,4 +445,4 @@ export const GeminiService = {
     return promise;
   }
 };
-// --- END OF FILE 443 Zeilen ---
+// --- END OF FILE 448 Zeilen ---

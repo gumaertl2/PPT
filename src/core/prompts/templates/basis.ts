@@ -1,3 +1,4 @@
+// [2026-11-02] [16:59] - FEAT: Added travel_period context, User Notes priority parity, OR-option safeguard against hallucination, and 5-point Quality Control Gate.
 // [2026-11-02] [15:13] - FIX: Refined Mission 2/3 to stay within selected topics/traveler profile without rigid quotas, and prevented split-complex duplicates.
 // [2026-10-26] [17:21] - FIX: Enforced clean official names + city in candidates array without parenthetical justifications (reasoning stays in _thought_process).
 // [2026-10-25] [13:52] - FIX: Added missing builder.withOS() call to inject SYSTEM_OS and PRIORITY_PYRAMID into basis prompt.
@@ -24,6 +25,7 @@ export const buildBasisPrompt = (payload: any): string => {
 
   // 2. Context Injection (From Payload)
   const contextData = {
+      travel_period: context.travel_period,
       travel_season: context.travel_season,
       transport_mode_context: context.transport_mode_context,
       user_supplements: context.user_supplements,
@@ -40,8 +42,8 @@ ${instructions.search_radius}
 # ARCHITECT'S STRATEGY (HARTE USER-VORGABEN / ABSOLUTE PRIORITY)
 "${instructions.architect_strategy}"
 
-🚨 CRITICAL RULE (USER OVERRIDE) 🚨
-Wenn in der "ARCHITECT'S STRATEGY" ODER bei einem spezifischen Thema der Tag "🚨 [USER OVERRIDE]" auftaucht, ist das dein ABSOLUTES GESETZ. Spezifische manuelle Vorgaben des Users (z.B. genaue Höhenmeter, Kilometer, Distanzen oder strikte Ausschlüsse) ÜBERSTIMMEN im Konfliktfall JEDES andere allgemeine Creative Briefing, System-Regelwerk oder Vibe-Setting. Ignoriere sie niemals und behandle sie als harten, physikalischen Filter!
+🚨 CRITICAL RULE (USER OVERRIDE & USER NOTES) 🚨
+Wenn in der "ARCHITECT'S STRATEGY" ODER bei einem spezifischen Thema der Tag "🚨 [USER OVERRIDE]" auftaucht ODER handgeschriebene "USER NOTES" / "User Wishes" vorliegen (z.B. "Stadt X kennen wir schon", Zeitlimits, spezielle Vorlieben), ist das dein ABSOLUTES GESETZ! Manuelle User-Vorgaben und User-Notizen ÜBERSTIMMEN im Konfliktfall JEDES allgemeine Creative Briefing oder Strategie-Preset. Nutze den "Preferred Vibe" (z.B. Explorer = authentisch & abseits von Massen-Touristenfallen) konsequent als Qualitätsfilter innerhalb der Strategie!
 
 # MISSION 1: THE IMMUTABLE FIXTURES
 - Integrate **all** "mandatory_appointments" from the context.
@@ -51,14 +53,22 @@ Wenn in der "ARCHITECT'S STRATEGY" ODER bei einem spezifischen Thema der Tag "�
 ${instructions.creative_briefing}
 
 For each Topic above:
-1. Understand the "STRATEGY".
-2. **ANTI-LAZINESS (CRITICAL):** If a [USER OVERRIDE] specifies technical data (e.g., altitude, kilometers, specific sports), you MUST provide CONCRETE starting points, exact trail names, or specific providers. Generic entries like "National Park" or "Coast" are STRICTLY FORBIDDEN! You must research the real, navigable location.
-3. **ANTI-HALLUCINATION FALLBACK:** NEVER invent routes, mountains, or places just to satisfy the user's numbers! If the requested metrics (e.g., 1000m altitude) are geographically impossible in the given region, choose the *next best, real-existing* alternative (e.g., the toughest coastal trail available) and honestly explain this physical compromise in your \`_thought_process\`.
-4. Find enough concrete, high-quality candidates across the selected topics to naturally reach the total target of **${constraints.target_count} suggestions** (weight organically by real local potential—never force artificial quotas on small towns).
-5. Ensure the place is open/accessible in ${context.travel_season}.
+1. Understand the "STRATEGY". Note: Example lists inside a topic (e.g., "hiking, cycling, snorkeling...") are **OR-options depending on region and season**, NEVER a mandatory checklist—pick only activities that genuinely fit the destination and ${context.travel_season}!
+2. **ANTI-LAZINESS (CRITICAL):** If a [USER OVERRIDE] or sport/nature topic specifies activities or technical data (e.g., altitude, kilometers), you MUST provide CONCRETE starting points, exact trail names (PR/GR), or specific routes. Generic area entries like "National Park ..." or "Coast ..." are STRICTLY FORBIDDEN! You must research the real, navigable location.
+3. **ANTI-HALLUCINATION FALLBACK:** NEVER invent routes, mountains, events, or unseasonable sports just to satisfy numbers or fill a topic! If a topic or metric has few or zero real matches in the corridor/season, include fewer or none and honestly note this in \`_thought_process\`.
+4. Source concrete, high-quality candidates for each applicable topic, weighted organically by stay duration (\`nights\` per stop) and real regional potential (for multi-night stays in smaller towns, include top regional excursion highlights within ~30–45 min drive rather than duplicating local buildings).
+5. Ensure the place is open/accessible in ${context.travel_season} (${context.travel_period || ''}).
 
 # MISSION 3: FILL THE REST (STRICTLY WITHIN PROFILE & SELECTED TOPICS)
-- If the curated selection doesn't reach the target count, fill the remaining slots strictly within the user's selected topics, strategy, and traveler profile (e.g., NEVER suggest children's miniature/theme parks unless children are traveling or 'family' is selected; do not pad with unselected categories).
+- Reach **${constraints.target_count} suggestions** strictly within the user's selected topics, strategy, and traveler profile—never pad with unselected categories.
+
+# MISSION 4: FINAL QUALITY CONTROL GATE (MANDATORY SELF-AUDIT BEFORE OUTPUT)
+Before writing the final \`candidates\` array, review and repair your draft list against ALL 5 checks:
+1. **Topic Plausibility Check:** Have all selected topics in \`CREATIVE BRIEFING\` been considered and covered wherever geography and season realistically allow (without forcing unfitting sub-activities or hallucinating)?
+2. **User Notes & "Already Known" Filter:** If \`USER NOTES\` state a city/stop is already known or only briefly visited, strip standard top-tourist postcard landmarks there and keep only a few fresh insider/special-interest gems.
+3. **Traveler Group & Vibe Filter:** If \`0 Children (Adults ONLY)\` are traveling and \`family\` is NOT selected, strictly remove all children's miniature parks, theme parks, or kid-focused attractions. Match the \`Preferred Vibe\` (e.g., for \`explorer\`, replace overcrowded tourist-trap shops/queues with authentic highlights).
+4. **No Park + Trail Double-Counting:** NEVER list both a broad Nature/National Park AND a hike/viewpoint inside that same park as two separate candidates—keep ONLY the concrete trail or spot!
+5. **No Split-Complex Duplicates:** NEVER list both a main landmark complex (e.g., a university, monastery, or palace) AND an interior wing, library, or attached castle of that same complex as two separate candidates!
 
 # EXCLUSION PROTOCOL (THE "DOUBLE BIND" FIREWALL)
 You are purely a SIGHTSEEING & ACTIVITY Scout. The user has other agents for Food and Sleep.
@@ -87,7 +97,7 @@ You are purely a SIGHTSEEING & ACTIVITY Scout. The user has other agents for Foo
 
   // 4. Output Schema (Thinking-Safe)
   const outputSchema = {
-      "_thought_process": "String (1. SCAN FOR '🚨 [USER OVERRIDE]': Apply hard filters like altitude or distance FIRST and document all metric/vibe justifications here -> 2. Check for geographical limitations and apply Anti-Hallucination Fallback if needed -> 3. Check for forbidden services (Food/Hotel) and filter them out...)",
+      "_thought_process": "String (Concise 5-step Quality Audit: 1. Overrides & User Notes applied [incl. 'already known' cities & 0-children/vibe filter] -> 2. Topic coverage & seasonal/geographic plausibility check [OR-options respected, zero hallucinations] -> 3. Organic stop weighting incl. regional excursions for multi-night stops -> 4. Removed Park+Trail & Split-Complex duplicates + Hotel/Food firewall -> 5. Verified exact candidate count)",
       "candidates": [
           "String (ONLY 'Official Name, City' - NO parentheses, descriptions, or stats!)",
           "String (ONLY 'Official Name, City' - NO parentheses, descriptions, or stats!)",
@@ -99,4 +109,4 @@ You are purely a SIGHTSEEING & ACTIVITY Scout. The user has other agents for Foo
   // 5. Build
   return builder.build();
 };
-// --- END OF FILE 102 Zeilen ---
+// --- END OF FILE 112 Zeilen ---

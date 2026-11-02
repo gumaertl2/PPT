@@ -1,3 +1,4 @@
+// [2026-11-02] [16:59] - FIX: Sharpened Protocol C separation so PR/GR walking/hiking trails always map to 'nature' while cycling/kayaking/snorkeling map to 'sports'.
 // [2026-11-02] [15:14] - FIX: Completed Protocol C Category Mapping with explicit rules for 'sports' (cycling/ecopistas/kayaking) and 'parks'.
 // [2026-06-04] - ARCHITECTURE FIX: Removed strict Region Check. Enricher now accepts all real places suggested by Collector (Serendipity Effect).
 // 01.06.2026 12:00 - FIX: Injected global Anti-Hallucination rule for description generation.
@@ -57,8 +58,8 @@ Map the place to one of these SYSTEM IDs: [${validCategoriesString}]
 - Art, History, Exhibitions, Collections -> 'museum'
 - Botanical Gardens, City Parks, Palace Gardens -> 'parks'
 - Old Towns, Historic Quarters, Neighborhoods, Squares -> 'districts'
-- Hikes, Mountains, Valleys, Viewpoints, Natural Monuments -> 'nature'
-- Cycling Routes (Ecopistas/Ciclovias), Bike Tours, Kayaking, Canoeing, Active Sports -> 'sports'
+- Hikes, Walking Trails (PR/GR), Mountains, Valleys, Viewpoints, Natural Monuments -> 'nature'
+- Cycling Routes (Ecopistas/Ciclovias), Bike Tours, Kayaking, Canoeing, Snorkeling -> 'sports'
 - Beaches, Coastal Bays, Swimming/Snorkeling Spots -> 'beach'
 - Concerts, Festivals, Fado/Live Music Venues, Evening Events -> 'nightlife'
 
@@ -103,4 +104,4 @@ You are strictly FORBIDDEN from using the following terms as categories:
 
   return builder.build();
 };
-// --- END OF FILE 106 Zeilen ---
+// --- END OF FILE 107 Zeilen ---
