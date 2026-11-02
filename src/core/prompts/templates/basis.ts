@@ -1,3 +1,4 @@
+// [2026-11-02] [17:08] - FIX: Removed all country/Portugal-specific terms and examples (PR/GR, Porto, Manteigas) to ensure 100% universal prompt neutrality.
 // [2026-11-02] [16:59] - FEAT: Added travel_period context, User Notes priority parity, OR-option safeguard against hallucination, and 5-point Quality Control Gate.
 // [2026-11-02] [15:13] - FIX: Refined Mission 2/3 to stay within selected topics/traveler profile without rigid quotas, and prevented split-complex duplicates.
 // [2026-10-26] [17:21] - FIX: Enforced clean official names + city in candidates array without parenthetical justifications (reasoning stays in _thought_process).
@@ -54,7 +55,7 @@ ${instructions.creative_briefing}
 
 For each Topic above:
 1. Understand the "STRATEGY". Note: Example lists inside a topic (e.g., "hiking, cycling, snorkeling...") are **OR-options depending on region and season**, NEVER a mandatory checklist—pick only activities that genuinely fit the destination and ${context.travel_season}!
-2. **ANTI-LAZINESS (CRITICAL):** If a [USER OVERRIDE] or sport/nature topic specifies activities or technical data (e.g., altitude, kilometers), you MUST provide CONCRETE starting points, exact trail names (PR/GR), or specific routes. Generic area entries like "National Park ..." or "Coast ..." are STRICTLY FORBIDDEN! You must research the real, navigable location.
+2. **ANTI-LAZINESS (CRITICAL):** If a [USER OVERRIDE] or sport/nature topic specifies activities or technical data (e.g., altitude, kilometers), you MUST provide CONCRETE starting points, exact trail names, or specific routes. Generic area entries like "National Park ..." or "Coast ..." are STRICTLY FORBIDDEN! You must research the real, navigable location.
 3. **ANTI-HALLUCINATION FALLBACK:** NEVER invent routes, mountains, events, or unseasonable sports just to satisfy numbers or fill a topic! If a topic or metric has few or zero real matches in the corridor/season, include fewer or none and honestly note this in \`_thought_process\`.
 4. Source concrete, high-quality candidates for each applicable topic, weighted organically by stay duration (\`nights\` per stop) and real regional potential (for multi-night stays in smaller towns, include top regional excursion highlights within ~30–45 min drive rather than duplicating local buildings).
 5. Ensure the place is open/accessible in ${context.travel_season} (${context.travel_period || ''}).
@@ -86,7 +87,7 @@ You are purely a SIGHTSEEING & ACTIVITY Scout. The user has other agents for Foo
 1. **Deduplication:** NO names from "already_known_places_block". NEVER split a single physical landmark/complex into two separate entries (e.g., do NOT list both a monastery and its attached castle as two candidates).
 2. **Quantity:** Exactly **${constraints.target_count} suggestions**.
 3. **No-Gos:** Strictly avoid "${context.no_gos}".
-4. **Names (STRICT FORMAT - NO DESCRIPTIONS):** Output ONLY the precise official name and city (e.g., "Casa da Música, Porto" or "Wanderung 'PR1 - Rota do Glaciar', Manteigas"). STRICTLY FORBIDDEN: NEVER append parenthetical explanations, descriptions, reasoning, vibe keywords, or technical stats (like "(Neugotische Architektur...)" or "(ca. 16 km, 700m...)") to the candidate string! Write all your justifications and metric checks exclusively inside "_thought_process" (downstream agents will write the descriptions later).
+4. **Names (STRICT FORMAT - NO DESCRIPTIONS):** Output ONLY the precise official name and city/municipality (format: "Official Name, City"). STRICTLY FORBIDDEN: NEVER append parenthetical explanations, descriptions, reasoning, vibe keywords, or technical stats to the candidate string! Write all your justifications and metric checks exclusively inside "_thought_process" (downstream agents will write the descriptions later).
 5. **Route:** Strictly adhere to the defined route corridor (if Roundtrip).
 
 # SYSTEM SECURITY PROTOCOL
@@ -109,4 +110,4 @@ You are purely a SIGHTSEEING & ACTIVITY Scout. The user has other agents for Foo
   // 5. Build
   return builder.build();
 };
-// --- END OF FILE 112 Zeilen ---
+// --- END OF FILE 113 Zeilen ---

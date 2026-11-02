@@ -1,5 +1,6 @@
-// [2026-11-02] [16:59] - FIX: Sharpened Protocol C separation so PR/GR walking/hiking trails always map to 'nature' while cycling/kayaking/snorkeling map to 'sports'.
-// [2026-11-02] [15:14] - FIX: Completed Protocol C Category Mapping with explicit rules for 'sports' (cycling/ecopistas/kayaking) and 'parks'.
+// [2026-11-02] [17:08] - FIX: Removed all country-specific terms in Protocol C so category mapping is 100% universal across all destinations.
+// [2026-11-02] [16:59] - FIX: Sharpened Protocol C separation so walking/hiking trails always map to 'nature' while cycling/kayaking/snorkeling map to 'sports'.
+// [2026-11-02] [15:14] - FIX: Completed Protocol C Category Mapping with explicit rules for 'sports' and 'parks'.
 // [2026-06-04] - ARCHITECTURE FIX: Removed strict Region Check. Enricher now accepts all real places suggested by Collector (Serendipity Effect).
 // 01.06.2026 12:00 - FIX: Injected global Anti-Hallucination rule for description generation.
 // 08.04.2026 16:30 - FIX: EMERGENCY ROLLBACK. Restored exact original file. Strict Code Integrity Protocol enforced.
@@ -58,10 +59,10 @@ Map the place to one of these SYSTEM IDs: [${validCategoriesString}]
 - Art, History, Exhibitions, Collections -> 'museum'
 - Botanical Gardens, City Parks, Palace Gardens -> 'parks'
 - Old Towns, Historic Quarters, Neighborhoods, Squares -> 'districts'
-- Hikes, Walking Trails (PR/GR), Mountains, Valleys, Viewpoints, Natural Monuments -> 'nature'
-- Cycling Routes (Ecopistas/Ciclovias), Bike Tours, Kayaking, Canoeing, Snorkeling -> 'sports'
+- Hikes, Walking Trails, Mountains, Valleys, Viewpoints, Natural Monuments -> 'nature'
+- Cycling Routes, Rail Trails, Bike Tours, Kayaking, Canoeing, Snorkeling -> 'sports'
 - Beaches, Coastal Bays, Swimming/Snorkeling Spots -> 'beach'
-- Concerts, Festivals, Fado/Live Music Venues, Evening Events -> 'nightlife'
+- Concerts, Festivals, Live Music Venues, Evening Events -> 'nightlife'
 
 # PROTOCOL D: CONTENT & LOGISTICS (DEEP DIVE)
 - **Description:** Factual, 2 sentences. No marketing fluff. ANTI-HALLUCINATION: NEVER invent architectural styles, historical dates, or interior details. If you lack 100% verified facts, describe the exterior, location, and general atmosphere instead.
@@ -104,4 +105,4 @@ You are strictly FORBIDDEN from using the following terms as categories:
 
   return builder.build();
 };
-// --- END OF FILE 107 Zeilen ---
+// --- END OF FILE 108 Zeilen ---
