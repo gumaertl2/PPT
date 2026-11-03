@@ -1,3 +1,4 @@
+// [2026-11-03] [13:28] - FIX: Restored Flight Recorder log download and clear controls in SettingsModal.
 // 07.04.2026 09:30 - FEAT: Added 'enableCountryHarvester' toggle to Developer Mode settings.
 // 22.03.2026 10:30 - UX: Updated API label to "Google Gemini API Key" and made the help link an eye-catching amber CTA button.
 // 24.02.2026 13:15 - FEAT: Added Language Switcher to Settings for better UX during planning and testing.
@@ -53,7 +54,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     project, 
     setLanguage,
     enableCountryHarvester,
-    setCountryHarvester
+    setCountryHarvester,
+    flightRecorderLogs,
+    downloadFlightRecorder,
+    clearFlightRecorder
   } = useTripStore();
 
   const [keyInput, setKeyInput] = useState(apiKey || '');
@@ -502,6 +506,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${enableCountryHarvester ? 'translate-x-5' : 'translate-x-1'}`} />
                 </div>
               </div>
+
+              {(aiSettings.debug || (flightRecorderLogs && flightRecorderLogs.length > 0)) && (
+                <div className="sm:col-span-2 flex items-center justify-between gap-2 bg-red-50/60 p-3 rounded-xl border border-red-200">
+                  <button
+                    onClick={downloadFlightRecorder}
+                    disabled={!flightRecorderLogs || flightRecorderLogs.length === 0}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all shadow-sm ${
+                      flightRecorderLogs && flightRecorderLogs.length > 0
+                        ? 'bg-red-600 text-white hover:bg-red-700'
+                        : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                    }`}
+                  >
+                    <DownloadCloud className="w-4 h-4" />
+                    {t('settings.download_logs', { defaultValue: 'Flugschreiber-Log speichern' })} ({flightRecorderLogs?.length || 0})
+                  </button>
+                  {flightRecorderLogs && flightRecorderLogs.length > 0 && (
+                    <button
+                      onClick={clearFlightRecorder}
+                      className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                      title={t('settings.clear_logs', { defaultValue: 'Logs leeren' })}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              )}
             </section>
 
           </div>
@@ -521,4 +551,4 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   );
 };
 
-// --- END OF FILE 600 Zeilen ---
+// --- END OF FILE 554 Zeilen ---

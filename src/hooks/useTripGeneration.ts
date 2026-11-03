@@ -1,4 +1,4 @@
-// [2026-10-26] [19:15] - FIX: Restored unconditional ResultProcessor.process in processResult so merged chunk results (e.g. ideenScout) update analysis state.
+// [2026-11-03] [14:09] - FIX: Guarded empty-queue completion check with initialQueueLength.current > 0 so single/Ad-Hoc tasks (triggerAiTask) are not prematurely marked 'success' while running.
 // 23.02.2026 12:15 - FIX: Removed 'isMounted' closure trap that caused the workflow queue to halt after the first step.
 // 21.02.2026 12:15 - FIX: Added chunk loop logic to submitManualResult to allow multi-chunk tasks (like Anreicherer) to finish completely in manual mode.
 // 20.02.2026 20:15 - FIX: Added Hard Kill-Switch (Abort Guard) to effectively cancel background tasks and dismiss loading modal immediately.
@@ -146,7 +146,8 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
       const currentStatus = currentWorkflow.status;
 
       if (currentStatus !== 'generating' || currentQueue.length === 0) {
-        if (currentStatus === 'generating' && currentQueue.length === 0) {
+        if (currentStatus === 'generating' && currentQueue.length === 0 && initialQueueLength.current > 0) {
+          initialQueueLength.current = 0;
           setWorkflowState({ status: 'success', currentStep: null });
           addNotification({ type: 'success', message: t('status.success'), autoClose: 1500 });
         }
@@ -423,4 +424,4 @@ export const useTripGeneration = (): UseTripGenerationReturn => {
 
   return { status, currentStep, queue, error, progress, manualPrompt, submitManualResult, startWorkflow, resumeWorkflow, cancelWorkflow, startSingleTask };
 };
-// --- END OF FILE 426 Zeilen ---
+// --- END OF FILE 427 Zeilen ---

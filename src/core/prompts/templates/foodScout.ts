@@ -1,4 +1,4 @@
-// [2026-11-03] [12:24] - FIX: Enforced strict Zero-Result Honesty (removed all Local Top Pick/Hero fallbacks), wired dynamic Ad-Hoc radius & stars mode, and added REPAIR_MODE branch.
+// [2026-11-03] [22:25] - FIX: Restored Graceful Exit anti-hallucination valve, numeric rating schema, and clean single-guide countries.ts queries.
 // [2026-11-02] [22:53] - FEAT: Added guide searchTerms injection, excluded 2-3 Michelin star temples, and prevented Local Top Pick padding when guide entries exist.
 // 20.04.2026 16:45 - FIX: Implemented "Graceful Exit" and Strict Anti-Hallucination for Guide Awards.
 // 28.02.2026 18:50 - FIX: Relaxed CRITICAL GEOCODING RULE.
@@ -26,7 +26,8 @@ export const buildFoodScoutPrompt = (_project: TripProject, context: any): strin
   // Dynamic Guide Setup
   let guideNames = "Michelin, Gault&Millau, Falstaff, Slow Food, Varta, Feinschmecker";
   let guideTerms = "Bib Gourmand, Guide Selection / Recommendation, National Guide Awards";
-  if (safeContext.guides && Array.isArray(safeContext.guides)) {
+  let guidePlaybook = "";
+  if (safeContext.guides && Array.isArray(safeContext.guides) && safeContext.guides.length > 0) {
       guideNames = safeContext.guides.map((g: any) => g.name).join(', ');
       const extractedTerms = safeContext.guides
           .flatMap((g: any) => Array.isArray(g.searchTerms) ? g.searchTerms : [])
@@ -34,6 +35,15 @@ export const buildFoodScoutPrompt = (_project: TripProject, context: any): strin
       if (extractedTerms.length > 0) {
           guideTerms = Array.from(new Set(extractedTerms)).join(', ');
       }
+      guidePlaybook = safeContext.guides
+          .map((g: any) => {
+              const queries = Array.isArray(g.googleQueries) && g.googleQueries.length > 0
+                  ? g.googleQueries.join(' | ')
+                  : g.searchUrl || '';
+              return queries ? `      - **${g.name}:** \`${queries}\`` : '';
+          })
+          .filter(Boolean)
+          .join('\n');
   }
 
   builder.withOS();
@@ -61,65 +71,45 @@ export const buildFoodScoutPrompt = (_project: TripProject, context: any): strin
       builder.withInstruction(`
     ### EXECUTION PROTOCOL (The 3 Nets):
 
-    **STEP 1: GEOGRAPHIC PROFILING (Mental Setup)**
-    - Identify the **Parent Region** (e.g., "Landkreis FFB" for Maisach, "Siena Province" for Montepulciano).
-    - Identify **Neighbors (Cluster)** strictly within **${clusterRadiusKm}km** of ${targetLocation}.
-    - Identify **Districts/Suburbs** (e.g., "Rottbach" for Maisach).
-    - *Log these in _thought_process.*
+    **STEP 1: GEOGRAPHIC PROFILING (Mental Setup — MANDATORY BEFORE SEARCHING)**
+    - Identify the **Parent Region / County** (e.g., "Siena Province" for Montepulciano).
+    - Identify **ALL incorporated villages/districts (Ortsteile / Gemeindeteile / Frazioni)** belonging to ${targetLocation}.
+    - Identify **3-8 Neighboring Towns & County Seat** within **${clusterRadiusKm}km** of ${targetLocation}.
+    - *Log all districts and neighbors explicitly in _thought_process.*
 
-    **STEP 2: THROW THE 3 NETS (Search Strategy)**
+    **STEP 2: THROW THE 3 NETS (Targeted Per-Guide Search Strategy)**
+    - **CRITICAL SEARCH SYNTAX RULE (ONE GUIDE PER QUERY):** NEVER chain multiple guide names together with spaces/commas in a single Google query (Google treats space-separated guides as \`AND\`, hiding every official guide site!), and NEVER run open-web \`"[Town]" Michelin Restaurant\` queries without \`site:guide.michelin.com\` (which pulls TripAdvisor tourist reviews instead of Michelin!). Query **ONE guide at a time** using the Official Country Guide Search Playbook below (replacing \`[CITY]\` with the target town, county/region, neighbor, or district):${guidePlaybook ? `\n    - **OFFICIAL COUNTRY GUIDE SEARCH PLAYBOOK (${country}):**\n${guidePlaybook}` : ''}
     
-    * **NET A: The Regional List Scan (For "Klosterstüberl")**
-        - Search for broad lists of the Parent Region.
-        - Query: \`"Best Restaurants [Parent Region] Guide List"\`
-        - Query: \`"Guide Michelin [Parent Region] full list"\`
-        - *Rule:* If you find a list, extract **ALL** entries that are within **${radiusKm}km** of ${targetLocation}, not just the #1.
+    * **NET A: The Regional & County List Scan**
+        - Run the official per-guide queries for the **Parent Region / County / County Seat** across ${guideNames}.
+        - Example: \`site:guide.michelin.com "[Parent Region / County Seat]"\` and each national guide query from the Playbook for \`[Parent Region / County Seat]\`.
+        - *Rule:* If you find a regional guide list, extract **ALL** listed entries located within **${radiusKm}km** of ${targetLocation}, not just the #1.
 
-    * **NET B: The Neighbor Cluster (For "Widmann")**
-        - Search using OR-Logic for neighbors within **${radiusKm}km**.
-        - Query: \`site:viamichelin.com "${targetLocation}" OR "[Neighbor1]" OR "[Neighbor2]"\`
-        - Query: \`site:falstaff.com "${targetLocation}" OR "[Neighbor1]"\`
+    * **NET B: The Target Town & Neighbor Cluster Scan**
+        - Run the official per-guide queries specifically for **"${targetLocation}"** AND for the **Neighbors within ${radiusKm}km** identified in Step 1.
+        - Example: \`site:guide.michelin.com "${targetLocation}"\` (or \`"${targetLocation}" OR "[Neighbor1]"\`) and each national guide from the Playbook for **"${targetLocation}"** and its **${radiusKm}km** neighbors.
 
-    * **NET C: The Micro-District Zoom (For "Heinzinger")**
-        - Search specifically for the small districts/suburbs identified in Step 1.
-        - Query: \`"Restaurant [District Name] [Parent Region] Guide"\`
-        - Query: \`"Gasthof [District Name] Award"\`
+    * **NET C: The Micro-District & Village Zoom**
+        - Rural guide-listed gems (Gasthöfe / Landgasthöfe / Trattorie / Quintas) are often indexed under their small incorporated village/district name (Ortsteil / Frazione / Freguesia) rather than the main municipality.
+        - Run targeted single-guide searches for the districts/villages identified in Step 1 (e.g. \`("[District1]" OR "[District2]")\` combined with one guide from ${guideNames} at a time).
 
     **STEP 3: AGGREGATION & FILTERING**
-    - Compile all unique finds.
-    - **Strict Radius Check:** Is the restaurant located in ${targetLocation} OR within **${radiusKm}km** driving distance? -> KEEP. Anything further than ${radiusKm}km MUST be discarded!
+    - Compile all unique finds from Net A, Net B, and Net C.
+    - **Strict Radius Check:** Is the restaurant located in ${targetLocation}, one of its incorporated villages/districts, OR a neighboring town within **${radiusKm}km** driving distance? -> **KEEP IT!** (Discard places further away than ${radiusKm}km).
     ${qualityRule}
-    - **STRICT ZERO-RESULT HONESTY (NO LOCAL HEROES / NO PADDING):** Return **ONLY** restaurants that hold a real, verifiable listing or distinction in the requested guides (${guideNames}). **NEVER** pad or fill the list with unguided "Local Top Pick", "Local Hero", or standard Google-rated restaurants!
-    - **EMPTY ARRAY IF NOTHING FOUND:** If there are ZERO official guide-listed restaurants within the **${radiusKm}km** radius of ${targetLocation} (e.g. a small village with a tight 5km radius), you **MUST** return an empty array \`"candidates": []\`! Do NOT invent guide awards and do NOT include restaurants outside the ${radiusKm}km radius.
+    - **CRITICAL TRUTH, SOURCE PROOF & GRACEFUL EXIT RULE (NO PADDING / NO HALLUCINATION):**
+      1. **Official Source Proof (Anti-TripAdvisor Rule):**
+         - A **Michelin** distinction (\`1 Star\`, \`Bib Gourmand\`, \`Selected / Recomendado / Empfehlung\`) may **ONLY** be assigned if you verified an active restaurant page on **\`guide.michelin.com\`**.
+         - National guide awards (${guideNames}) must come from official guide listings or critic award lists — **NEVER** from TripAdvisor, TheFork, Google Maps reviews, tourist comments praising "Michelin quality", or expired listings from past years!
+      2. **No Padding:** If official guide-listed restaurants exist within **${radiusKm}km**, return **ONLY** those verified guide-listed restaurants — **NEVER** pad or fill up the list with unguided "Local Top Pick" entries.
+      3. **Graceful Exit (Honesty Valve):** **NEVER** invent, guess, or falsely claim a Michelin, Gault&Millau, or national guide award! If any candidate has no verified current listing in ${guideNames} (or if ZERO guide-listed restaurants exist in the entire ${radiusKm}km radius), you MUST set its \`awards\` array to exactly \`["Local Top Pick"]\`.
     - **Duplication Check:** Ensure each restaurant is listed only once.
-    - **Address Formatting (CRITICAL GEOCODING RULE):** The 'address' field must be clean and machine-readable for OpenStreetMap. Use 'Street, Number, ZIP, City, Country' if available. If it's a natural sight or has no street, use the specific local identifier (e.g. 'Plaza de la Iglesia', 'Camino a...'). STRICTLY FORBIDDEN: Never use descriptive prose, brackets like '(Leuchtturm)', or abbreviations like 's/n' in the address.
-
-    ### OUTPUT (JSON ONLY):
-    {
-      "_thought_process": "1. Geo-Profile: Parent Region is X, Radius is ${radiusKm}km. 2. Net A/B/C found: ... 3. Strict Guide & Radius Check: Keeping only verified guide entries within ${radiusKm}km (or returning [] if none exist).",
-      "candidates": [
-        {
-           "name": "Official Name",
-           "address": "Street, Zip City (MUST BE ACCURATE)", 
-           "phone": "+49...",
-           "website": "...",
-           "cuisine": "Style",
-           "awards": ["Exact Guide Distinction (e.g. Michelin: Bib Gourmand)"], 
-           "verification_status": "unverified", 
-           "liveStatus": {
-              "status": "open",
-              "operational": true,
-              "rating": 4.5,
-              "note": "Found via Net B (Neighbor Cluster)"
-           }
-        }
-      ]
-    }
+    - **Address Formatting (CRITICAL GEOCODING RULE):** The 'address' field must be clean, verified from the restaurant's official imprint/website or guide entry, and machine-readable for OpenStreetMap. Use 'Street, Number, ZIP, City, Country' if available. If it's a natural sight or has no street, use the specific local identifier (e.g. 'Plaza de la Iglesia', 'Camino a...'). STRICTLY FORBIDDEN: Never use descriptive prose, brackets like '(Leuchtturm)', or abbreviations like 's/n' in the address.
   `);
   }
 
   builder.withOutputSchema({
-    _thought_process: "Detailed log of the 3-Net-Strategy and Strict Guide & Radius Check",
+    _thought_process: "Detailed log of the 3-Net-Strategy, Official Source Verification, and Truth Check",
     candidates: [
       {
         name: "Official Name",
@@ -127,7 +117,7 @@ export const buildFoodScoutPrompt = (_project: TripProject, context: any): strin
         phone: "+49...",
         website: "https://...",
         cuisine: "Style",
-        awards: ["Exact Guide Name & Distinction"],
+        awards: ["Guide Name OR 'Local Top Pick'"],
         rating: 4.5,
         user_ratings_total: 100,
         verification_status: "verified",
@@ -144,4 +134,4 @@ export const buildFoodScoutPrompt = (_project: TripProject, context: any): strin
 
   return builder.build();
 };
-// --- END OF FILE 147 Zeilen ---
+// --- END OF FILE 137 Zeilen ---

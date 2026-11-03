@@ -1,3 +1,4 @@
+// [2026-11-03] [18:14] - FIX: Passed project targetCountries into GeocodingService.enrichPlacesWithCoordinates for reliable country assignment.
 // 05.04.2026 19:30 - ARCHITECTURE: Extracted all heavy map data processing (spiderifying, geocoding, filtering) into a clean hook.
 // src/features/Cockpit/Map/useMapData.ts
 
@@ -167,9 +168,17 @@ export const useMapData = (places: Place[], currentZoom: number, forceDiaryMode?
           if (needsValidation && !isUpdatingCoords) {
               setIsUpdatingCoords(true);
               try {
+                  const rawCorrections = project.analysis?.chefPlaner?.corrections as unknown as Record<string, unknown> | undefined;
+                  const inferredCountry = typeof rawCorrections?.inferred_country === 'string' ? rawCorrections.inferred_country : '';
+                  const targetCountries = [
+                      ...(project.userInputs.logistics.target_countries || []),
+                      inferredCountry
+                  ].map(c => c.trim()).filter(Boolean);
+
                   const { updatedPlaces, hasChanges } = await GeocodingService.enrichPlacesWithCoordinates(
                       allPlacesFromStore, 
-                      (curr, total) => setUpdateProgress({ current: curr, total })
+                      (curr, total) => setUpdateProgress({ current: curr, total }),
+                      targetCountries
                   );
                   if (hasChanges) {
                       const newPlacesRecord = updatedPlaces.reduce((acc, p) => {
@@ -205,4 +214,4 @@ export const useMapData = (places: Place[], currentZoom: number, forceDiaryMode?
         updateProgress
     };
 };
-// --- END OF FILE 197 Zeilen ---
+// --- END OF FILE 217 Zeilen ---

@@ -1,3 +1,4 @@
+// [2026-11-03] [12:51] - FIX: Removed 'foodScout' from Flash-Lite downgrade so foodScout retains full Thinking + Google Search capability for rural districts and neighbor clusters.
 // [2026-11-02] [16:57] - FEAT: Enabled dynamic thinking (thinkingBudget: -1, includeThoughts: false) for gemini-2.5-pro calls.
 // [2026-11-02] [15:14] - FIX: Set includeThoughts to false in thinkingConfig to prevent thought-part text from leaking into JSON extraction or consuming output token budget.
 // [2026-06-04] - ARCHITECTURE FIX: Added 'foodScout' to Flash-Lite routing to prevent 429 errors during the aggressive Repair-Loop.
@@ -203,8 +204,7 @@ export const GeminiService = {
 
     // FREE TIER DOWNGRADE & ROUTING: Prevent Pro model calls and route mechanical tasks to Lite
     if (isFreeTier) {
-        // CHIRURGISCHER EINGRIFF: foodScout (Repair Loop) zu den mechanischen Tasks hinzugefügt
-        if (taskName === 'anreicherer' || taskName === 'geoAnalyst' || taskName === 'foodScout') {
+        if (taskName === 'anreicherer' || taskName === 'geoAnalyst') {
             if (isDebug) console.log(`[GeminiService] Free Tier Active: Routing mechanical task ${taskName} to Flash-Lite`);
             targetModelId = 'gemini-2.5-flash-lite:generateContent';
         } else if (targetModelId === 'gemini-2.5-pro:generateContent') {

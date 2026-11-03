@@ -1,4 +1,4 @@
-// [2026-11-03] [12:21] - FIX: Isolated Ad-Hoc single-location search from trip stops and added strict code firewall against unguided Local Top Pick/Hero entries.
+// [2026-11-03] [22:26] - FIX: Reverted enableSearch on foodEnricher to restore deterministic JSON mode and prevent null ratings; preserved country fallback & Local Top Pick code filter.
 // [2026-11-02] [22:57] - FIX: Cleared unprioritized/unvisited stale Restaurant entries before saving fresh full-trip FoodWorkflow results.
 // [2026-11-02] [22:51] - FIX: Normalized district names in cleanTownName to prevent duplicate city scouting and deduplicated allScoutCandidates across towns.
 // [2026-11-02] [19:48] - FIX: Chunked foodEnricher step across allScoutCandidates via LimitManager and preserved candidate city metadata across enrichment.
@@ -57,7 +57,15 @@ export const FoodWorkflow = {
                 const countryMatch = feedback.match(/COUNTRY:\s*([^|]+)/i);
                 if (countryMatch && countryMatch[1]) targetCountry = countryMatch[1].trim();
             }
-            if (!targetCountry) targetCountry = store.project.userInputs.logistics.target_countries?.[0] || (store.project.analysis?.chefPlaner?.corrections as any)?.countries?.[0] || "";
+            if (!targetCountry) {
+                const log = store.project.userInputs.logistics;
+                targetCountry = log.target_countries?.[0]
+                    || (store.project.analysis?.chefPlaner?.corrections as any)?.countries?.[0]
+                    || log.roundtrip?.region
+                    || log.stationary?.region
+                    || log.stationary?.destination
+                    || "";
+            }
             if (!targetCountry && store.project.meta.language === 'de') targetCountry = "Deutschland";
             if (!targetCountry) targetCountry = "Europe";
 
@@ -285,4 +293,4 @@ export const FoodWorkflow = {
         }
     }
 };
-// --- END OF FILE 288 Zeilen ---
+// --- END OF FILE 296 Zeilen ---

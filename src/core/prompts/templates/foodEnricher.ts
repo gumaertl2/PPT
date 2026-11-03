@@ -1,3 +1,4 @@
+// [2026-11-03] [22:26] - FIX: Restored original 4-Eyes context structure while preserving candidate city for Smart Guide Link generation.
 // 20.04.2026 16:45 - FIX: Strict Anti-Hallucination for Signature Dishes.
 // src/core/prompts/templates/foodEnricher.ts
 // 16.02.2026 21:55 - FINAL: 4-EYES-AUDIT BLENDED WITH DATA RECOVERY.
@@ -17,6 +18,7 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
   const candidatesString = JSON.stringify(candidates.map((c: any) => ({
       id: c.id,
       name: c.name,
+      city: c.city,
       address: c.address, 
       phone: c.phone,     
       website: c.website, 
@@ -126,4 +128,4 @@ export const buildFoodEnricherPrompt = (payload: any): string => {
 
   return builder.build();
 };
-// --- END OF FILE 136 Zeilen ---
+// --- END OF FILE 131 Zeilen ---

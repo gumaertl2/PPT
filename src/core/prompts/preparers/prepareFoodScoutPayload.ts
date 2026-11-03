@@ -1,4 +1,4 @@
-// [2026-11-03] [12:22] - FIX: Extracted COUNTRY, RAD, MODE, and REPAIR_MODE parameters from Ad-Hoc feedback string.
+// [2026-11-03] [15:49] - FIX: Checked roundtrip.region before defaulting country to Europe/Deutschland.
 // 20.02.2026 16:30 - FIX: Reverted to Single-City processing. Multi-City logic moved to FoodWorkflow loop to prevent AI overload.
 // 16.02.2026 17:20 - UPDATE: SIMPLE PASS-THROUGH & DYNAMIC GUIDES.
 // src/core/prompts/preparers/prepareFoodScoutPayload.ts
@@ -45,6 +45,7 @@ export const prepareFoodScoutPayload = (
     if (!country) {
         country = logistics?.target_countries?.[0] || 
                   (project.analysis?.chefPlaner?.corrections as any)?.countries?.[0] ||
+                  logistics?.roundtrip?.region ||
                   (logistics?.stationary as any)?.region || 
                   logistics?.stationary?.destination || 
                   "Europe"; 
@@ -107,4 +108,4 @@ export const prepareFoodScoutPayload = (
         ...options 
     };
 };
-// --- END OF FILE 110 Zeilen ---
+// --- END OF FILE 111 Zeilen ---

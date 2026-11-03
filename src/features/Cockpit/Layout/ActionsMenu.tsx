@@ -1,3 +1,4 @@
+// [2026-11-03] [13:29] - FIX: Restored Flight Recorder download entry in ActionsMenu when Debug Mode (aiSettings.debug) is active.
 // 12.04.2026 14:10 - UX: Updated terminology (Briefing & Travel Guide). Replaced hardcoded string with t().
 // 07.04.2026 09:30 - UX: Removed Settings and Flight Recorder from ActionsMenu for end-users.
 // 20.03.2026 17:40 - UX: Moved Info & Quickguide to ActionsMenu, removed Finance.
@@ -18,7 +19,8 @@ import {
   Save, 
   Upload, 
   FileText, 
-  HelpCircle
+  HelpCircle,
+  Bug
 } from 'lucide-react';
 
 import { useTripStore } from '../../../store/useTripStore';
@@ -62,7 +64,10 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
     mergeProject, 
     resetProject, 
     setWorkflowModalOpen,
-    uiState
+    uiState,
+    aiSettings,
+    flightRecorderLogs,
+    downloadFlightRecorder
   } = useTripStore();
 
   const hasAnalysisResult = !!project.analysis.chefPlaner;
@@ -278,6 +283,16 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
           >
             <Printer className="w-4 h-4 text-slate-500" /> {t('wizard.actions_menu.print_report', { defaultValue: 'PDF Report' })}
           </button>
+
+          {aiSettings?.debug && (
+            <button 
+              onClick={() => { setIsOpen(false); downloadFlightRecorder(); }} 
+              className="w-full text-left px-4 py-2 hover:bg-red-50 text-red-600 flex items-center gap-3 text-sm font-medium"
+              title="Flugschreiber-Log herunterladen"
+            >
+              <Bug className="w-4 h-4 text-red-500" /> Flugschreiber ({flightRecorderLogs?.length || 0})
+            </button>
+          )}
           
           <div className="h-px bg-slate-100 my-1"></div>
           
@@ -321,4 +336,4 @@ export const ActionsMenu: React.FC<ActionsMenuProps> = ({
     </div>
   );
 };
-// 287 Zeilen
+// --- END OF FILE 339 Zeilen ---
