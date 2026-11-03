@@ -1,3 +1,4 @@
+// [2026-11-02] [17:46] - FIX: Included place.duration in editorial task facts so Chefredakteur stays aligned with Enricher trail/sight durations.
 // [2026-10-25] [13:52] - FIX: Forwarded customPreferences (Field 1) and USER OVERRIDE tags to Chefredakteur editorial tasks.
 // 03.06.2026 10:20 - ARCHITECTURE FIX: Implemented Strict Override Pattern. Replaced double appending with an exclusive user-input priority logic.
 // 19.03.2026 16:30 - FEAT: Inject persona directive for the writer.
@@ -114,6 +115,7 @@ export const prepareChefredakteurPayload = (
                 location: place.location,
                 description: place.description, 
                 logistics: place.logistics,
+                duration: place.duration,
                 price_estimate: place.price_estimate,
                 originalCategory: place.category 
             },
@@ -137,4 +139,4 @@ export const prepareChefredakteurPayload = (
         }
     };
 };
-// --- END OF FILE 140 Zeilen ---
+// --- END OF FILE 142 Zeilen ---

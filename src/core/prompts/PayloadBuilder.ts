@@ -1,3 +1,4 @@
+// [2026-11-02] [18:40] - FIX: Passed home_location, arrival_type, target_countries, and chunk_info to buildInfoAutorPrompt context.
 // [2026-10-25] [13:53] - FIX: Filtered out hotels, restaurants, invalid, and ignored places before slicing in chefredakteur auto-mode.
 // [2026-08-15] 14:45 - FIX: Passed feedback parameter to buildRouteArchitectPrompt to enable "Keep" functionality.
 // 27.02.2026 14:15 - FIX: Integrated prepareTransferPlannerPayload into PayloadBuilder.
@@ -158,12 +159,23 @@ export const PayloadBuilder = {
       case 'infoAutor': {
           const allInfoTasks = prepareInfoAutorPayload(project);
           const slicedTasks = sliceData(allInfoTasks, 'infoAutor', options);
+          const currentInfoChunk = options?.chunkIndex || chunkingState?.currentChunk || 1;
+          const totalInfoChunks = options?.totalChunks || chunkingState?.totalChunks || 1;
+          const targetCountries = project.analysis?.chefPlaner?.corrections?.countries?.join(', ')
+              || project.userInputs.logistics.roundtrip?.region
+              || project.userInputs.logistics.stationary?.region
+              || project.userInputs.logistics.stationary?.destination
+              || "Reiseziel";
           generatedPrompt = buildInfoAutorPrompt(
               {
                  context: {
-                     destination: project.userInputs.logistics.stationary.destination || "Reiseziel",
+                     destination: project.userInputs.logistics.stationary.destination || project.userInputs.logistics.roundtrip.region || "Reiseziel",
                      dates: project.userInputs.dates.start ? `${project.userInputs.dates.start} - ${project.userInputs.dates.end}` : "Flexibel",
                      travelers: `${project.userInputs.travelers.adults} Erwachsene, ${project.userInputs.travelers.children} Kinder`,
+                     home_location: project.userInputs.travelers?.origin || "Unknown",
+                     arrival_type: project.userInputs.logistics.arrival?.type || "Plane/Car",
+                     target_countries: targetCountries,
+                     chunk_info: totalInfoChunks > 1 ? ` (Block ${currentInfoChunk}/${totalInfoChunks})` : '',
                      tasks: slicedTasks
                  }
               }
@@ -308,4 +320,4 @@ export const PayloadBuilder = {
     return generatedPrompt;
   }
 };
-// --- END OF FILE 311 Zeilen ---
+// --- END OF FILE 323 Zeilen ---

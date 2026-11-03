@@ -1,3 +1,4 @@
+// [2026-11-02] [18:40] - FIX: Added travel_period (dates) to LOGISTICS PARAMETERS and read travelers.origin in legacy fallback.
 // [2026-10-25] [14:56] - FIX: Added STRATEGY_OPTIONS fallback when cat_strategyId is empty.
 // [2026-10-25] [13:49] - FIX: Replaced dead sammler_briefing fallback with raw user strategy & ChefPlaner rules.
 // 04.02.2026 12:35 - FIX: Robust Payload Detection & Empty Task Handling.
@@ -23,6 +24,7 @@ export const buildInfoAutorPrompt = (
     let home = 'Unknown';
     let arrivalType = 'Plane/Car';
     let countriesListString = "";
+    let travelPeriod = 'Flexible / All Year';
 
     // FIX: Relaxed check. 'instructions' might not be in root of payload.
     if (projectOrPayload.context) {
@@ -35,6 +37,7 @@ export const buildInfoAutorPrompt = (
         home = payload.context.home_location || "Unknown";
         arrivalType = payload.context.arrival_type || "Unknown";
         countriesListString = payload.context.target_countries || "Unknown";
+        travelPeriod = payload.context.dates || "Flexible / All Year";
     } else {
         // Legacy Project Mode
         const project = projectOrPayload as TripProject;
@@ -51,12 +54,13 @@ export const buildInfoAutorPrompt = (
             || userInputs.strategyId || "";
 
         // Data Mapping
-        if (logistics.mode === 'roundtrip' && logistics.roundtrip.startLocation) {
-            home = logistics.roundtrip.startLocation;
+        if (userInputs.travelers?.origin) {
+            home = userInputs.travelers.origin;
         } else if (logistics.mode === 'stationaer' && (logistics.stationary as any).origin) {
             home = (logistics.stationary as any).origin;
         }
-        arrivalType = (logistics as any).arrivalType || 'Plane/Car';
+        arrivalType = logistics.arrival?.type || (logistics as any).arrivalType || 'Plane/Car';
+        travelPeriod = userInputs.dates?.start ? `${userInputs.dates.start} - ${userInputs.dates.end}` : 'Flexible / All Year';
         const uniqueCountries = [...new Set(detectedCountries)].filter(Boolean);
         countriesListString = uniqueCountries.length > 0 ? uniqueCountries.join(', ') : 'Unknown (please determine)';
     }
@@ -133,11 +137,11 @@ ${taskList}
     return new PromptBuilder()
         .withOS()
         .withRole(role)
-        .withContext({ home, arrival: arrivalType, target_areas: countriesListString }, "LOGISTICS PARAMETERS")
+        .withContext({ home, arrival: arrivalType, travel_period: travelPeriod, target_areas: countriesListString }, "LOGISTICS PARAMETERS")
         .withContext(strategicBriefing, "STRATEGIC GUIDELINE")
         .withInstruction(instructions)
         .withOutputSchema(outputSchema)
         .withSelfCheck(['basic', 'research'])
         .build();
 };
-// --- END OF FILE 143 Zeilen ---
+// --- END OF FILE 147 Zeilen ---

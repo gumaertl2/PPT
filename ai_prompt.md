@@ -1,3 +1,4 @@
+// [2026-11-02] [17:48] - DOCS: Synced Anti-404 Trail-Search & Root-Domain rule for Anreicherer.
 // [2026-10-25] [13:25] - Vollständiger Master-Prompt für Papatours (Teil I: Generische Software-Architektur, Prompt-Engineering & Design-Prinzipien inkl. der 6 Geheimwaffen, Teil II: Spezifische Papatours-Gesetze, Teil III: Einstellung zum Merken, Teil IV: Antigravity Auto-Load Bonus-Tipp)
 
 # 🔴 SYSTEM INITIALIZATION & MASTER PROMPT (PAPATOURS EDITION) 🔴
@@ -178,7 +179,7 @@ Prompts dürfen **niemals** als lose Strings in Services oder UI-Komponenten zus
   - *Strict ID Pass-Through:* Muss die `id` aus dem Input 1:1 zurückgeben.
   - *Critical Geocoding Rule:* Adressen müssen sauber und maschinenlesbar für OpenStreetMap sein (keine Prosa oder Klammern wie `(Leuchtturm)`).
   - *Universal Acceptance (Serendipity-Effekt):* Alle real existierenden Vorschläge des Sammlers erhalten `"valid": true` (kein Aussortieren wegen enger Regionsgrenzen).
-  - *Hiking/Trailhead-Pflicht:* Bei Wanderungen muss `website` auf Komoot/AllTrails/Outdooractive zeigen und `logistics` den exakten Wanderparkplatz/Trailhead nennen.
+  - *Hiking/Trailhead-Pflicht & Anti-404:* Bei Wanderungen muss `logistics` den exakten Wanderparkplatz/Trailhead nennen; für `website` sind erfundene Tourenportal-Deep-Links verboten (stattdessen deterministische Google-Trail-Suche `Komoot + AllTrails` oder `null`, abgesichert durch `sanitizePlaceWebsite`).
 * **3. TourGuide (`tourGuide.ts`) & 4. Chefredakteur (`chefredakteur.ts`):**
   - `tourGuide` clustert Orte geografisch in Tagestouren.
   - `chefredakteur` schreibt inspirierende Deep-Dive-Artikel (`detailContent`) und generiert Rundgang-Waypoints (`waypoints`). Läuft im `smart`-Modus nur für Orte, denen noch ein Text (`< 50` Zeichen) fehlt.
@@ -225,4 +226,4 @@ Damit du dieses Master-Protokoll beim Starten eines neuen Chats in **Antigravity
    - `.agents/rules/papatours-master-protocol.md`
    - **Wie das funktioniert:** Antigravity durchsucht beim Start jedes neuen Chats automatisch den Ordner `.agents/rules/` (sowie `AGENTS.md` / `GEMINI.md` im Projekt-Root) und lädt diese Regeln automatisch in das System-Gedächtnis des Agenten.
 
-// --- END OF FILE 228 Zeilen ---
+// --- END OF FILE 229 Zeilen ---

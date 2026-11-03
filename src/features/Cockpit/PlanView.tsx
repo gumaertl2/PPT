@@ -1,3 +1,5 @@
+// [2026-11-03] [11:08] - FEAT: Added check-in date prefix (e.g. 10.5. Porto) before each stop in roundtrip itinerary overview.
+// [2026-11-02] [18:56] - FIX: Avoid duplicating startLocation/endLocation in route display and Google Maps URL when already included as first/last stop.
 // 21.03.2026 19:45 - FIX: Applied strict I18N to manual GPS override buttons (replaced hardcoded "(Ändern)") and fixed Maps tooltips.
 // src/features/Cockpit/PlanView.tsx
 
@@ -197,7 +199,17 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
     if (!isRoundtripContext) return null;
     const roundtrip = logistics.roundtrip;
     const stops = roundtrip.stops || [];
-    const mapsLink = routeAnalysis?.googleMapsLink || generateGoogleMapsRouteUrl([roundtrip.startLocation, ...stops.map(s => s.name || s.location), roundtrip.endLocation].filter(Boolean) as string[], 'driving', logistics.roundtrip.region || (logistics as any).target_countries?.[0] || "") || undefined;
+    const norm = (s?: string) => (s || '').trim().toLowerCase();
+    const firstStopName = stops.length > 0 ? (stops[0].name || stops[0].location || '') : '';
+    const lastStopName = stops.length > 0 ? (stops[stops.length - 1].name || stops[stops.length - 1].location || '') : '';
+    const showSeparateStart = Boolean(roundtrip.startLocation && norm(roundtrip.startLocation) !== norm(firstStopName));
+    const showSeparateEnd = Boolean(roundtrip.endLocation && norm(roundtrip.endLocation) !== norm(lastStopName));
+    const mapLocations = [
+        ...(showSeparateStart ? [roundtrip.startLocation] : []),
+        ...stops.map(s => s.name || s.location),
+        ...(showSeparateEnd ? [roundtrip.endLocation] : [])
+    ].filter(Boolean) as string[];
+    const mapsLink = routeAnalysis?.googleMapsLink || generateGoogleMapsRouteUrl(mapLocations, 'driving', logistics.roundtrip.region || (logistics as any).target_countries?.[0] || "") || undefined;
 
     return (
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -222,14 +234,30 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
          <div className="mb-8 p-4 bg-slate-50 rounded-xl border border-slate-100">
             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">{t('route.itinerary_stops', { defaultValue: 'Reiseverlauf & Aufenthalte' })}</h4>
             <div className="flex flex-wrap items-center gap-y-2 text-sm leading-relaxed">
-                <span className="font-semibold text-slate-700">{roundtrip.startLocation}</span><ArrowRight size={14} className="mx-2 text-slate-300" />
-                {stops.map((stop, idx) => (
-                    <React.Fragment key={idx}>
-                        <span className="inline-flex items-center gap-1"><span className="font-bold text-slate-900">{stop.name || stop.location}</span>{stop.duration && <span className="text-xs text-blue-600 bg-blue-50 px-1.5 rounded border border-blue-100 font-medium">({stop.duration})</span>}</span>
-                        <ArrowRight size={14} className="mx-2 text-slate-300" />
-                    </React.Fragment>
-                ))}
-                <span className="font-semibold text-slate-700">{roundtrip.endLocation}</span>
+                {showSeparateStart && (
+                    <>
+                        <span className="font-semibold text-slate-700">{roundtrip.startLocation}</span>
+                        {(stops.length > 0 || showSeparateEnd) && <ArrowRight size={14} className="mx-2 text-slate-300" />}
+                    </>
+                )}
+                 {stops.map((stop, idx) => {
+                    let stopDatePrefix = '';
+                    if (userInputs.dates?.start) {
+                        const parts = userInputs.dates.start.split('-').map(Number);
+                        if (parts.length === 3 && !parts.some(isNaN)) {
+                            const dayOffset = stops.slice(0, idx).reduce((sum, s) => sum + (Number(s.duration) || 1), 0);
+                            const d = new Date(parts[0], parts[1] - 1, parts[2] + dayOffset);
+                            stopDatePrefix = `${d.getDate()}.${d.getMonth() + 1}.`;
+                        }
+                    }
+                    return (
+                        <React.Fragment key={idx}>
+                            <span className="inline-flex items-center gap-1">{stopDatePrefix && <span className="text-slate-500 font-semibold">{stopDatePrefix}</span>}<span className="font-bold text-slate-900">{stop.name || stop.location}</span>{stop.duration && <span className="text-xs text-blue-600 bg-blue-50 px-1.5 rounded border border-blue-100 font-medium">({stop.duration})</span>}</span>
+                            {(idx < stops.length - 1 || showSeparateEnd) && <ArrowRight size={14} className="mx-2 text-slate-300" />}
+                        </React.Fragment>
+                    );
+                 })}
+                {showSeparateEnd && <span className="font-semibold text-slate-700">{roundtrip.endLocation}</span>}
             </div>
          </div>
          <div className="pt-4 border-t border-slate-50 flex justify-center">
@@ -794,4 +822,4 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
     </div>
   );
 };
-// --- END OF FILE 707 Zeilen ---
+// --- END OF FILE 825 Zeilen ---

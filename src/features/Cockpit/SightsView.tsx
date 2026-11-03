@@ -1,3 +1,4 @@
+// [2026-11-03] [11:38] - FEAT: Ordered tour groups so sights appear in tour sequence first, followed by priority/rating-sorted restaurants of that tour.
 // 12.04.2026 13:05 - FIX: Added fully interactive and i18n-compliant Fallback UI inside ErrorBoundary with JSON viewer and delete action.
 // 12.04.2026 12:20 - FIX: Wrapped SightCard in ErrorBoundary to prevent White Screen of Death on missing data.
 // 05.04.2026 19:00 - ARCHITECTURE: Refactored massive file. Extracted data logic to useSightsData hook.
@@ -117,7 +118,15 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
                 const title = tour.label || "Tour";
                 const tourPlaces = list.filter(lp => tour.placeIds?.includes(lp.id));
                 if (tourPlaces.length > 0) {
-                    groups[title] = tourPlaces.sort((a, b) => (tour.placeIds.indexOf(a.id) - tour.placeIds.indexOf(b.id)));
+                    groups[title] = tourPlaces.sort((a, b) => {
+                        const aIsFood = ['restaurant', 'food'].includes(String(a.userSelection?.customCategory || a.category || '').toLowerCase());
+                        const bIsFood = ['restaurant', 'food'].includes(String(b.userSelection?.customCategory || b.category || '').toLowerCase());
+                        if (aIsFood !== bIsFood) return aIsFood ? 1 : -1;
+                        if (!aIsFood) return tour.placeIds.indexOf(a.id) - tour.placeIds.indexOf(b.id);
+                        if (a._meta?.isReserve !== b._meta?.isReserve) return a._meta?.isReserve ? 1 : -1;
+                        if (a._meta?.prioVal !== b._meta?.prioVal) return (b._meta?.prioVal || 0) - (a._meta?.prioVal || 0);
+                        return (b.rating || 0) - (a.rating || 0);
+                    });
                     tourPlaces.forEach(lp => assignedIds.add(lp.id));
                 }
             });
@@ -273,4 +282,4 @@ export const SightsView: React.FC<{ overrideSortMode?: any, overrideDetailLevel?
     </div>
   );
 };
-// --- END OF FILE 256 Zeilen ---
+// --- END OF FILE 285 Zeilen ---

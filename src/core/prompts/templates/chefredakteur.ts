@@ -1,3 +1,4 @@
+// [2026-11-02] [17:46] - FIX: Anchored Logistics/Trailhead & Duration in HARD FACTS, guarded hike metrics, restricted waypoints to districts, and forbade 404 URLs in text.
 // 01.06.2026 19:05 - ARCHITECTURE FIX: Implemented Data Bypass for strategic_briefing. Removed dependency on ChefPlaner.
 // 01.06.2026 12:00 - FIX: Injected Strict Anti-Hallucination Protocol to prevent invented details.
 // 19.03.2026 16:30 - FEAT: Added Persona Injection.
@@ -76,13 +77,15 @@ export const buildChefredakteurPrompt = (
             const address = sightData.address || (sightData as any).adresse || "N/A";
             const location = sightData.location ? `Lat: ${sightData.location.lat}, Lng: ${sightData.location.lng}` : "N/A";
             const hours = sightData.openingHours || "N/A";
+            const logisticsLine = sightData.logistics ? `\n    - Logistics / Trailhead: ${sightData.logistics}` : "";
+            const durationLine = sightData.duration ? `\n    - Estimated Duration: ${sightData.duration} min` : "";
             
             factsContext = `
     HARD FACTS (ANCHOR):
     - Official Name: ${p.titel || p.name}
     - Address: ${address}
     - Location: ${location}
-    - Opening Hours: ${hours}
+    - Opening Hours: ${hours}${logisticsLine}${durationLine}
     (Use these facts as absolute truth. Do not contradict them.)`;
         }
 
@@ -127,6 +130,7 @@ ${aufgabenListe}
    - **Verify First:** Do you have 100% verified knowledge from your training data or live research regarding specific interior details, architectural styles, historical dates, or specific artworks for this exact place?
    - **No Inventions:** If you cannot absolutely verify these details, it is STRICTLY FORBIDDEN to invent or hallucinate them just to make the text sound complete.
    - **Fallback Strategy:** If hard facts are missing, fall back to the META-LEVEL: describe the visible exterior, its integration into the town/landscape, the general atmosphere (vibe), or its overall significance.
+   - **Hikes & Outdoor Routes:** Anchor the starting point and duration strictly on "HARD FACTS". Only state exact distance (km), elevation gain, or trail numbers if 100% verified; otherwise state realistic approximate values ("approx.") and never invent turn-by-turn directions.
    - **Quality over Quantity:** A shorter, 100% factually correct text is always better than a long text with invented details.
 
 # OUTPUT FORMAT (STRICT JSON)
@@ -140,14 +144,14 @@ Structure:
       "id": "MUST MATCH ID FROM TASK LIST",
       "type": "MUST MATCH TYPE FROM TASK LIST",
       "content": "Your markdown text here (escape newlines as \\n)...",
-      "waypoints": [ { "name": "Station A", "address": "Address A" } ] // Only for Districts/Tours
+      "waypoints": [ { "name": "Station A", "address": "Address A" } ] // ONLY for urban 'districts' walking tours (empty [] for hikes/nature and single sights)
     }
   ]
 }
 
 # FINAL RULES
 - The \`id\` MUST match exactly.
-- Format URLs as clickable links.
+- NEVER include URLs or web links in 'content' (the UI provides dedicated link buttons; guessed URLs cause 404 errors).
 - **CRITICAL:** Escape ALL line breaks in 'content' as \`\\n\`.`;
 
     // 5. BUILD
@@ -168,4 +172,4 @@ Structure:
 
     return builder.build();
 };
-// --- END OF FILE ---
+// --- END OF FILE 175 Zeilen ---

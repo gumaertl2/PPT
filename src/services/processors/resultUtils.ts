@@ -1,3 +1,5 @@
+// [2026-11-03] [08:36] - FIX: Enforced strict category isolation in resolvePlaceId so Restaurants and Hotels can never match or overwrite Sights or each other.
+// [2026-11-02] [17:46] - FIX: Added sanitizePlaceWebsite Anti-404 firewall to intercept guessed trail-portal deep-links and numeric CMS IDs.
 // 23.02.2026 18:45 - HARDENING: Enhanced resolvePlaceId with exact-name fallback to prevent duplicate creation in batches.
 // 05.02.2026 16:45 - FIX: REMOVE UNUSED IMPORTS.
 // src/services/processors/resultUtils.ts
@@ -35,15 +37,22 @@ export const getSimilarity = (s1: string, s2: string): number => {
 
 // --- HELPER: SMART ID FINDER ---
 export const resolvePlaceId = (item: any, existingPlaces: Record<string, any>, debug: boolean, incomingCategory?: string): string | undefined => {
+    const isCategoryCompatible = (existingCat?: string): boolean => {
+        const inc = (incomingCategory || '').toLowerCase();
+        const ext = (existingCat || '').toLowerCase();
+        if (inc === 'restaurant') return ext === 'restaurant';
+        if (inc === 'hotel') return ext === 'hotel';
+        // Sights must never overwrite an existing Restaurant
+        if (inc && inc !== 'restaurant' && ext === 'restaurant') return false;
+        return true;
+    };
+
     // 1. Direct ID Match (Strongest)
     if (item.id && existingPlaces[item.id]) {
-        if (incomingCategory === 'Restaurant') {
-             const p = existingPlaces[item.id];
-             const isExistingSight = ['Sight', 'Attraktion', 'Landmark', 'Sehenswürdigkeit'].includes(p.category);
-             if (isExistingSight) {
-                 if (debug) console.warn(`[ResultProcessor] 🛡️ ID Collision Shield: Ignored ID match for "${p.name}" (Sight) vs "${item.name}" (Restaurant).`);
-                 return undefined; 
-             }
+        const p = existingPlaces[item.id];
+        if (!isCategoryCompatible(p.category)) {
+            if (debug) console.warn(`[ResultProcessor] 🛡️ ID Collision Shield: Ignored ID match for "${p.name}" (${p.category}) vs "${item.name}" (${incomingCategory}).`);
+            return undefined;
         }
         return item.id;
     }
@@ -56,7 +65,7 @@ export const resolvePlaceId = (item: any, existingPlaces: Record<string, any>, d
         // ROOT FIX A: Schneller Exakt-Match Check gegen alle bereits im Cache/Store befindlichen Namen.
         // Verhindert, dass die KI im gleichen Paket zwei identische Orte mit unterschiedlichen IDs anlegt.
         const allEntries = Object.values(existingPlaces);
-        const exactMatch = allEntries.find((p: any) => p.name?.trim().toLowerCase() === searchName);
+        const exactMatch = allEntries.find((p: any) => isCategoryCompatible(p.category) && p.name?.trim().toLowerCase() === searchName);
         if (exactMatch) {
             if (debug) console.log(`[ResultProcessor] 🎯 Exact Name Match found: "${searchName}" -> reusing ID ${exactMatch.id}`);
             return exactMatch.id;
@@ -67,10 +76,7 @@ export const resolvePlaceId = (item: any, existingPlaces: Record<string, any>, d
 
         allEntries.forEach((p: any) => {
             if (!p.name) return;
-            if (incomingCategory === 'Restaurant') {
-                const isExistingSight = ['Sight', 'Attraktion', 'Landmark', 'Sehenswürdigkeit'].includes(p.category);
-                if (isExistingSight) return;
-            }
+            if (!isCategoryCompatible(p.category)) return;
             const targetName = p.name.trim().toLowerCase();
             
             // A. Fuzzy Score
@@ -112,6 +118,40 @@ export const sanitizeUrl = (url: string | undefined, item: any): string => {
     if (!safeUrl.startsWith('http')) return cleanFallback;
 
     return safeUrl;
+};
+
+// --- HELPER: PLACE WEBSITE SANITIZER (ANTI-404 GUARD) ---
+export const sanitizePlaceWebsite = (url: string | null | undefined, item: any): string | null => {
+    if (!url || typeof url !== 'string' || url.trim() === '') return null;
+
+    const safeUrl = url.trim();
+    if (!/^https?:\/\//i.test(safeUrl)) return null;
+
+    try {
+        const parsed = new URL(safeUrl);
+        const host = parsed.hostname.toLowerCase();
+        const path = parsed.pathname || '/';
+
+        // 1. Offline LLMs cannot know exact deep-link slugs or tour IDs on trail portals -> 100% 404 risk.
+        const isTrailPortal = /(?:^|\.)(alltrails|komoot|outdooractive|wikiloc|bergfex)\./i.test(host);
+        if (isTrailPortal && path !== '/' && path !== '') {
+            const name = (item?.official_name || item?.name || '').trim();
+            const addressHint = typeof item?.address === 'string'
+                ? item.address.split(',').slice(-2).join(' ').trim()
+                : (item?.city || '');
+            const query = `${name} ${addressHint} Komoot AllTrails`.replace(/\s+/g, ' ').trim();
+            return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+        }
+
+        // 2. Strip hallucinated numeric CMS page IDs (e.g. "/pages/911") safely back to the verified root domain.
+        if (/\/pages\/\d+\/?$/i.test(path)) {
+            return `${parsed.origin}/`;
+        }
+
+        return safeUrl;
+    } catch {
+        return null;
+    }
 };
 
 // --- HELPER: THE VACUUM CLEANER V4 ---
@@ -230,4 +270,4 @@ export function getGuidesForCountry(countryName: string | undefined): GuideDef[]
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 };
-// --- END OF FILE 201 Zeilen ---
+// --- END OF FILE 273 Zeilen ---

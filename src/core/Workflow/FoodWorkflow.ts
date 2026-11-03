@@ -1,3 +1,6 @@
+// [2026-11-02] [22:57] - FIX: Cleared unprioritized/unvisited stale Restaurant entries before saving fresh full-trip FoodWorkflow results.
+// [2026-11-02] [22:51] - FIX: Normalized district names in cleanTownName to prevent duplicate city scouting and deduplicated allScoutCandidates across towns.
+// [2026-11-02] [19:48] - FIX: Chunked foodEnricher step across allScoutCandidates via LimitManager and preserved candidate city metadata across enrichment.
 // [2026-10-26] [18:22] - FIX: Guarded roundtrip.stops check against unconfirmed duration=0 placeholders when routeArchitect routes exist.
 // [2026-10-25] [15:04] - FIX: Prioritized confirmed roundtrip.stops over routeArchitect.routes[0] while preserving stationary mode.
 // 23.02.2026 13:10 - MERGE: Full Multi-City Logic & Repair Loop combined with Workflow Kill-Switch.
@@ -9,12 +12,19 @@
 import { v4 as uuidv4 } from 'uuid';
 import { useTripStore } from '../../store/useTripStore';
 import { getGuidesForCountry } from '../../data/countries';
+import { LimitManager } from '../utils/LimitManager';
+import { FoodProcessor } from '../../services/processors/FoodProcessor';
 import type { TaskKey } from '../types';
 
 // Helper duplicate to be self-contained
 const cleanTownName = (name: string): string => {
     if (!name) return "";
-    return name.split('(')[0].trim();
+    const base = name.split('(')[0].trim();
+    if (base.includes(',')) {
+        const parts = base.split(',').map(s => s.trim()).filter(Boolean);
+        if (parts.length > 0) return parts[parts.length - 1];
+    }
+    return base.replace(/^(Stadtbezirk|Stadtviertel|Bezirk|Viertel|Altstadt von|Altstadt|Historisches Zentrum von|Historisches Zentrum|Historic Center of|Centro Histórico de|Bairro de|Bairro|Quartier)\s+/i, '').trim();
 };
 
 const safetyDelay = async (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -111,11 +121,18 @@ export const FoodWorkflow = {
                     const stepResult = await runStep('foodScout', feedback, true, [town], true, { guides: existingGuides });
                     
                     if (stepResult && Array.isArray(stepResult.candidates)) {
-                        allScoutCandidates.push(...stepResult.candidates.map((c: any) => ({
-                            ...c,
-                            city: town,
-                            id: c.id || uuidv4()
-                        })));
+                        for (const c of stepResult.candidates) {
+                            const normName = String(c?.name || '').trim().toLowerCase();
+                            if (!normName) continue;
+                            const alreadyExists = allScoutCandidates.some((existing: any) => String(existing?.name || '').trim().toLowerCase() === normName);
+                            if (!alreadyExists) {
+                                allScoutCandidates.push({
+                                    ...c,
+                                    city: town,
+                                    id: c.id || uuidv4()
+                                });
+                            }
+                        }
                     }
                     await safetyDelay(500); 
                 } catch (e) {
@@ -160,36 +177,96 @@ export const FoodWorkflow = {
             if (allScoutCandidates.length === 0) return;
 
             // 6. ENRICHMENT PHASE (Thinking/Quality)
-            // --- KILL-SWITCH CHECK ---
-            if (useTripStore.getState().workflow.status !== 'generating') return null;
-
-            store.setChunkingState({ isActive: true, currentChunk: totalSteps, totalChunks: totalSteps });
-            
-            const finalNotif = store.notifications.find((n: any) => n.type === 'loading');
-            if (finalNotif) {
-                const isDe = store.project.meta?.language === 'de';
-                const msg = isDe 
-                    ? `👨‍🍳 Verifiziere Restaurant-Daten (${totalSteps} von ${totalSteps})...` 
-                    : `👨‍🍳 Verifying restaurant data (${totalSteps} of ${totalSteps})...`;
-                store.updateNotification(finalNotif.id, { message: msg });
-            }
-            
             let enricherFeedback = feedback || "";
             if (existingGuides) {
                 const guideNames = existingGuides.map(g => g.name).join(', ');
                 enricherFeedback = enricherFeedback ? `${enricherFeedback}|GUIDES:${guideNames}` : `GUIDES:${guideNames}`;
             }
 
-            const enricherResult = await runStep('foodEnricher', enricherFeedback, false, allScoutCandidates); 
-            
-            let finalCandidates: any[] = [];
-            if (enricherResult.enriched_candidates) finalCandidates = enricherResult.enriched_candidates;
-            else if (enricherResult.candidates) finalCandidates = enricherResult.candidates;
-            else if (enricherResult.places) finalCandidates = Object.values(enricherResult.places);
-            else if (Array.isArray(enricherResult)) finalCandidates = enricherResult;
+            const enrichLimit = LimitManager.getTaskLimit('foodEnricher', !useTripStore.getState().apiKey);
+            const totalEnrichChunks = Math.max(1, Math.ceil(allScoutCandidates.length / enrichLimit));
+            const finalTotalSteps = townList.length + totalEnrichChunks;
+            const validCandidates: any[] = [];
+            let hasClearedStaleRestaurants = false;
 
-            let validCandidates = finalCandidates.filter((c: any) => c.verification_status !== 'rejected');
-            validCandidates = validCandidates.map((c: any) => ({ ...c, id: c.id || uuidv4() }));
+            for (let chunkIdx = 0; chunkIdx < totalEnrichChunks; chunkIdx++) {
+                // --- KILL-SWITCH CHECK ---
+                if (useTripStore.getState().workflow.status !== 'generating') return null;
+
+                const currentStepNum = townList.length + chunkIdx + 1;
+                const batchCandidates = allScoutCandidates.slice(chunkIdx * enrichLimit, (chunkIdx + 1) * enrichLimit);
+
+                store.setChunkingState({ isActive: true, currentChunk: currentStepNum, totalChunks: finalTotalSteps });
+
+                const finalNotif = useTripStore.getState().notifications.find((n: any) => n.type === 'loading');
+                if (finalNotif) {
+                    const isDe = store.project.meta?.language === 'de';
+                    const batchSuffix = totalEnrichChunks > 1 ? ` [Block ${chunkIdx + 1}/${totalEnrichChunks}]` : '';
+                    const msg = isDe 
+                        ? `👨‍🍳 Verifiziere Restaurant-Daten${batchSuffix} (${currentStepNum} von ${finalTotalSteps})...` 
+                        : `👨‍🍳 Verifying restaurant data${batchSuffix} (${currentStepNum} of ${finalTotalSteps})...`;
+                    store.updateNotification(finalNotif.id, { message: msg });
+                }
+
+                try {
+                    const enricherResult = await runStep('foodEnricher', enricherFeedback, true, batchCandidates);
+                    if (!enricherResult) continue;
+
+                    let chunkFinal: any[] = [];
+                    if (enricherResult.enriched_candidates) chunkFinal = enricherResult.enriched_candidates;
+                    else if (enricherResult.candidates) chunkFinal = enricherResult.candidates;
+                    else if (enricherResult.places) chunkFinal = Object.values(enricherResult.places);
+                    else if (Array.isArray(enricherResult)) chunkFinal = enricherResult;
+
+                    const chunkValid = chunkFinal
+                        .filter((c: any) => c.verification_status !== 'rejected')
+                        .map((c: any) => {
+                            const matchedScout = batchCandidates.find((b: any) =>
+                                b.id === c.id || (b.name && c.name && String(b.name).toLowerCase() === String(c.name).toLowerCase())
+                            );
+                            return {
+                                ...c,
+                                id: c.id || matchedScout?.id || uuidv4(),
+                                city: c.city || matchedScout?.city
+                            };
+                        });
+
+                    if (chunkValid.length > 0) {
+                        if (!manualLocation && !hasClearedStaleRestaurants) {
+                            hasClearedStaleRestaurants = true;
+                            useTripStore.setState((s) => {
+                                const currentPlaces = { ...(s.project.data.places || {}) };
+                                Object.keys(currentPlaces).forEach((pid) => {
+                                    const p = currentPlaces[pid] as any;
+                                    const isRestaurant = p?.category === 'Restaurant' || p?.category === 'restaurant';
+                                    const isProtected = Boolean(p?.userPriority && p.userPriority !== 0) || Boolean(p?.visited) || Boolean(p?.userNote) || Boolean(p?.isFixed);
+                                    if (isRestaurant && !isProtected) {
+                                        delete currentPlaces[pid];
+                                    }
+                                });
+                                return {
+                                    project: {
+                                        ...s.project,
+                                        data: {
+                                            ...s.project.data,
+                                            places: currentPlaces,
+                                            content: {
+                                                ...s.project.data.content,
+                                                rawFoodCandidates: allScoutCandidates
+                                            }
+                                        }
+                                    }
+                                };
+                            });
+                        }
+                        FoodProcessor.processFoodOrHotel({ candidates: chunkValid }, 'foodEnricher', useTripStore.getState().aiSettings.debug);
+                        validCandidates.push(...chunkValid);
+                    }
+                    await safetyDelay(500);
+                } catch (e) {
+                    console.warn(`[FoodWorkflow] Failed to enrich food batch ${chunkIdx + 1}/${totalEnrichChunks}`, e);
+                }
+            }
             
             return { candidates: validCandidates };
 
@@ -201,4 +278,4 @@ export const FoodWorkflow = {
         }
     }
 };
-// --- END OF FILE 204 Zeilen ---
+// --- END OF FILE 281 Zeilen ---

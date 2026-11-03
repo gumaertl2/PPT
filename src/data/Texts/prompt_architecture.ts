@@ -1,3 +1,4 @@
+// [2026-11-02] [17:46] - DOCS: Synced Anti-404 Trail-Search & Root-Domain Website rule for Anreicherer and Chefredakteur.
 // 25.10.2026 13:13 - DOCS: Synced Prompt Architecture with current codebase (Triple Dragnet Food Pipeline, Quality Doorman, [USER OVERRIDE], Serendipity Rule, Tagesplaner & Conflict Intercept).
 // 19.03.2026 18:30 - DOCS: Added Targeted Context Matrix documentation.
 // 20.02.2026 21:15 - DOCS: Updated Agent behaviors (Multi-City Chunking for Food, Geo-Context Guard for InfoAutor).
@@ -88,7 +89,7 @@ Anstatt allen Agenten blind alle Nutzerdaten einzuimpfen, verteilt der Injector 
     * **ID Pass-Through:** "Du musst die \`id\` aus dem Input 1:1 in den Output kopieren."
     * **Critical Geocoding Rule:** Adressen müssen maschinenlesbar für OpenStreetMap sein (keine Prosa oder Klammerzusätze).
     * **Universal Acceptance (Serendipity-Effekt):** Alle real existierenden Orte des Sammlers erhalten \`"valid": true\`, auch wenn sie außerhalb der engeren Suchregion liegen. Nur 100%ige Halluzinationen werden aussortiert.
-    * **Hiking/Trails Anti-Hallucination:** Bei Wanderungen muss \`website\` auf Komoot/AllTrails/Outdooractive verweisen und \`logistics\` den exakten Wanderparkplatz/Trailhead nennen.
+    * **Hiking/Trails Anti-Hallucination & Anti-404:** Bei Wanderungen muss \`logistics\` den exakten Wanderparkplatz/Trailhead nennen; für \`website\` sind erfundene Tourenportal-Deep-Links verboten (stattdessen deterministische Google-Trail-Suche \`Komoot + AllTrails\` oder \`null\`, abgesichert durch \`sanitizePlaceWebsite\`).
 * **Output:** \`results\` Array.
 
 ### C. Der "Hotel Scout" (Der Logistiker)
@@ -186,4 +187,4 @@ Anstatt allen Agenten blind alle Nutzerdaten einzuimpfen, verteilt der Injector 
 `
   }
 };
-// --- END OF FILE 189 Zeilen ---
+// --- END OF FILE 190 Zeilen ---

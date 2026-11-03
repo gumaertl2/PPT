@@ -1,3 +1,4 @@
+// [2026-11-02] [19:47] - FIX: Guarded data.liveStatus.lastChecked before rendering Stand date to avoid 01.01.1970 on null timestamps.
 // 20.03.2026 12:50 - UX: Removed line-clamp-2 from description to always show the full short description text on mobile devices.
 // 27.02.2026 19:15 - UX: Made Flex Day exception toggleable (can be removed) and fully mobile-friendly.
 // 27.02.2026 18:15 - FEAT: Added "Flex Day" Button to UI for overriding strict planner rules.
@@ -291,9 +292,11 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
                   <Info className="w-3 h-3 text-slate-400 shrink-0 mt-0.5" />
                   <span className="leading-snug">
                       {data.liveStatus.note && <><strong className="text-slate-600">{t('sights.live_note', { defaultValue: 'Live-Hinweis:' })}</strong> {highlightText(String(data.liveStatus.note))} </>}
-                      <span className="opacity-70">
-                          {data.liveStatus.note ? '(' : ''}{t('sights.live_stand', { defaultValue: 'Stand:' })} {new Date(data.liveStatus.lastChecked).toLocaleDateString(t('lang', { defaultValue: 'de-DE' }), { day: '2-digit', month: '2-digit', year: 'numeric' })}{data.liveStatus.note ? ')' : ''}
-                      </span>
+                      {data.liveStatus.lastChecked && (
+                          <span className="opacity-70">
+                              {data.liveStatus.note ? '(' : ''}{t('sights.live_stand', { defaultValue: 'Stand:' })} {new Date(data.liveStatus.lastChecked).toLocaleDateString(t('lang', { defaultValue: 'de-DE' }), { day: '2-digit', month: '2-digit', year: 'numeric' })}{data.liveStatus.note ? ')' : ''}
+                          </span>
+                      )}
                   </span>
               </div>
           )}
@@ -351,4 +354,4 @@ export const SightCardBody: React.FC<SightCardBodyProps> = ({
     </div>
   );
 };
-// --- END OF FILE 325 Zeilen ---
+// --- END OF FILE 357 Zeilen ---

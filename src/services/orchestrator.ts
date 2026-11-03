@@ -1,3 +1,4 @@
+// [2026-11-02] [18:40] - FIX: Compute totalItems for infoAutor/infos from prepareInfoAutorPayload(project).length so >5 info chapters enter executeInternalChunkLoop instead of slicing off after index 5.
 // [2026-10-26] [19:15] - FIX: Restored direct ResultMerger.merge return in executeInternalChunkLoop so merged results (e.g. ideenScout) reach analysis store.
 // [2026-10-25] [13:53] - FIX: Registered basisSchema/anreichererSchema in SCHEMA_MAP and filtered chefredakteur chunk counts.
 // 26.04.2026 13:50 - FIX: Added Exponential Backoff & Retry-Loop to '_executeSingleStep' to prevent 429 API Rate Limit crashes.
@@ -11,6 +12,7 @@
 import { z } from 'zod';
 import { GeminiService } from './gemini';
 import { PayloadBuilder } from '../core/prompts/PayloadBuilder';
+import { prepareInfoAutorPayload } from '../core/prompts/preparers/prepareInfoAutorPayload';
 import { useTripStore } from '../store/useTripStore';
 import { ResultProcessor } from './ResultProcessor'; 
 import { CONFIG } from '../data/config'; 
@@ -356,8 +358,9 @@ export const TripOrchestrator = {
         else if (task === 'chefPlaner') totalItems = project.userInputs.dates.fixedEvents?.length || 0;
         else if (task === 'basis') totalItems = project.userInputs.selectedInterests.length;
         else if (['infos', 'infoAutor'].includes(task)) {
+            const allInfoTasks = prepareInfoAutorPayload(project);
             const appendixInterests = project.userInputs.selectedInterests.filter(id => APPENDIX_ONLY_INTERESTS.includes(id));
-            totalItems = appendixInterests.length > 0 ? appendixInterests.length : 1;
+            totalItems = allInfoTasks.length > 0 ? allInfoTasks.length : (appendixInterests.length > 0 ? appendixInterests.length : 1);
         }
         else if (['hotelScout', 'ideenScout'].includes(task)) {
             const logistics = project.userInputs.logistics;
@@ -390,4 +393,4 @@ export const TripOrchestrator = {
     return this._executeSingleStep(task, feedback, false, inputData, false);
   }
 };
-// --- END OF FILE 393 Zeilen ---
+// --- END OF FILE 396 Zeilen ---

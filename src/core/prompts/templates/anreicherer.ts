@@ -1,3 +1,4 @@
+// [2026-11-02] [17:46] - FIX: Resolved Double-Bind on hiking websites in Protocol D (forbid guessed trail-portal deep-links; use Google trail search URL or null).
 // [2026-11-02] [17:08] - FIX: Removed all country-specific terms in Protocol C so category mapping is 100% universal across all destinations.
 // [2026-11-02] [16:59] - FIX: Sharpened Protocol C separation so walking/hiking trails always map to 'nature' while cycling/kayaking/snorkeling map to 'sports'.
 // [2026-11-02] [15:14] - FIX: Completed Protocol C Category Mapping with explicit rules for 'sports' and 'parks'.
@@ -69,7 +70,8 @@ Map the place to one of these SYSTEM IDs: [${validCategoriesString}]
 - **Duration:** Estimate realistic visit duration in minutes.
 - **Price:** Research ticket prices or if it's free. Format: "Free" or "Adults ~15€"
 - **Logistics:** Find practical tips (Parking near the spot, best time to visit, public transport stop).
-- **Hiking/Trails (ANTI-HALLUCINATION):** If the activity is a hike, trail, or nature walk, the 'website' field MUST contain a link to a reliable trail guide (e.g. Komoot, AllTrails, Outdooractive) and 'logistics' MUST specify the EXACT official trailhead or hiker's parking lot. Do not invent trailheads.
+- **Website (ANTI-404):** Only provide verified official root domains (e.g. "https://www.example-museum.org/"). NEVER guess deep subpage paths, article slugs, or numeric CMS IDs; if uncertain, set to null.
+- **Hiking/Trails (ANTI-HALLUCINATION):** If the activity is a hike, trail, or nature walk, 'logistics' MUST specify the EXACT official trailhead or hiker's parking lot (do not invent trailheads). NEVER invent direct deep-links or tour IDs on trail portals (Komoot, AllTrails, Outdooractive, Wikiloc), as guessed slugs cause 404 errors — instead set 'website' to a Google search URL ("https://www.google.com/search?q=" + URL-encoded official trail name + "+" + town + "+Komoot+AllTrails") or null.
 
 # BLACKLIST (FORBIDDEN TERMS)
 You are strictly FORBIDDEN from using the following terms as categories:
@@ -81,7 +83,7 @@ You are strictly FORBIDDEN from using the following terms as categories:
 
   // 4. Output Schema (Object-based for PromptBuilder optimization)
   const outputSchema = {
-    "_thought_process": "String (Verify ID match, find exact trailheads if hiking...)",
+    "_thought_process": "String (Verify ID match, find exact trailheads if hiking, never guess deep-link URLs...)",
     "results": [
       {
         "id": "String (MUST MATCH INPUT ID EXACTLY)",
@@ -105,4 +107,4 @@ You are strictly FORBIDDEN from using the following terms as categories:
 
   return builder.build();
 };
-// --- END OF FILE 108 Zeilen ---
+// --- END OF FILE 110 Zeilen ---

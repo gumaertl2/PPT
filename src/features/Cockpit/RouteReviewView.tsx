@@ -1,3 +1,4 @@
+// [2026-11-02] [18:56] - FIX: Avoid duplicating startLoc/endLoc in Google Maps route URL when stages already begin/end there.
 // [2026-11-02] [17:02] - FIX: Added optional chaining to selectedRoute.stages?.[idx] inside closure to resolve TS18048.
 // [2026-10-26] [19:15] - FIX: Preserved existing hotel assignments and user-customized durations in RouteReviewView.tsx while syncing selected route stages.
 // 20.04.2026 12:55 - FIX: Removed unused 'Layout' import to pass strict TS build.
@@ -201,6 +202,10 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
         project.userInputs.logistics.roundtrip.region || 
         "";
 
+  const endLoc = isStationary
+      ? startLoc
+      : project.userInputs.logistics.roundtrip.endLocation || startLoc;
+
   const countryContext = isStationary
       ? project.userInputs.logistics.stationary.region || project.userInputs.logistics.target_countries?.[0] || ""
       : project.userInputs.logistics.roundtrip.region || project.userInputs.logistics.target_countries?.[0] || "";
@@ -306,9 +311,15 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
               <td className="p-4 font-medium text-slate-600 bg-slate-50/50">{t('route.map', { defaultValue: 'Karte' })}</td>
               {proposals.map((r, i) => {
                 const stages = r.stages || [];
-                const mapLocs = startLoc 
-                    ? [startLoc, ...stages.map(c => c.location_name), startLoc] 
-                    : stages.map(c => c.location_name);
+                const norm = (s?: string) => (s || '').trim().toLowerCase();
+                const stageNames = stages.map(c => c.location_name).filter(Boolean);
+                const firstStage = stageNames[0] || '';
+                const lastStage = stageNames[stageNames.length - 1] || '';
+                const mapLocs = [
+                    ...(startLoc && norm(startLoc) !== norm(firstStage) ? [startLoc] : []),
+                    ...stageNames,
+                    ...(endLoc && norm(endLoc) !== norm(lastStage) ? [endLoc] : [])
+                ];
                 
                 const url = generateGoogleMapsRouteUrl(mapLocs, 'driving', countryContext);
 
@@ -418,4 +429,4 @@ export const RouteReviewView: React.FC<RouteReviewViewProps> = ({ onNext }) => {
     </div>
   );
 };
-// --- END OF FILE 421 Zeilen ---
+// --- END OF FILE 432 Zeilen ---

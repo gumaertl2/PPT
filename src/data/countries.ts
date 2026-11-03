@@ -1,9 +1,10 @@
+// [2026-11-02] [22:47] - FEAT: Added Mesa Marcada (Portugal), Michelin (Austria), cleaned UK guides, expanded searchTerms, added European countries & EN/DE country aliases.
 // src/data/countries.ts
 // UPDATED AUTOMATICALLY BY FOODSCOUT HARVESTER
 // 2026-02-23T18:17:51.701Z
 
 export const metadata = {
-    lastUpdated: "2026-02-23T18:17:51.701Z"
+    lastUpdated: "2026-11-02T22:47:00.000Z"
 };
 
 export interface GuideDef {
@@ -148,11 +149,25 @@ export const countryGuideConfig: Record<string, GuideDef[]> = {
             ]
         },
         {
+            "name": "Michelin",
+            "searchUrl": "https://guide.michelin.com/at/de/restaurants",
+            "googleQueries": [
+                "site:guide.michelin.com/at/de [CITY] Restaurant",
+                "Michelin Guide Österreich [CITY]"
+            ],
+            "searchTerms": [
+                "Bib Gourmand",
+                "Auswahl",
+                "Stern",
+                "Grüner Stern"
+            ]
+        },
+        {
             "name": "Slow Food",
             "searchUrl": "https://www.slowfood.com",
             "googleQueries": [
                 "Slow Food Österreich [CITY]",
-                "Slow Food Travel Kärnten [CITY]"
+                "Slow Food Travel Österreich [CITY]"
             ],
             "searchTerms": [
                 "Slow Food",
@@ -341,8 +356,9 @@ export const countryGuideConfig: Record<string, GuideDef[]> = {
                 "site:guide.michelin.com/it/it [CITY]"
             ],
             "searchTerms": [
-                "Stella",
-                "Bib Gourmand"
+                "Bib Gourmand",
+                "Selezionato",
+                "Stella"
             ]
         },
         {
@@ -366,8 +382,9 @@ export const countryGuideConfig: Record<string, GuideDef[]> = {
                 "site:guide.michelin.com/fr/fr [CITY]"
             ],
             "searchTerms": [
-                "Etoile",
-                "Bib Gourmand"
+                "Bib Gourmand",
+                "Sélection",
+                "Etoile"
             ]
         },
         {
@@ -414,8 +431,10 @@ export const countryGuideConfig: Record<string, GuideDef[]> = {
                 "Guía Repsol [CITY] Soles"
             ],
             "searchTerms": [
+                "Solete",
                 "Sol",
-                "Soles"
+                "Soles",
+                "Recomendado"
             ]
         },
         {
@@ -425,8 +444,9 @@ export const countryGuideConfig: Record<string, GuideDef[]> = {
                 "site:guide.michelin.com/es/es [CITY]"
             ],
             "searchTerms": [
-                "Estrella",
-                "Bib Gourmand"
+                "Bib Gourmand",
+                "Recomendado",
+                "Estrella"
             ]
         },
         {
@@ -446,22 +466,43 @@ export const countryGuideConfig: Record<string, GuideDef[]> = {
             "name": "Boa Cama Boa Mesa",
             "searchUrl": "https://boacamaboamesa.expresso.pt/",
             "googleQueries": [
-                "site:boacamaboamesa.expresso.pt [CITY]"
+                "site:boacamaboamesa.expresso.pt [CITY]",
+                "Boa Cama Boa Mesa [CITY] Restaurante"
             ],
             "searchTerms": [
-                "Chave",
-                "Garfo"
+                "Boa Mesa",
+                "Garfo",
+                "Garfo de Ouro",
+                "Garfo de Prata",
+                "Chave"
             ]
         },
         {
             "name": "Michelin",
             "searchUrl": "https://guide.michelin.com/pt/pt/restaurantes",
             "googleQueries": [
-                "site:guide.michelin.com/pt/pt [CITY]"
+                "site:guide.michelin.com/pt/pt [CITY]",
+                "Guia Michelin Portugal [CITY]"
             ],
             "searchTerms": [
-                "Estrela",
-                "Bib Gourmand"
+                "Bib Gourmand",
+                "Recomendado",
+                "Selecionado",
+                "Estrela"
+            ]
+        },
+        {
+            "name": "Mesa Marcada",
+            "searchUrl": "https://mesamarcada.blogs.sapo.pt/",
+            "googleQueries": [
+                "site:mesamarcada.blogs.sapo.pt [CITY]",
+                "Prémios Mesa Marcada [CITY] Restaurante"
+            ],
+            "searchTerms": [
+                "Prémios Mesa Marcada",
+                "Preferidos",
+                "Tasca",
+                "Destaque"
             ]
         }
     ],
@@ -895,72 +936,327 @@ export const countryGuideConfig: Record<string, GuideDef[]> = {
     ],
     "Vereinigtes Königreich": [
         {
-            "name": "1 Michelin-Stern",
-            "searchUrl": "https://www.google.com/search?q=1%20Michelin-Stern%20restaurant%20Vereinigtes%20K%C3%B6nigreich",
-            "searchTerms": []
+            "name": "Michelin",
+            "searchUrl": "https://guide.michelin.com/gb/en/restaurants",
+            "googleQueries": [
+                "site:guide.michelin.com/gb/en [CITY]"
+            ],
+            "searchTerms": [
+                "Bib Gourmand",
+                "Selected",
+                "Star"
+            ]
         },
         {
-            "name": "4 AA Rosettes",
-            "searchUrl": "https://www.google.com/search?q=4%20AA%20Rosettes%20restaurant%20Vereinigtes%20K%C3%B6nigreich",
-            "searchTerms": []
+            "name": "AA Guide (Rosettes)",
+            "searchUrl": "https://www.ratedtrips.com/aa-rosette-restaurants",
+            "googleQueries": [
+                "site:ratedtrips.com [CITY] AA Rosette",
+                "AA Rosette Restaurant [CITY]"
+            ],
+            "searchTerms": [
+                "AA Rosette",
+                "Rosettes"
+            ]
         },
         {
-            "name": "5 AA Rosettes",
-            "searchUrl": "https://www.google.com/search?q=5%20AA%20Rosettes%20restaurant%20Vereinigtes%20K%C3%B6nigreich",
-            "searchTerms": []
+            "name": "The Good Food Guide",
+            "searchUrl": "https://www.thegoodfoodguide.co.uk/",
+            "googleQueries": [
+                "site:thegoodfoodguide.co.uk [CITY]",
+                "The Good Food Guide [CITY] Restaurant"
+            ],
+            "searchTerms": [
+                "Good Food Guide",
+                "Local Gem"
+            ]
         },
         {
-            "name": "Scotland's Best Restaurant (World Culinary Awards 2022)",
-            "searchUrl": "https://www.google.com/search?q=Scotland's%20Best%20Restaurant%20(World%20Culinary%20Awards%202022)%20restaurant%20Vereinigtes%20K%C3%B6nigreich",
-            "searchTerms": []
+            "name": "Harden's",
+            "searchUrl": "https://www.hardens.com/",
+            "googleQueries": [
+                "site:hardens.com [CITY]",
+                "Harden's Guide [CITY] Restaurant"
+            ],
+            "searchTerms": [
+                "Harden's",
+                "Top"
+            ]
+        }
+    ],
+    "Niederlande": [
+        {
+            "name": "Michelin",
+            "searchUrl": "https://guide.michelin.com/nl/nl/restaurants",
+            "googleQueries": [
+                "site:guide.michelin.com/nl/nl [CITY]"
+            ],
+            "searchTerms": [
+                "Bib Gourmand",
+                "Geselecteerd",
+                "Ster"
+            ]
         },
         {
-            "name": "3 AA Rosettes",
-            "searchUrl": "https://www.google.com/search?q=3%20AA%20Rosettes%20restaurant%20Vereinigtes%20K%C3%B6nigreich",
-            "searchTerms": []
+            "name": "Gault&Millau",
+            "searchUrl": "https://www.gault-millau.nl/",
+            "googleQueries": [
+                "site:gault-millau.nl [CITY]",
+                "Gault&Millau Nederland [CITY]"
+            ],
+            "searchTerms": [
+                "Koksmutsen",
+                "Punten"
+            ]
         },
         {
-            "name": "AA Restaurant of the Year (Scotland)",
-            "searchUrl": "https://www.google.com/search?q=AA%20Restaurant%20of%20the%20Year%20(Scotland)%20restaurant%20Vereinigtes%20K%C3%B6nigreich",
-            "searchTerms": []
+            "name": "Lekker500",
+            "searchUrl": "https://lekker.nl/",
+            "googleQueries": [
+                "site:lekker.nl [CITY]",
+                "Lekker500 [CITY] Restaurant"
+            ],
+            "searchTerms": [
+                "Lekker500",
+                "Top 500"
+            ]
+        }
+    ],
+    "Belgien": [
+        {
+            "name": "Michelin",
+            "searchUrl": "https://guide.michelin.com/be/nl/restaurants",
+            "googleQueries": [
+                "site:guide.michelin.com/be [CITY]"
+            ],
+            "searchTerms": [
+                "Bib Gourmand",
+                "Selected",
+                "Star",
+                "Ster"
+            ]
         },
         {
-            "name": "Michelin-Empfehlung",
-            "searchUrl": "https://www.google.com/search?q=Michelin-Empfehlung%20restaurant%20Vereinigtes%20K%C3%B6nigreich",
-            "searchTerms": []
+            "name": "Gault&Millau",
+            "searchUrl": "https://www.gaultmillau.be/",
+            "googleQueries": [
+                "site:gaultmillau.be [CITY]",
+                "Gault&Millau Belgium [CITY]"
+            ],
+            "searchTerms": [
+                "Toques",
+                "Koksmutsen",
+                "Points"
+            ]
+        }
+    ],
+    "Slowenien": [
+        {
+            "name": "Michelin",
+            "searchUrl": "https://guide.michelin.com/si/en/restaurants",
+            "googleQueries": [
+                "site:guide.michelin.com/si/en [CITY]"
+            ],
+            "searchTerms": [
+                "Bib Gourmand",
+                "Selected",
+                "Star",
+                "Green Star"
+            ]
         },
         {
-            "name": "Best Fine Dining Restaurant (Edinburgh Restaurant Awards)",
-            "searchUrl": "https://www.google.com/search?q=Best%20Fine%20Dining%20Restaurant%20(Edinburgh%20Restaurant%20Awards)%20restaurant%20Vereinigtes%20K%C3%B6nigreich",
-            "searchTerms": []
+            "name": "Gault&Millau",
+            "searchUrl": "https://si.gaultmillau.com/",
+            "googleQueries": [
+                "site:si.gaultmillau.com [CITY]",
+                "Gault&Millau Slovenija [CITY]"
+            ],
+            "searchTerms": [
+                "Kape",
+                "Toques",
+                "POP"
+            ]
         },
         {
-            "name": "National Restaurant Awards Top 100",
-            "searchUrl": "https://www.google.com/search?q=National%20Restaurant%20Awards%20Top%20100%20restaurant%20Vereinigtes%20K%C3%B6nigreich",
-            "searchTerms": []
+            "name": "Falstaff",
+            "searchUrl": "https://www.falstaff.com/at/restaurants",
+            "googleQueries": [
+                "Falstaff Slowenien [CITY] Restaurant"
+            ],
+            "searchTerms": [
+                "Gabel",
+                "Punkte"
+            ]
+        }
+    ],
+    "Irland": [
+        {
+            "name": "Michelin",
+            "searchUrl": "https://guide.michelin.com/ie/en/restaurants",
+            "googleQueries": [
+                "site:guide.michelin.com/ie/en [CITY]"
+            ],
+            "searchTerms": [
+                "Bib Gourmand",
+                "Selected",
+                "Star"
+            ]
         },
         {
-            "name": "Restaurant of the Year (Edinburgh Restaurant Awards 2022)",
-            "searchUrl": "https://www.google.com/search?q=Restaurant%20of%20the%20Year%20(Edinburgh%20Restaurant%20Awards%202022)%20restaurant%20Vereinigtes%20K%C3%B6nigreich",
-            "searchTerms": []
+            "name": "Georgina Campbell's Ireland Guide",
+            "searchUrl": "https://www.ireland-guide.com/",
+            "googleQueries": [
+                "site:ireland-guide.com [CITY]",
+                "Georgina Campbell Guide [CITY]"
+            ],
+            "searchTerms": [
+                "Georgina Campbell",
+                "Recommended"
+            ]
         },
         {
-            "name": "Michelin Guide",
-            "searchUrl": "https://www.google.com/search?q=Michelin%20Guide%20restaurant%20Vereinigtes%20K%C3%B6nigreich",
-            "searchTerms": []
+            "name": "McKenna's Guides",
+            "searchUrl": "https://www.guides.ie/",
+            "googleQueries": [
+                "McKenna's Guides [CITY] Restaurant",
+                "John and Sally McKenna Plaque [CITY]"
+            ],
+            "searchTerms": [
+                "McKenna's",
+                "Best in Ireland"
+            ]
+        }
+    ],
+    "Dänemark": [
+        {
+            "name": "Michelin",
+            "searchUrl": "https://guide.michelin.com/dk/en/restaurants",
+            "googleQueries": [
+                "site:guide.michelin.com/dk/en [CITY]"
+            ],
+            "searchTerms": [
+                "Bib Gourmand",
+                "Selected",
+                "Star"
+            ]
         },
         {
-            "name": "AA Rosette for Food",
-            "searchUrl": "https://www.google.com/search?q=AA%20Rosette%20for%20Food%20restaurant%20Vereinigtes%20K%C3%B6nigreich",
-            "searchTerms": []
+            "name": "White Guide",
+            "searchUrl": "https://whiteguide.com/",
+            "googleQueries": [
+                "site:whiteguide.com [CITY]",
+                "White Guide Denmark [CITY]"
+            ],
+            "searchTerms": [
+                "White Guide",
+                "Master Class",
+                "Very Fine Level"
+            ]
+        }
+    ],
+    "Schweden": [
+        {
+            "name": "White Guide",
+            "searchUrl": "https://whiteguide.com/",
+            "googleQueries": [
+                "site:whiteguide.com [CITY]",
+                "White Guide Sverige [CITY]"
+            ],
+            "searchTerms": [
+                "White Guide",
+                "Mästarklass",
+                "God Klass"
+            ]
+        },
+        {
+            "name": "Michelin",
+            "searchUrl": "https://guide.michelin.com/se/en/restaurants",
+            "googleQueries": [
+                "site:guide.michelin.com/se/en [CITY]"
+            ],
+            "searchTerms": [
+                "Bib Gourmand",
+                "Selected",
+                "Star"
+            ]
+        }
+    ],
+    "Norwegen": [
+        {
+            "name": "Michelin",
+            "searchUrl": "https://guide.michelin.com/no/en/restaurants",
+            "googleQueries": [
+                "site:guide.michelin.com/no/en [CITY]"
+            ],
+            "searchTerms": [
+                "Bib Gourmand",
+                "Selected",
+                "Star"
+            ]
+        },
+        {
+            "name": "White Guide",
+            "searchUrl": "https://whiteguide.com/",
+            "googleQueries": [
+                "site:whiteguide.com [CITY]",
+                "White Guide Nordic [CITY]"
+            ],
+            "searchTerms": [
+                "White Guide",
+                "Recommended"
+            ]
         }
     ]
 };
 
+const COUNTRY_ALIASES: Record<string, string> = {
+    "germany": "Deutschland",
+    "austria": "Österreich",
+    "switzerland": "Schweiz",
+    "poland": "Polen",
+    "czech republic": "Tschechien",
+    "czechia": "Tschechien",
+    "hungary": "Ungarn",
+    "italy": "Italien",
+    "france": "Frankreich",
+    "spain": "Spanien",
+    "greece": "Griechenland",
+    "croatia": "Kroatien",
+    "slovenia": "Slowenien",
+    "netherlands": "Niederlande",
+    "holland": "Niederlande",
+    "belgium": "Belgien",
+    "ireland": "Irland",
+    "denmark": "Dänemark",
+    "sweden": "Schweden",
+    "norway": "Norwegen",
+    "uk": "Vereinigtes Königreich",
+    "united kingdom": "Vereinigtes Königreich",
+    "great britain": "Vereinigtes Königreich",
+    "großbritannien": "Vereinigtes Königreich",
+    "england": "Vereinigtes Königreich",
+    "schottland": "Vereinigtes Königreich",
+    "scotland": "Vereinigtes Königreich",
+    "wales": "Vereinigtes Königreich",
+    "nordirland": "Vereinigtes Königreich",
+    "northern ireland": "Vereinigtes Königreich",
+    "singapore": "Singapur",
+    "united states": "USA",
+    "united states of america": "USA",
+    "canada": "Kanada",
+    "australia": "Australien",
+    "new zealand": "Neuseeland",
+    "south africa": "Südafrika"
+};
+
 export function getGuidesForCountry(countryName: string | undefined): GuideDef[] {
     if (!countryName) return [];
-    if (countryGuideConfig[countryName]) return countryGuideConfig[countryName];
-    const normalized = countryName.toLowerCase();
+    const trimmed = countryName.trim();
+    if (countryGuideConfig[trimmed]) return countryGuideConfig[trimmed];
+    const normalized = trimmed.toLowerCase();
+    if (COUNTRY_ALIASES[normalized] && countryGuideConfig[COUNTRY_ALIASES[normalized]]) {
+        return countryGuideConfig[COUNTRY_ALIASES[normalized]];
+    }
     const foundKey = Object.keys(countryGuideConfig).find(k => 
         k.toLowerCase() === normalized || 
         normalized.includes(k.toLowerCase()) || 
@@ -969,3 +1265,4 @@ export function getGuidesForCountry(countryName: string | undefined): GuideDef[]
     if (foundKey) return countryGuideConfig[foundKey];
     return [];
 }
+// --- END OF FILE 1268 Zeilen ---

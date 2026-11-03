@@ -1,3 +1,4 @@
+// [2026-11-02] [22:52] - FIX: Prevented cleanItem.id from overwriting resolved place ID and refreshed existingPlaces per item.
 // 07.04.2026 09:30 - FIX: Bound handleGuideHarvesting to new Developer Mode 'enableCountryHarvester' toggle.
 // 16.02.2026 21:00 - FIX: TYPE ASSIGNMENT (Vercel Build Error).
 // 09.02.2026 14:15 - FIX: Integrated 'Rejected' Filter into User's Custom FoodProcessor.
@@ -57,9 +58,10 @@ export const FoodProcessor = {
                     if (step === 'foodEnricher' && !isEnrichedItem(item)) return; 
 
                     // Smart Match
-                    const resolvedId = resolvePlaceId({ ...item, name }, existingPlaces, false, systemCategory);
+                    const latestPlaces = useTripStore.getState().project.data?.places || existingPlaces;
+                    const resolvedId = resolvePlaceId({ ...item, name }, latestPlaces, false, systemCategory);
                     const id = resolvedId || item.id || uuidv4(); 
-                    const existingPlace = existingPlaces[id];
+                    const existingPlace = latestPlaces[id];
 
                     // SSOT Protection
                     const incomingIsEnriched = isEnrichedItem(item);
@@ -73,9 +75,10 @@ export const FoodProcessor = {
                     const cleanGuideLink = sanitizeUrl(item.guide_link, item);
                     const cleanSourceUrl = sanitizeUrl(item.source_url || item.website, item);
 
-                    const { category: _aiCategory, source_url: _unused, guide_link: _unused2, ...cleanItem } = item;
+                    const { id: _incomingId, category: _aiCategory, source_url: _unused, guide_link: _unused2, ...cleanItem } = item;
 
                     updatePlace(id, {
+                        ...cleanItem,
                         id,
                         name: finalName,
                         category: systemCategory, 
@@ -93,8 +96,7 @@ export const FoodProcessor = {
                         user_ratings_total: item.user_ratings_total,
                         guide_link: cleanGuideLink, // Store the AI proof
                         
-                        source_url: cleanSourceUrl,
-                        ...cleanItem 
+                        source_url: cleanSourceUrl
                     });
                     savedCount++;
 
@@ -184,4 +186,4 @@ function handleGuideHarvesting(items: any[], project: any) {
         }
     }
 }
-// --- END OF FILE 181 Zeilen ---
+// --- END OF FILE 189 Zeilen ---

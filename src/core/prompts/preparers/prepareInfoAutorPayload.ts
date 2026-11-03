@@ -1,3 +1,4 @@
+// [2026-11-02] [18:43] - FIX: Read origin from userInputs.travelers.origin instead of roundtrip.startLocation so first stop (e.g. Porto) is not filtered out as home city; clean district city names and deduplicate hubs case-insensitively.
 // [2026-10-26] [18:22] - FIX: Guarded roundtrip.stops check against unconfirmed duration=0 placeholders when routeArchitect routes exist.
 // [2026-10-25] [14:56] - FIX: Prioritized confirmed roundtrip.stops over routeArchitect.routes[0] while preserving stationary city mode.
 // 03.06.2026 10:20 - ARCHITECTURE FIX: Implemented Strict Override Pattern. Custom instructions now correctly reach the info module generation.
@@ -47,8 +48,8 @@ export const prepareInfoAutorPayload = (project: TripProject): any[] => {
     
     // 1. GATHER LOGISTICS (Safe Access)
     const log = userInputs.logistics as any;
-    const origin = log.origin || 
-                   userInputs.logistics.roundtrip.startLocation || 
+    const origin = userInputs.travelers?.origin || 
+                   log.origin || 
                    (userInputs.logistics.stationary as any)?.origin || 
                    "Unknown";
 
@@ -74,16 +75,25 @@ export const prepareInfoAutorPayload = (project: TripProject): any[] => {
     const places = Object.values(data?.places || {});
     places.forEach((p: any) => {
         if (p.category === 'districts' || p.category === 'city_info') {
-            // Extract the clean city name (removes things like "(Altstadt)")
-            const cityNameMatch = p.name ? p.name.split('(')[0].trim() : '';
+            // Extract the clean city name (prefers explicit p.city or city suffix after comma, removes "(Altstadt)")
+            const rawName = p.city || (p.name && p.name.includes(',') ? p.name.split(',').pop() : p.name) || '';
+            const cityNameMatch = rawName ? rawName.split('(')[0].trim() : '';
             if (cityNameMatch) {
                 hubs.push(cityNameMatch);
             }
         }
     });
 
-    // Remove duplicates and filter empty strings
-    hubs = Array.from(new Set(hubs)).filter(h => h && h.length > 2);
+    // Remove duplicates (case-insensitive) and filter empty strings
+    const seenHubs = new Set<string>();
+    hubs = hubs.filter(h => {
+        const clean = h ? h.trim() : '';
+        if (clean.length <= 2) return false;
+        const key = clean.toLowerCase();
+        if (seenHubs.has(key)) return false;
+        seenHubs.add(key);
+        return true;
+    });
 
     // 2. GENERATE TASKS
     const tasks: any[] = [];
@@ -159,4 +169,4 @@ export const prepareInfoAutorPayload = (project: TripProject): any[] => {
 
     return tasks;
 };
-// --- END OF FILE 162 Zeilen ---
+// --- END OF FILE 172 Zeilen ---

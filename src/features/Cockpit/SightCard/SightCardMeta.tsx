@@ -1,3 +1,5 @@
+// [2026-11-03] [11:10] - FIX: Cleaned Booking.com search query (hotel name + city/country without street numbers/ZIPs), added ISO date parameters, and displayed check-in/out dates in hotel stop badges.
+// [2026-11-02] [19:47] - FIX: Guarded data.location?.lat && data.location?.lng in nearest roundtrip stop hotel distance calculation to prevent TypeError crash on ungeocoded places.
 // 05.04.2026 20:15 - FIX: Removed global region/country append from getGoogleSearchQuery to fix search bugs for cross-border trips.
 // 04.04.2026 22:00 - UX/FIX: Refactored target stop matching logic to bi-directional includes() for flawless label detection, matching the main store perfectly.
 // src/features/Cockpit/SightCard/SightCardMeta.tsx
@@ -138,64 +140,93 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
           }
       }
 
-      // --- BADGE RENDER ---
-      if (assignedStopIndex !== -1 && assignedStopName) {
-          if (isActuallySelected) {
-              assignedBadge = (
-                  <div className="inline-flex w-fit items-center gap-1.5 px-2.5 py-1 mb-2 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-sm">
-                      ✅ {t('sights.hotel_selected_stop', { assignedStopIndex, assignedStopName, defaultValue: `Ausgewählt für Station ${assignedStopIndex} (${assignedStopName})` })}
-                  </div>
-              );
-          } else {
-              assignedBadge = (
-                  <div className="inline-flex w-fit items-center gap-1.5 px-2.5 py-1 mb-2 rounded-md text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200 shadow-sm">
-                      <Target className="w-3.5 h-3.5" /> {t('sights.hotel_option_stop', { assignedStopIndex, assignedStopName, defaultValue: `Option für Station ${assignedStopIndex} (${assignedStopName})` })}
-                  </div>
-              );
-          }
-      } else if (logistics.mode === 'stationaer') {
-         if (logistics.stationary?.hotel === data.id) {
-              assignedBadge = <div className="inline-flex w-fit items-center gap-1.5 px-2.5 py-1 mb-2 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-sm">✅ {t('sights.hotel_assigned_stationary', { defaultValue: `Ausgewählte Unterkunft` })}</div>;
-         } else {
-              assignedBadge = <div className="inline-flex w-fit items-center gap-1.5 px-2.5 py-1 mb-2 rounded-md text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200 shadow-sm"><Target className="w-3.5 h-3.5" /> {t('sights.hotel_option_stationary', { defaultValue: `Option für den Aufenthalt` })}</div>;
-         }
-      } else if (data.city) {
-          assignedBadge = <div className="inline-flex w-fit items-center gap-1.5 px-2.5 py-1 mb-2 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 shadow-sm">📍 {t('sights.hotel_location', { defaultValue: 'Standort:' })} {data.city}</div>;
-      }
-
       // --- BOOKING.COM URL WITH DATES ---
       let checkinDate: Date | null = null;
       let checkoutDate: Date | null = null;
 
       if (logistics.mode === 'mobil' && logistics.roundtrip?.stops) {
           let dayOffset = 0;
-          const startDate = project.userInputs.dates?.start ? new Date(project.userInputs.dates.start) : null;
+          const startParts = project.userInputs.dates?.start ? project.userInputs.dates.start.split('-').map(Number) : [];
+          const hasValidStart = startParts.length === 3 && !startParts.some(isNaN);
 
           logistics.roundtrip.stops.forEach((stop: any, idx: number) => {
-              if ((idx + 1) === assignedStopIndex && startDate) {
-                  checkinDate = new Date(startDate);
-                  checkinDate.setDate(checkinDate.getDate() + dayOffset);
-                  checkoutDate = new Date(checkinDate);
-                  checkoutDate.setDate(checkoutDate.getDate() + (stop.duration || 1));
+              if ((idx + 1) === assignedStopIndex && hasValidStart) {
+                  checkinDate = new Date(startParts[0], startParts[1] - 1, startParts[2] + dayOffset);
+                  checkoutDate = new Date(startParts[0], startParts[1] - 1, startParts[2] + dayOffset + (Number(stop.duration) || 1));
               }
-              dayOffset += (stop.duration || 1);
+              dayOffset += (Number(stop.duration) || 1);
           });
       } else if (logistics.mode === 'stationaer') {
           if (project.userInputs.dates?.start && project.userInputs.dates?.end) {
-              checkinDate = new Date(project.userInputs.dates.start);
-              checkoutDate = new Date(project.userInputs.dates.end);
+              const sParts = project.userInputs.dates.start.split('-').map(Number);
+              const eParts = project.userInputs.dates.end.split('-').map(Number);
+              if (sParts.length === 3 && !sParts.some(isNaN) && eParts.length === 3 && !eParts.some(isNaN)) {
+                  checkinDate = new Date(sParts[0], sParts[1] - 1, sParts[2]);
+                  checkoutDate = new Date(eParts[0], eParts[1] - 1, eParts[2]);
+              }
           }
       }
 
-      // Updated Booking.com search logic to match the new Google Search logic
-      const bLocationInfo = data.address ? data.address : (data.city || '');
-      const bQuery = encodeURIComponent((data.official_name || data.name || '') + ' ' + bLocationInfo);
-      let bUrl = `https://www.booking.com/searchresults.html?ss=${bQuery}`;
-      if (checkinDate && checkoutDate) {
-          bUrl += `&checkin_year=${checkinDate.getFullYear()}&checkin_month=${checkinDate.getMonth()+1}&checkin_monthday=${checkinDate.getDate()}`;
-          bUrl += `&checkout_year=${checkoutDate.getFullYear()}&checkout_month=${checkoutDate.getMonth()+1}&checkout_monthday=${checkoutDate.getDate()}`;
+      const dateRangeBadgeStr = (checkinDate && checkoutDate)
+          ? `${(checkinDate as Date).getDate()}.${(checkinDate as Date).getMonth() + 1}.–${(checkoutDate as Date).getDate()}.${(checkoutDate as Date).getMonth() + 1}.`
+          : '';
+      const stopLabelWithDates = dateRangeBadgeStr ? `${dateRangeBadgeStr} ${assignedStopName}` : assignedStopName;
+
+      // --- BADGE RENDER ---
+      if (assignedStopIndex !== -1 && assignedStopName) {
+          if (isActuallySelected) {
+              assignedBadge = (
+                  <div className="inline-flex w-fit items-center gap-1.5 px-2.5 py-1 mb-2 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-sm">
+                      ✅ {t('sights.hotel_selected_stop', { assignedStopIndex, assignedStopName: stopLabelWithDates, defaultValue: `Ausgewählt für Station ${assignedStopIndex} (${stopLabelWithDates})` })}
+                  </div>
+              );
+          } else {
+              assignedBadge = (
+                  <div className="inline-flex w-fit items-center gap-1.5 px-2.5 py-1 mb-2 rounded-md text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200 shadow-sm">
+                      <Target className="w-3.5 h-3.5" /> {t('sights.hotel_option_stop', { assignedStopIndex, assignedStopName: stopLabelWithDates, defaultValue: `Option für Station ${assignedStopIndex} (${stopLabelWithDates})` })}
+                  </div>
+              );
+          }
+      } else if (logistics.mode === 'stationaer') {
+         if (logistics.stationary?.hotel === data.id) {
+              assignedBadge = <div className="inline-flex w-fit items-center gap-1.5 px-2.5 py-1 mb-2 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-sm">✅ {t('sights.hotel_assigned_stationary', { defaultValue: `Ausgewählte Unterkunft` })}{dateRangeBadgeStr ? ` (${dateRangeBadgeStr})` : ''}</div>;
+         } else {
+              assignedBadge = <div className="inline-flex w-fit items-center gap-1.5 px-2.5 py-1 mb-2 rounded-md text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200 shadow-sm"><Target className="w-3.5 h-3.5" /> {t('sights.hotel_option_stationary', { defaultValue: `Option für den Aufenthalt` })}{dateRangeBadgeStr ? ` (${dateRangeBadgeStr})` : ''}</div>;
+         }
+      } else if (data.city) {
+          assignedBadge = <div className="inline-flex w-fit items-center gap-1.5 px-2.5 py-1 mb-2 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 shadow-sm">📍 {t('sights.hotel_location', { defaultValue: 'Standort:' })} {data.city}</div>;
       }
-      bookingSearchUrl = bUrl;
+
+      // Extract clean city + country for Booking.com (street numbers & ZIP codes break Booking.com's ss= search)
+      const extractBookingLocation = (): string => {
+          if (assignedStopName) {
+              const addrParts = String(data.address || '').split(',').map(s => s.trim()).filter(Boolean);
+              const countryPart = addrParts.length > 1 ? addrParts[addrParts.length - 1].replace(/\b\d[\d\s-]*\b/g, '').trim() : '';
+              return [assignedStopName, countryPart].filter(Boolean).join(' ');
+          }
+          if (data.city) return String(data.city).trim();
+          if (data.address) {
+              const parts = String(data.address).split(',').map(s => s.trim()).filter(Boolean);
+              const tail = parts.slice(-2).map(p => p.replace(/\b\d[\d\s-]*\b/g, '').trim()).filter(Boolean);
+              return tail.join(' ');
+          }
+          return '';
+      };
+
+      const formatIsoDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const adultsCount = Number(project.userInputs.travelers?.adults) || 2;
+      const dateQueryParams = (checkinDate && checkoutDate)
+          ? `&checkin=${formatIsoDate(checkinDate as Date)}&checkout=${formatIsoDate(checkoutDate as Date)}&group_adults=${adultsCount}&no_rooms=1`
+          : '';
+
+      if (bookingUrl && bookingUrl.includes('booking.com/hotel/')) {
+          const baseDirectUrl = bookingUrl.split('?')[0];
+          bookingSearchUrl = dateQueryParams ? `${baseDirectUrl}?${dateQueryParams.slice(1)}` : baseDirectUrl;
+      } else {
+          const bLocationClean = extractBookingLocation();
+          const bQuery = encodeURIComponent(`${data.official_name || data.name || ''} ${bLocationClean}`.replace(/\s+/g, ' ').trim());
+          bookingSearchUrl = `https://www.booking.com/searchresults.html?ss=${bQuery}${dateQueryParams}`;
+      }
 
   } else {
       let targetHotelLoc: {lat: number, lng: number} | null = null;
@@ -224,11 +255,11 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
                   dayCounter += nights;
               }
           }
-          if (!targetHotelLoc && logistics.roundtrip.stops && logistics.roundtrip.stops.length > 0) {
+          if (!targetHotelLoc && data.location?.lat && data.location?.lng && logistics.roundtrip.stops && logistics.roundtrip.stops.length > 0) {
               let minDist = Infinity;
               logistics.roundtrip.stops.forEach((s: any) => {
                   const loc = resolveHotelLocation(s.hotel);
-                  if (loc) {
+                  if (loc && data.location?.lat && data.location?.lng) {
                       const dist = calculateDistance(data.location.lat, data.location.lng, loc.lat, loc.lng);
                       if (dist < minDist) {
                           minDist = dist;
@@ -360,4 +391,4 @@ export const SightCardMeta: React.FC<SightCardMetaProps> = ({
     </>
   );
 };
-// --- END OF FILE 292 Zeilen ---
+// --- END OF FILE 394 Zeilen ---

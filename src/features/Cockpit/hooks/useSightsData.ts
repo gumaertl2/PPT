@@ -1,3 +1,4 @@
+// [2026-11-03] [11:37] - FEAT: Automatically assign restaurants and unassigned places to the geographically closest Tour in tourOptions so culinary options appear directly inside each Tour.
 // 10.04.2026 19:40 - FIX: Resolved case-sensitivity bug causing white screens when AI provides capitalized categories (e.g., "Restaurant" vs "restaurant").
 // 05.04.2026 19:00 - ARCHITECTURE: Extracted massive data processing logic from SightsView into a clean custom hook.
 // src/features/Cockpit/hooks/useSightsData.ts
@@ -151,9 +152,75 @@ export const useSightsData = (places: Place[], overrideSortMode?: any) => {
   const tourOptions = useMemo(() => {
       const tourGuide = (analysis as any)?.tourGuide;
       const tours = (tourGuide?.guide?.tours || []) as any[];
-      
-      const mappedTours = tours.map((tour: any) => {
-          const count = (tour.suggested_order_ids || []).filter((id: string) => {
+      const explicitlyAssigned = new Set<string>();
+
+      const rawMappedTours = tours.map((tour: any) => {
+          const baseIds: string[] = Array.isArray(tour.suggested_order_ids) ? [...tour.suggested_order_ids] : [];
+          baseIds.forEach(id => explicitlyAssigned.add(id));
+          return {
+              id: tour.tour_title || "Tour",
+              label: tour.tour_title || "Tour",
+              placeIds: baseIds
+          };
+      });
+
+      // Automatically attach unassigned places (especially Restaurants from FoodWorkflow) to the geographically matching Tour
+      if (rawMappedTours.length > 0) {
+          places.forEach((p: any) => {
+              if (!p?.id || explicitlyAssigned.has(p.id)) return;
+              const cat = (p.userSelection?.customCategory || p.category || '').toLowerCase();
+              if (cat === 'hotel' || cat === 'accommodation' || cat === 'special' || cat === 'custom_diary') return;
+
+              let bestTourIdx = -1;
+              let minDist = Infinity;
+
+              // 1. Primary: Minimum Haversine distance to any sight already in the tour
+              if (p.location?.lat && p.location?.lng) {
+                  rawMappedTours.forEach((tObj, idx) => {
+                      tObj.placeIds.forEach((tid: string) => {
+                          const tp = places.find(pl => pl.id === tid);
+                          if (tp?.location?.lat && tp?.location?.lng) {
+                              const d = calculateDistance(p.location.lat, p.location.lng, tp.location.lat, tp.location.lng);
+                              if (d < minDist) {
+                                  minDist = d;
+                                  bestTourIdx = idx;
+                              }
+                          }
+                      });
+                  });
+              }
+
+              // 2. Fallback: Match city/address against tour title or tour sights
+              if (bestTourIdx === -1) {
+                  const pCity = String(p.city || '').trim().toLowerCase();
+                  const pAddr = String(p.address || '').trim().toLowerCase();
+                  rawMappedTours.forEach((tObj, idx) => {
+                      if (bestTourIdx !== -1) return;
+                      const titleLower = String(tObj.label || '').toLowerCase();
+                      if (pCity && pCity.length > 2 && titleLower.includes(pCity)) {
+                          bestTourIdx = idx;
+                          return;
+                      }
+                      const matchesMemberCity = tObj.placeIds.some((tid: string) => {
+                          const tp = places.find(pl => pl.id === tid);
+                          if (!tp) return false;
+                          const tpAddr = String(tp.address || tp.city || '').toLowerCase();
+                          return (pCity && pCity.length > 2 && tpAddr.includes(pCity)) || (pAddr && tp.city && pAddr.includes(String(tp.city).toLowerCase()));
+                      });
+                      if (matchesMemberCity) bestTourIdx = idx;
+                  });
+              }
+
+              if (bestTourIdx !== -1 && minDist <= 80) {
+                  rawMappedTours[bestTourIdx].placeIds.push(p.id);
+              } else if (bestTourIdx !== -1 && minDist === Infinity) {
+                  rawMappedTours[bestTourIdx].placeIds.push(p.id);
+              }
+          });
+      }
+
+      const mappedTours = rawMappedTours.map((tObj) => {
+          const count = tObj.placeIds.filter((id: string) => {
               const p = places.find(pl => pl.id === id);
               if (!p) return false;
               const cat = (p.userSelection?.customCategory || p.category || '').toLowerCase();
@@ -164,10 +231,10 @@ export const useSightsData = (places: Place[], overrideSortMode?: any) => {
           }).length;
 
           return {
-              id: tour.tour_title || "Tour", 
-              label: tour.tour_title || "Tour",
-              count: count,
-              placeIds: tour.suggested_order_ids || []
+              id: tObj.id,
+              label: tObj.label,
+              count,
+              placeIds: tObj.placeIds
           };
       }).filter((t: any) => t.count > 0);
 
@@ -378,4 +445,4 @@ export const useSightsData = (places: Place[], overrideSortMode?: any) => {
       liveCheckProgress
   };
 };
-// --- END OF FILE 299 Zeilen ---
+// --- END OF FILE 448 Zeilen ---

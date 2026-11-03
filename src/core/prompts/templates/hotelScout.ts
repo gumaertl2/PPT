@@ -1,3 +1,4 @@
+// [2026-11-03] [11:11] - FIX: Added strict Anti-Hallucination rule against generic 'Hotel [Town Name]' placeholders and allowed surrounding estate/quinta fallback in small towns.
 // 04.04.2026 13:00 - FEAT: Added 'CRITICAL OVERRIDE' block to completely bypass candidate sourcing if the user provided a specific hotel name or link in Step 1.
 // 22.03.2026 10:00 - FIX: Added strict inverse rule to ABSOLUTELY forbid campsites if vehicle is a normal car.
 // 19.03.2026 16:30 - FEAT: Enforce persona directives.
@@ -52,7 +53,8 @@ Context: ${context.location_reasoning}
 1. **Proximity:** The place must be logically close to the target hub to minimize driving.
 2. **Social Proof:** Look for high rating counts (>100 reviews) to ensure reliability.
 3. **Vibe:** Match the traveler group (e.g. playground for kids, quiet for couples).
-4. **Pets:** ${context.travelers.pets ? "MUST allow pets (Dog friendly)." : "Pet policy is irrelevant."}`
+4. **Pets:** ${context.travelers.pets ? "MUST allow pets (Dog friendly)." : "Pet policy is irrelevant."}
+5. **ANTI-HALLUCINATION (NO GENERIC "HOTEL [TOWN]" PLACEHOLDERS):** Every candidate MUST be a 100% real, verifiable property with its exact official name. NEVER invent generic names like "Hotel ${context.search_hub}" just to fill a quota! If "${context.search_hub}" is a small village with fewer than 3 hotels in the center, either include renowned country estates / quintas / boutique hotels within a 5–10 km radius or return only the 1–2 real properties that actually exist.`
 }
 
 # PHASE 3: DATA ACCURACY & OUTPUT
@@ -92,4 +94,4 @@ Context: ${context.location_reasoning}
     .withSelfCheck(['research']) 
     .build();
 };
-// --- END OF FILE 101 Zeilen ---
+// --- END OF FILE 97 Zeilen ---

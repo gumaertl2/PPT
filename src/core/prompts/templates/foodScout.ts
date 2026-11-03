@@ -1,3 +1,4 @@
+// [2026-11-02] [22:53] - FEAT: Added guide searchTerms injection, excluded 2-3 Michelin star temples, and prevented Local Top Pick padding when guide entries exist.
 // 20.04.2026 16:45 - FIX: Implemented "Graceful Exit" and Strict Anti-Hallucination for Guide Awards.
 // 28.02.2026 18:50 - FIX: Relaxed CRITICAL GEOCODING RULE.
 // 28.02.2026 18:00 - FIX: Added CRITICAL GEOCODING RULE securely.
@@ -19,8 +20,15 @@ export const buildFoodScoutPrompt = (_project: TripProject, context: any): strin
   
   // Dynamic Guide Setup
   let guideNames = "Michelin, Gault&Millau, Falstaff, Slow Food, Varta, Feinschmecker";
+  let guideTerms = "Bib Gourmand, Guide Selection / Recommendation, National Guide Awards";
   if (safeContext.guides && Array.isArray(safeContext.guides)) {
       guideNames = safeContext.guides.map((g: any) => g.name).join(', ');
+      const extractedTerms = safeContext.guides
+          .flatMap((g: any) => Array.isArray(g.searchTerms) ? g.searchTerms : [])
+          .filter(Boolean);
+      if (extractedTerms.length > 0) {
+          guideTerms = Array.from(new Set(extractedTerms)).join(', ');
+      }
   }
 
   builder.withOS();
@@ -31,7 +39,7 @@ export const buildFoodScoutPrompt = (_project: TripProject, context: any): strin
     
     ### THE MISSION: "THE TRIPLE DRAGNET"
     To find ALL relevant restaurants (Hidden Gems, Neighbors, and List-Runners-Up), you must execute three specific search strategies simultaneously.
-    We are primarily looking for restaurants listed in: **${guideNames}**.
+    We are strictly looking for restaurants listed in: **${guideNames}** (Key distinctions: **${guideTerms}**).
   `);
 
   builder.withInstruction(`
@@ -63,10 +71,11 @@ export const buildFoodScoutPrompt = (_project: TripProject, context: any): strin
 
     **STEP 3: AGGREGATION & FILTERING**
     - Compile all unique finds.
-    - **Relevance Check:** Is the restaurant in ${targetLocation} OR a direct neighbor (< 10km)? -> KEEP.
-    - **CRITICAL TRUTH & GRACEFUL EXIT RULE:** If (and only if) there are NO restaurants from the requested guides within the immediate radius, DO NOT expand the radius to distant cities just to find a guide entry. Instead, select the highest-rated local premium restaurants (e.g., highly rated local 'Gasthof').
-    - **NO HALLUCINATION:** NEVER invent or falsely claim a Michelin, Gault&Millau, or any other guide listing if it does not exist. If a place has no official guide award, set the 'awards' array to exactly \`["Local Top Pick"]\`.
-    - **Duplication Check:** Ensure "Fürstenfelder" is listed only once.
+    - **Relevance Check:** Is the restaurant in ${targetLocation} OR a direct neighbor (< 15km)? -> KEEP.
+    - **QUALITY & STAR CEILING RULE:** Focus strictly on **Bib Gourmand**, official **Guide Recommendations / Selections**, national guide awards (${guideNames}), and **at most 1 Michelin Star**. **EXCLUDE 2-Star and 3-Star Michelin luxury temples**.
+    - **CRITICAL TRUTH & GRACEFUL EXIT RULE (NO PADDING):** If you found official guide-listed restaurants in ${targetLocation} or its neighbor cluster (< 15km), return ONLY those guide-listed restaurants—**NEVER** pad or fill up the list with unguided "Local Top Pick" entries. If (and only if) there are ZERO restaurants from the requested guides within the immediate radius (e.g., in a remote mountain village), DO NOT expand the radius to distant cities; instead, select only 1-2 highest-rated local regional restaurants as an emergency fallback.
+    - **NO HALLUCINATION:** NEVER invent or falsely claim a Michelin, Gault&Millau, or any other guide listing if it does not exist. Only for the emergency fallback when 0 guide entries exist in the entire radius, set the 'awards' array to \`["Local Top Pick"]\`.
+    - **Duplication Check:** Ensure each restaurant is listed only once.
     - **Address Formatting (CRITICAL GEOCODING RULE):** The 'address' field must be clean and machine-readable for OpenStreetMap. Use 'Street, Number, ZIP, City, Country' if available. If it's a natural sight or has no street, use the specific local identifier (e.g. 'Plaza de la Iglesia', 'Camino a...'). STRICTLY FORBIDDEN: Never use descriptive prose, brackets like '(Leuchtturm)', or abbreviations like 's/n' in the address.
 
     ### OUTPUT (JSON ONLY):
@@ -118,4 +127,4 @@ export const buildFoodScoutPrompt = (_project: TripProject, context: any): strin
 
   return builder.build();
 };
-// --- END OF FILE 110 Lines ---
+// --- END OF FILE 130 Zeilen ---

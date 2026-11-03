@@ -1,3 +1,4 @@
+// [2026-11-02] [17:46] - FIX: Applied sanitizePlaceWebsite in processAnreicherer to prevent hallucinated 404 trail deep-links.
 // 23.02.2026 20:00 - FIX: CORE HOTEL-SHIELD. Prevents Anreicherer from overwriting 'hotel' category.
 // 09.02.2026 10:30 - FIX: CONTENT GUARD & STRICT ID. Prevents overwriting with empty data.
 // 09.02.2026 10:15 - FIX: DISABLED FUZZY MATCHING FOR CHEFREDAKTEUR. STRICT ID ONLY.
@@ -5,7 +6,7 @@
 // src/services/processors/PlaceProcessor.ts
 
 import { v4 as uuidv4 } from 'uuid';
-import { resolvePlaceId, extractItems } from './resultUtils';
+import { resolvePlaceId, extractItems, sanitizePlaceWebsite } from './resultUtils';
 import { useTripStore } from '../../store/useTripStore';
 
 export const PlaceProcessor = {
@@ -64,6 +65,7 @@ export const PlaceProcessor = {
                    // ROOT FIX: CORE HOTEL-SHIELD
                    // Wenn der Ort im Store bereits ein Hotel ist, wird die Kategorie eingefroren!
                    const isHotel = existingPlaces[targetId]?.category === 'hotel';
+                   const cleanWebsite = sanitizePlaceWebsite(item.website, { ...existingPlaces[targetId], ...item });
 
                    updatePlace(targetId, {
                       ...item,
@@ -76,7 +78,7 @@ export const PlaceProcessor = {
                       rating: item.rating,
                       user_ratings_total: item.user_ratings_total,
                       duration: item.duration,
-                      website: item.website
+                      website: cleanWebsite
                     });
                     successCount++;
                 }
@@ -138,4 +140,4 @@ export const PlaceProcessor = {
         }
     }
 };
-// --- END OF FILE 136 Zeilen ---
+// --- END OF FILE 143 Zeilen ---
