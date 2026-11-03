@@ -1,3 +1,4 @@
+// [2026-11-03] [12:20] - FIX: Set workflow.status to 'generating' during triggerAiTask so Ad-Hoc tasks are not aborted by the Kill-Switch.
 // 27.01.2026 19:45 - FIX: triggerAiTask delegates purely to Orchestrator (SSOT).
 // Sequence logic moved to Orchestrator to support both Ad-Hoc and Workflow modes.
 // src/store/slices/createAnalysisSlice.ts
@@ -22,7 +23,7 @@ export interface AnalysisSlice {
   clearAnalysis: () => void;
 
   // Trigger AI tasks from UI
-  triggerAiTask: (task: string, feedback?: string) => Promise<void>;
+  triggerAiTask: (task: string, feedback?: string) => Promise<any>;
   
   // Selectors
   getChefPlanerResult: () => ChefPlanerResult | null;
@@ -75,7 +76,19 @@ export const createAnalysisSlice: StateCreator<
   // The Sequencing (Scout -> Enricher) is now handled internally by executeTask
   triggerAiTask: async (task, feedback) => {
       console.log(`[Store] Triggering AI Task: ${task}`, feedback ? `(Feedback: ${feedback})` : '');
-      await TripOrchestrator.executeTask(task as TaskKey, feedback);
+      const currentState = get() as any;
+      const wasGenerating = currentState.workflow?.status === 'generating';
+      if (!wasGenerating && currentState.setWorkflowState) {
+          currentState.setWorkflowState({ status: 'generating', error: null, currentStep: task });
+      }
+      try {
+          return await TripOrchestrator.executeTask(task as TaskKey, feedback);
+      } finally {
+          const afterState = get() as any;
+          if (!wasGenerating && afterState.workflow?.status === 'generating' && afterState.setWorkflowState) {
+              afterState.setWorkflowState({ status: 'idle', currentStep: null });
+          }
+      }
   },
 
   // --- SELECTORS ---
@@ -93,4 +106,4 @@ export const createAnalysisSlice: StateCreator<
   }
 
 });
-// --- END OF FILE 105 Zeilen ---
+// --- END OF FILE 109 Zeilen ---

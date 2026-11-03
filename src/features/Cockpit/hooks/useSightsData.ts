@@ -202,7 +202,7 @@ export const useSightsData = (places: Place[], overrideSortMode?: any) => {
                           return;
                       }
                       const matchesMemberCity = tObj.placeIds.some((tid: string) => {
-                          const tp = places.find(pl => pl.id === tid);
+                          const tp = places.find(pl => pl.id === tid) as any;
                           if (!tp) return false;
                           const tpAddr = String(tp.address || tp.city || '').toLowerCase();
                           return (pCity && pCity.length > 2 && tpAddr.includes(pCity)) || (pAddr && tp.city && pAddr.includes(String(tp.city).toLowerCase()));

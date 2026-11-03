@@ -1,3 +1,4 @@
+// [2026-11-03] [12:22] - FIX: Extracted COUNTRY, RAD, MODE, and REPAIR_MODE parameters from Ad-Hoc feedback string.
 // 20.02.2026 16:30 - FIX: Reverted to Single-City processing. Multi-City logic moved to FoodWorkflow loop to prevent AI overload.
 // 16.02.2026 17:20 - UPDATE: SIMPLE PASS-THROUGH & DYNAMIC GUIDES.
 // src/core/prompts/preparers/prepareFoodScoutPayload.ts
@@ -34,16 +35,50 @@ export const prepareFoodScoutPayload = (
         if (match) targetLocation = match[1].trim();
     }
 
-    // --- 2. DETECT COUNTRY ---
+    // --- 2. DETECT COUNTRY & AD-HOC PARAMETERS ---
     const logistics = userInputs?.logistics;
-    let country = logistics?.target_countries?.[0] || 
+    let country = "";
+    if (feedback && feedback.includes('COUNTRY:')) {
+        const cMatch = feedback.match(/COUNTRY:([^|]+)/i);
+        if (cMatch && cMatch[1]) country = cMatch[1].trim();
+    }
+    if (!country) {
+        country = logistics?.target_countries?.[0] || 
+                  (project.analysis?.chefPlaner?.corrections as any)?.countries?.[0] ||
                   (logistics?.stationary as any)?.region || 
                   logistics?.stationary?.destination || 
                   "Europe"; 
+    }
 
     // Fallback: If country is missing/Europe but language is DE -> Deutschland
     if ((!country || country === "Europe") && project.meta?.language === 'de') {
         country = "Deutschland";
+    }
+
+    let radiusKm = 15;
+    if (feedback && feedback.includes('RAD:')) {
+        const rMatch = feedback.match(/RAD:(\d+)/i);
+        if (rMatch && rMatch[1]) radiusKm = Math.max(1, parseInt(rMatch[1], 10));
+    }
+
+    let searchMode: FoodSearchMode = _modeInput || 'standard';
+    if (feedback && feedback.includes('MODE:')) {
+        const mMatch = feedback.match(/MODE:([^|]+)/i);
+        if (mMatch && mMatch[1]?.trim().toLowerCase() === 'stars') {
+            searchMode = 'stars';
+        }
+    }
+
+    let repairTarget: { name: string; city: string } | null = null;
+    if (feedback && feedback.startsWith('REPAIR_MODE')) {
+        const nMatch = feedback.match(/NAME:([^|]+)/);
+        const cMatch = feedback.match(/CITY:([^|]+)/);
+        if (nMatch && nMatch[1]) {
+            repairTarget = {
+                name: nMatch[1].trim(),
+                city: cMatch && cMatch[1] ? cMatch[1].trim() : targetLocation
+            };
+        }
     }
 
     // --- 3. SELECT GUIDES ---
@@ -59,7 +94,11 @@ export const prepareFoodScoutPayload = (
             location_name: `${targetLocation} (${country})`, 
             target_town: targetLocation,
             country: country, 
-            guides: selectedGuides 
+            guides: selectedGuides,
+            radius_km: radiusKm,
+            search_mode: searchMode,
+            is_adhoc: Boolean(feedback && feedback.includes('ADHOC_SEARCH')),
+            repair_target: repairTarget
         },
         instructions: {
             role: "Du bist ein professioneller Recherche-Assistent."
@@ -68,4 +107,4 @@ export const prepareFoodScoutPayload = (
         ...options 
     };
 };
-// --- END OF FILE 71 Zeilen ---
+// --- END OF FILE 110 Zeilen ---

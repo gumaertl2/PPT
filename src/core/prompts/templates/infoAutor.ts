@@ -1,3 +1,4 @@
+// [2026-11-03] [12:19] - FIX: Resolved TS2339 on arrivalType fallback by reading userInputs.dates.arrival.type.
 // [2026-11-02] [18:40] - FIX: Added travel_period (dates) to LOGISTICS PARAMETERS and read travelers.origin in legacy fallback.
 // [2026-10-25] [14:56] - FIX: Added STRATEGY_OPTIONS fallback when cat_strategyId is empty.
 // [2026-10-25] [13:49] - FIX: Replaced dead sammler_briefing fallback with raw user strategy & ChefPlaner rules.
@@ -59,7 +60,7 @@ export const buildInfoAutorPrompt = (
         } else if (logistics.mode === 'stationaer' && (logistics.stationary as any).origin) {
             home = (logistics.stationary as any).origin;
         }
-        arrivalType = logistics.arrival?.type || (logistics as any).arrivalType || 'Plane/Car';
+        arrivalType = userInputs.dates?.arrival?.type || (logistics as any).arrival?.type || (logistics as any).arrivalType || 'Plane/Car';
         travelPeriod = userInputs.dates?.start ? `${userInputs.dates.start} - ${userInputs.dates.end}` : 'Flexible / All Year';
         const uniqueCountries = [...new Set(detectedCountries)].filter(Boolean);
         countriesListString = uniqueCountries.length > 0 ? uniqueCountries.join(', ') : 'Unknown (please determine)';
@@ -144,4 +145,4 @@ ${taskList}
         .withSelfCheck(['basic', 'research'])
         .build();
 };
-// --- END OF FILE 147 Zeilen ---
+// --- END OF FILE 148 Zeilen ---

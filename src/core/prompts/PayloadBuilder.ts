@@ -1,3 +1,4 @@
+// [2026-11-03] [12:19] - FIX: Resolved TS2339 type errors on chefPlaner.corrections.countries and dates.arrival.type in infoAutor block.
 // [2026-11-02] [18:40] - FIX: Passed home_location, arrival_type, target_countries, and chunk_info to buildInfoAutorPrompt context.
 // [2026-10-25] [13:53] - FIX: Filtered out hotels, restaurants, invalid, and ignored places before slicing in chefredakteur auto-mode.
 // [2026-08-15] 14:45 - FIX: Passed feedback parameter to buildRouteArchitectPrompt to enable "Keep" functionality.
@@ -161,7 +162,8 @@ export const PayloadBuilder = {
           const slicedTasks = sliceData(allInfoTasks, 'infoAutor', options);
           const currentInfoChunk = options?.chunkIndex || chunkingState?.currentChunk || 1;
           const totalInfoChunks = options?.totalChunks || chunkingState?.totalChunks || 1;
-          const targetCountries = project.analysis?.chefPlaner?.corrections?.countries?.join(', ')
+          const targetCountries = (project.analysis?.chefPlaner?.corrections as any)?.countries?.join(', ')
+              || project.userInputs.logistics.target_countries?.join(', ')
               || project.userInputs.logistics.roundtrip?.region
               || project.userInputs.logistics.stationary?.region
               || project.userInputs.logistics.stationary?.destination
@@ -173,7 +175,7 @@ export const PayloadBuilder = {
                      dates: project.userInputs.dates.start ? `${project.userInputs.dates.start} - ${project.userInputs.dates.end}` : "Flexibel",
                      travelers: `${project.userInputs.travelers.adults} Erwachsene, ${project.userInputs.travelers.children} Kinder`,
                      home_location: project.userInputs.travelers?.origin || "Unknown",
-                     arrival_type: project.userInputs.logistics.arrival?.type || "Plane/Car",
+                     arrival_type: project.userInputs.dates?.arrival?.type || "Plane/Car",
                      target_countries: targetCountries,
                      chunk_info: totalInfoChunks > 1 ? ` (Block ${currentInfoChunk}/${totalInfoChunks})` : '',
                      tasks: slicedTasks
@@ -320,4 +322,4 @@ export const PayloadBuilder = {
     return generatedPrompt;
   }
 };
-// --- END OF FILE 323 Zeilen ---
+// --- END OF FILE 325 Zeilen ---

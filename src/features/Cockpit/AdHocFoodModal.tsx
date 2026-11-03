@@ -1,3 +1,4 @@
+// [2026-11-03] [12:25] - FIX: Added explicit zero-result notification when no guide-listed restaurants exist within the selected Ad-Hoc radius.
 // 04.02.2026 21:30 - FIX: STRICT COUNTRY SELECTION & LINT.
 // - Replaced text input with <select> dropdown.
 // - Removed unused 'Star' import.
@@ -37,14 +38,14 @@ export const AdHocFoodModal: React.FC<AdHocFoodModalProps> = ({ isOpen, onClose 
       // Location
       if (logistics?.mode === 'stationaer' && logistics.stationary?.destination) {
         setLocation(logistics.stationary.destination);
-      } else if (logistics?.mode === 'roundtrip' && logistics.roundtrip?.startLocation) {
+      } else if ((logistics?.mode === 'roundtrip' || logistics?.mode === 'mobil') && logistics.roundtrip?.startLocation) {
         setLocation(logistics.roundtrip.startLocation);
       } else {
         setLocation('');
       }
 
       // Country (Auto-Select if matches)
-      const targetCountry = (logistics as any)?.target_countries?.[0]; 
+      const targetCountry = (logistics as any)?.target_countries?.[0] || (project.analysis?.chefPlaner?.corrections as any)?.countries?.[0]; 
       if (targetCountry && countryGuideConfig[targetCountry]) {
           setCountry(targetCountry); // Only set if strictly valid
       } else {
@@ -59,7 +60,7 @@ export const AdHocFoodModal: React.FC<AdHocFoodModalProps> = ({ isOpen, onClose 
     if (!location.trim()) return;
 
     // Format: ADHOC_SEARCH|LOC:München|COUNTRY:Deutschland|RAD:20|MODE:stars
-    const feedbackString = `ADHOC_SEARCH|LOC:${location}|COUNTRY:${country}|RAD:${radius}|MODE:${mode}`;
+    const feedbackString = `ADHOC_SEARCH|LOC:${location.trim()}|COUNTRY:${country}|RAD:${radius}|MODE:${mode}`;
 
     onClose();
 
@@ -70,14 +71,26 @@ export const AdHocFoodModal: React.FC<AdHocFoodModalProps> = ({ isOpen, onClose 
     });
 
     try {
-        await triggerAiTask('foodScout', feedbackString);
+        const result = await triggerAiTask('foodScout', feedbackString);
+        const foundCount = Array.isArray(result?.candidates) ? result.candidates.length : 0;
 
         dismissNotification(loadingId);
-        addNotification({
-            type: 'success',
-            message: t('status.success'),
-            autoClose: 3000
-        });
+        if (foundCount === 0) {
+            const isDe = project.meta?.language !== 'en';
+            addNotification({
+                type: 'info',
+                message: isDe
+                    ? `Keine Guide-Restaurants im Umkreis von ${radius} km um "${location.trim()}" gefunden. Tipp: Erhöhe den Suchradius.`
+                    : `No guide-listed restaurants found within ${radius} km of "${location.trim()}". Tip: Increase the search radius.`,
+                autoClose: 5000
+            });
+        } else {
+            addNotification({
+                type: 'success',
+                message: `${t('status.success')} (${foundCount})`,
+                autoClose: 3000
+            });
+        }
 
     } catch (error) {
         console.error("Ad-Hoc Search Failed:", error);
@@ -234,4 +247,4 @@ export const AdHocFoodModal: React.FC<AdHocFoodModalProps> = ({ isOpen, onClose 
     </div>
   );
 };
-// --- END OF FILE 145 Zeilen ---
+// --- END OF FILE 250 Zeilen ---

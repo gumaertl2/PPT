@@ -1,3 +1,4 @@
+// [2026-11-03] [12:21] - FIX: Isolated Ad-Hoc single-location search from trip stops and added strict code firewall against unguided Local Top Pick/Hero entries.
 // [2026-11-02] [22:57] - FIX: Cleared unprioritized/unvisited stale Restaurant entries before saving fresh full-trip FoodWorkflow results.
 // [2026-11-02] [22:51] - FIX: Normalized district names in cleanTownName to prevent duplicate city scouting and deduplicated allScoutCandidates across towns.
 // [2026-11-02] [19:48] - FIX: Chunked foodEnricher step across allScoutCandidates via LimitManager and preserved candidate city metadata across enrichment.
@@ -56,7 +57,7 @@ export const FoodWorkflow = {
                 const countryMatch = feedback.match(/COUNTRY:\s*([^|]+)/i);
                 if (countryMatch && countryMatch[1]) targetCountry = countryMatch[1].trim();
             }
-            if (!targetCountry) targetCountry = store.project.userInputs.logistics.target_countries?.[0] || "";
+            if (!targetCountry) targetCountry = store.project.userInputs.logistics.target_countries?.[0] || (store.project.analysis?.chefPlaner?.corrections as any)?.countries?.[0] || "";
             if (!targetCountry && store.project.meta.language === 'de') targetCountry = "Deutschland";
             if (!targetCountry) targetCountry = "Europe";
 
@@ -66,34 +67,34 @@ export const FoodWorkflow = {
             // 3. BUILD TOWN LIST
             let townList: string[] = [];
             const locMatch = feedback?.match(/LOC:([^|]+)/);
-            const manualLocation = locMatch ? locMatch[1] : undefined;
+            const manualLocation = locMatch ? locMatch[1].trim() : undefined;
 
             if (manualLocation) {
-                townList.push(manualLocation);
-            }
-
-            const logistics = store.project.userInputs.logistics;
-            const rawStops = logistics.roundtrip?.stops || [];
-            const hasRouteArchitect = Boolean(store.project.analysis?.routeArchitect?.routes?.[0]?.stages?.length);
-            const hasConfirmedStops = rawStops.length > 0 && (rawStops.some((s: any) => (s.duration || 0) > 0) || !hasRouteArchitect);
-            if (logistics.mode === 'stationaer' && logistics.stationary?.destination) {
-                townList.push(logistics.stationary.destination);
-            } else if (hasConfirmedStops) {
-                townList.push(...rawStops.map((s: any) => s.location));
-            } else if (store.project.analysis?.routeArchitect?.routes?.[0]?.stages) {
-                townList.push(...store.project.analysis.routeArchitect.routes[0].stages.map((s: any) => s.location_name));
-            }
-
-            const places = Object.values(store.project.data.places || {});
-            places.forEach((p: any) => {
-                if (p.category === 'districts' || p.category === 'city_info') {
-                    const cityName = cleanTownName(p.name);
-                    if (cityName) townList.push(cityName);
+                townList = [cleanTownName(manualLocation) || manualLocation];
+            } else {
+                const logistics = store.project.userInputs.logistics;
+                const rawStops = logistics.roundtrip?.stops || [];
+                const hasRouteArchitect = Boolean(store.project.analysis?.routeArchitect?.routes?.[0]?.stages?.length);
+                const hasConfirmedStops = rawStops.length > 0 && (rawStops.some((s: any) => (s.duration || 0) > 0) || !hasRouteArchitect);
+                if (logistics.mode === 'stationaer' && logistics.stationary?.destination) {
+                    townList.push(logistics.stationary.destination);
+                } else if (hasConfirmedStops) {
+                    townList.push(...rawStops.map((s: any) => s.location));
+                } else if (store.project.analysis?.routeArchitect?.routes?.[0]?.stages) {
+                    townList.push(...store.project.analysis.routeArchitect.routes[0].stages.map((s: any) => s.location_name));
                 }
-            });
 
-            townList = Array.from(new Set(townList.map(t => cleanTownName(t)))).filter(t => t && t.length > 2);
-            if (townList.length === 0) townList = ["Region"];
+                const places = Object.values(store.project.data.places || {});
+                places.forEach((p: any) => {
+                    if (p.category === 'districts' || p.category === 'city_info') {
+                        const cityName = cleanTownName(p.name);
+                        if (cityName) townList.push(cityName);
+                    }
+                });
+
+                townList = Array.from(new Set(townList.map(t => cleanTownName(t)))).filter(t => t && t.length > 2);
+                if (townList.length === 0) townList = ["Region"];
+            }
 
             console.log(`[FoodWorkflow] Starting Sequential Food Scouting for ${townList.length} towns:`, townList);
             
@@ -124,10 +125,16 @@ export const FoodWorkflow = {
                         for (const c of stepResult.candidates) {
                             const normName = String(c?.name || '').trim().toLowerCase();
                             if (!normName) continue;
+                            // Strict Anti-Local-Hero Firewall: Require at least 1 real guide award (no Local Top Pick / Local Hero / None)
+                            const validAwards = Array.isArray(c.awards)
+                                ? c.awards.filter((a: any) => typeof a === 'string' && a.trim().length > 1 && !/local top pick|local hero|local favorite|none|unbekannt|keine/i.test(a))
+                                : [];
+                            if (validAwards.length === 0) continue;
                             const alreadyExists = allScoutCandidates.some((existing: any) => String(existing?.name || '').trim().toLowerCase() === normName);
                             if (!alreadyExists) {
                                 allScoutCandidates.push({
                                     ...c,
+                                    awards: validAwards,
                                     city: town,
                                     id: c.id || uuidv4()
                                 });
@@ -174,7 +181,7 @@ export const FoodWorkflow = {
                 }
             }
 
-            if (allScoutCandidates.length === 0) return;
+            if (allScoutCandidates.length === 0) return { candidates: [] };
 
             // 6. ENRICHMENT PHASE (Thinking/Quality)
             let enricherFeedback = feedback || "";
@@ -278,4 +285,4 @@ export const FoodWorkflow = {
         }
     }
 };
-// --- END OF FILE 281 Zeilen ---
+// --- END OF FILE 288 Zeilen ---
