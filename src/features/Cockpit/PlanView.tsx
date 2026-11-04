@@ -1,3 +1,4 @@
+// [2026-11-04] [15:45] - UX: Show 3-line expandable note preview in standard diary view and auto-resize edit textareas to fit full text.
 // [2026-11-03] [11:08] - FEAT: Added check-in date prefix (e.g. 10.5. Porto) before each stop in roundtrip itinerary overview.
 // [2026-11-02] [18:56] - FIX: Avoid duplicating startLocation/endLocation in route display and Google Maps URL when already included as first/last stop.
 // 21.03.2026 19:45 - FIX: Applied strict I18N to manual GPS override buttons (replaced hardcoded "(Ändern)") and fixed Maps tooltips.
@@ -36,9 +37,17 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
   const VIEW_LEVELS = ['kompakt', 'standard', 'details'];
   
   const [dayDetailLevels, setDayDetailLevels] = useState<Record<string, 'kompakt' | 'standard' | 'details'>>({});
+  const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
+
+  const adjustTextareaHeight = (el: HTMLTextAreaElement | null) => {
+      if (!el) return;
+      el.style.height = 'auto';
+      el.style.height = `${Math.max(80, el.scrollHeight + 4)}px`;
+  };
 
   useEffect(() => {
       setDayDetailLevels({});
+      setExpandedNotes({});
   }, [uiState.detailLevel]);
 
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
@@ -288,6 +297,7 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
 
       if (customNote.trim()) {
           setDayDetailLevels(prev => ({ ...prev, [dateKey]: 'details' }));
+          setExpandedNotes(prev => ({ ...prev, [newId]: true }));
       } else {
           setDayDetailLevels(prev => {
               if (prev[dateKey] === 'kompakt' || (!prev[dateKey] && defaultLevel === 'kompakt')) {
@@ -352,6 +362,7 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
 
       if (editNote.trim()) {
           setDayDetailLevels(prev => ({ ...prev, [dateKeyToExpand]: 'details' }));
+          setExpandedNotes(prev => ({ ...prev, [id]: true }));
       }
   };
 
@@ -528,7 +539,7 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                         <button onClick={() => setIsAddingCustom(false)} className="text-slate-400 hover:text-slate-600"><X size={16}/></button>
                     </div>
                     <input type="text" placeholder={t('diary.title_placeholder', { defaultValue: 'Titel (z.B. Ein kleines Café am Eck)' })} className="w-full text-sm p-3 mb-3 border border-indigo-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white placeholder:text-slate-300 font-medium text-slate-800 shadow-sm" value={customTitle} onChange={e => setCustomTitle(e.target.value)} autoFocus />
-                    <textarea placeholder={t('diary.note_placeholder', { defaultValue: 'Deine Erlebnisse oder Notizen...' })} className="w-full text-sm p-3 mb-3 border border-indigo-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white placeholder:text-slate-300 resize-y min-h-[80px] shadow-sm leading-relaxed" value={customNote} onChange={e => setCustomNote(e.target.value)} />
+                    <textarea ref={(el) => adjustTextareaHeight(el)} placeholder={t('diary.note_placeholder', { defaultValue: 'Deine Erlebnisse oder Notizen...' })} className="w-full text-sm p-3 mb-3 border border-indigo-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white placeholder:text-slate-300 resize-y min-h-[80px] overflow-hidden shadow-sm leading-relaxed" value={customNote} onChange={e => setCustomNote(e.target.value)} />
                     <div className="flex flex-col gap-3">
                         <div className="flex flex-col sm:flex-row gap-2">
                             <button onClick={() => handleSaveCustomEntry(true)} className="flex-1 text-sm bg-emerald-50 text-emerald-700 border border-emerald-200 px-5 py-2.5 rounded-lg font-bold hover:bg-emerald-600 hover:text-white transition-all shadow-sm flex items-center justify-center gap-2">
@@ -579,14 +590,34 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                     const canStepUp = currentLevelIndex < VIEW_LEVELS.length - 1;
                     
                     const handleStepUp = () => {
-                      if (canStepUp) setDayDetailLevels(prev => ({ ...prev, [dateKey]: VIEW_LEVELS[currentLevelIndex + 1] as any }));
+                      if (canStepUp) {
+                        const nextLevel = VIEW_LEVELS[currentLevelIndex + 1] as any;
+                        setDayDetailLevels(prev => ({ ...prev, [dateKey]: nextLevel }));
+                        if (nextLevel === 'details') {
+                          setExpandedNotes(prev => {
+                            const next = { ...prev };
+                            placesForThisDay.forEach((p: any) => { next[p.id] = true; });
+                            return next;
+                          });
+                        }
+                      }
                     };
                     const handleStepDown = () => {
-                      if (canStepDown) setDayDetailLevels(prev => ({ ...prev, [dateKey]: VIEW_LEVELS[currentLevelIndex - 1] as any }));
+                      if (canStepDown) {
+                        const nextLevel = VIEW_LEVELS[currentLevelIndex - 1] as any;
+                        setDayDetailLevels(prev => ({ ...prev, [dateKey]: nextLevel }));
+                        if (nextLevel === 'standard') {
+                          setExpandedNotes(prev => {
+                            const next = { ...prev };
+                            placesForThisDay.forEach((p: any) => { delete next[p.id]; });
+                            return next;
+                          });
+                        }
+                      }
                     };
 
                     const showPlaces = currentDayLevel !== 'kompakt';
-                    const showUserNotes = currentDayLevel === 'details';
+                    const showUserNotes = currentDayLevel !== 'kompakt';
 
                     return (
                         <div key={dateKey} className="relative z-10 pb-4">
@@ -625,10 +656,11 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                                 <div className="mb-6 p-4 bg-emerald-50/50 border border-emerald-200 rounded-xl animate-in fade-in slide-in-from-top-1 shadow-sm">
                                     <label className="text-[10px] font-bold text-emerald-600 uppercase mb-2 flex items-center gap-1"><PenLine size={12}/> {t('diary.summary_title', {defaultValue: 'Tageszusammenfassung'})}</label>
                                     <textarea 
+                                        ref={(el) => adjustTextareaHeight(el)}
                                         value={editSummaryText} 
                                         onChange={e => setEditSummaryText(e.target.value)} 
                                         placeholder={t('diary.summary_placeholder', {defaultValue: 'Wie war dein Tag? Highlights, Wetter, Besonderes...'})}
-                                        className="w-full text-sm p-3 border border-emerald-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-300 min-h-[80px] bg-white resize-y mb-3 shadow-inner" 
+                                        className="w-full text-sm p-3 border border-emerald-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-300 min-h-[80px] overflow-hidden bg-white resize-y mb-3 shadow-inner" 
                                         autoFocus
                                     />
                                     <div className="flex gap-2">
@@ -728,7 +760,7 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                                                     </div>
                                                     <div className="flex flex-col gap-2 mb-3">
                                                         <label className="text-[10px] font-bold text-indigo-400 uppercase">{t('diary.edit_note', {defaultValue: 'Notiz'})}</label>
-                                                        <textarea value={editNote} onChange={e => setEditNote(e.target.value)} className="w-full text-sm p-2.5 border border-indigo-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 min-h-[80px] bg-white resize-y" />
+                                                        <textarea ref={(el) => adjustTextareaHeight(el)} value={editNote} onChange={e => setEditNote(e.target.value)} className="w-full text-sm p-2.5 border border-indigo-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 min-h-[80px] overflow-hidden bg-white resize-y leading-relaxed" />
                                                     </div>
                                                     
                                                     <div className="flex flex-col sm:flex-row gap-2">
@@ -752,12 +784,28 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
                                                         </div>
                                                     </div>
                                                 </div>
-                                            ) : (showUserNotes && place.userNote) ? (
-                                                <div className="mt-2 text-xs text-indigo-900 bg-indigo-50/50 border border-indigo-100 rounded-lg p-2.5 italic leading-relaxed shadow-sm cursor-pointer hover:bg-indigo-100/50 transition-colors relative group" onClick={() => handleOpenEdit(place)} title={t('diary.click_to_edit', { defaultValue: 'Klicken zum Bearbeiten' })}>
-                                                    <PenLine className="absolute top-2 right-2 w-3 h-3 text-indigo-200 group-hover:text-indigo-400" />
-                                                    {place.userNote.split('\n').map((line: string, i: number) => (<React.Fragment key={i}>{highlightText(line, globalSearchTerm)}<br/></React.Fragment>))}
-                                                </div>
-                                            ) : null}
+                                            ) : (showUserNotes && place.userNote) ? (() => {
+                                                const isLongNote = place.userNote.split('\n').length > 3 || place.userNote.length > 220;
+                                                const isNoteExpanded = currentDayLevel === 'details' ? (expandedNotes[place.id] ?? true) : !!expandedNotes[place.id];
+                                                return (
+                                                    <div 
+                                                        className="mt-2 text-xs text-indigo-900 bg-indigo-50/50 border border-indigo-100 rounded-lg p-2.5 italic leading-relaxed shadow-sm cursor-pointer hover:bg-indigo-100/50 transition-colors relative group" 
+                                                        onClick={() => setExpandedNotes(prev => ({ ...prev, [place.id]: !isNoteExpanded }))} 
+                                                        title={isNoteExpanded ? t('diary.click_to_collapse', { defaultValue: 'Klicken zum Einklappen' }) : t('diary.click_to_expand', { defaultValue: 'Klicken zum Aufklappen' })}
+                                                    >
+                                                        <div className={!isNoteExpanded && isLongNote ? 'line-clamp-3' : ''}>
+                                                            {place.userNote.split('\n').map((line: string, i: number) => (<React.Fragment key={i}>{highlightText(line, globalSearchTerm)}<br/></React.Fragment>))}
+                                                        </div>
+                                                        {isLongNote && (
+                                                            <div className="mt-1 text-[10px] font-bold not-italic text-indigo-500 group-hover:text-indigo-700 flex items-center gap-1">
+                                                                {isNoteExpanded
+                                                                    ? t('diary.show_less', { defaultValue: '▴ Weniger anzeigen' })
+                                                                    : t('diary.show_more', { defaultValue: '▾ Mehr anzeigen' })}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })() : null}
                                         </div>
                                     </div>
                                 );
@@ -822,4 +870,4 @@ export const PlanView: React.FC<{ setViewMode?: (mode: CockpitViewMode) => void 
     </div>
   );
 };
-// --- END OF FILE 825 Zeilen ---
+// --- END OF FILE 873 Zeilen ---
