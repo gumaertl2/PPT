@@ -1,10 +1,11 @@
+// [2026-11-04] [10:28] - FIX: Removed open-web Michelin queries in DE/AT/CH/PT so all 26 countries strictly use site:guide.michelin.com.
 // [2026-11-02] [22:47] - FEAT: Added Mesa Marcada (Portugal), Michelin (Austria), cleaned UK guides, expanded searchTerms, added European countries & EN/DE country aliases.
 // src/data/countries.ts
 // UPDATED AUTOMATICALLY BY FOODSCOUT HARVESTER
 // 2026-02-23T18:17:51.701Z
 
 export const metadata = {
-    lastUpdated: "2026-11-02T22:47:00.000Z"
+    lastUpdated: "2026-11-04T10:28:00.000Z"
 };
 
 export interface GuideDef {
@@ -21,8 +22,7 @@ export const countryGuideConfig: Record<string, GuideDef[]> = {
             "name": "Michelin",
             "searchUrl": "https://guide.michelin.com/de/de/restaurants",
             "googleQueries": [
-                "site:guide.michelin.com/de/de [CITY] Restaurant",
-                "Michelin Guide [CITY] Stern"
+                "site:guide.michelin.com/de/de [CITY] Restaurant"
             ],
             "searchTerms": [
                 "Bib Gourmand",
@@ -152,8 +152,7 @@ export const countryGuideConfig: Record<string, GuideDef[]> = {
             "name": "Michelin",
             "searchUrl": "https://guide.michelin.com/at/de/restaurants",
             "googleQueries": [
-                "site:guide.michelin.com/at/de [CITY] Restaurant",
-                "Michelin Guide Österreich [CITY]"
+                "site:guide.michelin.com/at/de [CITY] Restaurant"
             ],
             "searchTerms": [
                 "Bib Gourmand",
@@ -192,8 +191,7 @@ export const countryGuideConfig: Record<string, GuideDef[]> = {
             "name": "Michelin",
             "searchUrl": "https://guide.michelin.com/ch/de/restaurants",
             "googleQueries": [
-                "site:guide.michelin.com/ch/de [CITY]",
-                "Michelin Guide Schweiz [CITY]"
+                "site:guide.michelin.com/ch/de [CITY]"
             ],
             "searchTerms": [
                 "Bib Gourmand",
@@ -481,8 +479,7 @@ export const countryGuideConfig: Record<string, GuideDef[]> = {
             "name": "Michelin",
             "searchUrl": "https://guide.michelin.com/pt/pt/restaurantes",
             "googleQueries": [
-                "site:guide.michelin.com/pt/pt [CITY]",
-                "Guia Michelin Portugal [CITY]"
+                "site:guide.michelin.com/pt/pt [CITY]"
             ],
             "searchTerms": [
                 "Bib Gourmand",
@@ -1265,4 +1262,4 @@ export function getGuidesForCountry(countryName: string | undefined): GuideDef[]
     if (foundKey) return countryGuideConfig[foundKey];
     return [];
 }
-// --- END OF FILE 1268 Zeilen ---
+// --- END OF FILE 1265 Zeilen ---
