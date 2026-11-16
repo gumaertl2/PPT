@@ -1,3 +1,5 @@
+// [2026-11-16] [19:25] - FEAT: Added listAvailableCashRooms and local known-rooms registry for room selection UI.
+// [2026-11-16] [19:16] - FEAT: Added room status ('open'|'closed'), setCashRoomStatus, deleteCashRoom, and onRoomDeleted support.
 // [2026-11-16] [17:35] - FEAT: Added hostUid to CashRoomMeta on room creation so only the host can update/delete expenses.
 // [2026-11-16] [17:00] - FEAT: Created Firebase Firestore service for live shared Reisekasse (cashRooms).
 // src/services/firebaseCashService.ts
@@ -14,6 +16,10 @@ import {
   updateDoc,
   deleteDoc,
   collection,
+  getDoc,
+  getDocs,
+  query,
+  where,
   onSnapshot,
   writeBatch,
   type Firestore,
@@ -27,8 +33,43 @@ export interface CashRoomMeta {
   currencyConfig?: CurrencyConfig;
   writeToken: string;
   hostUid: string;
+  status?: 'open' | 'closed';
   updatedAt: number;
 }
+
+export interface CashRoomListItem {
+  roomId: string;
+  writeToken: string;
+  tripName: string;
+  status: 'open' | 'closed';
+  updatedAt: number;
+  isHost: boolean;
+}
+
+const KNOWN_ROOMS_STORAGE_KEY = 'papatours_known_cash_rooms';
+
+export const rememberCashRoom = (entry: { roomId: string; writeToken: string; tripName?: string }) => {
+  try {
+    const raw = localStorage.getItem(KNOWN_ROOMS_STORAGE_KEY);
+    const list: { roomId: string; writeToken: string; tripName?: string }[] = raw ? JSON.parse(raw) : [];
+    const filtered = list.filter((r) => r.roomId !== entry.roomId);
+    filtered.unshift(entry);
+    localStorage.setItem(KNOWN_ROOMS_STORAGE_KEY, JSON.stringify(filtered.slice(0, 20)));
+  } catch {
+    // ignore storage errors
+  }
+};
+
+export const forgetCashRoom = (roomId: string) => {
+  try {
+    const raw = localStorage.getItem(KNOWN_ROOMS_STORAGE_KEY);
+    if (!raw) return;
+    const list: { roomId: string }[] = JSON.parse(raw);
+    localStorage.setItem(KNOWN_ROOMS_STORAGE_KEY, JSON.stringify(list.filter((r) => r.roomId !== roomId)));
+  } catch {
+    // ignore storage errors
+  }
+};
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string | undefined,
@@ -106,10 +147,12 @@ export const createCashRoom = async (params: {
     currencyConfig: params.currencyConfig,
     writeToken,
     hostUid: auth.currentUser?.uid || '',
+    status: 'open',
     updatedAt: Date.now()
   });
 
   await setDoc(roomRef, metaPayload);
+  rememberCashRoom({ roomId, writeToken, tripName: metaPayload.tripName });
 
   const expenses = Object.values(params.initialExpenses || {});
   if (expenses.length > 0) {
@@ -129,6 +172,7 @@ export const subscribeCashRoom = (
   callbacks: {
     onMeta: (meta: CashRoomMeta) => void;
     onExpenses: (expenses: Record<string, Expense>) => void;
+    onRoomDeleted?: () => void;
     onError: (err: Error) => void;
   }
 ): Unsubscribe => {
@@ -146,6 +190,8 @@ export const subscribeCashRoom = (
         (snap) => {
           if (snap.exists()) {
             callbacks.onMeta(snap.data() as CashRoomMeta);
+          } else {
+            callbacks.onRoomDeleted?.();
           }
         },
         (err) => callbacks.onError(err)
@@ -191,7 +237,7 @@ export const deleteRemoteExpense = async (roomId: string, expenseId: string): Pr
 export const updateRemoteRoomMeta = async (
   roomId: string,
   writeToken: string,
-  partial: Partial<Pick<CashRoomMeta, 'tripName' | 'travelerNames' | 'currencyConfig'>>
+  partial: Partial<Pick<CashRoomMeta, 'tripName' | 'travelerNames' | 'currencyConfig' | 'status'>>
 ): Promise<void> => {
   await ensureAnonymousAuth();
   const { db } = getFirebaseClients();
@@ -205,4 +251,84 @@ export const updateRemoteRoomMeta = async (
     })
   );
 };
-// --- END OF FILE 208 Zeilen ---
+
+export const setCashRoomStatus = async (
+  roomId: string,
+  writeToken: string,
+  status: 'open' | 'closed'
+): Promise<void> => {
+  await updateRemoteRoomMeta(roomId, writeToken, { status });
+};
+
+export const deleteCashRoom = async (roomId: string): Promise<void> => {
+  await ensureAnonymousAuth();
+  const { db } = getFirebaseClients();
+  const expensesSnap = await getDocs(collection(db, 'cashRooms', roomId, 'expenses'));
+  if (!expensesSnap.empty) {
+    const batch = writeBatch(db);
+    expensesSnap.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
+  await deleteDoc(doc(db, 'cashRooms', roomId));
+  forgetCashRoom(roomId);
+};
+
+export const listAvailableCashRooms = async (): Promise<CashRoomListItem[]> => {
+  if (!isFirebaseConfigured()) return [];
+  await ensureAnonymousAuth();
+  const { db, auth } = getFirebaseClients();
+  const uid = auth.currentUser?.uid || '';
+
+  const byId = new Map<string, CashRoomListItem>();
+
+  if (uid) {
+    try {
+      const q = query(collection(db, 'cashRooms'), where('hostUid', '==', uid));
+      const snap = await getDocs(q);
+      snap.forEach((d) => {
+        const data = d.data() as CashRoomMeta;
+        byId.set(d.id, {
+          roomId: d.id,
+          writeToken: data.writeToken,
+          tripName: data.tripName || 'Reisekasse',
+          status: data.status === 'closed' ? 'closed' : 'open',
+          updatedAt: data.updatedAt || 0,
+          isHost: true
+        });
+      });
+    } catch {
+      // Fallback to local known rooms if list rule is not yet published
+    }
+  }
+
+  try {
+    const raw = localStorage.getItem(KNOWN_ROOMS_STORAGE_KEY);
+    const known: { roomId: string; writeToken: string }[] = raw ? JSON.parse(raw) : [];
+    for (const item of known) {
+      if (byId.has(item.roomId)) continue;
+      try {
+        const snap = await getDoc(doc(db, 'cashRooms', item.roomId));
+        if (snap.exists()) {
+          const data = snap.data() as CashRoomMeta;
+          byId.set(snap.id, {
+            roomId: snap.id,
+            writeToken: data.writeToken || item.writeToken,
+            tripName: data.tripName || 'Reisekasse',
+            status: data.status === 'closed' ? 'closed' : 'open',
+            updatedAt: data.updatedAt || 0,
+            isHost: Boolean(uid && data.hostUid === uid)
+          });
+        } else {
+          forgetCashRoom(item.roomId);
+        }
+      } catch {
+        // ignore deleted or inaccessible room
+      }
+    }
+  } catch {
+    // ignore storage errors
+  }
+
+  return Array.from(byId.values()).sort((a, b) => b.updatedAt - a.updatedAt);
+};
+// --- END OF FILE 333 Zeilen ---

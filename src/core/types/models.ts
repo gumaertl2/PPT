@@ -1,3 +1,4 @@
+// [2026-11-16] [19:16] - FEAT: Added optional 'roomStatus' to cashSync config in TripProject['data'].
 // [2026-11-16] [17:00] - FEAT: Added optional 'cashSync' config to TripProject['data'] for Firebase live expense sharing.
 // 18.03.2026 18:30 - FEAT: Split 'diary' print config into 'diary' (text) and 'diaryMap' (map) for flexible portrait/landscape printing.
 // 27.02.2026 13:55 - FEAT: Added 'TransferPlannerResult' interface.
@@ -351,10 +352,11 @@ export interface TripProject {
       roomId: string;
       writeToken: string;
       enabled: boolean;
+      roomStatus?: 'open' | 'closed';
     };
   };
   itinerary: {
     days: any[];
   };
 }
-// --- END OF FILE 359 Zeilen ---
+// --- END OF FILE 361 Zeilen ---

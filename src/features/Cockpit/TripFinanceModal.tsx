@@ -1,3 +1,5 @@
+// [2026-11-16] [19:25] - FEAT: Added selectable list of available cash rooms (trip name + open/closed status) in share panel.
+// [2026-11-16] [19:18] - FEAT: Always show trip name, added room close/reopen, delete room, and join room by link UI.
 // [2026-11-16] [17:48] - FEAT: Added 'Beglichen' settlement button and 'Bereits beglichen' history in Abrechnung tab.
 // [2026-11-16] [17:35] - FEAT: Disabled expense editing and hid delete button in isGuestMode.
 // [2026-11-16] [17:10] - FEAT: Added Firebase live-share button, invite link banner, and isGuestMode support.
@@ -5,7 +7,7 @@
 // 21.03.2026 19:30 - FEAT: Added LocationPickerModal to manual Edit View allowing users to select accurate expense locations on map.
 // src/features/Cockpit/TripFinanceModal.tsx
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
@@ -13,13 +15,21 @@ import {
   X, Wallet, ListFilter, Trash2, ArrowRightLeft, Banknote, Edit3, 
   Save, CheckCircle2, Users, MapPin, Landmark, Download, TableProperties,
   ChevronUp, ChevronDown, ChevronsUpDown, Sigma, Info, Printer, Map as MapIcon,
-  Share2, Copy, Check, Cloud
+  Share2, Copy, Check, Cloud, Lock, Unlock, LogIn
 } from 'lucide-react'; 
 import type { Expense, LanguageCode, CurrencyConfig } from '../../core/types/shared';
 import { ExpenseEntryButton } from './ExpenseEntryButton'; 
 import { CurrencyConfigModal } from './CurrencyConfigModal';
 import { LocationPickerModal } from './LocationPickerModal';
-import { createCashRoom, isFirebaseConfigured } from '../../services/firebaseCashService';
+import {
+  createCashRoom,
+  isFirebaseConfigured,
+  setCashRoomStatus,
+  deleteCashRoom,
+  listAvailableCashRooms,
+  rememberCashRoom,
+  type CashRoomListItem
+} from '../../services/firebaseCashService';
 
 interface TripFinanceModalProps {
   isOpen: boolean;
@@ -39,6 +49,9 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [joinLinkInput, setJoinLinkInput] = useState('');
+  const [availableRooms, setAvailableRooms] = useState<CashRoomListItem[]>([]);
+  const [isLoadingRooms, setIsLoadingRooms] = useState(false);
   
   const [sortConfig, setSortConfig] = useState<{key: string, direction: 'asc'|'desc'}>({ key: 'timestamp', direction: 'desc' });
   const [showSubtotals, setShowSubtotals] = useState(false);
@@ -457,18 +470,44 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
   };
 
   const cashSync = project.data.cashSync;
+  const isRoomClosed = Boolean(cashSync?.enabled && cashSync?.roomStatus === 'closed');
   const inviteUrl = cashSync?.roomId && cashSync?.writeToken
     ? `${window.location.origin}${window.location.pathname}?cashRoom=${encodeURIComponent(cashSync.roomId)}&token=${encodeURIComponent(cashSync.writeToken)}`
     : '';
 
-  const handleToggleShare = async () => {
-    if (cashSync?.roomId && cashSync?.enabled) {
-      setShowSharePanel((prev) => !prev);
+  useEffect(() => {
+    if (!showSharePanel || cashSync?.enabled || isGuestMode || !isFirebaseConfigured()) return;
+    let active = true;
+    setIsLoadingRooms(true);
+    listAvailableCashRooms()
+      .then((rooms) => {
+        if (active) setAvailableRooms(rooms);
+      })
+      .catch(() => {
+        if (active) setAvailableRooms([]);
+      })
+      .finally(() => {
+        if (active) setIsLoadingRooms(false);
+      });
+    return () => { active = false; };
+  }, [showSharePanel, cashSync?.enabled, isGuestMode]);
+
+  const handleSelectAvailableRoom = (room: CashRoomListItem) => {
+    if (expenses.length > 0 && !window.confirm(t('finance.join_overwrite_confirm', { defaultValue: 'Achtung: Deine aktuell geladenen Ausgaben werden durch die des Raums ersetzt. Fortfahren?' }))) {
       return;
     }
+    rememberCashRoom({ roomId: room.roomId, writeToken: room.writeToken, tripName: room.tripName });
+    setCashSync({ roomId: room.roomId, writeToken: room.writeToken, enabled: true, roomStatus: room.status });
+  };
+
+  const handleToggleShare = () => {
+    setShareError(null);
+    setShowSharePanel((prev) => !prev);
+  };
+
+  const handleCreateRoom = async () => {
     if (!isFirebaseConfigured()) {
       setShareError(t('finance.firebase_not_configured', { defaultValue: 'Firebase ist noch nicht konfiguriert (.env.local).' }));
-      setShowSharePanel(true);
       return;
     }
     setIsCreatingRoom(true);
@@ -480,11 +519,65 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
         currencyConfig,
         initialExpenses: (project.data.expenses || {}) as Record<string, Expense>
       });
-      setCashSync({ roomId, writeToken, enabled: true });
-      setShowSharePanel(true);
+      setCashSync({ roomId, writeToken, enabled: true, roomStatus: 'open' });
     } catch (err: any) {
       setShareError(err?.message || 'Fehler beim Erstellen der Live-Kasse.');
-      setShowSharePanel(true);
+    } finally {
+      setIsCreatingRoom(false);
+    }
+  };
+
+  const handleJoinRoomByLink = () => {
+    setShareError(null);
+    const trimmed = joinLinkInput.trim();
+    if (!trimmed) return;
+    try {
+      const parsed = new URL(trimmed.startsWith('http') ? trimmed : `${window.location.origin}/?${trimmed.replace(/^\?/, '')}`);
+      const roomId = parsed.searchParams.get('cashRoom');
+      const writeToken = parsed.searchParams.get('token');
+      if (!roomId || !writeToken) {
+        setShareError(t('finance.invalid_join_link', { defaultValue: 'Ungültiger Einladungslink (cashRoom/token fehlt).' }));
+        return;
+      }
+      if (expenses.length > 0 && !window.confirm(t('finance.join_overwrite_confirm', { defaultValue: 'Achtung: Deine aktuell geladenen Ausgaben werden durch die des Raums ersetzt. Fortfahren?' }))) {
+        return;
+      }
+      rememberCashRoom({ roomId, writeToken });
+      setCashSync({ roomId, writeToken, enabled: true, roomStatus: 'open' });
+      setJoinLinkInput('');
+    } catch {
+      setShareError(t('finance.invalid_join_link', { defaultValue: 'Ungültiger Einladungslink.' }));
+    }
+  };
+
+  const handleToggleRoomStatus = async () => {
+    if (!cashSync?.roomId || !cashSync?.writeToken) return;
+    const nextStatus = isRoomClosed ? 'open' : 'closed';
+    setIsCreatingRoom(true);
+    setShareError(null);
+    try {
+      await setCashRoomStatus(cashSync.roomId, cashSync.writeToken, nextStatus);
+      setCashSync({ ...cashSync, roomStatus: nextStatus });
+    } catch (err: any) {
+      setShareError(err?.message || 'Status konnte nicht geändert werden.');
+    } finally {
+      setIsCreatingRoom(false);
+    }
+  };
+
+  const handleDeleteRoom = async () => {
+    if (!cashSync?.roomId) return;
+    if (!window.confirm(t('finance.delete_room_confirm', { defaultValue: 'Live-Raum in Firebase wirklich löschen? Alle Links werden ungültig (deine lokalen Ausgaben bleiben erhalten).' }))) {
+      return;
+    }
+    setIsCreatingRoom(true);
+    setShareError(null);
+    try {
+      await deleteCashRoom(cashSync.roomId);
+      setCashSync(undefined);
+      setShowSharePanel(false);
+    } catch (err: any) {
+      setShareError(err?.message || 'Raum konnte nicht gelöscht werden (nur der Ersteller darf löschen).');
     } finally {
       setIsCreatingRoom(false);
     }
@@ -524,17 +617,21 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
               <div className="flex items-center gap-2 text-slate-800 truncate mr-2">
                 <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600 shrink-0"><Wallet className="w-5 h-5" /></div>
                 <h2 className="hidden xs:block text-base sm:text-lg font-bold truncate">
-                  {isGuestMode ? (project.meta.name || t('finance.title', { defaultValue: 'Reisekasse' })) : t('finance.title', { defaultValue: 'Reisekasse' })}
+                  {t('finance.title', { defaultValue: 'Reisekasse' })}
+                  {project.meta.name ? ` · ${project.meta.name}` : ''}
                 </h2>
                 {cashSync?.enabled && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                    <Cloud className="w-3 h-3" /> Live
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border shrink-0 ${isRoomClosed ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                    {isRoomClosed ? <Lock className="w-3 h-3" /> : <Cloud className="w-3 h-3" />}
+                    {isRoomClosed ? t('finance.room_closed_badge', { defaultValue: 'Geschlossen' }) : 'Live'}
                   </span>
                 )}
               </div>
               
               <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-                <ExpenseEntryButton travelers={rawNames} mode="standalone" isMobile={true} />
+                {!isRoomClosed && (
+                  <ExpenseEntryButton travelers={rawNames} mode="standalone" isMobile={true} />
+                )}
 
                 <button
                   onClick={handleToggleShare}
@@ -566,36 +663,131 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
             </div>
 
             {showSharePanel && (
-              <div className="bg-emerald-50 border-b border-emerald-200 px-4 py-3 text-xs sm:text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0 print:hidden">
-                {shareError ? (
-                  <span className="text-red-600 font-medium">{shareError}</span>
-                ) : (
-                  <>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-emerald-900">
-                        {t('finance.share_title', { defaultValue: 'Einladungslink für Mitreisende (Live-Sync)' })}
-                      </p>
-                      <p className="text-emerald-700 truncate font-mono text-[11px] mt-0.5">{inviteUrl}</p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
+              <div className="bg-emerald-50 border-b border-emerald-200 px-4 py-3 text-xs sm:text-sm space-y-2.5 shrink-0 print:hidden">
+                {shareError && (
+                  <div className="text-red-600 font-medium">{shareError}</div>
+                )}
+
+                {cashSync?.enabled ? (
+                  <div className="flex flex-col gap-2.5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-emerald-900">
+                          {t('finance.share_title', { defaultValue: 'Einladungslink für Mitreisende (Live-Sync)' })}
+                          <span className="ml-2 text-[11px] font-normal text-emerald-700">
+                            ({project.meta.name || 'Reisekasse'} · ID: {cashSync.roomId.slice(0, 8)})
+                          </span>
+                        </p>
+                        <p className="text-emerald-700 truncate font-mono text-[11px] mt-0.5">{inviteUrl}</p>
+                      </div>
                       <button
                         onClick={handleCopyInvite}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-colors"
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-colors shrink-0"
                       >
                         {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                         {copiedLink ? t('finance.copied', { defaultValue: 'Kopiert!' }) : t('finance.copy_link', { defaultValue: 'Link kopieren' })}
                       </button>
-                      {!isGuestMode && cashSync?.enabled && (
+                    </div>
+
+                    {!isGuestMode && (
+                      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-emerald-200/70">
                         <button
-                          onClick={() => { setCashSync({ ...cashSync, enabled: false }); setShowSharePanel(false); }}
-                          className="px-2.5 py-1.5 rounded-lg bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 font-medium"
+                          onClick={handleToggleRoomStatus}
+                          disabled={isCreatingRoom}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${isRoomClosed ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700' : 'bg-white text-amber-700 border-amber-300 hover:bg-amber-50'}`}
+                        >
+                          {isRoomClosed ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                          {isRoomClosed ? t('finance.reopen_room', { defaultValue: 'Raum wieder öffnen' }) : t('finance.close_room', { defaultValue: 'Raum schließen (nur noch bezahlen)' })}
+                        </button>
+                        <button
+                          onClick={() => {
+                            rememberCashRoom({ roomId: cashSync.roomId, writeToken: cashSync.writeToken, tripName: project.meta.name });
+                            setCashSync({ ...cashSync, enabled: false });
+                            setShowSharePanel(false);
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 text-xs font-medium"
                         >
                           {t('finance.pause_sync', { defaultValue: 'Sync pausieren' })}
                         </button>
+                        <button
+                          onClick={handleDeleteRoom}
+                          disabled={isCreatingRoom}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white text-red-600 border border-red-200 hover:bg-red-50 text-xs font-semibold ml-auto"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          {t('finance.delete_room', { defaultValue: 'Raum löschen' })}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={handleCreateRoom}
+                          disabled={isCreatingRoom}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50 shrink-0"
+                        >
+                          <Share2 className="w-4 h-4" />
+                          {t('finance.start_live_room', { defaultValue: 'Live-Kasse starten & Link erstellen' })}
+                        </button>
+                      </div>
+                      {!isGuestMode && (
+                        <div className="flex items-center gap-1.5 flex-1 max-w-md">
+                          <input
+                            type="text"
+                            value={joinLinkInput}
+                            onChange={(e) => setJoinLinkInput(e.target.value)}
+                            placeholder={t('finance.join_link_placeholder', { defaultValue: 'Oder Einladungslink einfügen...' })}
+                            className="flex-1 min-w-0 px-2.5 py-1.5 text-xs bg-white border border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                          />
+                          <button
+                            onClick={handleJoinRoomByLink}
+                            disabled={!joinLinkInput.trim()}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white text-emerald-700 border border-emerald-300 hover:bg-emerald-100 text-xs font-bold disabled:opacity-50 shrink-0"
+                          >
+                            <LogIn className="w-3.5 h-3.5" />
+                            {t('finance.join_room', { defaultValue: 'Beitreten' })}
+                          </button>
+                        </div>
                       )}
                     </div>
-                  </>
+
+                    {!isGuestMode && (isLoadingRooms || availableRooms.length > 0) && (
+                      <div className="pt-2 border-t border-emerald-200/70">
+                        <p className="text-[11px] font-bold text-emerald-900 uppercase tracking-wide mb-1.5">
+                          {t('finance.existing_rooms', { defaultValue: 'Vorhandene Live-Räume' })}
+                        </p>
+                        {isLoadingRooms ? (
+                          <p className="text-xs text-emerald-700">{t('finance.loading_rooms', { defaultValue: 'Räume werden geladen...' })}</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            {availableRooms.map((room) => (
+                              <button
+                                key={room.roomId}
+                                onClick={() => handleSelectAvailableRoom(room)}
+                                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50/50 text-xs transition-colors shadow-sm"
+                              >
+                                <span className="font-bold text-slate-800">{room.tripName}</span>
+                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${room.status === 'closed' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                                  {room.status === 'closed' ? t('finance.status_closed', { defaultValue: 'Geschlossen' }) : t('finance.status_open', { defaultValue: 'Offen' })}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
+              </div>
+            )}
+
+            {isRoomClosed && (
+              <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs text-amber-800 font-medium flex items-center gap-2 shrink-0 print:hidden">
+                <Lock className="w-3.5 h-3.5 shrink-0" />
+                {t('finance.room_closed_banner', { defaultValue: 'Dieser Kassen-Raum ist geschlossen – neue Ausgaben sind gesperrt, offene Schulden können noch als bezahlt markiert werden.' })}
               </div>
             )}
 
@@ -632,9 +824,11 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                     <div className="text-center py-12 text-slate-400 flex flex-col items-center print:hidden">
                         <Wallet className="w-12 h-12 mb-4 opacity-20" />
                         <p className="mb-4 px-4">{t('finance.empty_state', { defaultValue: 'Noch keine Ausgaben erfasst.' })}</p>
-                        <div className="w-full max-w-[200px]">
-                            <ExpenseEntryButton travelers={rawNames} mode="standalone" isMobile={true} />
-                        </div>
+                        {!isRoomClosed && (
+                          <div className="w-full max-w-[200px]">
+                              <ExpenseEntryButton travelers={rawNames} mode="standalone" isMobile={true} />
+                          </div>
+                        )}
                     </div>
                 ) : activeTab === 'settlement' ? (
                     <div className="space-y-6 animate-in fade-in max-w-2xl mx-auto print:max-w-none">
@@ -1052,4 +1246,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 1039 Zeilen ---
+// --- END OF FILE 1217 Zeilen ---

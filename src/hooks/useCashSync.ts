@@ -1,3 +1,4 @@
+// [2026-11-16] [19:16] - FEAT: Synced room status ('open'|'closed') and handled remote room deletion.
 // [2026-11-16] [17:00] - FEAT: Created useCashSync hook to synchronize local Zustand expenses with Firebase cashRooms.
 // src/hooks/useCashSync.ts
 
@@ -63,6 +64,11 @@ export const useCashSync = (guestParams?: GuestRoomParams | null) => {
           travelerNames: meta.travelerNames,
           currencyConfig: meta.currencyConfig
         });
+        const currentSync = useTripStore.getState().project.data.cashSync;
+        const nextStatus = meta.status || 'open';
+        if (currentSync && currentSync.roomStatus !== nextStatus) {
+          setCashSync({ ...currentSync, roomStatus: nextStatus });
+        }
         setIsSynced(true);
       },
       onExpenses: (remoteExpenses: Record<string, Expense>) => {
@@ -70,6 +76,11 @@ export const useCashSync = (guestParams?: GuestRoomParams | null) => {
         hasInitialSnapshotRef.current = true;
         applyRemoteCashState({ expenses: remoteExpenses });
         setIsSynced(true);
+      },
+      onRoomDeleted: () => {
+        setCashSync(undefined);
+        setIsSynced(false);
+        setSyncError('Dieser Live-Raum wurde geschlossen bzw. gelöscht.');
       },
       onError: (err: Error) => {
         setSyncError(err.message || 'Sync-Fehler');
@@ -137,4 +148,4 @@ export const useCashSync = (guestParams?: GuestRoomParams | null) => {
 
   return { isSynced, syncError, activeRoomId };
 };
-// --- END OF FILE 136 Zeilen ---
+// --- END OF FILE 147 Zeilen ---
