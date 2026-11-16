@@ -1,3 +1,4 @@
+// [2026-11-16] [17:35] - FEAT: Added hostUid to CashRoomMeta on room creation so only the host can update/delete expenses.
 // [2026-11-16] [17:00] - FEAT: Created Firebase Firestore service for live shared Reisekasse (cashRooms).
 // src/services/firebaseCashService.ts
 
@@ -25,6 +26,7 @@ export interface CashRoomMeta {
   travelerNames: string;
   currencyConfig?: CurrencyConfig;
   writeToken: string;
+  hostUid: string;
   updatedAt: number;
 }
 
@@ -92,7 +94,7 @@ export const createCashRoom = async (params: {
   initialExpenses: Record<string, Expense>;
 }): Promise<{ roomId: string; writeToken: string }> => {
   await ensureAnonymousAuth();
-  const { db } = getFirebaseClients();
+  const { db, auth } = getFirebaseClients();
 
   const roomId = crypto.randomUUID();
   const writeToken = `${crypto.randomUUID().replace(/-/g, '')}`;
@@ -103,6 +105,7 @@ export const createCashRoom = async (params: {
     travelerNames: params.travelerNames || '',
     currencyConfig: params.currencyConfig,
     writeToken,
+    hostUid: auth.currentUser?.uid || '',
     updatedAt: Date.now()
   });
 
@@ -202,4 +205,4 @@ export const updateRemoteRoomMeta = async (
     })
   );
 };
-// --- END OF FILE 181 Zeilen ---
+// --- END OF FILE 208 Zeilen ---

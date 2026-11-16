@@ -1,3 +1,4 @@
+// [2026-11-16] [17:35] - FEAT: Disabled expense editing and hid delete button in isGuestMode.
 // [2026-11-16] [17:10] - FEAT: Added Firebase live-share button, invite link banner, and isGuestMode support.
 // 21.03.2026 19:45 - FIX: Removed unused variables (MapPinOff, isUpdatingGPS) to fix TypeScript build error TS6133.
 // 21.03.2026 19:30 - FEAT: Added LocationPickerModal to manual Edit View allowing users to select accurate expense locations on map.
@@ -393,7 +394,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
           allNames.forEach(n => groupShares[n] += shares[n]);
 
           rows.push(
-              <tr key={exp.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => {setActiveTab('feed'); setTimeout(() => startEdit(exp), 50)}}>
+              <tr key={exp.id} className={`hover:bg-slate-50 transition-colors group ${isGuestMode ? '' : 'cursor-pointer'}`} onClick={isGuestMode ? undefined : () => {setActiveTab('feed'); setTimeout(() => startEdit(exp), 50)}}>
                   <td className="p-3 text-slate-500 text-xs border-r border-slate-50">{date}</td>
                   <td className="p-3 font-bold text-slate-700 truncate max-w-[150px] sm:max-w-[250px]" title={exp.title}>
                       <div className="flex items-center gap-1.5">
@@ -814,7 +815,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-start gap-3 hover:border-blue-200 transition-colors cursor-pointer group print:shadow-none print:border-slate-300 print:rounded-none" onClick={() => startEdit(exp)}>
+                                    <div className={`bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-start gap-3 transition-colors group print:shadow-none print:border-slate-300 print:rounded-none ${isGuestMode ? '' : 'hover:border-blue-200 cursor-pointer'}`} onClick={isGuestMode ? undefined : () => startEdit(exp)}>
                                         <div className="p-2 bg-slate-50 rounded-lg text-slate-400 shrink-0 group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors print:hidden"><Banknote className="w-5 h-5" /></div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex justify-between items-start">
@@ -861,18 +862,20 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                                 <div className="text-[10px] text-slate-400 mt-1.5 truncate print:text-slate-600">{t('finance.for', { defaultValue: 'Für:' })} {exp.splitAmong.join(', ')}</div>
                                             ) : null}
                                         </div>
-                                        <button 
-                                            onClick={(e) => { 
-                                                e.stopPropagation(); 
-                                                if(window.confirm(t('finance.delete_confirm', { defaultValue: 'Diese Ausgabe wirklich löschen?' }))) {
-                                                    deleteExpense(exp.id); 
-                                                }
-                                            }} 
-                                            className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0 print:hidden" 
-                                            title={t('actions.delete', { defaultValue: 'Löschen' })}
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                        {!isGuestMode && (
+                                          <button 
+                                              onClick={(e) => { 
+                                                  e.stopPropagation(); 
+                                                  if(window.confirm(t('finance.delete_confirm', { defaultValue: 'Diese Ausgabe wirklich löschen?' }))) {
+                                                      deleteExpense(exp.id); 
+                                                  }
+                                              }} 
+                                              className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0 print:hidden" 
+                                              title={t('actions.delete', { defaultValue: 'Löschen' })}
+                                          >
+                                              <Trash2 className="w-4 h-4" />
+                                          </button>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -989,4 +992,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 974 Zeilen ---
+// --- END OF FILE 979 Zeilen ---
