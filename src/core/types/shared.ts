@@ -1,3 +1,4 @@
+// [2026-11-16] [17:48] - FEAT: Added optional 'isSettlement' flag to Expense interface for debt settlement payments.
 // 22.02.2026 10:55 - FEAT: Added 'CurrencyConfig' and 'CurrencyRate' interfaces for Smart-Currency feature.
 // 21.02.2026 17:15 - FIX: Renamed 'geo' to 'location' in Expense interface for consistency with Diary entries.
 // 21.02.2026 14:00 - FEAT: Added 'splitExact' to Expense interface for advanced custom splits.
@@ -88,6 +89,7 @@ export interface Expense {
   splitExact?: Record<string, number>; 
   timestamp: number;
   location?: { lat: number; lng: number }; 
+  isSettlement?: boolean;
 }
 
 export interface CurrencyRate {
@@ -100,4 +102,4 @@ export interface CurrencyConfig {
   rates: CurrencyRate[]; // Zeilen 2-5: Die Nebenwährungen
   lastUpdated?: string; // Zeitstempel des letzten Abrufs (z.B. ISO-String)
 }
-// --- END OF FILE 98 Zeilen ---
+// --- END OF FILE 100 Zeilen ---

@@ -1,3 +1,4 @@
+// [2026-11-16] [17:48] - FEAT: Added 'Beglichen' settlement button and 'Bereits beglichen' history in Abrechnung tab.
 // [2026-11-16] [17:35] - FEAT: Disabled expense editing and hid delete button in isGuestMode.
 // [2026-11-16] [17:10] - FEAT: Added Firebase live-share button, invite link banner, and isGuestMode support.
 // 21.03.2026 19:45 - FIX: Removed unused variables (MapPinOff, isUpdatingGPS) to fix TypeScript build error TS6133.
@@ -28,7 +29,7 @@ interface TripFinanceModalProps {
 }
 
 export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onClose, setViewMode, isGuestMode = false }) => {
-  const { project, deleteExpense, updateExpense, setUIState, setCashSync } = useTripStore();
+  const { project, addExpense, deleteExpense, updateExpense, setUIState, setCashSync } = useTripStore();
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
   
@@ -201,6 +202,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
       const balances: Record<string, number> = {};
       const paidTotals: Record<string, number> = {};
       const totalsByCurrency: Record<string, number> = {};
+      const settledPayments: Expense[] = [];
 
       allNames.forEach((n: string) => { 
           balances[n] = 0;
@@ -212,11 +214,15 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
           const rate = getRateForCurrency(cur);
           const amountInBase = exp.amount / rate;
 
-          if (!totalsByCurrency[cur]) totalsByCurrency[cur] = 0;
-          totalsByCurrency[cur] += exp.amount;
+          if (exp.isSettlement) {
+              settledPayments.push(exp);
+          } else {
+              if (!totalsByCurrency[cur]) totalsByCurrency[cur] = 0;
+              totalsByCurrency[cur] += exp.amount;
 
-          if (!paidTotals[exp.paidBy]) paidTotals[exp.paidBy] = 0;
-          paidTotals[exp.paidBy] += amountInBase;
+              if (!paidTotals[exp.paidBy]) paidTotals[exp.paidBy] = 0;
+              paidTotals[exp.paidBy] += amountInBase;
+          }
 
           if (!balances[exp.paidBy]) balances[exp.paidBy] = 0;
           balances[exp.paidBy] += amountInBase;
@@ -259,8 +265,26 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
           if (creditors[c][1] < 0.01) c++;
       }
 
-      return { balances, paidTotals, transfers, totalsByCurrency };
+      settledPayments.sort((a, b) => b.timestamp - a.timestamp);
+      return { balances, paidTotals, transfers, totalsByCurrency, settledPayments };
   }, [expenses, allNames, currencyConfig, baseCurrency]);
+
+  const handleMarkSettled = (from: string, to: string, amount: number) => {
+      const formatted = amount.toFixed(2);
+      if (!window.confirm(t('finance.confirm_settle', { defaultValue: `${from} hat ${formatted} ${baseCurrency} an ${to} bezahlt?`, from, to, amount: formatted, currency: baseCurrency }))) {
+          return;
+      }
+      addExpense({
+          id: crypto.randomUUID(),
+          title: t('finance.settlement_title', { defaultValue: `Ausgleich: ${from} → ${to}`, from, to }),
+          amount: Number(amount.toFixed(2)),
+          currency: baseCurrency,
+          paidBy: from,
+          splitAmong: [to],
+          timestamp: Date.now(),
+          isSettlement: true
+      });
+  };
 
   const handleExportCSV = () => {
       const lines: string[] = [];
@@ -657,11 +681,47 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                                 <ArrowRightLeft className="w-4 h-4 text-amber-400 shrink-0 print:text-slate-400" />
                                                 <span className="font-bold text-slate-800 print:text-black">{tr.to}</span>
                                             </div>
-                                            <div className="font-black text-amber-700 text-right print:text-black">
-                                                {tr.amount.toFixed(2)} <span className="text-xs font-bold text-amber-600/70 print:text-slate-500">{baseCurrency}</span>
+                                            <div className="flex items-center justify-end gap-3">
+                                                <div className="font-black text-amber-700 text-right print:text-black">
+                                                    {tr.amount.toFixed(2)} <span className="text-xs font-bold text-amber-600/70 print:text-slate-500">{baseCurrency}</span>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleMarkSettled(tr.from, tr.to, tr.amount)}
+                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white hover:bg-blue-600 text-slate-700 hover:text-white border border-slate-300 hover:border-blue-600 text-xs font-semibold shadow-sm transition-colors print:hidden shrink-0"
+                                                    title={t('finance.mark_settled_tooltip', { defaultValue: 'Schuld als bezahlt markieren' })}
+                                                >
+                                                    {t('finance.mark_settled', { defaultValue: 'Als bezahlt markieren' })}
+                                                </button>
                                             </div>
                                         </div>
                                     ))}
+                                </div>
+                            )}
+
+                            {settlement.settledPayments.length > 0 && (
+                                <div className="mt-5 pt-4 border-t border-slate-100">
+                                    <h4 className="text-[11px] font-bold text-emerald-700 uppercase mb-2.5 flex items-center gap-1.5">
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                        {t('finance.already_settled', { defaultValue: 'Bereits beglichen' })}
+                                    </h4>
+                                    <div className="space-y-2">
+                                        {settlement.settledPayments.map((sp) => (
+                                            <div key={sp.id} className="flex flex-col xs:flex-row xs:items-center justify-between p-2.5 bg-emerald-50/60 border border-emerald-200/70 rounded-lg gap-1.5 text-sm print:bg-white print:border-slate-300">
+                                                <div className="flex items-center gap-2 text-slate-700">
+                                                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                                    <span className="font-bold">{sp.paidBy}</span>
+                                                    <span className="text-slate-400">→</span>
+                                                    <span className="font-bold">{sp.splitAmong?.[0] || ''}</span>
+                                                    <span className="text-[11px] text-slate-400 ml-1">
+                                                        ({new Date(sp.timestamp).toLocaleDateString(currentLang === 'de' ? 'de-DE' : 'en-US')})
+                                                    </span>
+                                                </div>
+                                                <div className="font-bold text-emerald-700 text-right print:text-black">
+                                                    {sp.amount.toFixed(2)} <span className="text-xs font-bold text-emerald-600/80">{sp.currency}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -992,4 +1052,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 979 Zeilen ---
+// --- END OF FILE 1039 Zeilen ---
