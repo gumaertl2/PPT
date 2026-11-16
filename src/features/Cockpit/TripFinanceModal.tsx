@@ -1,3 +1,4 @@
+// [2026-11-16] [17:10] - FEAT: Added Firebase live-share button, invite link banner, and isGuestMode support.
 // 21.03.2026 19:45 - FIX: Removed unused variables (MapPinOff, isUpdatingGPS) to fix TypeScript build error TS6133.
 // 21.03.2026 19:30 - FEAT: Added LocationPickerModal to manual Edit View allowing users to select accurate expense locations on map.
 // src/features/Cockpit/TripFinanceModal.tsx
@@ -9,26 +10,33 @@ import { useTranslation } from 'react-i18next';
 import { 
   X, Wallet, ListFilter, Trash2, ArrowRightLeft, Banknote, Edit3, 
   Save, CheckCircle2, Users, MapPin, Landmark, Download, TableProperties,
-  ChevronUp, ChevronDown, ChevronsUpDown, Sigma, Info, Printer, Map as MapIcon
+  ChevronUp, ChevronDown, ChevronsUpDown, Sigma, Info, Printer, Map as MapIcon,
+  Share2, Copy, Check, Cloud
 } from 'lucide-react'; 
 import type { Expense, LanguageCode, CurrencyConfig } from '../../core/types/shared';
 import { ExpenseEntryButton } from './ExpenseEntryButton'; 
 import { CurrencyConfigModal } from './CurrencyConfigModal';
 import { LocationPickerModal } from './LocationPickerModal';
+import { createCashRoom, isFirebaseConfigured } from '../../services/firebaseCashService';
 
 interface TripFinanceModalProps {
   isOpen: boolean;
   onClose: () => void;
   setViewMode?: (mode: any) => void;
+  isGuestMode?: boolean;
 }
 
-export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onClose, setViewMode }) => {
-  const { project, deleteExpense, updateExpense, setUIState } = useTripStore();
+export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onClose, setViewMode, isGuestMode = false }) => {
+  const { project, deleteExpense, updateExpense, setUIState, setCashSync } = useTripStore();
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
   
   const [activeTab, setActiveTab] = useState<'feed' | 'settlement' | 'table'>('settlement');
   const [isCurrencyModalOpen, setIsCurrencyModalOpen] = useState(false);
+  const [showSharePanel, setShowSharePanel] = useState(false);
+  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
   
   const [sortConfig, setSortConfig] = useState<{key: string, direction: 'asc'|'desc'}>({ key: 'timestamp', direction: 'desc' });
   const [showSubtotals, setShowSubtotals] = useState(false);
@@ -423,6 +431,47 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
       return rows;
   };
 
+  const cashSync = project.data.cashSync;
+  const inviteUrl = cashSync?.roomId && cashSync?.writeToken
+    ? `${window.location.origin}${window.location.pathname}?cashRoom=${encodeURIComponent(cashSync.roomId)}&token=${encodeURIComponent(cashSync.writeToken)}`
+    : '';
+
+  const handleToggleShare = async () => {
+    if (cashSync?.roomId && cashSync?.enabled) {
+      setShowSharePanel((prev) => !prev);
+      return;
+    }
+    if (!isFirebaseConfigured()) {
+      setShareError(t('finance.firebase_not_configured', { defaultValue: 'Firebase ist noch nicht konfiguriert (.env.local).' }));
+      setShowSharePanel(true);
+      return;
+    }
+    setIsCreatingRoom(true);
+    setShareError(null);
+    try {
+      const { roomId, writeToken } = await createCashRoom({
+        tripName: project.meta.name || 'Reisekasse',
+        travelerNames: rawNames,
+        currencyConfig,
+        initialExpenses: (project.data.expenses || {}) as Record<string, Expense>
+      });
+      setCashSync({ roomId, writeToken, enabled: true });
+      setShowSharePanel(true);
+    } catch (err: any) {
+      setShareError(err?.message || 'Fehler beim Erstellen der Live-Kasse.');
+      setShowSharePanel(true);
+    } finally {
+      setIsCreatingRoom(false);
+    }
+  };
+
+  const handleCopyInvite = async () => {
+    if (!inviteUrl) return;
+    await navigator.clipboard.writeText(inviteUrl);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -442,18 +491,34 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
       </style>
       
       {typeof document !== 'undefined' && createPortal(
-        <div className="finance-print-container fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
-          <div className="finance-print-inner bg-slate-50 w-full max-w-4xl max-h-[90dvh] h-full sm:h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 print:rounded-none print:border-none" onClick={e => e.stopPropagation()}>
+        <div className="finance-print-container fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={isGuestMode ? undefined : onClose}>
+          <div className={`finance-print-inner bg-slate-50 w-full ${isGuestMode ? 'max-w-4xl h-[94dvh]' : 'max-w-4xl max-h-[90dvh] h-full sm:h-[85vh]'} rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 print:rounded-none print:border-none`} onClick={e => e.stopPropagation()}>
             
             {/* Screen Header */}
             <div className="relative z-50 bg-white border-b border-slate-200 px-3 sm:px-5 py-3 sm:py-4 flex justify-between items-center shrink-0 print:hidden">
               <div className="flex items-center gap-2 text-slate-800 truncate mr-2">
                 <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600 shrink-0"><Wallet className="w-5 h-5" /></div>
-                <h2 className="hidden xs:block text-base sm:text-lg font-bold truncate">{t('finance.title', { defaultValue: 'Reisekasse' })}</h2>
+                <h2 className="hidden xs:block text-base sm:text-lg font-bold truncate">
+                  {isGuestMode ? (project.meta.name || t('finance.title', { defaultValue: 'Reisekasse' })) : t('finance.title', { defaultValue: 'Reisekasse' })}
+                </h2>
+                {cashSync?.enabled && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                    <Cloud className="w-3 h-3" /> Live
+                  </span>
+                )}
               </div>
               
               <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                 <ExpenseEntryButton travelers={rawNames} mode="standalone" isMobile={true} />
+
+                <button
+                  onClick={handleToggleShare}
+                  disabled={isCreatingRoom}
+                  className={`p-2 rounded-lg transition-colors border shrink-0 ${cashSync?.enabled ? 'text-emerald-600 bg-emerald-50 border-emerald-200 hover:bg-emerald-100' : 'text-slate-500 border-transparent hover:text-blue-600 hover:bg-blue-50 hover:border-blue-100'}`}
+                  title={t('finance.share_live', { defaultValue: 'Live-Kasse teilen (Einladungslink)' })}
+                >
+                  <Share2 className="w-5 h-5" />
+                </button>
                 
                 <button onClick={() => window.print()} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100 shrink-0" title={t('finance.print_tooltip', { defaultValue: 'Ansicht drucken' })}>
                     <Printer className="w-5 h-5" />
@@ -466,10 +531,48 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                 <button onClick={() => setIsCurrencyModalOpen(true)} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100 shrink-0" title={t('finance.currency_config_title', { defaultValue: 'Währungen konfigurieren' })}>
                     <Landmark className="w-5 h-5" />
                 </button>
-                <div className="w-px h-6 bg-slate-200 mx-1 hidden sm:block"></div>
-                <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors shrink-0" title={t('actions.close', { defaultValue: 'Schließen' })}><X className="w-5 h-5" /></button>
+                {!isGuestMode && (
+                  <>
+                    <div className="w-px h-6 bg-slate-200 mx-1 hidden sm:block"></div>
+                    <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors shrink-0" title={t('actions.close', { defaultValue: 'Schließen' })}><X className="w-5 h-5" /></button>
+                  </>
+                )}
               </div>
             </div>
+
+            {showSharePanel && (
+              <div className="bg-emerald-50 border-b border-emerald-200 px-4 py-3 text-xs sm:text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0 print:hidden">
+                {shareError ? (
+                  <span className="text-red-600 font-medium">{shareError}</span>
+                ) : (
+                  <>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-emerald-900">
+                        {t('finance.share_title', { defaultValue: 'Einladungslink für Mitreisende (Live-Sync)' })}
+                      </p>
+                      <p className="text-emerald-700 truncate font-mono text-[11px] mt-0.5">{inviteUrl}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={handleCopyInvite}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-colors"
+                      >
+                        {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        {copiedLink ? t('finance.copied', { defaultValue: 'Kopiert!' }) : t('finance.copy_link', { defaultValue: 'Link kopieren' })}
+                      </button>
+                      {!isGuestMode && cashSync?.enabled && (
+                        <button
+                          onClick={() => { setCashSync({ ...cashSync, enabled: false }); setShowSharePanel(false); }}
+                          className="px-2.5 py-1.5 rounded-lg bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 font-medium"
+                        >
+                          {t('finance.pause_sync', { defaultValue: 'Sync pausieren' })}
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
 
             {/* Print Header */}
             <div className="hidden print:block pb-2 mb-4 border-b border-slate-200">
@@ -886,4 +989,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 765 Zeilen ---
+// --- END OF FILE 974 Zeilen ---

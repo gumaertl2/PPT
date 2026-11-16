@@ -1,3 +1,4 @@
+// [2026-11-16] [17:00] - FEAT: Added optional 'cashSync' config to TripProject['data'] for Firebase live expense sharing.
 // 18.03.2026 18:30 - FEAT: Split 'diary' print config into 'diary' (text) and 'diaryMap' (map) for flexible portrait/landscape printing.
 // 27.02.2026 13:55 - FEAT: Added 'TransferPlannerResult' interface.
 // src/core/types/models.ts
@@ -345,10 +346,15 @@ export interface TripProject {
     content: Record<string, any>; 
     routes: Record<string, any>;
     expenses?: Record<string, Expense>; 
-    currencyConfig?: CurrencyConfig; 
+    currencyConfig?: CurrencyConfig;
+    cashSync?: {
+      roomId: string;
+      writeToken: string;
+      enabled: boolean;
+    };
   };
   itinerary: {
     days: any[];
   };
 }
-// --- END OF FILE 369 Zeilen ---
+// --- END OF FILE 359 Zeilen ---

@@ -1,13 +1,16 @@
+// [2026-11-16] [17:15] - FEAT: Added URL detection for ?cashRoom=&token= guest mode and global useCashSync hook.
 // src/App.tsx
 // 14.01.2026 17:25 - FIX: Removed unmanaged global modals and added required onNext prop to AnalysisReviewView (No downstream view available yet).
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useTripStore } from './store/useTripStore';
 import { useTripGeneration } from './hooks/useTripGeneration';
+import { useCashSync, type GuestRoomParams } from './hooks/useCashSync';
 import { WorkflowSelectionModal } from './features/Workflow/WorkflowSelectionModal';
 import { WelcomeScreen } from './features/Welcome/WelcomeScreen';
 import { CockpitWizard } from './features/Cockpit/CockpitWizard';
 import { AnalysisReviewView } from './features/Cockpit/AnalysisReviewView';
+import { TripFinanceModal } from './features/Cockpit/TripFinanceModal';
 import { NotificationSystem } from './features/Shared/NotificationSystem';
 // FIX: Modals are used locally in features, not globally managed yet.
 // import { InfoModal } from './features/Welcome/InfoModal';
@@ -27,6 +30,18 @@ function App() {
   } = useTripStore();
   
   const { startWorkflow } = useTripGeneration();
+
+  const guestCashParams = useMemo<GuestRoomParams | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const roomId = params.get('cashRoom');
+    const writeToken = params.get('token');
+    if (roomId && writeToken) {
+      return { roomId, writeToken };
+    }
+    return null;
+  }, []);
+
+  useCashSync(guestCashParams);
 
   useEffect(() => {
     // Initiale Sprache setzen basierend auf Browser oder Projekt
@@ -66,14 +81,20 @@ function App() {
       */}
 
       {/* VIEW ROUTING */}
-      {view === 'welcome' && <WelcomeScreen />}
-      {view === 'wizard' && <CockpitWizard />}
-      {view === 'analysis_review' && (
-        <AnalysisReviewView 
-          // FIX: Added required onNext prop. 
-          // Note: No 'ItineraryView' is currently imported in App.tsx, so we stay here or log completion.
-          onNext={() => console.log('Analysis Review completed. (No next view defined in App.tsx)')}
-        />
+      {guestCashParams ? (
+        <TripFinanceModal isOpen={true} onClose={() => {}} isGuestMode={true} />
+      ) : (
+        <>
+          {view === 'welcome' && <WelcomeScreen />}
+          {view === 'wizard' && <CockpitWizard />}
+          {view === 'analysis_review' && (
+            <AnalysisReviewView 
+              // FIX: Added required onNext prop. 
+              // Note: No 'ItineraryView' is currently imported in App.tsx, so we stay here or log completion.
+              onNext={() => console.log('Analysis Review completed. (No next view defined in App.tsx)')}
+            />
+          )}
+        </>
       )}
       
     </div>
@@ -81,4 +102,4 @@ function App() {
 }
 
 export default App;
-// --- END OF FILE 79 Zeilen ---
+// --- END OF FILE 107 Zeilen ---

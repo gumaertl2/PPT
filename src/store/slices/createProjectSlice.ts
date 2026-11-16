@@ -1,3 +1,4 @@
+// [2026-11-16] [17:05] - FEAT: Added 'setCashSync' and 'applyRemoteCashState' actions for Firebase live expense sync.
 // 21.04.2026 17:00 - FIX: Enforced 'resetUIFilter' trigger in 'loadProject' and 'resetProject' to prevent cross-file UI ghosting.
 // 19.03.2026 17:45 - FEAT: Added deep-sanitizer to 'loadProject' to ensure old JSON files are dynamically upgraded to the latest data model without crashing.
 // 19.03.2026 13:00 - FEAT: Implemented native File System Access API (showSaveFilePicker).
@@ -6,7 +7,7 @@
 import type { StateCreator } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import type { TripProject, LanguageCode, UserInputs } from '../../core/types';
-import type { Expense } from '../../core/types/shared';
+import type { Expense, CurrencyConfig } from '../../core/types/shared';
 import { mergeProjects } from '../../core/utils/projectMerger';
 import {
   DEFAULT_SIGHTS_COUNT,
@@ -34,6 +35,13 @@ export interface ProjectSlice {
   addExpense: (expense: Expense) => void;
   updateExpense: (id: string, data: Partial<Expense>) => void;
   deleteExpense: (id: string) => void;
+  setCashSync: (cashSync?: TripProject['data']['cashSync']) => void;
+  applyRemoteCashState: (payload: {
+    expenses?: Record<string, Expense>;
+    tripName?: string;
+    travelerNames?: string;
+    currencyConfig?: CurrencyConfig;
+  }) => void;
 }
 
 const createInitialProject = (): TripProject => ({
@@ -380,5 +388,37 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
       }
     };
   }),
+
+  setCashSync: (cashSync) => set((state: any) => ({
+    project: {
+      ...state.project,
+      data: {
+        ...state.project.data,
+        cashSync
+      }
+    }
+  })),
+
+  applyRemoteCashState: (payload) => set((state: any) => {
+    const nextProject = { ...state.project };
+    if (payload.tripName !== undefined) {
+      nextProject.meta = { ...nextProject.meta, name: payload.tripName };
+    }
+    if (payload.travelerNames !== undefined) {
+      nextProject.userInputs = {
+        ...nextProject.userInputs,
+        travelers: {
+          ...nextProject.userInputs.travelers,
+          travelerNames: payload.travelerNames
+        }
+      };
+    }
+    nextProject.data = {
+      ...nextProject.data,
+      ...(payload.expenses !== undefined ? { expenses: payload.expenses } : {}),
+      ...(payload.currencyConfig !== undefined ? { currencyConfig: payload.currencyConfig } : {})
+    };
+    return { project: nextProject };
+  }),
 });
-// --- END OF FILE 354 Zeilen ---
+// --- END OF FILE 427 Zeilen ---

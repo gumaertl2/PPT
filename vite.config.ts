@@ -1,3 +1,4 @@
+// [2026-11-16] [17:20] - FIX: Split firebase vendor chunk and raised workbox maximumFileSizeToCacheInBytes for PWA build.
 // 07.04.2026 19:50 - FIX: Added stable 'id: /' to manifest to resolve PWABuilder warning and ensure unique app identification.
 // 07.04.2026 19:45 - FIX: Removed experimental PWABuilder fields (note_taking, share_target, widgets) causing TS2353 build errors.
 // 07.04.2026 19:30 - FEAT: Max PWABuilder Score (start_url fix, icon split, experimental features).
@@ -119,6 +120,7 @@ export default defineConfig({
         ]
       },
       workbox: {
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'], 
         runtimeCaching: [
           {
@@ -139,5 +141,14 @@ export default defineConfig({
       }
     })
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore']
+        }
+      }
+    }
+  }
 })
-// --- END OF FILE 137 Zeilen ---
+// --- END OF FILE 154 Zeilen ---
