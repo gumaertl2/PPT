@@ -1,3 +1,5 @@
+// [2026-11-17] [17:07] - UX: Auto-scrolled opened/expanded edit cards into view (fitting whole card or aligning top edge) without jumping if already visible.
+// [2026-11-17] [17:01] - UX: Expanded desktop modal footprint (sm:max-w-5xl xl:max-w-6xl sm:h-[94dvh]) and tightened edit form layout on desktop while keeping mobile touch-friendly.
 // [2026-11-17] [16:51] - UX: Prefilled exact split amounts from current equal/weighted distribution when switching to 'Exakt'.
 // [2026-11-17] [16:46] - UX/FIX: Showed participant names in split toggle, auto-expanded partial-group edits, seeded unused weights as 0x, and added confirmation when amount/currency/payer/split changes.
 // [2026-11-17] [16:26] - UX: Consistently sorted traveler names with active identity ('Ich bin') first followed by A-Z across all tabs and history cards.
@@ -25,7 +27,7 @@
 // 21.03.2026 19:30 - FEAT: Added LocationPickerModal to manual Edit View allowing users to select accurate expense locations on map.
 // src/features/Cockpit/TripFinanceModal.tsx
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
@@ -104,6 +106,8 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
   const [editSplitWeights, setEditSplitWeights] = useState<Record<string, number>>({});
   const [editSplitExact, setEditSplitExact] = useState<Record<string, string>>({});
   const [showSplit, setShowSplit] = useState(false);
+  const contentScrollRef = useRef<HTMLDivElement | null>(null);
+  const editingCardRef = useRef<HTMLDivElement | null>(null);
 
   const displayTripName = useMemo(() => {
     const rawNameMeta = project.meta?.name?.trim();
@@ -267,6 +271,40 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
           setEditSplitExact({});
       }
   };
+
+  useEffect(() => {
+    if (!editingId || activeTab !== 'feed') return;
+    let rafId2 = 0;
+    const rafId1 = requestAnimationFrame(() => {
+      rafId2 = requestAnimationFrame(() => {
+        const container = contentScrollRef.current;
+        const card = editingCardRef.current;
+        if (!container || !card) return;
+
+        const containerRect = container.getBoundingClientRect();
+        const cardRect = card.getBoundingClientRect();
+        const pad = 12;
+
+        if (cardRect.top < containerRect.top + pad) {
+          container.scrollBy({
+            top: cardRect.top - (containerRect.top + pad),
+            behavior: 'smooth'
+          });
+        } else if (cardRect.bottom > containerRect.bottom - pad) {
+          const neededToShowBottom = cardRect.bottom - (containerRect.bottom - pad);
+          const maxWithoutClippingTop = cardRect.top - (containerRect.top + pad);
+          const delta = Math.min(neededToShowBottom, Math.max(0, maxWithoutClippingTop));
+          if (delta > 1) {
+            container.scrollBy({ top: delta, behavior: 'smooth' });
+          }
+        }
+      });
+    });
+    return () => {
+      cancelAnimationFrame(rafId1);
+      if (rafId2) cancelAnimationFrame(rafId2);
+    };
+  }, [editingId, activeTab, showSplit]);
 
   const calculateRemaining = () => {
       const total = parseFloat(editAmount.replace(',', '.')) || 0;
@@ -1049,8 +1087,8 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
       </style>
       
       {typeof document !== 'undefined' && createPortal(
-        <div className="finance-print-container fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={isGuestMode ? undefined : onClose}>
-          <div className={`finance-print-inner relative bg-slate-50 w-full ${isGuestMode ? 'max-w-4xl h-[94dvh]' : 'max-w-4xl max-h-[90dvh] h-full sm:h-[85vh]'} rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 print:rounded-none print:border-none`} onClick={e => e.stopPropagation()}>
+        <div className="finance-print-container fixed inset-0 z-[1000] flex items-center justify-center p-2 sm:p-3 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={isGuestMode ? undefined : onClose}>
+          <div className={`finance-print-inner relative bg-slate-50 w-full ${isGuestMode || uiState.isCashOnlyMode ? 'max-w-6xl h-[96dvh] sm:h-[95dvh]' : 'max-w-5xl xl:max-w-6xl max-h-[96dvh] h-full sm:h-[94dvh]'} rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 print:rounded-none print:border-none`} onClick={e => e.stopPropagation()}>
 
             {showIdentityPrompt && (
               <div className="absolute inset-0 z-[200] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 print:hidden">
@@ -1487,7 +1525,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                 </button>
             </div>
 
-            <div className="finance-print-scroll flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 relative print:p-0 print:space-y-4">
+            <div ref={contentScrollRef} className="finance-print-scroll flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 relative print:p-0 print:space-y-4">
                 
                 {expenses.length === 0 ? (
                     <div className="max-w-lg mx-auto py-6 sm:py-8 space-y-5 print:hidden">
@@ -1833,7 +1871,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                         </div>
                     </div>
                 ) : activeTab === 'feed' ? (
-                    <div className="space-y-3 animate-in fade-in max-w-2xl mx-auto print:max-w-none">
+                    <div className="space-y-3 animate-in fade-in max-w-2xl lg:max-w-3xl mx-auto print:max-w-none">
                         <div className={`flex flex-col sm:flex-row gap-2 p-2.5 rounded-xl border shadow-sm print:hidden transition-colors ${isFilterActive ? 'bg-amber-50/60 border-amber-300' : 'bg-white border-slate-200'}`}>
                             {renderFilterControls(filteredFeed.length, false)}
                         </div>
@@ -1844,8 +1882,8 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                         ) : filteredFeed.map(exp => (
                             <div key={exp.id} className="print:break-inside-avoid">
                                 {editingId === exp.id ? (
-                                    <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-300 shadow-md print:hidden">
-                                        <div className="flex justify-between items-center mb-4 border-b border-emerald-100/50 pb-2">
+                                    <div ref={editingCardRef} className="bg-emerald-50 p-3.5 sm:p-4 rounded-2xl border border-emerald-300 shadow-md print:hidden">
+                                        <div className="flex justify-between items-center mb-3 border-b border-emerald-100/50 pb-2">
                                             <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
                                                 <Edit3 className="w-3.5 h-3.5" /> {t('actions.edit', { defaultValue: 'Bearbeiten' })}
                                                 
@@ -1880,37 +1918,37 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                             <button onClick={() => setEditingId(null)} className="text-emerald-500 hover:text-emerald-800 bg-emerald-100/50 p-1 rounded-full"><X className="w-4 h-4"/></button>
                                         </div>
                                         
-                                        <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                                        <div className="flex flex-col sm:flex-row gap-2.5 mb-3">
                                             <div className="flex-[2]">
-                                                <label className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">{t('finance.purpose', { defaultValue: 'Verwendungszweck' })}</label>
-                                                <input type="text" list="expense-titles-edit" value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2.5 focus:ring-emerald-500 bg-white shadow-sm" placeholder={t('finance.title_placeholder', { defaultValue: 'Titel' })} />
+                                                <label className="text-[10px] font-bold text-emerald-700 uppercase block mb-1">{t('finance.purpose', { defaultValue: 'Verwendungszweck' })}</label>
+                                                <input type="text" list="expense-titles-edit" value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2 focus:ring-emerald-500 bg-white shadow-sm" placeholder={t('finance.title_placeholder', { defaultValue: 'Titel' })} />
                                                 <datalist id="expense-titles-edit">
                                                     {uniqueTitles.map(tTitle => <option key={tTitle} value={tTitle} />)}
                                                 </datalist>
                                             </div>
                                             <div className="flex-1">
-                                                <label className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">{t('finance.date', { defaultValue: 'Datum & Uhrzeit' })}</label>
-                                                <input type="datetime-local" value={editDate} onChange={e => setEditDate(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2.5 focus:ring-emerald-500 bg-white shadow-sm" />
+                                                <label className="text-[10px] font-bold text-emerald-700 uppercase block mb-1">{t('finance.date', { defaultValue: 'Datum & Uhrzeit' })}</label>
+                                                <input type="datetime-local" value={editDate} onChange={e => setEditDate(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2 focus:ring-emerald-500 bg-white shadow-sm" />
                                             </div>
                                         </div>
                                         
-                                        <div className="flex gap-2 mb-4">
-                                            <input type="number" step="0.01" value={editAmount} onChange={e => setEditAmount(e.target.value)} className="flex-1 text-lg font-bold border-emerald-200 rounded-lg p-2.5 focus:ring-emerald-500 bg-white shadow-sm" />
-                                            <select value={editCurrency} onChange={e => setEditCurrency(e.target.value)} className="w-24 text-sm font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 cursor-pointer shadow-sm">
+                                        <div className="flex gap-2 mb-3">
+                                            <input type="number" step="0.01" value={editAmount} onChange={e => setEditAmount(e.target.value)} className="flex-1 text-lg font-bold border-emerald-200 rounded-lg p-2 focus:ring-emerald-500 bg-white shadow-sm" />
+                                            <select value={editCurrency} onChange={e => setEditCurrency(e.target.value)} className="w-24 text-sm font-bold border-emerald-200 rounded-lg p-2 bg-white focus:ring-emerald-500 cursor-pointer shadow-sm">
                                                 {availableCurrencies.map(c => <option key={c} value={c}>{c}</option>)}
                                             </select>
                                         </div>
                                         
-                                        <div className="mb-4">
-                                            <span className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">{t('finance.paid_by', { defaultValue: 'Wer hat bezahlt?' })}</span>
+                                        <div className="mb-3">
+                                            <span className="text-[10px] font-bold text-emerald-700 uppercase block mb-1">{t('finance.paid_by', { defaultValue: 'Wer hat bezahlt?' })}</span>
                                             <div className="flex flex-wrap gap-1.5">
                                                 {allNames.map((n: string) => ( 
-                                                    <button key={n} onClick={() => setEditPaidBy(n)} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${editPaidBy === n ? 'bg-emerald-600 text-white' : 'bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-100'}`}>{n}</button>
+                                                    <button key={n} onClick={() => setEditPaidBy(n)} className={`px-3 py-1 rounded-full text-xs font-bold transition-all shadow-sm ${editPaidBy === n ? 'bg-emerald-600 text-white' : 'bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-100'}`}>{n}</button>
                                                 ))}
                                             </div>
                                         </div>
                                         
-                                        <div className="mb-5">
+                                        <div className="mb-3.5">
                                             {(() => {
                                                 const numTotal = parseFloat(editAmount.replace(',', '.')) || 0;
                                                 const perPerson = editSplitAmong.length > 0 && numTotal > 0 ? numTotal / editSplitAmong.length : 0;
@@ -2035,11 +2073,11 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                         </div>
                                         
                                         {/* MANUELLER LOCATION PICKER BUTTON */}
-                                        <div className="flex flex-col gap-3">
+                                        <div className="flex flex-col sm:flex-row gap-2.5">
                                             <button onClick={(e) => {
                                                 e.stopPropagation();
                                                 setShowLocationPicker(true);
-                                            }} className="w-full flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-white text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 justify-center transition-colors shadow-sm">
+                                            }} className="sm:flex-1 flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-white text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 justify-center transition-colors shadow-sm">
                                                 {editLocation ? (
                                                     <><MapPin size={14} className="text-emerald-500" /> {t('finance.gps_saved', {defaultValue: 'Standort gespeichert ✓'})} ({t('actions.change', {defaultValue: 'Ändern'})})</>
                                                 ) : (
@@ -2047,7 +2085,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                                 )}
                                             </button>
 
-                                            <button onClick={handleSaveEdit} disabled={!editAmount || !editTitle.trim() || isNaN(parseFloat(editAmount)) || !editPaidBy || (editSplitMode==='equal' && editSplitAmong.length === 0) || (editSplitMode==='weights' && Object.values(editSplitWeights).reduce((s, w) => s + (w > 0 ? w : 0), 0) <= 0)} className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"><Save className="w-4 h-4"/> {t('finance.save', { defaultValue: 'Speichern' })}</button>
+                                            <button onClick={handleSaveEdit} disabled={!editAmount || !editTitle.trim() || isNaN(parseFloat(editAmount)) || !editPaidBy || (editSplitMode==='equal' && editSplitAmong.length === 0) || (editSplitMode==='weights' && Object.values(editSplitWeights).reduce((s, w) => s + (w > 0 ? w : 0), 0) <= 0)} className="sm:flex-[1.5] py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"><Save className="w-4 h-4"/> {t('finance.save', { defaultValue: 'Speichern' })}</button>
                                         </div>
                                     </div>
                                 ) : (
@@ -2162,7 +2200,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                 <Sigma className="w-4 h-4" /> {t('finance.toggle_subtotals', { defaultValue: 'Zwischensummen' })}
                             </button>
                         </div>
-                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-auto max-h-[55vh] sm:max-h-[65vh] print:shadow-none print:border-none print:overflow-visible print:max-h-none">
+                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-auto max-h-[60dvh] sm:max-h-[75dvh] print:shadow-none print:border-none print:overflow-visible print:max-h-none">
                             <table className="w-full text-left text-sm whitespace-nowrap print:whitespace-normal relative">
                                 <thead className="sticky top-0 z-30 bg-slate-50 border-b border-slate-200 text-xs text-slate-500 uppercase tracking-wider select-none shadow-sm print:static print:bg-white print:border-b-2 print:border-black">
                                     <tr>
@@ -2299,4 +2337,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 2302 Zeilen ---
+// --- END OF FILE 2340 Zeilen ---

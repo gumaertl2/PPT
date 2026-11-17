@@ -1,3 +1,4 @@
+// [2026-11-17] [17:01] - UX: Enlarged desktop modal width/height (sm:max-w-md max-h-[94dvh]) while keeping mobile compact.
 // [2026-11-17] [16:51] - UX: Prefilled exact split amounts from current equal/weighted distribution when switching to 'Exakt'.
 // [2026-11-17] [16:46] - UX: Showed sorted participant names instead of anonymous count in split toggle label.
 // [2026-11-17] [16:26] - UX: Consistently sorted traveler names with active identity first followed by A-Z.
@@ -458,8 +459,8 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
             {renderTriggerButton()}
 
             {isOpen && typeof document !== 'undefined' && createPortal(
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={() => handleToggle()}>
-                    <div className="bg-emerald-50 w-full max-w-sm max-h-[90dvh] rounded-2xl shadow-2xl border border-emerald-300 flex flex-col overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={() => handleToggle()}>
+                    <div className="bg-emerald-50 w-full max-w-sm sm:max-w-md max-h-[94dvh] rounded-2xl shadow-2xl border border-emerald-300 flex flex-col overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                         
                         <div className="flex justify-between items-center gap-2 p-4 border-b border-emerald-100/50 bg-emerald-100/30 shrink-0">
                             <span className="text-sm font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5 min-w-0">
@@ -848,4 +849,4 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         </div>
     );
 };
-// --- END OF FILE 851 Zeilen ---
+// --- END OF FILE 852 Zeilen ---
