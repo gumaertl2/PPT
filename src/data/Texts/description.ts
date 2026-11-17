@@ -1,3 +1,4 @@
+// 17.11.2026 13:48 - DOCS: Updated German & English descriptions and technical manual for Live-Reisekasse (Live-Sync via Link/WhatsApp/QR, weights 'Anteile', settlements, focus mode, and filter UX).
 // 25.10.2026 13:12 - DOCS: Synced Technical Manual (DE & EN) with current code (6 Wizard steps, Header Toolbar layout, Actions Menu & full AI Specialist team).
 // 12.04.2026 14:40 - UX: Updated terminology (AI Workflows -> Reiseführer-Kapitel, Fundament -> Briefing) for full consistency.
 // 18.03.2026 11:15 - DOCS: Updated terminology (Plan -> Tagebuch/Diary) in the manual to reflect the new Live-Tracker feature.
@@ -47,7 +48,7 @@ Für jeden Ort liefert dir Papatours sofort:
 
 #### 📖 DAS ERLEBNIS FESTHALTEN: Erinnerungen & Finanzen
 * **Live-Reisetagebuch:** Checke an besuchten Orten ein. Erfasse Fotos, Notizen und persönliche Eindrücke genau dort, wo sie passieren. Am Ende entsteht ein fertiges, digitales Reisedokument zum Teilen oder Drucken.
-* **Stressfreie Reisekasse:** Wer hat die Tickets bezahlt? Wer schuldet wem noch Geld? Die integrierte Reisekasse berechnet alle Ausgaben der Gruppe automatisch am Ende des Tages. Kein Splitwise, kein Excel, kein Nachrechnen.
+* **Stressfreie Live-Reisekasse:** Wer hat die Tickets bezahlt? Wer schuldet wem noch Geld? Teile die Kasse optional live per Link, WhatsApp oder QR-Code mit deinen Mitreisenden (auch als Gast ohne Konto), teile Kosten gleichmäßig, exakt oder nach **Anteilen** (z. B. \`2×\` für Paare) auf und hake Beglichenes direkt ab. Kein Splitwise, kein Excel, kein Nachrechnen.
 
 ---
 
@@ -137,7 +138,7 @@ Sieh dir alle Orte übersichtlich auf der Landkarte an. Die Farben entsprechen d
 * **Wo bin ich?** Klicke auf das kleine Fadenkreuz-Symbol oben rechts auf der Karte. Die App ortet dich per GPS und zeigt dir mit einem blauen Punkt, wo du gerade stehst.
 
 💸 **Direkt in der Kopfleiste: Kasse & Drucken**
-* **Reisekasse (Wallet-Icon oben rechts):** Dein smartes Finanz-Tool. Erfasse Ausgaben direkt im Urlaub, splitte Kosten exakt auf Mitreisende auf und lasse Papatours mit tagesaktuellen Bankenkursen am Ende berechnen, wer wem wie viel schuldet.
+* **Live-Reisekasse (Wallet-Icon oben rechts):** Dein smartes Finanz-Tool (auch im Fokusmodus nutzbar). Erfasse Ausgaben oder Rückzahlungen direkt im Urlaub, wähle über **„Ich bin“** deine Person aus, splitte Kosten gleichmäßig, exakt oder gewichtet nach **Anteilen (\`1×\`, \`2×\`)** und hake Schulden per **„Als bezahlt markieren“** direkt ab. Mit **„Live-Kasse starten“** lädst du Mitreisende per Link, WhatsApp oder QR-Code ein; in **Historie** und **Tabelle** zeigen dir Suche, Personenfilter und das **„Gefiltert“-Badge** sofort jede Teilauswertung inklusive passender Summenzeilen an.
 * **Schnell-Drucken (Drucker-Icon oben rechts):** Druckt die aktuelle Ansicht oder öffnet in der Kartenansicht direkt die Kartendruck-Vorschau.
 
 ### Phase 3: Das Aktionen-Menü (Deine Werkzeuge)
@@ -206,7 +207,7 @@ For every place, Papatours instantly provides:
 
 #### 📖 CAPTURE THE EXPERIENCE: Memories & Finance
 * **Live Travel Diary:** Check in at places you visit. Add photos, notes, and personal impressions right where they happen. At the end, a complete digital travel document is ready to share or print.
-* **Stress-free Trip Finance:** Who paid for the tickets? Who owes whom money? The integrated travel wallet automatically calculates all group expenses at the end of the day. No Splitwise, no Excel, no manual math.
+* **Stress-free Live Trip Finance:** Who paid for the tickets? Who owes whom money? Optionally share the wallet live via link, WhatsApp, or QR code with your travel companions (even as a guest without an account), split costs equally, exactly, or by **shares** (e.g., \`2×\` for couples), and mark debts as paid directly. No Splitwise, no Excel, no manual math.
 
 ---
 
@@ -296,7 +297,7 @@ See all places clearly on the map. The colors correspond to their respective cat
 * **Where am I?** Click the small crosshair icon in the top right corner of the map. The app locates you via GPS and shows you exactly where you are with a blue dot.
 
 💸 **Directly in the Header Bar: Wallet & Print**
-* **Trip Finance (Wallet icon top right):** Your smart financial tool. Record expenses directly on vacation, split costs exactly among travelers, and let Papatours calculate who owes whom how much at the end of the trip using daily bank exchange rates.
+* **Live Trip Finance (Wallet icon top right):** Your smart financial tool (also available in focus mode). Record expenses or repayments on vacation, pick yourself via **"I am"**, split costs equally, exactly, or weighted by **shares (\`1×\`, \`2×\`)**, and settle balances via **"Mark as paid"**. Start a **Live Wallet** to invite companions via link, WhatsApp, or QR code; in **History** and **Table**, search, person filters, and the **Filtered** badge immediately highlight subset results and matching footer totals.
 * **Quick Print (Printer icon top right):** Prints the current view or opens the map print preview directly when in Map view.
 
 ### Phase 3: The Actions Menu (Your Tools)
@@ -329,4 +330,4 @@ In the "Guide Chapters" menu, you can watch our team of digital specialists at w
 * 🚗 **Transfer Planner (10. Optimize Transfers):** Calculates travel times and optimizes logistics between scheduled appointments.`
   }
 };
-// --- END OF FILE 332 Zeilen ---
+// --- END OF FILE 333 Zeilen ---

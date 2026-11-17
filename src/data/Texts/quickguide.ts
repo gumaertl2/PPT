@@ -1,3 +1,4 @@
+// 17.11.2026 13:48 - DOCS: Updated Quick Guide Wallet entry with Live-Sharing (Link/QR/WhatsApp), Anteile weights, settlements & filter controls.
 // 25.10.2026 13:12 - DOCS: Synced Quick Guide navigation & actions with CockpitHeader and ActionsMenu.
 // 12.04.2026 14:35 - UX: Updated terminology (AI Workflows -> Reiseführer / Guide Chapters) for consistency.
 // 18.03.2026 11:15 - DOCS: Updated terminology (Plan -> Tagebuch/Diary) to reflect the new Live-Tracker feature.
@@ -17,7 +18,7 @@ Wechsle zwischen den Ansichten und Direkt-Werkzeugen oben in der Leiste:
 * **[Info] Info:** Das Reise-Lexikon mit Stadtführern und Regional-Infos *(Tipp: Doppelklick öffnet die Experten-Einstellungen)*.
 * **[Map] Karte:** Visualisiere deine Route und finde deinen Standort per GPS.
 * **[Filter] Suche & Filter:** Filtere Orte live nach Kategorien, Besuchsstatus oder Suchbegriff.
-* **[Wallet] Kasse:** Direktzugriff auf die Reisekasse (Ausgaben erfassen & Kosten aufteilen).
+* **[Wallet] Kasse:** Direktzugriff auf die Live-Reisekasse (Ausgaben & Rückzahlungen erfassen, nach Anteilen \`1×\`/\`2×\` oder exakt teilen, per Link/WhatsApp/QR-Code live synchronisieren, Schulden abhaken & filtern).
 * **[Printer] Drucken:** Druckt die aktuelle Ansicht oder öffnet die Kartendruck-Vorschau.
 
 ### 2. Werkzeuge & Aktionen
@@ -52,7 +53,7 @@ Switch between views and direct tools in the top bar:
 * **[Info] Info:** The travel encyclopedia with city guides and regional info *(Tip: Double-click opens Expert Settings)*.
 * **[Map] Map:** Visualize your route and find your location via GPS.
 * **[Filter] Search & Filter:** Filter places live by category, visited status, or keyword.
-* **[Wallet] Finance:** Direct access to Trip Finance (record expenses & split costs).
+* **[Wallet] Finance:** Direct access to Live Trip Finance (record expenses & repayments, split equally, exactly, or by \`1×\`/\`2×\` shares, share live via link/WhatsApp/QR code, settle debts & filter).
 * **[Printer] Print:** Prints the current view or opens the map print preview.
 
 ### 2. Tools & Actions
@@ -77,4 +78,4 @@ Use the controls directly on the places (SightCards):
 * **Planning:** Use **Fix**, **Prio 1/2**, or **Ignore** to control the itinerary planner.`
   }
 };
-// --- END OF FILE 80 Zeilen ---
+// --- END OF FILE 81 Zeilen ---
