@@ -1,16 +1,24 @@
+// [2026-11-17] [12:56] - FIX: Scoped local cash identity lookup to roomId || project.meta.id.
+// [2026-11-17] [12:52] - FIX: Handled addedNames array from addTravelerSafe for comma-separated entries.
+// [2026-11-17] [12:45] - FEAT: Pre-filled default expense weights ('defaultExpenseWeights') and auto-selected 'weights' split mode when configured.
+// [2026-11-17] [12:12] - FEAT: Added weighted shares ('splitWeights') and partial settlement ('Rückzahlung') mode in ExpenseEntryButton.
+// [2026-11-17] [12:00] - FIX: Replaced invalid 'hidden xs:inline' with 'hidden sm:inline' on standalone mobile button label.
+// [2026-11-17] [10:30] - FEAT: Pre-selected stored user identity for 'paidBy' and added '+ Person' with duplicate & online checks.
 // 09.04.2026 10:25 - FIX: Added fully localized i18n support for the inline names input placeholder.
 // 09.04.2026 10:20 - UX: Added inline traveler names input for zero-friction expense entry when names are missing.
 // src/features/Cockpit/ExpenseEntryButton.tsx
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Banknote, X, Users, CheckCircle2, Save, MapPin, PenLine, MapPinOff } from 'lucide-react';
+import { Banknote, X, Users, CheckCircle2, Save, MapPin, PenLine, MapPinOff, UserPlus } from 'lucide-react';
 import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
 import type { Expense, CurrencyConfig } from '../../core/types/shared';
 import type { Place } from '../../core/types';
 import { LocationPickerModal } from './LocationPickerModal';
+import { addTravelerSafe, getStoredCashIdentity } from '../../services/firebaseCashService';
+import { computeWeightedAmounts } from '../../core/utils/finance';
 
 export type ExpenseButtonMode = 'sight' | 'planner' | 'diary' | 'standalone';
 
@@ -23,6 +31,7 @@ interface ExpenseEntryButtonProps {
     isMobile?: boolean; 
     forceOpen?: boolean; 
     onClose?: () => void;
+    onlySettlement?: boolean;
 }
 
 export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({ 
@@ -33,7 +42,8 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
     mode, 
     isMobile,
     forceOpen = false,
-    onClose
+    onClose,
+    onlySettlement = false
 }) => {
     const { addExpense, project, setProject, setTravelers } = useTripStore();
     const { t } = useTranslation();
@@ -57,13 +67,39 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
     const [entryDate, setEntryDate] = useState('');
     
     const names = (travelers || '').split(',').map(n => n.trim()).filter(Boolean);
+    const [entryKind, setEntryKind] = useState<'expense' | 'settlement'>(onlySettlement ? 'settlement' : 'expense');
     const [paidBy, setPaidBy] = useState('');
-    const [splitMode, setSplitMode] = useState<'equal'|'exact'>('equal');
+    const [settlementRecipient, setSettlementRecipient] = useState('');
+    const [splitMode, setSplitMode] = useState<'equal'|'weights'|'exact'>('equal');
     const [splitAmong, setSplitAmong] = useState<string[]>([]);
+    const [splitWeights, setSplitWeights] = useState<Record<string, number>>({});
     const [splitExact, setSplitExact] = useState<Record<string, string>>({});
     const [showSplit, setShowSplit] = useState(false);
+
+    const buildDefaultWeights = (nameList: string[]) => {
+        const savedDefaults = project.data.defaultExpenseWeights || {};
+        const w: Record<string, number> = {};
+        nameList.forEach(n => { w[n] = savedDefaults[n] ?? 1; });
+        return w;
+    };
+
+    const getDefaultSplitMode = (nameList: string[]): 'equal' | 'weights' => {
+        const savedDefaults = project.data.defaultExpenseWeights || {};
+        const hasCustom = nameList.some(n => (savedDefaults[n] ?? 1) !== 1);
+        return hasCustom ? 'weights' : 'equal';
+    };
     
     const [tempNames, setTempNames] = useState('');
+    const [showAddPerson, setShowAddPerson] = useState(false);
+    const [newPersonName, setNewPersonName] = useState('');
+    const [newPersonError, setNewPersonError] = useState<string | null>(null);
+    const [isAddingPerson, setIsAddingPerson] = useState(false);
+
+    const getDefaultPaidBy = (nameList: string[]) => {
+        const identity = getStoredCashIdentity(project.data.cashSync?.roomId || project.meta?.id);
+        if (identity && nameList.includes(identity)) return identity;
+        return nameList.length > 0 ? nameList[0] : '';
+    };
 
     const [location, setLocation] = useState<{lat: number, lng: number} | null>(defaultLocation);
     const [isFetchingGPS, setIsFetchingGPS] = useState(false);
@@ -95,18 +131,24 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
             
             const currentNames = (travelers || '').split(',').map(n => n.trim()).filter(Boolean);
             if (currentNames.length > 0) {
-                setPaidBy(prev => prev || currentNames[0]);
-                setSplitMode('equal');
+                const defPaid = getDefaultPaidBy(currentNames);
+                setPaidBy(prev => prev || defPaid);
+                setSettlementRecipient(prev => prev || currentNames.find(n => n !== defPaid) || '');
+                setSplitMode(getDefaultSplitMode(currentNames));
                 setSplitAmong(prev => prev.length > 0 ? prev : currentNames);
+                setSplitWeights(prev => Object.keys(prev).length > 0 ? prev : buildDefaultWeights(currentNames));
             }
         }
     }, [forceOpen]);
 
     useEffect(() => {
         if (isOpen && names.length > 0 && !paidBy) {
-            setPaidBy(names[0]);
-            setSplitMode('equal');
+            const defPaid = getDefaultPaidBy(names);
+            setPaidBy(defPaid);
+            setSettlementRecipient(names.find(n => n !== defPaid) || '');
+            setSplitMode(getDefaultSplitMode(names));
             setSplitAmong(names);
+            setSplitWeights(buildDefaultWeights(names));
         }
     }, [isOpen, names.length, paidBy]);
 
@@ -146,15 +188,61 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         return total - currentSum;
     };
 
+    const handleAddPerson = async () => {
+        setIsAddingPerson(true);
+        setNewPersonError(null);
+        try {
+            const res = await addTravelerSafe({
+                rawInputName: newPersonName,
+                currentTravelerNames: travelers || '',
+                cashSync: project.data.cashSync
+            });
+            if (!res.ok) {
+                setNewPersonError(res.error);
+            } else {
+                setTravelers({ travelerNames: res.updatedTravelerNames });
+                if (res.addedNames.length === 1) {
+                    setPaidBy(res.addedNames[0]);
+                } else if (!paidBy && res.addedNames.length > 0) {
+                    setPaidBy(res.addedNames[0]);
+                }
+                setSplitAmong(prev => {
+                    const next = [...prev];
+                    res.addedNames.forEach((n) => {
+                        if (!next.includes(n)) next.push(n);
+                    });
+                    return next;
+                });
+                setSplitWeights(prev => {
+                    const next = { ...prev };
+                    res.addedNames.forEach((n) => {
+                        if (next[n] === undefined) next[n] = 1;
+                    });
+                    return next;
+                });
+                setNewPersonName('');
+                setShowAddPerson(false);
+            }
+        } catch (err: any) {
+            setNewPersonError(err?.message || 'Fehler beim Anlegen.');
+        } finally {
+            setIsAddingPerson(false);
+        }
+    };
+
     const handleToggle = (e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
         if (!isOpen) { 
+            const defPaid = getDefaultPaidBy(names);
+            setEntryKind(onlySettlement ? 'settlement' : 'expense');
             setCustomTitle(''); 
             setAmount(''); 
             setCurrency(availableCurrencies[0]);
-            setPaidBy(names.length > 0 ? names[0] : ''); 
-            setSplitMode('equal'); 
+            setPaidBy(defPaid); 
+            setSettlementRecipient(names.find(n => n !== defPaid) || '');
+            setSplitMode(getDefaultSplitMode(names)); 
             setSplitAmong(names); 
+            setSplitWeights(buildDefaultWeights(names));
             setSplitExact({}); 
             setShowSplit(false); 
             setLocation(defaultLocation);
@@ -164,6 +252,9 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
             setNoteText('');
             setPendingPlaceId(null);
             setTempNames('');
+            setShowAddPerson(false);
+            setNewPersonName('');
+            setNewPersonError(null);
             resetDate();
         } else {
             if (onClose) onClose();
@@ -174,11 +265,35 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
     const handleSave = (e: React.MouseEvent, promptForNote: boolean = false) => {
         e.stopPropagation();
         const numAmount = parseFloat(amount.replace(',', '.'));
+        if (isNaN(numAmount) || numAmount <= 0 || !paidBy) return;
+
+        if (entryKind === 'settlement') {
+            if (!settlementRecipient || settlementRecipient === paidBy) return;
+            const settlementTitle = customTitle.trim() || t('finance.partial_settlement_title', {
+                defaultValue: `Rückzahlung: ${paidBy} → ${settlementRecipient}`
+            });
+            addExpense({
+                id: uuidv4(),
+                title: settlementTitle,
+                amount: numAmount,
+                currency,
+                paidBy,
+                splitAmong: [settlementRecipient],
+                timestamp: entryDate ? new Date(entryDate).getTime() : Date.now(),
+                isSettlement: true
+            });
+            setIsOpen(false);
+            if (onClose) onClose();
+            return;
+        }
+
         const finalTitle = mode === 'standalone' ? (customTitle.trim() || defaultTitle) : defaultTitle;
-        
-        if (!finalTitle || isNaN(numAmount) || numAmount <= 0 || !paidBy) return;
+        if (!finalTitle) return;
 
         let finalSplitExact: Record<string, number> | undefined = undefined;
+        let finalSplitWeights: Record<string, number> | undefined = undefined;
+        let finalSplitAmong: string[] = splitAmong.length > 0 ? splitAmong : names;
+
         if (splitMode === 'exact') {
             let sum = 0; 
             const exactData: Record<string, number> = {};
@@ -191,6 +306,19 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                 return; 
             }
             finalSplitExact = exactData;
+        } else if (splitMode === 'weights') {
+            const weightData: Record<string, number> = {};
+            let totalW = 0;
+            for (const n of names) {
+                const w = splitWeights[n] ?? 0;
+                if (w > 0) {
+                    weightData[n] = w;
+                    totalW += w;
+                }
+            }
+            if (totalW <= 0) return;
+            finalSplitWeights = weightData;
+            finalSplitAmong = Object.keys(weightData);
         }
 
         const targetPlaceId = (mode === 'standalone' && promptForNote) ? `custom_${uuidv4()}` : (mode === 'standalone' ? undefined : placeId);
@@ -202,8 +330,9 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
             amount: numAmount, 
             currency, 
             paidBy, 
-            splitAmong: splitAmong.length > 0 ? splitAmong : names, 
-            splitExact: finalSplitExact, 
+            splitAmong: finalSplitAmong, 
+            splitExact: finalSplitExact,
+            splitWeights: finalSplitWeights,
             timestamp: entryDate ? new Date(entryDate).getTime() : Date.now(),
             location: location || undefined
         });
@@ -254,7 +383,9 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
             return (
                 <button onClick={handleToggle} className={`${btnClass} ${isOpen ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white'}`}>
                     <Banknote size={isMobile ? 16 : 14} /> 
-                    <span className={isMobile ? "hidden xs:inline" : ""}>{t('finance.expense', { defaultValue: 'Ausgabe' })}</span>
+                    <span className={isMobile ? "hidden sm:inline" : ""}>
+                        {onlySettlement ? t('finance.repayment', { defaultValue: 'Rückzahlung' }) : t('finance.expense', { defaultValue: 'Ausgabe' })}
+                    </span>
                 </button>
             );
         }
@@ -278,11 +409,15 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         );
     };
 
+    const totalWeights = Object.values(splitWeights).reduce((s, w) => s + (w > 0 ? w : 0), 0);
     const isSaveDisabled = (!amount && mode !== 'standalone') || 
-                           (mode === 'standalone' && !(customTitle.trim() || defaultTitle)) || 
-                           isNaN(parseFloat(amount)) || 
+                           (entryKind === 'expense' && mode === 'standalone' && !(customTitle.trim() || defaultTitle)) || 
+                           isNaN(parseFloat(amount.replace(',', '.'))) || 
+                           parseFloat(amount.replace(',', '.')) <= 0 ||
                            !paidBy || 
-                           (splitMode === 'equal' && splitAmong.length === 0);
+                           (entryKind === 'settlement' && (!settlementRecipient || settlementRecipient === paidBy)) ||
+                           (entryKind === 'expense' && splitMode === 'equal' && splitAmong.length === 0) ||
+                           (entryKind === 'expense' && splitMode === 'weights' && totalWeights <= 0);
 
     return (
         <div className={`relative ${mode === 'standalone' && isMobile ? 'shrink-0' : mode === 'standalone' ? 'hidden sm:block' : 'shrink-0'} no-print`}>
@@ -339,11 +474,38 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                         ) : (
                             <>
                                 <div className="p-4 overflow-y-auto space-y-4">
+                                    {mode === 'standalone' && names.length >= 2 && !onlySettlement && (
+                                        <div className="flex bg-emerald-100/70 border border-emerald-200 rounded-xl p-1">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); setEntryKind('expense'); }}
+                                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors ${entryKind === 'expense' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-800 hover:bg-emerald-200/50'}`}
+                                            >
+                                                {t('finance.expense', { defaultValue: 'Ausgabe' })}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setEntryKind('settlement');
+                                                    if (!settlementRecipient || settlementRecipient === paidBy) {
+                                                        setSettlementRecipient(names.find(n => n !== paidBy) || '');
+                                                    }
+                                                }}
+                                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors ${entryKind === 'settlement' ? 'bg-blue-600 text-white shadow-sm' : 'text-emerald-800 hover:bg-emerald-200/50'}`}
+                                            >
+                                                {t('finance.repayment', { defaultValue: 'Rückzahlung / Abschlag' })}
+                                            </button>
+                                        </div>
+                                    )}
+
                                     <div className="flex flex-col sm:flex-row gap-3">
                                         {(mode === 'standalone' || forceOpen) && (
                                             <div className="flex-[2]">
-                                                <label className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">{t('finance.purpose', { defaultValue: 'Verwendungszweck' })}</label>
-                                                <input type="text" list="expense-titles-new" placeholder={t('finance.purpose_placeholder', { defaultValue: 'z.B. Supermarkt, Taxi...' })} value={customTitle || defaultTitle} onChange={e => setCustomTitle(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 shadow-sm" />
+                                                <label className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">
+                                                    {entryKind === 'settlement' ? t('finance.note_optional', { defaultValue: 'Notiz (optional)' }) : t('finance.purpose', { defaultValue: 'Verwendungszweck' })}
+                                                </label>
+                                                <input type="text" list="expense-titles-new" placeholder={entryKind === 'settlement' ? t('finance.settlement_placeholder', { defaultValue: 'z.B. Teilzahlung, Kaution...' }) : t('finance.purpose_placeholder', { defaultValue: 'z.B. Supermarkt, Taxi...' })} value={customTitle || defaultTitle} onChange={e => setCustomTitle(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 shadow-sm" />
                                                 <datalist id="expense-titles-new">
                                                     {uniqueTitles.map(tTitle => <option key={tTitle} value={tTitle} />)}
                                                 </datalist>
@@ -402,66 +564,185 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                     ) : (
                                         <>
                                             <div>
-                                                <span className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">{t('finance.paid_by', { defaultValue: 'Wer hat bezahlt?' })}</span>
+                                                <div className="flex items-center justify-between mb-1.5">
+                                                    <span className="text-[10px] font-bold text-emerald-700 uppercase">
+                                                        {entryKind === 'settlement' ? t('finance.from_payer', { defaultValue: 'Von wem (Zahler)?' }) : t('finance.paid_by', { defaultValue: 'Wer hat bezahlt?' })}
+                                                    </span>
+                                                    {!onlySettlement && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => { e.stopPropagation(); setShowAddPerson(prev => !prev); setNewPersonError(null); }}
+                                                            className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-100/70 hover:bg-emerald-200/70 px-2 py-0.5 rounded-full transition-colors"
+                                                        >
+                                                            <UserPlus className="w-3 h-3" /> {t('finance.add_person', { defaultValue: 'Person' })}
+                                                        </button>
+                                                    )}
+                                                </div>
                                                 <div className="flex flex-wrap gap-1.5">
                                                     {names.map(n => (
-                                                        <button key={n} onClick={(e) => { e.stopPropagation(); setPaidBy(n); }} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${paidBy === n ? 'bg-emerald-600 text-white' : 'bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50'}`}>{n}</button>
+                                                        <button
+                                                            key={n}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setPaidBy(n);
+                                                                if (settlementRecipient === n) {
+                                                                    setSettlementRecipient(names.find(x => x !== n) || '');
+                                                                }
+                                                            }}
+                                                            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${paidBy === n ? 'bg-emerald-600 text-white' : 'bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50'}`}
+                                                        >
+                                                            {n}
+                                                        </button>
                                                     ))}
                                                 </div>
-                                            </div>
-
-                                            <div>
-                                                <button onClick={(e) => { e.stopPropagation(); setShowSplit(!showSplit); }} className="text-xs font-bold text-emerald-800 flex items-center gap-1.5 bg-emerald-100/50 px-3 py-2 rounded-lg border border-emerald-200/50 hover:bg-emerald-100 transition-colors w-full">
-                                                    <Users className="w-3.5 h-3.5" /> 
-                                                    {t('finance.split_among', { defaultValue: 'Aufgeteilt auf:' })} {splitMode === 'exact' ? t('finance.exact', { defaultValue: 'Exakt' }) : (splitAmong.length === names.length ? t('finance.everyone', { defaultValue: 'Alle' }) : `${splitAmong.length} ${t('finance.persons', { defaultValue: 'Personen' })}`)} ✎
-                                                </button>
-                                                
-                                                {showSplit && (
-                                                    <div className="mt-2 p-3 bg-white rounded-xl border border-emerald-200 shadow-sm animate-in fade-in slide-in-from-top-1">
-                                                        <div className="flex bg-emerald-50 border border-emerald-100 rounded-lg mb-3 p-1">
-                                                            <button onClick={(e) => { e.stopPropagation(); setSplitMode('equal'); }} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${splitMode === 'equal' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.equal', { defaultValue: 'Gleichmäßig' })}</button>
-                                                            <button onClick={(e) => { e.stopPropagation(); setSplitMode('exact'); }} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${splitMode === 'exact' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.exact', { defaultValue: 'Exakter Betrag' })}</button>
+                                                {showAddPerson && (
+                                                    <div className="mt-2 p-2 bg-white rounded-xl border border-emerald-200 shadow-sm space-y-1.5" onClick={e => e.stopPropagation()}>
+                                                        <div className="flex gap-1.5">
+                                                            <input
+                                                                type="text"
+                                                                value={newPersonName}
+                                                                onChange={e => { setNewPersonName(e.target.value); setNewPersonError(null); }}
+                                                                placeholder={t('finance.new_person_placeholder', { defaultValue: 'Neuer Name...' })}
+                                                                className="flex-1 text-xs font-bold border border-emerald-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter') {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
+                                                                        handleAddPerson();
+                                                                    }
+                                                                }}
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                disabled={!newPersonName.trim() || isAddingPerson}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleAddPerson();
+                                                                }}
+                                                                className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-colors"
+                                                            >
+                                                                +
+                                                            </button>
                                                         </div>
-
-                                                        {splitMode === 'equal' ? (
-                                                            <div className="flex flex-wrap gap-1.5">
-                                                                {names.map(n => {
-                                                                    const active = splitAmong.includes(n);
-                                                                    return <button key={n} onClick={(e) => { e.stopPropagation(); if(active) setSplitAmong(prev => prev.filter(x => x !== n)); else setSplitAmong(prev => [...prev, n]); }} className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${active ? 'bg-emerald-500 text-white border-blue-600 shadow-sm' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'}`}>{n} {active && '✓'}</button>;
-                                                                })}
-                                                            </div>
-                                                        ) : (
-                                                            <div className="space-y-2">
-                                                                {names.map(n => (
-                                                                    <div key={n} className="flex justify-between items-center bg-slate-50 p-1.5 rounded-lg border border-slate-100">
-                                                                        <span className="text-xs font-bold text-slate-700 ml-1">{n}</span>
-                                                                        <div className="relative w-24">
-                                                                            <input type="number" step="0.01" value={splitExact[n] || ''} onChange={e => setSplitExact(prev => ({...prev, [n]: e.target.value}))} className="w-full text-right text-sm pr-8 pl-2 py-1.5 border border-emerald-200 rounded-md focus:ring-emerald-500 bg-white" onClick={e => e.stopPropagation()}/>
-                                                                            <span className="absolute right-2 top-2 text-slate-400 text-[10px] font-bold">{currency}</span>
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                                {(() => {
-                                                                    const rem = calculateRemaining();
-                                                                    const isPerfect = Math.abs(rem) < 0.01;
-                                                                    return (
-                                                                        <div className={`mt-3 p-2 rounded-lg flex items-center justify-between text-xs font-bold border ${isPerfect ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : rem < 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
-                                                                            <span>{isPerfect ? t('finance.split_perfect', { defaultValue: 'Aufteilung stimmt!' }) : rem > 0 ? t('finance.split_remaining', { defaultValue: 'Noch zu verteilen:' }) : t('finance.split_too_much', { defaultValue: 'Zu viel verteilt:' })}</span>
-                                                                            <span className="flex items-center gap-1">{isPerfect && <CheckCircle2 className="w-4 h-4" />}{Math.abs(rem).toFixed(2)}</span>
-                                                                        </div>
-                                                                    );
-                                                                })()}
-                                                            </div>
+                                                        {newPersonError && (
+                                                            <p className="text-[11px] font-medium text-red-600">{newPersonError}</p>
                                                         )}
                                                     </div>
                                                 )}
                                             </div>
+
+                                            {entryKind === 'settlement' ? (
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">
+                                                        {t('finance.to_recipient', { defaultValue: 'An wen?' })}
+                                                    </span>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {names.filter(n => n !== paidBy).map(n => (
+                                                            <button
+                                                                key={n}
+                                                                onClick={(e) => { e.stopPropagation(); setSettlementRecipient(n); }}
+                                                                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${settlementRecipient === n ? 'bg-blue-600 text-white' : 'bg-white text-slate-700 border border-slate-200 hover:bg-blue-50'}`}
+                                                            >
+                                                                {n}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div>
+                                                    <button onClick={(e) => { e.stopPropagation(); setShowSplit(!showSplit); }} className="text-xs font-bold text-emerald-800 flex items-center gap-1.5 bg-emerald-100/50 px-3 py-2 rounded-lg border border-emerald-200/50 hover:bg-emerald-100 transition-colors w-full">
+                                                        <Users className="w-3.5 h-3.5" /> 
+                                                        {t('finance.split_among', { defaultValue: 'Aufgeteilt auf:' })} {splitMode === 'exact' ? t('finance.exact', { defaultValue: 'Exakt' }) : splitMode === 'weights' ? t('finance.weights', { defaultValue: 'Anteile (×)' }) : (splitAmong.length === names.length ? t('finance.everyone', { defaultValue: 'Alle' }) : `${splitAmong.length} ${t('finance.persons', { defaultValue: 'Personen' })}`)} ✎
+                                                    </button>
+                                                    
+                                                    {showSplit && (
+                                                        <div className="mt-2 p-3 bg-white rounded-xl border border-emerald-200 shadow-sm animate-in fade-in slide-in-from-top-1">
+                                                            <div className="flex bg-emerald-50 border border-emerald-100 rounded-lg mb-3 p-1 gap-1">
+                                                                <button onClick={(e) => { e.stopPropagation(); setSplitMode('equal'); }} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${splitMode === 'equal' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.equal', { defaultValue: 'Gleichmäßig' })}</button>
+                                                                <button onClick={(e) => { e.stopPropagation(); setSplitMode('weights'); }} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${splitMode === 'weights' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.weights', { defaultValue: 'Anteile (×)' })}</button>
+                                                                <button onClick={(e) => { e.stopPropagation(); setSplitMode('exact'); }} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${splitMode === 'exact' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.exact', { defaultValue: 'Exakt' })}</button>
+                                                            </div>
+
+                                                            {splitMode === 'equal' ? (
+                                                                <div className="flex flex-wrap gap-1.5">
+                                                                    {names.map(n => {
+                                                                        const active = splitAmong.includes(n);
+                                                                        return <button key={n} onClick={(e) => { e.stopPropagation(); if(active) setSplitAmong(prev => prev.filter(x => x !== n)); else setSplitAmong(prev => [...prev, n]); }} className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${active ? 'bg-emerald-500 text-white border-blue-600 shadow-sm' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'}`}>{n} {active && '✓'}</button>;
+                                                                    })}
+                                                                </div>
+                                                            ) : splitMode === 'weights' ? (
+                                                                <div className="space-y-2">
+                                                                    {(() => {
+                                                                        const numTotal = parseFloat(amount.replace(',', '.')) || 0;
+                                                                        const preview = computeWeightedAmounts(numTotal, splitWeights);
+                                                                        return names.map(n => {
+                                                                            const w = splitWeights[n] ?? 0;
+                                                                            const shareAmt = preview[n] || 0;
+                                                                            return (
+                                                                                <div key={n} className="flex justify-between items-center bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100">
+                                                                                    <div className="min-w-0">
+                                                                                        <span className="text-xs font-bold text-slate-700">{n}</span>
+                                                                                        {numTotal > 0 && (
+                                                                                            <span className="ml-2 text-[10px] font-medium text-emerald-700">
+                                                                                                ({shareAmt.toFixed(2)} {currency})
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    <div className="flex items-center gap-1.5 shrink-0">
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={(e) => { e.stopPropagation(); setSplitWeights(prev => ({ ...prev, [n]: Math.max(0, Number(((prev[n] ?? 0) - 0.5).toFixed(1))) })); }}
+                                                                                            className="w-6 h-6 rounded bg-white border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-100"
+                                                                                        >
+                                                                                            -
+                                                                                        </button>
+                                                                                        <span className="w-9 text-center text-xs font-bold text-slate-800">{w}×</span>
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={(e) => { e.stopPropagation(); setSplitWeights(prev => ({ ...prev, [n]: Number(((prev[n] ?? 0) + 0.5).toFixed(1)) })); }}
+                                                                                            className="w-6 h-6 rounded bg-white border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-100"
+                                                                                        >
+                                                                                            +
+                                                                                        </button>
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        });
+                                                                    })()}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="space-y-2">
+                                                                    {names.map(n => (
+                                                                        <div key={n} className="flex justify-between items-center bg-slate-50 p-1.5 rounded-lg border border-slate-100">
+                                                                            <span className="text-xs font-bold text-slate-700 ml-1">{n}</span>
+                                                                            <div className="relative w-24">
+                                                                                <input type="number" step="0.01" value={splitExact[n] || ''} onChange={e => setSplitExact(prev => ({...prev, [n]: e.target.value}))} className="w-full text-right text-sm pr-8 pl-2 py-1.5 border border-emerald-200 rounded-md focus:ring-emerald-500 bg-white" onClick={e => e.stopPropagation()}/>
+                                                                                <span className="absolute right-2 top-2 text-slate-400 text-[10px] font-bold">{currency}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                    {(() => {
+                                                                        const rem = calculateRemaining();
+                                                                        const isPerfect = Math.abs(rem) < 0.01;
+                                                                        return (
+                                                                            <div className={`mt-3 p-2 rounded-lg flex items-center justify-between text-xs font-bold border ${isPerfect ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : rem < 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                                                <span>{isPerfect ? t('finance.split_perfect', { defaultValue: 'Aufteilung stimmt!' }) : rem > 0 ? t('finance.split_remaining', { defaultValue: 'Noch zu verteilen:' }) : t('finance.split_too_much', { defaultValue: 'Zu viel verteilt:' })}</span>
+                                                                                <span className="flex items-center gap-1">{isPerfect && <CheckCircle2 className="w-4 h-4" />}{Math.abs(rem).toFixed(2)}</span>
+                                                                            </div>
+                                                                        );
+                                                                    })()}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </>
                                     )}
                                 </div>
 
                                 <div className="p-4 bg-emerald-100/50 border-t border-emerald-200/50 flex flex-col gap-2 shrink-0">
-                                     {!forceOpen && (
+                                     {!forceOpen && entryKind === 'expense' && (
                                          <button onClick={(e) => handleSave(e, true)} disabled={isSaveDisabled} className="w-full py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold rounded-lg hover:bg-indigo-100 transition-all flex justify-center items-center gap-2">
                                             <PenLine className="w-3.5 h-3.5"/> {t('finance.save_and_diary', { defaultValue: 'Speichern & Notiz anlegen' })}
                                          </button>
@@ -485,4 +766,4 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         </div>
     );
 };
-// --- END OF FILE 472 Zeilen ---
+// --- END OF FILE 770 Zeilen ---

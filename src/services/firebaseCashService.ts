@@ -1,3 +1,6 @@
+// [2026-11-17] [12:52] - FIX: Supported comma-separated multi-person input in addTravelerSafe with per-name duplicate check.
+// [2026-11-17] [12:44] - FEAT: Added defaultWeights to CashRoomMeta, createCashRoom, and updateRemoteRoomMeta.
+// [2026-11-17] [10:25] - FEAT: Added tripDates, addTravelerSafe (online+duplicate check), and local user identity helpers.
 // [2026-11-16] [19:25] - FEAT: Added listAvailableCashRooms and local known-rooms registry for room selection UI.
 // [2026-11-16] [19:16] - FEAT: Added room status ('open'|'closed'), setCashRoomStatus, deleteCashRoom, and onRoomDeleted support.
 // [2026-11-16] [17:35] - FEAT: Added hostUid to CashRoomMeta on room creation so only the host can update/delete expenses.
@@ -17,6 +20,7 @@ import {
   deleteDoc,
   collection,
   getDoc,
+  getDocFromServer,
   getDocs,
   query,
   where,
@@ -29,8 +33,10 @@ import type { Expense, CurrencyConfig } from '../core/types/shared';
 
 export interface CashRoomMeta {
   tripName: string;
+  tripDates?: string;
   travelerNames: string;
   currencyConfig?: CurrencyConfig;
+  defaultWeights?: Record<string, number>;
   writeToken: string;
   hostUid: string;
   status?: 'open' | 'closed';
@@ -41,12 +47,35 @@ export interface CashRoomListItem {
   roomId: string;
   writeToken: string;
   tripName: string;
+  tripDates?: string;
   status: 'open' | 'closed';
   updatedAt: number;
   isHost: boolean;
 }
 
 const KNOWN_ROOMS_STORAGE_KEY = 'papatours_known_cash_rooms';
+const CASH_IDENTITY_PREFIX = 'papatours_cash_identity_';
+
+export const getStoredCashIdentity = (roomId?: string): string => {
+  try {
+    return localStorage.getItem(`${CASH_IDENTITY_PREFIX}${roomId || 'local'}`) || '';
+  } catch {
+    return '';
+  }
+};
+
+export const setStoredCashIdentity = (roomId: string | undefined, name: string): void => {
+  try {
+    const key = `${CASH_IDENTITY_PREFIX}${roomId || 'local'}`;
+    if (name) {
+      localStorage.setItem(key, name);
+    } else {
+      localStorage.removeItem(key);
+    }
+  } catch {
+    // ignore storage errors
+  }
+};
 
 export const rememberCashRoom = (entry: { roomId: string; writeToken: string; tripName?: string }) => {
   try {
@@ -130,8 +159,10 @@ const stripUndefined = <T extends Record<string, any>>(obj: T): T => {
 
 export const createCashRoom = async (params: {
   tripName: string;
+  tripDates?: string;
   travelerNames: string;
   currencyConfig?: CurrencyConfig;
+  defaultWeights?: Record<string, number>;
   initialExpenses: Record<string, Expense>;
 }): Promise<{ roomId: string; writeToken: string }> => {
   await ensureAnonymousAuth();
@@ -143,8 +174,10 @@ export const createCashRoom = async (params: {
   const roomRef = doc(db, 'cashRooms', roomId);
   const metaPayload: CashRoomMeta = stripUndefined({
     tripName: params.tripName || 'Reisekasse',
+    tripDates: params.tripDates,
     travelerNames: params.travelerNames || '',
     currencyConfig: params.currencyConfig,
+    defaultWeights: params.defaultWeights,
     writeToken,
     hostUid: auth.currentUser?.uid || '',
     status: 'open',
@@ -237,7 +270,7 @@ export const deleteRemoteExpense = async (roomId: string, expenseId: string): Pr
 export const updateRemoteRoomMeta = async (
   roomId: string,
   writeToken: string,
-  partial: Partial<Pick<CashRoomMeta, 'tripName' | 'travelerNames' | 'currencyConfig' | 'status'>>
+  partial: Partial<Pick<CashRoomMeta, 'tripName' | 'tripDates' | 'travelerNames' | 'currencyConfig' | 'defaultWeights' | 'status'>>
 ): Promise<void> => {
   await ensureAnonymousAuth();
   const { db } = getFirebaseClients();
@@ -291,6 +324,7 @@ export const listAvailableCashRooms = async (): Promise<CashRoomListItem[]> => {
           roomId: d.id,
           writeToken: data.writeToken,
           tripName: data.tripName || 'Reisekasse',
+          tripDates: data.tripDates,
           status: data.status === 'closed' ? 'closed' : 'open',
           updatedAt: data.updatedAt || 0,
           isHost: true
@@ -314,6 +348,7 @@ export const listAvailableCashRooms = async (): Promise<CashRoomListItem[]> => {
             roomId: snap.id,
             writeToken: data.writeToken || item.writeToken,
             tripName: data.tripName || 'Reisekasse',
+            tripDates: data.tripDates,
             status: data.status === 'closed' ? 'closed' : 'open',
             updatedAt: data.updatedAt || 0,
             isHost: Boolean(uid && data.hostUid === uid)
@@ -331,4 +366,83 @@ export const listAvailableCashRooms = async (): Promise<CashRoomListItem[]> => {
 
   return Array.from(byId.values()).sort((a, b) => b.updatedAt - a.updatedAt);
 };
-// --- END OF FILE 333 Zeilen ---
+
+export type AddTravelerResult =
+  | { ok: true; updatedTravelerNames: string; addedNames: string[] }
+  | { ok: false; error: string };
+
+const parseTravelerList = (raw: string): string[] =>
+  (raw || '').split(',').map((n) => n.trim()).filter(Boolean);
+
+export const addTravelerSafe = async (params: {
+  rawInputName: string;
+  currentTravelerNames: string;
+  cashSync?: { roomId: string; writeToken: string; enabled: boolean };
+}): Promise<AddTravelerResult> => {
+  const parsedInputs = parseTravelerList(params.rawInputName);
+  const uniqueInputs: string[] = [];
+  for (const name of parsedInputs) {
+    if (uniqueInputs.some((u) => u.toLowerCase() === name.toLowerCase())) {
+      return {
+        ok: false,
+        error: `Der Name "${name}" ist doppelt in deiner Eingabe.`
+      };
+    }
+    uniqueInputs.push(name);
+  }
+
+  if (uniqueInputs.length === 0) {
+    return { ok: false, error: 'Bitte gib mindestens einen gültigen Namen ein.' };
+  }
+
+  const localList = parseTravelerList(params.currentTravelerNames);
+  const localDuplicate = uniqueInputs.find((cand) =>
+    localList.some((n) => n.toLowerCase() === cand.toLowerCase())
+  );
+  if (localDuplicate) {
+    return {
+      ok: false,
+      error: `Der Name "${localDuplicate}" existiert bereits und kann nicht doppelt angelegt werden.`
+    };
+  }
+
+  if (params.cashSync?.enabled && params.cashSync.roomId && params.cashSync.writeToken) {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return {
+        ok: false,
+        error: 'Neue Namen können bei einer Live-Kasse nur online angelegt werden.'
+      };
+    }
+
+    await ensureAnonymousAuth();
+    const { db } = getFirebaseClients();
+    const roomRef = doc(db, 'cashRooms', params.cashSync.roomId);
+    const serverSnap = await getDocFromServer(roomRef);
+    const serverNamesRaw = serverSnap.exists()
+      ? ((serverSnap.data() as CashRoomMeta).travelerNames || '')
+      : params.currentTravelerNames;
+
+    const mergedList = Array.from(new Set([...parseTravelerList(serverNamesRaw), ...localList]));
+    const serverDuplicate = uniqueInputs.find((cand) =>
+      mergedList.some((n) => n.toLowerCase() === cand.toLowerCase())
+    );
+    if (serverDuplicate) {
+      return {
+        ok: false,
+        error: `Der Name "${serverDuplicate}" existiert bereits und kann nicht doppelt angelegt werden.`
+      };
+    }
+
+    const updatedTravelerNames = [...mergedList, ...uniqueInputs].join(', ');
+    await updateDoc(roomRef, {
+      travelerNames: updatedTravelerNames,
+      writeToken: params.cashSync.writeToken,
+      updatedAt: Date.now()
+    });
+    return { ok: true, updatedTravelerNames, addedNames: uniqueInputs };
+  }
+
+  const updatedTravelerNames = [...localList, ...uniqueInputs].join(', ');
+  return { ok: true, updatedTravelerNames, addedNames: uniqueInputs };
+};
+// --- END OF FILE 447 Zeilen ---

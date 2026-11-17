@@ -1,3 +1,5 @@
+// [2026-11-17] [12:44] - FEAT: Added transient 'isCashRoomLoaded' state for guest identity prompt timing.
+// [2026-11-17] [10:28] - FEAT: Added 'isCashOnlyMode' in UIState and transient 'cashSyncError' state in UISlice.
 // 21.04.2026 17:00 - FIX: Expanded 'resetUIFilter' to clear ALL view-dependent filters (category, prio, sorting) to prevent "empty view" ghosting on project change.
 // 16.03.2026 19:00 - FEAT: Added 'visitedFilter' to UIState for a dedicated Visited/Unvisited toggle.
 // 27.02.2026 19:00 - FEAT: Added Intercept States (pendingDayPlan, plannerConflicts) for Human-in-the-Loop DayPlanner.
@@ -39,7 +41,8 @@ export interface UIState {
   mapMode: 'live' | 'offline'; 
   isMapManagerOpen: boolean; 
   mapLayer: 'standard' | 'topo' | 'cycle' | 'satellite';
-  visitedFilter: 'all' | 'visited' | 'unvisited'; 
+  visitedFilter: 'all' | 'visited' | 'unvisited';
+  isCashOnlyMode?: boolean;
 }
 
 export type AppView = 'welcome' | 'wizard' | 'results' | 'analysis_review';
@@ -60,6 +63,10 @@ export interface UISlice {
 
   blockingError: AppError | null;
   setBlockingError: (error: AppError | null) => void;
+  cashSyncError: string | null;
+  setCashSyncError: (error: string | null) => void;
+  isCashRoomLoaded: boolean;
+  setCashRoomLoaded: (loaded: boolean) => void;
   isLoading: boolean;
   setIsLoading: (isLoading: boolean) => void;
 
@@ -101,7 +108,8 @@ const initialUIState: UIState = {
   mapMode: 'live',
   isMapManagerOpen: false,
   mapLayer: 'standard',
-  visitedFilter: 'all' 
+  visitedFilter: 'all',
+  isCashOnlyMode: false
 };
 
 export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => ({
@@ -120,6 +128,12 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
 
   blockingError: null,
   setBlockingError: (error) => set({ blockingError: error }),
+
+  cashSyncError: null,
+  setCashSyncError: (cashSyncError) => set({ cashSyncError }),
+
+  isCashRoomLoaded: false,
+  setCashRoomLoaded: (isCashRoomLoaded) => set({ isCashRoomLoaded }),
   
   isLoading: false,
   setIsLoading: (isLoading) => set({ isLoading }),
@@ -242,4 +256,4 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
       }
   })
 });
-// --- END OF FILE 264 Zeilen ---
+// --- END OF FILE 258 Zeilen ---

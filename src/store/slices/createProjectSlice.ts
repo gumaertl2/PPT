@@ -1,3 +1,4 @@
+// [2026-11-17] [12:44] - FEAT: Added 'setDefaultExpenseWeights' and synced defaultExpenseWeights in applyRemoteCashState.
 // [2026-11-16] [17:05] - FEAT: Added 'setCashSync' and 'applyRemoteCashState' actions for Firebase live expense sync.
 // 21.04.2026 17:00 - FIX: Enforced 'resetUIFilter' trigger in 'loadProject' and 'resetProject' to prevent cross-file UI ghosting.
 // 19.03.2026 17:45 - FEAT: Added deep-sanitizer to 'loadProject' to ensure old JSON files are dynamically upgraded to the latest data model without crashing.
@@ -36,11 +37,13 @@ export interface ProjectSlice {
   updateExpense: (id: string, data: Partial<Expense>) => void;
   deleteExpense: (id: string) => void;
   setCashSync: (cashSync?: TripProject['data']['cashSync']) => void;
+  setDefaultExpenseWeights: (weights: Record<string, number>) => void;
   applyRemoteCashState: (payload: {
     expenses?: Record<string, Expense>;
     tripName?: string;
     travelerNames?: string;
     currencyConfig?: CurrencyConfig;
+    defaultExpenseWeights?: Record<string, number>;
   }) => void;
 }
 
@@ -399,6 +402,16 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     }
   })),
 
+  setDefaultExpenseWeights: (defaultExpenseWeights) => set((state: any) => ({
+    project: {
+      ...state.project,
+      data: {
+        ...state.project.data,
+        defaultExpenseWeights
+      }
+    }
+  })),
+
   applyRemoteCashState: (payload) => set((state: any) => {
     const nextProject = { ...state.project };
     if (payload.tripName !== undefined) {
@@ -416,9 +429,10 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
     nextProject.data = {
       ...nextProject.data,
       ...(payload.expenses !== undefined ? { expenses: payload.expenses } : {}),
-      ...(payload.currencyConfig !== undefined ? { currencyConfig: payload.currencyConfig } : {})
+      ...(payload.currencyConfig !== undefined ? { currencyConfig: payload.currencyConfig } : {}),
+      ...(payload.defaultExpenseWeights !== undefined ? { defaultExpenseWeights: payload.defaultExpenseWeights } : {})
     };
     return { project: nextProject };
   }),
 });
-// --- END OF FILE 427 Zeilen ---
+// --- END OF FILE 439 Zeilen ---

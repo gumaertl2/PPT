@@ -1,3 +1,4 @@
+// [2026-11-17] [10:28] - FEAT: Added support for uiState.isCashOnlyMode focus view in App.tsx.
 // [2026-11-16] [17:15] - FEAT: Added URL detection for ?cashRoom=&token= guest mode and global useCashSync hook.
 // src/App.tsx
 // 14.01.2026 17:25 - FIX: Removed unmanaged global modals and added required onNext prop to AnalysisReviewView (No downstream view available yet).
@@ -24,6 +25,8 @@ function App() {
   const { 
     view, 
     project, 
+    uiState,
+    setUIState,
     setLanguage, 
     isWorkflowModalOpen, 
     setWorkflowModalOpen 
@@ -83,6 +86,8 @@ function App() {
       {/* VIEW ROUTING */}
       {guestCashParams ? (
         <TripFinanceModal isOpen={true} onClose={() => {}} isGuestMode={true} />
+      ) : uiState.isCashOnlyMode ? (
+        <TripFinanceModal isOpen={true} onClose={() => setUIState({ isCashOnlyMode: false })} isGuestMode={false} />
       ) : (
         <>
           {view === 'welcome' && <WelcomeScreen />}
@@ -102,4 +107,4 @@ function App() {
 }
 
 export default App;
-// --- END OF FILE 107 Zeilen ---
+// --- END OF FILE 112 Zeilen ---

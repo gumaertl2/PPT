@@ -1,3 +1,5 @@
+// [2026-11-17] [12:44] - FEAT: Added optional 'defaultExpenseWeights' to TripProject['data'].
+// [2026-11-17] [10:25] - FEAT: Added optional 'tripDates' to cashSync config in TripProject['data'].
 // [2026-11-16] [19:16] - FEAT: Added optional 'roomStatus' to cashSync config in TripProject['data'].
 // [2026-11-16] [17:00] - FEAT: Added optional 'cashSync' config to TripProject['data'] for Firebase live expense sharing.
 // 18.03.2026 18:30 - FEAT: Split 'diary' print config into 'diary' (text) and 'diaryMap' (map) for flexible portrait/landscape printing.
@@ -348,15 +350,17 @@ export interface TripProject {
     routes: Record<string, any>;
     expenses?: Record<string, Expense>; 
     currencyConfig?: CurrencyConfig;
+    defaultExpenseWeights?: Record<string, number>;
     cashSync?: {
       roomId: string;
       writeToken: string;
       enabled: boolean;
       roomStatus?: 'open' | 'closed';
+      tripDates?: string;
     };
   };
   itinerary: {
     days: any[];
   };
 }
-// --- END OF FILE 361 Zeilen ---
+// --- END OF FILE 365 Zeilen ---
