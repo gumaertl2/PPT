@@ -1,3 +1,5 @@
+// [2026-11-17] [16:51] - UX: Prefilled exact split amounts from current equal/weighted distribution when switching to 'Exakt'.
+// [2026-11-17] [16:46] - UX/FIX: Showed participant names in split toggle, auto-expanded partial-group edits, seeded unused weights as 0x, and added confirmation when amount/currency/payer/split changes.
 // [2026-11-17] [16:26] - UX: Consistently sorted traveler names with active identity ('Ich bin') first followed by A-Z across all tabs and history cards.
 // [2026-11-17] [16:19] - UX: Displayed per-person split amounts directly on Historie cards, auto-expanded exact/weights split on edit, and added live per-person preview for equal splits.
 // [2026-11-17] [13:23] - UX/FIX: Highlighted active filters in Warm-Amber with reset pill and synced Table footer totals with active filters, splitWeights, and settlement exclusions.
@@ -35,7 +37,7 @@ import {
 } from 'lucide-react'; 
 import { QRCodeSVG } from 'qrcode.react';
 import type { Expense, LanguageCode, CurrencyConfig } from '../../core/types/shared';
-import { calculateExpenseSharesInBase, computeWeightedAmounts, sortTravelerNames } from '../../core/utils/finance';
+import { calculateExpenseSharesInBase, computeWeightedAmounts, sortTravelerNames, formatSplitParticipantsLabel, buildInitialExactSplit } from '../../core/utils/finance';
 import { ExpenseEntryButton } from './ExpenseEntryButton'; 
 import { CurrencyConfigModal } from './CurrencyConfigModal';
 import { LocationPickerModal } from './LocationPickerModal';
@@ -255,9 +257,13 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
           setEditSplitWeights(mergedWeights);
           setEditSplitExact({});
       } else {
+          const targetAmong = exp.splitAmong || allNames;
           setEditSplitMode('equal');
-          setEditSplitAmong(exp.splitAmong || allNames);
-          setEditSplitWeights(defaultWeights);
+          setShowSplit(targetAmong.length > 0 && targetAmong.length < allNames.length);
+          setEditSplitAmong(targetAmong);
+          const equalWeights: Record<string, number> = {};
+          allNames.forEach((n: string) => { equalWeights[n] = targetAmong.includes(n) ? 1 : 0; });
+          setEditSplitWeights(equalWeights);
           setEditSplitExact({});
       }
   };
@@ -312,6 +318,43 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
           if (totalW <= 0) return;
           finalSplitWeights = weightData;
           finalSplitAmong = Object.keys(weightData);
+      }
+
+      const originalExp = expenses.find(item => item.id === editingId);
+      if (originalExp) {
+          const amountChanged = Math.abs(originalExp.amount - numAmount) > 0.005;
+          const currencyChanged = (originalExp.currency || 'EUR') !== editCurrency;
+          const paidByChanged = originalExp.paidBy !== editPaidBy;
+
+          const origShares = calculateExpenseSharesInBase(originalExp, 1);
+          const nextShares = calculateExpenseSharesInBase({
+              ...originalExp,
+              amount: numAmount,
+              currency: editCurrency,
+              paidBy: editPaidBy,
+              splitAmong: finalSplitAmong,
+              splitExact: finalSplitExact,
+              splitWeights: finalSplitWeights
+          }, 1);
+          const origMode = (originalExp.splitExact && Object.keys(originalExp.splitExact).length > 0)
+              ? 'exact'
+              : (originalExp.splitWeights && Object.keys(originalExp.splitWeights).length > 0)
+                  ? 'weights'
+                  : 'equal';
+          const allKeys = new Set([...Object.keys(origShares), ...Object.keys(nextShares)]);
+          const sharesChanged = Array.from(allKeys).some(k => Math.abs((origShares[k] || 0) - (nextShares[k] || 0)) > 0.01);
+          const splitChanged = origMode !== editSplitMode || sharesChanged;
+
+          if (amountChanged || currencyChanged || paidByChanged || splitChanged) {
+              const confirmMsg = (amountChanged || currencyChanged) && (splitChanged || paidByChanged)
+                  ? t('finance.confirm_edit_amount_and_split', { defaultValue: 'Betrag/Währung und Aufteilung wurden geändert.\n\nMöchtest du diese Änderungen wirklich speichern?' })
+                  : (amountChanged || currencyChanged)
+                      ? t('finance.confirm_edit_amount_currency', { defaultValue: 'Betrag oder Währung wurde geändert.\n\nMöchtest du diese Änderung wirklich speichern?' })
+                      : t('finance.confirm_edit_split', { defaultValue: 'Die Aufteilung (oder wer bezahlt hat) wurde geändert.\n\nMöchtest du die neue Aufteilung wirklich speichern?' });
+              if (!window.confirm(confirmMsg)) {
+                  return;
+              }
+          }
       }
 
       updateExpense(editingId, {
@@ -1875,7 +1918,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                                     <button onClick={(e) => { e.stopPropagation(); setShowSplit(!showSplit); }} className="text-xs font-bold text-emerald-800 flex items-center gap-1.5 bg-emerald-100/50 px-3 py-2 rounded-lg border border-emerald-200/50 hover:bg-emerald-100 transition-colors w-full">
                                                         <Users className="w-3.5 h-3.5 shrink-0" /> 
                                                         <span className="truncate">
-                                                            {t('finance.split_among', { defaultValue: 'Aufgeteilt auf:' })} {editSplitMode === 'exact' ? t('finance.exact', { defaultValue: 'Exakt' }) : editSplitMode === 'weights' ? t('finance.weights', { defaultValue: 'Anteile (×)' }) : (editSplitAmong.length === allNames.length ? t('finance.everyone', { defaultValue: 'Alle' }) : `${editSplitAmong.length} ${t('finance.persons', { defaultValue: 'Personen' })}`)}
+                                                            {t('finance.split_among', { defaultValue: 'Aufgeteilt auf:' })} {editSplitMode === 'exact' ? t('finance.exact', { defaultValue: 'Exakt' }) : editSplitMode === 'weights' ? t('finance.weights', { defaultValue: 'Anteile (×)' }) : formatSplitParticipantsLabel(editSplitAmong, allNames, myIdentity, t('finance.everyone', { defaultValue: 'Alle' }))}
                                                             {editSplitMode === 'equal' && perPerson > 0 ? ` (${t('finance.each_short', { defaultValue: 'je' })} ${perPerson.toFixed(2)} ${editCurrency})` : ''} ✎
                                                         </span>
                                                     </button>
@@ -1887,7 +1930,21 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                                     <div className="flex bg-emerald-50 border border-emerald-100 rounded-lg mb-3 p-1 gap-1">
                                                         <button onClick={() => setEditSplitMode('equal')} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${editSplitMode === 'equal' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.equal', { defaultValue: 'Gleichmäßig' })}</button>
                                                         <button onClick={() => setEditSplitMode('weights')} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${editSplitMode === 'weights' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.weights', { defaultValue: 'Anteile (×)' })}</button>
-                                                        <button onClick={() => setEditSplitMode('exact')} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${editSplitMode === 'exact' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.exact_amount', { defaultValue: 'Exakt' })}</button>
+                                                        <button
+                                                            onClick={() => {
+                                                                const hasExistingExact = Object.values(editSplitExact).some(v => (parseFloat((v || '').replace(',', '.')) || 0) > 0);
+                                                                if (!hasExistingExact) {
+                                                                    const numTotal = parseFloat(editAmount.replace(',', '.')) || 0;
+                                                                    if (numTotal > 0) {
+                                                                        setEditSplitExact(buildInitialExactSplit(numTotal, editSplitMode, editSplitAmong, editSplitWeights));
+                                                                    }
+                                                                }
+                                                                setEditSplitMode('exact');
+                                                            }}
+                                                            className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${editSplitMode === 'exact' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}
+                                                        >
+                                                            {t('finance.exact_amount', { defaultValue: 'Exakt' })}
+                                                        </button>
                                                     </div>
 
                                                     {editSplitMode === 'equal' ? (
@@ -2242,4 +2299,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 2245 Zeilen ---
+// --- END OF FILE 2302 Zeilen ---

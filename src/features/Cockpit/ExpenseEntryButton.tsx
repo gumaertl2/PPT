@@ -1,3 +1,5 @@
+// [2026-11-17] [16:51] - UX: Prefilled exact split amounts from current equal/weighted distribution when switching to 'Exakt'.
+// [2026-11-17] [16:46] - UX: Showed sorted participant names instead of anonymous count in split toggle label.
 // [2026-11-17] [16:26] - UX: Consistently sorted traveler names with active identity first followed by A-Z.
 // [2026-11-17] [16:19] - UX: Added live per-person preview for equal splits in expense entry button and toggle label.
 // [2026-11-17] [15:14] - UX: Upgraded header GPS icon to a clear status badge (GPS ✓ / GPS… / Ohne GPS) while keeping zero-friction saving.
@@ -22,7 +24,7 @@ import type { Expense, CurrencyConfig } from '../../core/types/shared';
 import type { Place } from '../../core/types';
 import { LocationPickerModal } from './LocationPickerModal';
 import { addTravelerSafe, getStoredCashIdentity } from '../../services/firebaseCashService';
-import { computeWeightedAmounts, sortTravelerNames } from '../../core/utils/finance';
+import { computeWeightedAmounts, sortTravelerNames, formatSplitParticipantsLabel, buildInitialExactSplit } from '../../core/utils/finance';
 
 export type ExpenseButtonMode = 'sight' | 'planner' | 'diary' | 'standalone';
 
@@ -700,7 +702,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                                             <button onClick={(e) => { e.stopPropagation(); setShowSplit(!showSplit); }} className="text-xs font-bold text-emerald-800 flex items-center gap-1.5 bg-emerald-100/50 px-3 py-2 rounded-lg border border-emerald-200/50 hover:bg-emerald-100 transition-colors w-full">
                                                                 <Users className="w-3.5 h-3.5 shrink-0" /> 
                                                                 <span className="truncate">
-                                                                    {t('finance.split_among', { defaultValue: 'Aufgeteilt auf:' })} {splitMode === 'exact' ? t('finance.exact', { defaultValue: 'Exakt' }) : splitMode === 'weights' ? t('finance.weights', { defaultValue: 'Anteile (×)' }) : (splitAmong.length === names.length ? t('finance.everyone', { defaultValue: 'Alle' }) : `${splitAmong.length} ${t('finance.persons', { defaultValue: 'Personen' })}`)}
+                                                                    {t('finance.split_among', { defaultValue: 'Aufgeteilt auf:' })} {splitMode === 'exact' ? t('finance.exact', { defaultValue: 'Exakt' }) : splitMode === 'weights' ? t('finance.weights', { defaultValue: 'Anteile (×)' }) : formatSplitParticipantsLabel(splitAmong, names, currentCashIdentity, t('finance.everyone', { defaultValue: 'Alle' }))}
                                                                     {splitMode === 'equal' && perPerson > 0 ? ` (${t('finance.each_short', { defaultValue: 'je' })} ${perPerson.toFixed(2)} ${currency})` : ''} ✎
                                                                 </span>
                                                             </button>
@@ -712,7 +714,22 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                                             <div className="flex bg-emerald-50 border border-emerald-100 rounded-lg mb-3 p-1 gap-1">
                                                                 <button onClick={(e) => { e.stopPropagation(); setSplitMode('equal'); }} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${splitMode === 'equal' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.equal', { defaultValue: 'Gleichmäßig' })}</button>
                                                                 <button onClick={(e) => { e.stopPropagation(); setSplitMode('weights'); }} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${splitMode === 'weights' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.weights', { defaultValue: 'Anteile (×)' })}</button>
-                                                                <button onClick={(e) => { e.stopPropagation(); setSplitMode('exact'); }} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${splitMode === 'exact' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.exact', { defaultValue: 'Exakt' })}</button>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        const hasExistingExact = Object.values(splitExact).some(v => (parseFloat((v || '').replace(',', '.')) || 0) > 0);
+                                                                        if (!hasExistingExact) {
+                                                                            const numTotal = parseFloat(amount.replace(',', '.')) || 0;
+                                                                            if (numTotal > 0) {
+                                                                                setSplitExact(buildInitialExactSplit(numTotal, splitMode, splitAmong, splitWeights));
+                                                                            }
+                                                                        }
+                                                                        setSplitMode('exact');
+                                                                    }}
+                                                                    className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${splitMode === 'exact' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}
+                                                                >
+                                                                    {t('finance.exact', { defaultValue: 'Exakt' })}
+                                                                </button>
                                                             </div>
 
                                                             {splitMode === 'equal' ? (
@@ -831,4 +848,4 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         </div>
     );
 };
-// --- END OF FILE 834 Zeilen ---
+// --- END OF FILE 851 Zeilen ---
