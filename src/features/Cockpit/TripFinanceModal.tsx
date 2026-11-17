@@ -1,3 +1,5 @@
+// [2026-11-17] [13:23] - UX/FIX: Highlighted active filters in Warm-Amber with reset pill and synced Table footer totals with active filters, splitWeights, and settlement exclusions.
+// [2026-11-17] [13:16] - UX: Unified filter controls across Historie and Tabelle with matching filtered/total counter (e.g. 22/28).
 // [2026-11-17] [13:05] - UX: Implemented Option A progressive disclosure for default per-person weights via 'Anteile' toggle button.
 // [2026-11-17] [12:58] - FEAT: Shared renderDefaultWeightControl and added per-person default weight controls directly in the empty-state onboarding card.
 // [2026-11-17] [12:56] - FIX: Scoped identity storage per roomId/project.meta.id, validated against allNames, and exposed 'Ich bin' selector in empty state.
@@ -704,30 +706,88 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     );
   };
 
-  const renderSearchInput = (compact = false) => (
-    <div className={`relative ${compact ? '' : 'flex-1'}`}>
-      <Search className={`w-3.5 h-3.5 text-slate-400 absolute ${compact ? 'left-2.5' : 'left-3'} top-1/2 -translate-y-1/2`} />
-      <input
-        type="text"
-        value={historySearch}
-        onChange={(e) => setHistorySearch(e.target.value)}
-        placeholder={compact ? t('finance.search_placeholder', { defaultValue: 'Suchen...' }) : t('finance.search_placeholder', { defaultValue: 'Ausgabe suchen...' })}
-        className={compact
-          ? 'pl-7 pr-7 py-1 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 w-36 sm:w-44'
-          : 'w-full pl-8 pr-8 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400'}
-      />
-      {historySearch && (
-        <button
-          type="button"
-          onClick={() => setHistorySearch('')}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5 rounded-full hover:bg-slate-200/70 transition-colors"
-          title={t('actions.clear', { defaultValue: 'Eingabe löschen' })}
+  const isFilterActive = Boolean(historySearch.trim() || historyPersonFilter);
+
+  const clearAllFilters = () => {
+    setHistorySearch('');
+    setHistoryPersonFilter('');
+  };
+
+  const renderFilterControls = (filteredCount: number, compact = false) => (
+    <div className={`flex flex-wrap items-center gap-2 ${compact ? '' : 'w-full'}`}>
+      {renderSearchInput(compact)}
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={historyPersonFilter}
+          onChange={(e) => setHistoryPersonFilter(e.target.value)}
+          className={
+            historyPersonFilter
+              ? compact
+                ? 'px-2 py-1 text-xs font-bold bg-amber-50/80 border border-amber-400 rounded-lg text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-400'
+                : 'px-2.5 py-1.5 text-xs font-bold bg-amber-50/80 border border-amber-400 rounded-lg text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-400'
+              : compact
+                ? 'px-2 py-1 text-xs font-semibold bg-white border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400'
+                : 'px-2.5 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400'
+          }
         >
-          <X className="w-3.5 h-3.5" />
-        </button>
-      )}
+          <option value="">{t('finance.all_persons', { defaultValue: 'Alle Personen' })}</option>
+          {allNames.map((n) => (
+            <option key={n} value={n}>{n}</option>
+          ))}
+        </select>
+        {isFilterActive ? (
+          <button
+            type="button"
+            onClick={clearAllFilters}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 shadow-sm transition-colors tabular-nums"
+            title={t('finance.clear_filters', { defaultValue: 'Alle Filter zurücksetzen' })}
+          >
+            <ListFilter className="w-3.5 h-3.5 text-amber-600" />
+            <span>{t('finance.filtered_count', { defaultValue: 'Gefiltert: {{filtered}} von {{total}}', filtered: filteredCount, total: expenses.length })}</span>
+            <X className="w-3.5 h-3.5" />
+          </button>
+        ) : (
+          <span className="text-[11px] font-medium text-slate-400 tabular-nums">
+            {filteredCount}/{expenses.length}
+          </span>
+        )}
+      </div>
     </div>
   );
+
+  const renderSearchInput = (compact = false) => {
+    const hasSearch = Boolean(historySearch.trim());
+    return (
+      <div className={`relative ${compact ? '' : 'flex-1'}`}>
+        <Search className={`w-3.5 h-3.5 ${hasSearch ? 'text-amber-600' : 'text-slate-400'} absolute ${compact ? 'left-2.5' : 'left-3'} top-1/2 -translate-y-1/2`} />
+        <input
+          type="text"
+          value={historySearch}
+          onChange={(e) => setHistorySearch(e.target.value)}
+          placeholder={compact ? t('finance.search_placeholder', { defaultValue: 'Suchen...' }) : t('finance.search_placeholder', { defaultValue: 'Ausgabe suchen...' })}
+          className={
+            hasSearch
+              ? compact
+                ? 'pl-7 pr-7 py-1 text-xs font-semibold bg-amber-50/80 border border-amber-400 text-amber-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 w-36 sm:w-44'
+                : 'w-full pl-8 pr-8 py-1.5 text-xs font-semibold bg-amber-50/80 border border-amber-400 text-amber-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400'
+              : compact
+                ? 'pl-7 pr-7 py-1 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 w-36 sm:w-44'
+                : 'w-full pl-8 pr-8 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400'
+          }
+        />
+        {historySearch && (
+          <button
+            type="button"
+            onClick={() => setHistorySearch('')}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5 rounded-full hover:bg-slate-200/70 transition-colors"
+            title={t('actions.clear', { defaultValue: 'Eingabe löschen' })}
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+    );
+  };
 
   const handleAddPersonFromModal = async () => {
     setIsAddingPerson(true);
@@ -1724,29 +1784,8 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                     </div>
                 ) : activeTab === 'feed' ? (
                     <div className="space-y-3 animate-in fade-in max-w-2xl mx-auto print:max-w-none">
-                        <div className="flex flex-col sm:flex-row gap-2 bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm print:hidden">
-                            {renderSearchInput(false)}
-                            <div className="flex items-center gap-2">
-                                <select
-                                    value={historyPersonFilter}
-                                    onChange={(e) => setHistoryPersonFilter(e.target.value)}
-                                    className="px-2.5 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                                >
-                                    <option value="">{t('finance.all_persons', { defaultValue: 'Alle Personen' })}</option>
-                                    {allNames.map((n) => (
-                                        <option key={n} value={n}>{n}</option>
-                                    ))}
-                                </select>
-                                {(historySearch || historyPersonFilter) && (
-                                    <button
-                                        type="button"
-                                        onClick={() => { setHistorySearch(''); setHistoryPersonFilter(''); }}
-                                        className="px-2 py-1.5 text-xs font-bold text-slate-500 hover:text-slate-700 bg-slate-100 rounded-lg"
-                                    >
-                                        ×
-                                    </button>
-                                )}
-                            </div>
+                        <div className={`flex flex-col sm:flex-row gap-2 p-2.5 rounded-xl border shadow-sm print:hidden transition-colors ${isFilterActive ? 'bg-amber-50/60 border-amber-300' : 'bg-white border-slate-200'}`}>
+                            {renderFilterControls(filteredFeed.length, false)}
                         </div>
                         {filteredFeed.length === 0 ? (
                             <div className="text-center py-8 text-xs text-slate-400 bg-white rounded-xl border border-slate-200">
@@ -2003,23 +2042,8 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                     </div>
                 ) : (
                     <div className="flex flex-col gap-3 animate-in fade-in max-w-full">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1 print:hidden">
-                            <div className="flex flex-wrap items-center gap-2">
-                                {renderSearchInput(true)}
-                                <select
-                                    value={historyPersonFilter}
-                                    onChange={(e) => setHistoryPersonFilter(e.target.value)}
-                                    className="px-2 py-1 text-xs font-semibold bg-white border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                                >
-                                    <option value="">{t('finance.all_persons', { defaultValue: 'Alle Personen' })}</option>
-                                    {allNames.map((n) => (
-                                        <option key={n} value={n}>{n}</option>
-                                    ))}
-                                </select>
-                                <span className="text-[11px] text-slate-400">
-                                    {filteredTableData.length}/{expenses.length}
-                                </span>
-                            </div>
+                        <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-2 py-1.5 rounded-xl border transition-colors print:hidden ${isFilterActive ? 'bg-amber-50/60 border-amber-300' : 'border-transparent'}`}>
+                            {renderFilterControls(filteredTableData.length, true)}
                             <button onClick={() => setShowSubtotals(!showSubtotals)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border shadow-sm self-start sm:self-auto ${showSubtotals ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
                                 <Sigma className="w-4 h-4" /> {t('finance.toggle_subtotals', { defaultValue: 'Zwischensummen' })}
                             </button>
@@ -2050,58 +2074,92 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                     {renderTableBody()}
                                 </tbody>
                                 <tfoot className="sticky bottom-0 z-30 bg-slate-50 font-bold shadow-[0_-4px_10px_rgba(0,0,0,0.05)] print:static print:shadow-none print:bg-white print:border-black">
-                                    {/* ZEILE 1: ANTEILIGE KOSTEN */}
-                                    <tr>
-                                        <td colSpan={3} className="p-3 text-right text-slate-600 text-xs print:text-black">{t('finance.csv_total', { defaultValue: 'GESAMTKOSTEN (Anteil)' })}</td>
-                                        <td className="p-3 text-right text-emerald-700 text-base print:text-black">{(() => {
-                                            let totalBase = 0;
-                                            sortedTableData.forEach(exp => {
-                                                totalBase += exp.amount / getRateForCurrency(exp.currency || 'EUR');
-                                            });
-                                            return totalBase.toFixed(2);
-                                        })()}</td>
-                                        <td className="p-3"></td>
-                                        {allNames.map(n => {
-                                            let pTotal = 0;
-                                            sortedTableData.forEach(exp => {
-                                                const rate = getRateForCurrency(exp.currency || 'EUR');
-                                                const amountBase = exp.amount / rate;
-                                                if (exp.splitExact && exp.splitExact[n]) {
-                                                    pTotal += exp.splitExact[n] / rate;
-                                                } else if (exp.splitAmong && exp.splitAmong.includes(n)) {
-                                                    pTotal += amountBase / exp.splitAmong.length;
+                                    {(() => {
+                                        const footerExpenses = isFilterActive
+                                            ? filteredTableData
+                                            : sortedTableData.filter(exp => !exp.isSettlement);
+                                        let totalBase = 0;
+                                        const personShares: Record<string, number> = {};
+                                        const personPaidFiltered: Record<string, number> = {};
+                                        allNames.forEach(n => {
+                                            personShares[n] = 0;
+                                            personPaidFiltered[n] = 0;
+                                        });
+                                        footerExpenses.forEach(exp => {
+                                            const rate = getRateForCurrency(exp.currency || 'EUR');
+                                            totalBase += exp.amount / rate;
+                                            if (exp.paidBy && personPaidFiltered[exp.paidBy] !== undefined) {
+                                                personPaidFiltered[exp.paidBy] += exp.amount / rate;
+                                            }
+                                            const shares = calculateExpenseSharesInBase(exp, rate);
+                                            Object.entries(shares).forEach(([person, amt]) => {
+                                                if (personShares[person] !== undefined) {
+                                                    personShares[person] += amt;
                                                 }
                                             });
-                                            return <td key={`total-${n}`} className="p-3 text-right text-slate-800 border-l border-slate-200/50 print:border-slate-300 print:text-black">{pTotal.toFixed(2)}</td>;
-                                        })}
-                                    </tr>
-                                    
-                                    {/* ZEILE 2: BEZAHLT VON */}
-                                    <tr className="bg-slate-100 print:bg-white border-t border-slate-200">
-                                        <td colSpan={3} className="p-3 text-right text-slate-600 text-xs print:text-black">{t('finance.csv_paid', { defaultValue: 'BEZAHLT VON' })}</td>
-                                        <td className="p-3"></td>
-                                        <td className="p-3"></td>
-                                        {allNames.map(n => (
-                                            <td key={`paid-${n}`} className="p-3 text-right text-slate-800 border-l border-slate-200/50 print:border-slate-300 print:text-black">
-                                                {(settlement.paidTotals[n] || 0).toFixed(2)}
-                                            </td>
-                                        ))}
-                                    </tr>
-                                    
-                                    {/* ZEILE 3: BILANZ */}
-                                    <tr className="bg-slate-200 print:bg-white border-t border-slate-300">
-                                        <td colSpan={3} className="p-3 text-right text-slate-700 text-xs print:text-black">{t('finance.csv_balance', { defaultValue: 'BILANZ (+ Gutschrift / - Schuld)' })}</td>
-                                        <td className="p-3"></td>
-                                        <td className="p-3"></td>
-                                        {allNames.map(n => {
-                                            const bal = settlement.balances[n] || 0;
-                                            return (
-                                                <td key={`bal-${n}`} className={`p-3 text-right font-black border-l border-slate-300/50 print:border-slate-300 print:text-black ${bal > 0.01 ? 'text-emerald-600 print:text-black' : bal < -0.01 ? 'text-red-600 print:text-black' : 'text-slate-500 print:text-black'}`}>
-                                                    {bal > 0.01 ? '+' : ''}{bal.toFixed(2)}
-                                                </td>
-                                            );
-                                        })}
-                                    </tr>
+                                        });
+
+                                        return (
+                                            <>
+                                                {/* ZEILE 1: ANTEILIGE KOSTEN */}
+                                                <tr className={isFilterActive ? 'bg-amber-50/90 print:bg-white' : ''}>
+                                                    <td colSpan={3} className={`p-3 text-right text-xs print:text-black ${isFilterActive ? 'text-amber-800' : 'text-slate-600'}`}>
+                                                        {isFilterActive
+                                                            ? t('finance.csv_total_filtered', {
+                                                                defaultValue: 'SUMME (FILTER: {{filtered}} von {{total}})',
+                                                                filtered: filteredTableData.length,
+                                                                total: expenses.length
+                                                            })
+                                                            : t('finance.csv_total', { defaultValue: 'GESAMTKOSTEN (Anteil)' })}
+                                                    </td>
+                                                    <td className={`p-3 text-right text-base print:text-black ${isFilterActive ? 'text-amber-700' : 'text-emerald-700'}`}>
+                                                        {totalBase.toFixed(2)}
+                                                    </td>
+                                                    <td className="p-3"></td>
+                                                    {allNames.map(n => (
+                                                        <td key={`total-${n}`} className="p-3 text-right text-slate-800 border-l border-slate-200/50 print:border-slate-300 print:text-black">
+                                                            {(personShares[n] || 0).toFixed(2)}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+
+                                                {/* ZEILE 2: BEZAHLT VON */}
+                                                <tr className={`${isFilterActive ? 'bg-amber-50/60 border-amber-200' : 'bg-slate-100 border-slate-200'} print:bg-white border-t`}>
+                                                    <td colSpan={3} className={`p-3 text-right text-xs print:text-black ${isFilterActive ? 'text-amber-800' : 'text-slate-600'}`}>
+                                                        {isFilterActive
+                                                            ? t('finance.csv_paid_filtered', { defaultValue: 'BEZAHLT VON (FILTER)' })
+                                                            : t('finance.csv_paid', { defaultValue: 'BEZAHLT VON' })}
+                                                    </td>
+                                                    <td className="p-3"></td>
+                                                    <td className="p-3"></td>
+                                                    {allNames.map(n => (
+                                                        <td key={`paid-${n}`} className="p-3 text-right text-slate-800 border-l border-slate-200/50 print:border-slate-300 print:text-black">
+                                                            {(isFilterActive ? (personPaidFiltered[n] || 0) : (settlement.paidTotals[n] || 0)).toFixed(2)}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+
+                                                {/* ZEILE 3: BILANZ */}
+                                                <tr className="bg-slate-200 print:bg-white border-t border-slate-300">
+                                                    <td colSpan={3} className="p-3 text-right text-slate-700 text-xs print:text-black">
+                                                        {isFilterActive
+                                                            ? t('finance.csv_balance_total_cash', { defaultValue: 'BILANZ (GESAMTE KASSE)' })
+                                                            : t('finance.csv_balance', { defaultValue: 'BILANZ (+ Gutschrift / - Schuld)' })}
+                                                    </td>
+                                                    <td className="p-3"></td>
+                                                    <td className="p-3"></td>
+                                                    {allNames.map(n => {
+                                                        const bal = settlement.balances[n] || 0;
+                                                        return (
+                                                            <td key={`bal-${n}`} className={`p-3 text-right font-black border-l border-slate-300/50 print:border-slate-300 print:text-black ${bal > 0.01 ? 'text-emerald-600 print:text-black' : bal < -0.01 ? 'text-red-600 print:text-black' : 'text-slate-500 print:text-black'}`}>
+                                                                {bal > 0.01 ? '+' : ''}{bal.toFixed(2)}
+                                                            </td>
+                                                        );
+                                                    })}
+                                                </tr>
+                                            </>
+                                        );
+                                    })()}
                                 </tfoot>
                             </table>
                         </div>
@@ -2127,4 +2185,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 2124 Zeilen ---
+// --- END OF FILE 2188 Zeilen ---
