@@ -1,3 +1,4 @@
+// [2026-11-17] [16:26] - UX: Consistently sorted traveler names with active identity first followed by A-Z.
 // [2026-11-17] [16:19] - UX: Added live per-person preview for equal splits in expense entry button and toggle label.
 // [2026-11-17] [15:14] - UX: Upgraded header GPS icon to a clear status badge (GPS ✓ / GPS… / Ohne GPS) while keeping zero-friction saving.
 // [2026-11-17] [15:10] - UX/FIX: Increased GPS timeout to 10s and added automatic low-accuracy (WiFi/cell) fallback on non-permission geolocation failure.
@@ -21,7 +22,7 @@ import type { Expense, CurrencyConfig } from '../../core/types/shared';
 import type { Place } from '../../core/types';
 import { LocationPickerModal } from './LocationPickerModal';
 import { addTravelerSafe, getStoredCashIdentity } from '../../services/firebaseCashService';
-import { computeWeightedAmounts } from '../../core/utils/finance';
+import { computeWeightedAmounts, sortTravelerNames } from '../../core/utils/finance';
 
 export type ExpenseButtonMode = 'sight' | 'planner' | 'diary' | 'standalone';
 
@@ -69,7 +70,11 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
     const [currency, setCurrency] = useState(availableCurrencies[0]);
     const [entryDate, setEntryDate] = useState('');
     
-    const names = (travelers || '').split(',').map(n => n.trim()).filter(Boolean);
+    const currentCashIdentity = getStoredCashIdentity(project.data.cashSync?.roomId || project.meta?.id);
+    const names = sortTravelerNames(
+        (travelers || '').split(',').map(n => n.trim()).filter(Boolean),
+        currentCashIdentity
+    );
     const [entryKind, setEntryKind] = useState<'expense' | 'settlement'>(onlySettlement ? 'settlement' : 'expense');
     const [paidBy, setPaidBy] = useState('');
     const [settlementRecipient, setSettlementRecipient] = useState('');
@@ -826,4 +831,4 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         </div>
     );
 };
-// --- END OF FILE 829 Zeilen ---
+// --- END OF FILE 834 Zeilen ---

@@ -1,3 +1,4 @@
+// [2026-11-17] [16:26] - UX: Consistently sorted traveler names with active identity ('Ich bin') first followed by A-Z across all tabs and history cards.
 // [2026-11-17] [16:19] - UX: Displayed per-person split amounts directly on Historie cards, auto-expanded exact/weights split on edit, and added live per-person preview for equal splits.
 // [2026-11-17] [13:23] - UX/FIX: Highlighted active filters in Warm-Amber with reset pill and synced Table footer totals with active filters, splitWeights, and settlement exclusions.
 // [2026-11-17] [13:16] - UX: Unified filter controls across Historie and Tabelle with matching filtered/total counter (e.g. 22/28).
@@ -34,7 +35,7 @@ import {
 } from 'lucide-react'; 
 import { QRCodeSVG } from 'qrcode.react';
 import type { Expense, LanguageCode, CurrencyConfig } from '../../core/types/shared';
-import { calculateExpenseSharesInBase, computeWeightedAmounts } from '../../core/utils/finance';
+import { calculateExpenseSharesInBase, computeWeightedAmounts, sortTravelerNames } from '../../core/utils/finance';
 import { ExpenseEntryButton } from './ExpenseEntryButton'; 
 import { CurrencyConfigModal } from './CurrencyConfigModal';
 import { LocationPickerModal } from './LocationPickerModal';
@@ -130,7 +131,10 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
   const sortedFeed = [...expenses].sort((a, b) => b.timestamp - a.timestamp);
 
   const rawNames = project.userInputs.travelers.travelerNames || '';
-  const allNames = rawNames.split(',').map((n: string) => n.trim()).filter(Boolean);
+  const allNames = sortTravelerNames(
+    rawNames.split(',').map((n: string) => n.trim()).filter(Boolean),
+    myIdentity
+  );
 
   const currencyConfig = project.data.currencyConfig as CurrencyConfig | undefined;
   const baseCurrency = currencyConfig?.baseCurrency || 'EUR';
@@ -2037,7 +2041,9 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                                 </span>
                                             )}
                                             {exp.splitExact && Object.keys(exp.splitExact).length > 0 ? (() => {
-                                                const exactEntries = Object.entries(exp.splitExact).filter(([, v]) => v > 0);
+                                                const exactEntries = sortTravelerNames(Object.keys(exp.splitExact), myIdentity)
+                                                    .map((p) => [p, exp.splitExact![p]] as [string, number])
+                                                    .filter(([, v]) => v > 0);
                                                 return (
                                                     <div className="text-[10px] text-blue-600 mt-1.5 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded inline-block max-w-full whitespace-normal leading-relaxed print:border print:border-slate-300 print:bg-white">
                                                         {exactEntries.length > 0 && exactEntries.length <= 5
@@ -2046,7 +2052,9 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                                     </div>
                                                 );
                                             })() : exp.splitWeights && Object.keys(exp.splitWeights).length > 0 ? (() => {
-                                                const activeWeights = Object.entries(exp.splitWeights).filter(([, w]) => w > 0);
+                                                const activeWeights = sortTravelerNames(Object.keys(exp.splitWeights), myIdentity)
+                                                    .map((p) => [p, exp.splitWeights![p]] as [string, number])
+                                                    .filter(([, w]) => w > 0);
                                                 const weightedAmounts = computeWeightedAmounts(exp.amount, exp.splitWeights);
                                                 return (
                                                     <div className="text-[10px] text-indigo-600 mt-1.5 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded inline-block max-w-full whitespace-normal leading-relaxed print:border print:border-slate-300 print:bg-white">
@@ -2056,16 +2064,19 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                                             : activeWeights.map(([p, w]) => `${p} ${w}×`).join(', ')}
                                                     </div>
                                                 );
-                                            })() : exp.splitAmong && exp.splitAmong.length > 0 ? (
-                                                <div className="text-[10px] text-slate-500 mt-1.5 leading-relaxed print:text-slate-600">
-                                                    {t('finance.for', { defaultValue: 'Für:' })} {exp.splitAmong.join(', ')}
-                                                    {!exp.isSettlement && exp.splitAmong.length > 1 && exp.amount > 0 && (
-                                                        <span className="ml-1.5 font-semibold text-emerald-700 tabular-nums print:text-black">
-                                                            ({t('finance.each_short', { defaultValue: 'je' })} {(exp.amount / exp.splitAmong.length).toFixed(2)} {exp.currency})
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            ) : null}
+                                            })() : exp.splitAmong && exp.splitAmong.length > 0 ? (() => {
+                                                const sortedAmong = sortTravelerNames(exp.splitAmong, myIdentity);
+                                                return (
+                                                    <div className="text-[10px] text-slate-500 mt-1.5 leading-relaxed print:text-slate-600">
+                                                        {t('finance.for', { defaultValue: 'Für:' })} {sortedAmong.join(', ')}
+                                                        {!exp.isSettlement && sortedAmong.length > 1 && exp.amount > 0 && (
+                                                            <span className="ml-1.5 font-semibold text-emerald-700 tabular-nums print:text-black">
+                                                                ({t('finance.each_short', { defaultValue: 'je' })} {(exp.amount / sortedAmong.length).toFixed(2)} {exp.currency})
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })() : null}
                                         </div>
                                         {!isGuestMode && (
                                           <button 
@@ -2231,4 +2242,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 2234 Zeilen ---
+// --- END OF FILE 2245 Zeilen ---

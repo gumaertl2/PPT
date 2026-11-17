@@ -1,3 +1,4 @@
+// [2026-11-17] [16:26] - FEAT: Added sortTravelerNames helper to sort active identity first followed by A-Z.
 // [2026-11-17] [12:08] - FEAT: Created shared pure finance helper for calculating exact, weighted, and equal expense shares.
 // src/core/utils/finance.ts
 
@@ -68,4 +69,21 @@ export const computeWeightedAmounts = (
   });
   return result;
 };
-// --- END OF FILE 67 Zeilen ---
+
+/**
+ * Sorts participant names with the active identity first, followed by remaining names A-Z.
+ */
+export const sortTravelerNames = (
+  names: string[],
+  myIdentity?: string
+): string[] => {
+  const me = myIdentity?.trim().toLowerCase();
+  return [...names].sort((a, b) => {
+    const aIsMe = Boolean(me && a.trim().toLowerCase() === me);
+    const bIsMe = Boolean(me && b.trim().toLowerCase() === me);
+    if (aIsMe && !bIsMe) return -1;
+    if (!aIsMe && bIsMe) return 1;
+    return a.localeCompare(b, undefined, { sensitivity: 'base' });
+  });
+};
+// --- END OF FILE 89 Zeilen ---
