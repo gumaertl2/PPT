@@ -1,3 +1,4 @@
+// [2026-11-17] [16:19] - UX: Displayed per-person split amounts directly on Historie cards, auto-expanded exact/weights split on edit, and added live per-person preview for equal splits.
 // [2026-11-17] [13:23] - UX/FIX: Highlighted active filters in Warm-Amber with reset pill and synced Table footer totals with active filters, splitWeights, and settlement exclusions.
 // [2026-11-17] [13:16] - UX: Unified filter controls across Historie and Tabelle with matching filtered/total counter (e.g. 22/28).
 // [2026-11-17] [13:05] - UX: Implemented Option A progressive disclosure for default per-person weights via 'Anteile' toggle button.
@@ -235,6 +236,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
 
       if (exp.splitExact && Object.keys(exp.splitExact).length > 0) {
           setEditSplitMode('exact');
+          setShowSplit(true);
           setEditSplitAmong(allNames);
           setEditSplitWeights(defaultWeights);
           const strExact: Record<string, string> = {};
@@ -242,6 +244,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
           setEditSplitExact(strExact);
       } else if (exp.splitWeights && Object.keys(exp.splitWeights).length > 0) {
           setEditSplitMode('weights');
+          setShowSplit(true);
           setEditSplitAmong(Object.keys(exp.splitWeights));
           const mergedWeights: Record<string, number> = {};
           allNames.forEach((n: string) => { mergedWeights[n] = exp.splitWeights?.[n] ?? 0; });
@@ -1861,10 +1864,19 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                         </div>
                                         
                                         <div className="mb-5">
-                                            <button onClick={(e) => { e.stopPropagation(); setShowSplit(!showSplit); }} className="text-xs font-bold text-emerald-800 flex items-center gap-1.5 bg-emerald-100/50 px-3 py-2 rounded-lg border border-emerald-200/50 hover:bg-emerald-100 transition-colors w-full">
-                                                <Users className="w-3.5 h-3.5" /> 
-                                                {t('finance.split_among', { defaultValue: 'Aufgeteilt auf:' })} {editSplitMode === 'exact' ? t('finance.exact', { defaultValue: 'Exakt' }) : editSplitMode === 'weights' ? t('finance.weights', { defaultValue: 'Anteile (×)' }) : (editSplitAmong.length === allNames.length ? t('finance.everyone', { defaultValue: 'Alle' }) : `${editSplitAmong.length} ${t('finance.persons', { defaultValue: 'Personen' })}`)} ✎
-                                            </button>
+                                            {(() => {
+                                                const numTotal = parseFloat(editAmount.replace(',', '.')) || 0;
+                                                const perPerson = editSplitAmong.length > 0 && numTotal > 0 ? numTotal / editSplitAmong.length : 0;
+                                                return (
+                                                    <button onClick={(e) => { e.stopPropagation(); setShowSplit(!showSplit); }} className="text-xs font-bold text-emerald-800 flex items-center gap-1.5 bg-emerald-100/50 px-3 py-2 rounded-lg border border-emerald-200/50 hover:bg-emerald-100 transition-colors w-full">
+                                                        <Users className="w-3.5 h-3.5 shrink-0" /> 
+                                                        <span className="truncate">
+                                                            {t('finance.split_among', { defaultValue: 'Aufgeteilt auf:' })} {editSplitMode === 'exact' ? t('finance.exact', { defaultValue: 'Exakt' }) : editSplitMode === 'weights' ? t('finance.weights', { defaultValue: 'Anteile (×)' }) : (editSplitAmong.length === allNames.length ? t('finance.everyone', { defaultValue: 'Alle' }) : `${editSplitAmong.length} ${t('finance.persons', { defaultValue: 'Personen' })}`)}
+                                                            {editSplitMode === 'equal' && perPerson > 0 ? ` (${t('finance.each_short', { defaultValue: 'je' })} ${perPerson.toFixed(2)} ${editCurrency})` : ''} ✎
+                                                        </span>
+                                                    </button>
+                                                );
+                                            })()}
 
                                             {showSplit && (
                                                 <div className="mt-2 p-3 bg-white rounded-xl border border-emerald-200 shadow-sm animate-in fade-in slide-in-from-top-1">
@@ -1875,11 +1887,24 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                                     </div>
 
                                                     {editSplitMode === 'equal' ? (
-                                                        <div className="flex flex-wrap gap-1.5">
-                                                        {allNames.map((n: string) => { 
-                                                            const active = editSplitAmong.includes(n);
-                                                            return <button key={n} onClick={() => setEditSplitAmong(active ? editSplitAmong.filter(x => x !== n) : [...editSplitAmong, n])} className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${active ? 'bg-emerald-500 text-white border-emerald-600 shadow-sm' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'}`}>{n} {active && '✓'}</button>;
-                                                        })}
+                                                        <div className="space-y-2">
+                                                            <div className="flex flex-wrap gap-1.5">
+                                                            {allNames.map((n: string) => { 
+                                                                const active = editSplitAmong.includes(n);
+                                                                return <button key={n} onClick={() => setEditSplitAmong(active ? editSplitAmong.filter(x => x !== n) : [...editSplitAmong, n])} className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${active ? 'bg-emerald-500 text-white border-emerald-600 shadow-sm' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'}`}>{n} {active && '✓'}</button>;
+                                                            })}
+                                                            </div>
+                                                            {(() => {
+                                                                const numTotal = parseFloat(editAmount.replace(',', '.')) || 0;
+                                                                if (editSplitAmong.length <= 0 || numTotal <= 0) return null;
+                                                                const perPerson = numTotal / editSplitAmong.length;
+                                                                return (
+                                                                    <div className="text-[11px] font-semibold text-emerald-700 bg-emerald-50/70 px-2.5 py-1 rounded-lg border border-emerald-100 flex items-center justify-between">
+                                                                        <span>{t('finance.per_person_count', { defaultValue: 'Pro Person ({{count}}):', count: editSplitAmong.length })}</span>
+                                                                        <span className="font-bold tabular-nums">{perPerson.toFixed(2)} {editCurrency}</span>
+                                                                    </div>
+                                                                );
+                                                            })()}
                                                         </div>
                                                     ) : editSplitMode === 'weights' ? (
                                                         <div className="space-y-2">
@@ -2011,14 +2036,35 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                                     {t('finance.repayment_badge', { defaultValue: 'Rückzahlung' })}
                                                 </span>
                                             )}
-                                            {exp.splitExact && Object.keys(exp.splitExact).length > 0 ? (
-                                                <div className="text-[10px] text-blue-500 mt-1.5 bg-blue-50 px-2 py-0.5 rounded inline-block print:border print:border-slate-300 print:bg-white">{t('finance.split_exact_label', { defaultValue: 'Aufteilung: Exakt' })}</div>
-                                            ) : exp.splitWeights && Object.keys(exp.splitWeights).length > 0 ? (
-                                                <div className="text-[10px] text-indigo-600 mt-1.5 bg-indigo-50 px-2 py-0.5 rounded inline-block print:border print:border-slate-300 print:bg-white">
-                                                    {t('finance.weights_label', { defaultValue: 'Anteile:' })} {Object.entries(exp.splitWeights).filter(([, w]) => w > 0).map(([p, w]) => `${p} ${w}×`).join(', ')}
+                                            {exp.splitExact && Object.keys(exp.splitExact).length > 0 ? (() => {
+                                                const exactEntries = Object.entries(exp.splitExact).filter(([, v]) => v > 0);
+                                                return (
+                                                    <div className="text-[10px] text-blue-600 mt-1.5 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded inline-block max-w-full whitespace-normal leading-relaxed print:border print:border-slate-300 print:bg-white">
+                                                        {exactEntries.length > 0 && exactEntries.length <= 5
+                                                            ? `${t('finance.exact_short', { defaultValue: 'Exakt:' })} ${exactEntries.map(([p, v]) => `${p} ${v.toFixed(2)}`).join(', ')} ${exp.currency}`
+                                                            : `${t('finance.split_exact_label', { defaultValue: 'Aufteilung: Exakt' })} (${exactEntries.length})`}
+                                                    </div>
+                                                );
+                                            })() : exp.splitWeights && Object.keys(exp.splitWeights).length > 0 ? (() => {
+                                                const activeWeights = Object.entries(exp.splitWeights).filter(([, w]) => w > 0);
+                                                const weightedAmounts = computeWeightedAmounts(exp.amount, exp.splitWeights);
+                                                return (
+                                                    <div className="text-[10px] text-indigo-600 mt-1.5 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded inline-block max-w-full whitespace-normal leading-relaxed print:border print:border-slate-300 print:bg-white">
+                                                        {t('finance.weights_label', { defaultValue: 'Anteile:' })}{' '}
+                                                        {activeWeights.length <= 5
+                                                            ? `${activeWeights.map(([p, w]) => `${p} ${w}× (${(weightedAmounts[p] || 0).toFixed(2)})`).join(', ')} ${exp.currency}`
+                                                            : activeWeights.map(([p, w]) => `${p} ${w}×`).join(', ')}
+                                                    </div>
+                                                );
+                                            })() : exp.splitAmong && exp.splitAmong.length > 0 ? (
+                                                <div className="text-[10px] text-slate-500 mt-1.5 leading-relaxed print:text-slate-600">
+                                                    {t('finance.for', { defaultValue: 'Für:' })} {exp.splitAmong.join(', ')}
+                                                    {!exp.isSettlement && exp.splitAmong.length > 1 && exp.amount > 0 && (
+                                                        <span className="ml-1.5 font-semibold text-emerald-700 tabular-nums print:text-black">
+                                                            ({t('finance.each_short', { defaultValue: 'je' })} {(exp.amount / exp.splitAmong.length).toFixed(2)} {exp.currency})
+                                                        </span>
+                                                    )}
                                                 </div>
-                                            ) : exp.splitAmong && exp.splitAmong.length > 0 ? (
-                                                <div className="text-[10px] text-slate-400 mt-1.5 truncate print:text-slate-600">{t('finance.for', { defaultValue: 'Für:' })} {exp.splitAmong.join(', ')}</div>
                                             ) : null}
                                         </div>
                                         {!isGuestMode && (
@@ -2185,4 +2231,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 2188 Zeilen ---
+// --- END OF FILE 2234 Zeilen ---
