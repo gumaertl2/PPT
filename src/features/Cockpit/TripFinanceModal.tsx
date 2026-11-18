@@ -1,3 +1,4 @@
+// [2026-11-18] [17:24] - UX: Removed duplicate header PIN badge & top unlock banner so PIN unlock lives solely and cleanly inline inside the Share panel.
 // [2026-11-18] [16:57] - UX: Cleaned up Share panel header/URL/buttons layout on desktop & mobile without close '×' overlap, and tightened mobile header spacing.
 // [2026-11-18] [16:47] - UX: Added direct close '×' button inside top-right corner of the Share panel so users can dismiss it without reopening the Settings menu.
 // [2026-11-18] [16:42] - UX: Passed autoFocusTrigger to standalone ExpenseEntryButton so pressing Enter immediately opens expense entry.
@@ -1438,22 +1439,10 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                       </button>
                     )}
                     {cashSync?.enabled && (
-                      <>
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border shrink-0 ${isRoomClosed ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-                          {isRoomClosed ? <Lock className="w-3 h-3" /> : <Cloud className="w-3 h-3" />}
-                          {isRoomClosed ? t('finance.room_closed_badge', { defaultValue: 'Geschlossen' }) : 'Live'}
-                        </span>
-                        {!isCashRoomHost && cashRoomHasPassword && (
-                          <button
-                            type="button"
-                            onClick={() => { setUnlockPinError(null); setShowUnlockModal((prev) => !prev); }}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border shrink-0 bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 transition-colors"
-                          >
-                            <KeyRound className="w-3 h-3" />
-                            {t('finance.unlock_host_short', { defaultValue: 'PIN eingeben' })}
-                          </button>
-                        )}
-                      </>
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border shrink-0 ${isRoomClosed ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                        {isRoomClosed ? <Lock className="w-3 h-3" /> : <Cloud className="w-3 h-3" />}
+                        {isRoomClosed ? t('finance.room_closed_badge', { defaultValue: 'Geschlossen' }) : 'Live'}
+                      </span>
                     )}
                   </div>
                   {(computedTripDates || displayTripName) && (
@@ -1615,43 +1604,6 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
               </div>
             )}
 
-            {showUnlockModal && cashSync?.enabled && !isCashRoomHost && cashRoomHasPassword && (
-              <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 text-xs flex flex-wrap items-center gap-2 shrink-0 print:hidden">
-                <KeyRound className="w-4 h-4 text-amber-600 shrink-0" />
-                <span className="font-bold text-amber-900">
-                  {t('finance.unlock_host_title', { defaultValue: 'Bearbeiten & Löschen per PIN freischalten:' })}
-                </span>
-                <input
-                  type="password"
-                  value={unlockPinInput}
-                  onChange={(e) => { setUnlockPinInput(e.target.value); setUnlockPinError(null); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleUnlockAsHost(); }}
-                  placeholder={t('finance.enter_host_pin', { defaultValue: 'PIN eingeben...' })}
-                  autoComplete="off"
-                  className="px-2.5 py-1 bg-white border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 w-36 text-xs"
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={handleUnlockAsHost}
-                  disabled={isUnlocking || !unlockPinInput.trim()}
-                  className="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold transition-colors disabled:opacity-50"
-                >
-                  {isUnlocking ? t('actions.checking', { defaultValue: 'Prüfe...' }) : t('finance.unlock_btn', { defaultValue: 'Freischalten' })}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setShowUnlockModal(false); setUnlockPinError(null); }}
-                  className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 font-medium"
-                >
-                  {t('actions.cancel', { defaultValue: 'Abbrechen' })}
-                </button>
-                {unlockPinError && (
-                  <span className="text-red-600 font-medium">{unlockPinError}</span>
-                )}
-              </div>
-            )}
-
             {cashSyncError && (
               <div className="bg-red-50 border-b border-red-200 px-4 py-2 text-xs text-red-700 font-medium flex items-center justify-between gap-2 shrink-0 print:hidden">
                 <div className="flex items-center gap-2 min-w-0">
@@ -1782,14 +1734,48 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                             </button>
                           )}
                           {!isCashRoomHost && cashRoomHasPassword && (
-                            <button
-                              type="button"
-                              onClick={() => { setUnlockPinError(null); setShowUnlockModal(true); }}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 text-xs font-semibold"
-                            >
-                              <KeyRound className="w-3.5 h-3.5" />
-                              {t('finance.unlock_with_pin', { defaultValue: 'Mit PIN freischalten (Bearbeiten & Löschen)' })}
-                            </button>
+                            showUnlockModal ? (
+                              <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2">
+                                <KeyRound className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                <input
+                                  type="password"
+                                  value={unlockPinInput}
+                                  onChange={(e) => { setUnlockPinInput(e.target.value); setUnlockPinError(null); }}
+                                  onKeyDown={(e) => { if (e.key === 'Enter') handleUnlockAsHost(); }}
+                                  placeholder={t('finance.enter_host_pin', { defaultValue: 'PIN eingeben...' })}
+                                  autoComplete="off"
+                                  className="px-2.5 py-1 bg-white border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 w-32 text-xs"
+                                  autoFocus
+                                />
+                                <button
+                                  type="button"
+                                  onClick={handleUnlockAsHost}
+                                  disabled={isUnlocking || !unlockPinInput.trim()}
+                                  className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-colors disabled:opacity-50"
+                                >
+                                  {isUnlocking ? t('actions.checking', { defaultValue: 'Prüfe...' }) : t('finance.unlock_btn', { defaultValue: 'Freischalten' })}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => { setShowUnlockModal(false); setUnlockPinError(null); }}
+                                  className="px-2 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 text-xs font-medium"
+                                >
+                                  {t('actions.cancel', { defaultValue: 'Abbrechen' })}
+                                </button>
+                                {unlockPinError && (
+                                  <span className="text-xs text-red-600 font-medium w-full sm:w-auto">{unlockPinError}</span>
+                                )}
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => { setUnlockPinError(null); setShowUnlockModal(true); }}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 text-xs font-semibold"
+                              >
+                                <KeyRound className="w-3.5 h-3.5" />
+                                {t('finance.unlock_with_pin', { defaultValue: 'Mit PIN freischalten (Bearbeiten & Löschen)' })}
+                              </button>
+                            )
                           )}
                           {isCashRoomOriginalHost && (
                             <button
@@ -2931,4 +2917,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 2934 Zeilen ---
+// --- END OF FILE 2920 Zeilen ---

@@ -1,3 +1,4 @@
+// [2026-11-18] [17:24] - FIX: Trimmed stored adminSecretHash during PIN verification and updated incorrect PIN message.
 // [2026-11-18] [15:53] - FEAT: Added optional adminSecretHash (Host PIN), setRoomAdminPin, unlockCashRoomAsAdmin, and admins/{uid} multi-device host verification in subscribeCashRoom.
 // [2026-11-17] [12:52] - FIX: Supported comma-separated multi-person input in addTravelerSafe with per-name duplicate check.
 // [2026-11-17] [12:44] - FEAT: Added defaultWeights to CashRoomMeta, createCashRoom, and updateRemoteRoomMeta.
@@ -387,13 +388,14 @@ export const unlockCashRoomAsAdmin = async (
     return { ok: false, error: 'Live-Raum wurde nicht gefunden.' };
   }
   const meta = roomSnap.data() as CashRoomMeta;
-  if (!meta.adminSecretHash) {
-    return { ok: false, error: 'Für diesen Raum wurde keine Host-PIN eingerichtet.' };
+  const storedHash = (meta.adminSecretHash || '').trim();
+  if (!storedHash) {
+    return { ok: false, error: 'Für diesen Raum wurde keine Bearbeitungs-PIN eingerichtet.' };
   }
 
   const candidateHash = await hashAdminPin(cleanPin);
-  if (candidateHash !== meta.adminSecretHash) {
-    return { ok: false, error: 'Falsche Host-PIN.' };
+  if (candidateHash !== storedHash) {
+    return { ok: false, error: 'Falsche Bearbeitungs-PIN.' };
   }
 
   try {
@@ -564,4 +566,4 @@ export const addTravelerSafe = async (params: {
   const updatedTravelerNames = [...localList, ...uniqueInputs].join(', ');
   return { ok: true, updatedTravelerNames, addedNames: uniqueInputs };
 };
-// --- END OF FILE 567 Zeilen ---
+// --- END OF FILE 569 Zeilen ---
