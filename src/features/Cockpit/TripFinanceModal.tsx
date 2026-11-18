@@ -1,3 +1,4 @@
+// [2026-11-18] [16:57] - UX: Cleaned up Share panel header/URL/buttons layout on desktop & mobile without close '×' overlap, and tightened mobile header spacing.
 // [2026-11-18] [16:47] - UX: Added direct close '×' button inside top-right corner of the Share panel so users can dismiss it without reopening the Settings menu.
 // [2026-11-18] [16:42] - UX: Passed autoFocusTrigger to standalone ExpenseEntryButton so pressing Enter immediately opens expense entry.
 // [2026-11-18] [16:39] - FIX: Raised finance header z-index above tab bar (z-[150]) so all Settings dropdown items are visible, and restored !isGuestMode gating for trip meta edit & currencies.
@@ -1414,9 +1415,9 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
             )}
             
             {/* Screen Header */}
-            <div className="relative z-[150] bg-white border-b border-slate-200 px-3 sm:px-5 py-2.5 sm:py-4 flex justify-between items-center gap-2 shrink-0 print:hidden">
-              <div className="flex items-center gap-2 text-slate-800 min-w-0 flex-1">
-                <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600 shrink-0"><Wallet className="w-5 h-5" /></div>
+            <div className="relative z-[150] bg-white border-b border-slate-200 px-3 sm:px-5 py-2.5 sm:py-4 flex justify-between items-center gap-1.5 sm:gap-2 shrink-0 print:hidden">
+              <div className="flex items-center gap-1.5 sm:gap-2 text-slate-800 min-w-0 flex-1">
+                <div className="p-1.5 sm:p-2 bg-emerald-100 rounded-lg text-emerald-600 shrink-0"><Wallet className="w-4 h-4 sm:w-5 sm:h-5" /></div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <h2 className="text-sm sm:text-lg font-bold truncate">
@@ -1669,75 +1670,80 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
             )}
 
             {showSharePanel && (
-              <div className="relative bg-emerald-50 border-b border-emerald-200 px-4 py-3 pr-10 text-xs sm:text-sm space-y-2.5 shrink-0 print:hidden">
-                <button
-                  type="button"
-                  onClick={() => setShowSharePanel(false)}
-                  className="absolute top-2.5 right-2.5 p-1 text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100 rounded-full transition-colors"
-                  title={t('actions.close', { defaultValue: 'Schließen' })}
-                >
-                  <X className="w-4 h-4" />
-                </button>
+              <div className="bg-emerald-50 border-b border-emerald-200 px-3.5 sm:px-5 py-3 text-xs sm:text-sm space-y-2.5 shrink-0 print:hidden">
                 {shareError && (
                   <div className="text-red-600 font-medium">{shareError}</div>
                 )}
 
                 {cashSync?.enabled ? (
                   <div className="flex flex-col gap-2.5">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-emerald-900">
-                          {t('finance.share_title', { defaultValue: 'Einladungslink für Mitreisende (Live-Sync)' })}
-                          <span className="ml-2 text-[11px] font-normal text-emerald-700">
-                            ({displayTripName} · ID: {cashSync.roomId.slice(0, 8)})
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                          <span className="font-bold text-emerald-900">
+                            {t('finance.share_title', { defaultValue: 'Einladungslink für Mitreisende (Live-Sync)' })}
                           </span>
-                        </p>
-                        <p className="text-emerald-700 truncate font-mono text-[11px] mt-0.5">{inviteUrl}</p>
+                          <span className="text-[11px] font-medium text-emerald-700/80 whitespace-nowrap">
+                            {displayTripName} · ID: {cashSync.roomId.slice(0, 8)}
+                          </span>
+                        </div>
+                        <div className="mt-1 px-2.5 py-1 rounded-lg bg-white/80 border border-emerald-200/80 text-emerald-800 truncate font-mono text-[11px]">
+                          {inviteUrl}
+                        </div>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setShowSharePanel(false)}
+                        className="p-1 text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100 rounded-full transition-colors shrink-0"
+                        title={t('actions.close', { defaultValue: 'Schließen' })}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowQrCode((prev) => !prev)}
+                        className={`inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-colors shrink-0 ${showQrCode ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-emerald-200 hover:bg-emerald-100'}`}
+                      >
+                        <QrCode className="w-3.5 h-3.5" />
+                        QR-Code
+                      </button>
+                      <a
+                        href={`https://wa.me/?text=${encodeURIComponent(`Reisekasse ${displayTripName}${computedTripDates ? ` (${computedTripDates})` : ''}: ${inviteUrl}`)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-[#25D366] text-white font-bold hover:bg-[#1ebe5d] transition-colors shrink-0"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        WhatsApp
+                      </a>
+                      {canNativeShare && (
                         <button
-                          type="button"
-                          onClick={() => setShowQrCode((prev) => !prev)}
-                          className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg font-bold border transition-colors shrink-0 ${showQrCode ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-emerald-200 hover:bg-emerald-100'}`}
+                          onClick={handleNativeShare}
+                          className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors shrink-0"
                         >
-                          <QrCode className="w-4 h-4" />
-                          QR-Code
+                          <Share2 className="w-3.5 h-3.5" />
+                          {t('actions.share', { defaultValue: 'Teilen' })}
                         </button>
-                        <a
-                          href={`https://wa.me/?text=${encodeURIComponent(`Reisekasse ${displayTripName}${computedTripDates ? ` (${computedTripDates})` : ''}: ${inviteUrl}`)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#25D366] text-white font-bold hover:bg-[#1ebe5d] transition-colors shrink-0"
-                        >
-                          <MessageCircle className="w-4 h-4" />
-                          WhatsApp
-                        </a>
-                        {canNativeShare && (
-                          <button
-                            onClick={handleNativeShare}
-                            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors shrink-0"
-                          >
-                            <Share2 className="w-4 h-4" />
-                            {t('actions.share', { defaultValue: 'Teilen' })}
-                          </button>
-                        )}
-                        <button
-                          onClick={handleCopyInvite}
-                          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-colors shrink-0"
-                        >
-                          {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                          {copiedLink ? t('finance.copied', { defaultValue: 'Kopiert!' }) : t('finance.copy_link', { defaultValue: 'Link kopieren' })}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleCopyShortcutUrl}
-                          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-slate-700 border border-emerald-200 hover:bg-emerald-100 font-bold transition-colors shrink-0"
-                          title={t('finance.shortcut_url_tooltip', { defaultValue: 'Basis-URL für iPhone Kurzbefehle (Apple Pay Automation) kopieren' })}
-                        >
-                          {copiedShortcutLink ? <Check className="w-4 h-4 text-emerald-600" /> : <Smartphone className="w-4 h-4 text-slate-500" />}
-                          {copiedShortcutLink ? t('finance.copied', { defaultValue: 'Kopiert!' }) : t('finance.shortcut_url', { defaultValue: 'Kurzbefehl-URL' })}
-                        </button>
-                      </div>
+                      )}
+                      <button
+                        onClick={handleCopyInvite}
+                        className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-colors shrink-0"
+                      >
+                        {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                        {copiedLink ? t('finance.copied', { defaultValue: 'Kopiert!' }) : t('finance.copy_link', { defaultValue: 'Link kopieren' })}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCopyShortcutUrl}
+                        className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-white text-slate-700 border border-emerald-200 hover:bg-emerald-100 font-bold transition-colors shrink-0"
+                        title={t('finance.shortcut_url_tooltip', { defaultValue: 'Basis-URL für iPhone Kurzbefehle (Apple Pay Automation) kopieren' })}
+                      >
+                        {copiedShortcutLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Smartphone className="w-3.5 h-3.5 text-slate-500" />}
+                        {copiedShortcutLink ? t('finance.copied', { defaultValue: 'Kopiert!' }) : t('finance.shortcut_url', { defaultValue: 'Kurzbefehl-URL' })}
+                      </button>
                     </div>
 
                     {showQrCode && inviteUrl && (
@@ -1852,6 +1858,19 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                   </div>
                 ) : (
                   <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-emerald-900">
+                        {t('finance.share_live_short', { defaultValue: 'Live-Kasse & Teilen' })}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowSharePanel(false)}
+                        className="p-1 text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100 rounded-full transition-colors shrink-0"
+                        title={t('actions.close', { defaultValue: 'Schließen' })}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
@@ -2912,4 +2931,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 2915 Zeilen ---
+// --- END OF FILE 2934 Zeilen ---

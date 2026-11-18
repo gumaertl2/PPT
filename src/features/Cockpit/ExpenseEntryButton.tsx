@@ -1,3 +1,4 @@
+// [2026-11-18] [16:56] - UX: Top-aligned mobile dialog (items-start pt-2) and placed compact '+ Notiz' + 'Speichern' side by side so Save always stays above iOS keyboard/Safari bar.
 // [2026-11-18] [16:43] - UX: Optimized mobile/desktop expense entry (clear '×' button on title, collapsible date chip, iOS decimal numpad, 1-tap/Enter submit, smart autofocus).
 // [2026-11-18] [11:43] - FEAT: Added defaultAmount/defaultCurrency prefill support and full customTitle editability for iOS Shortcut quick-add.
 // [2026-11-17] [17:01] - UX: Enlarged desktop modal width/height (sm:max-w-md max-h-[94dvh]) while keeping mobile compact.
@@ -506,10 +507,10 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
             {renderTriggerButton()}
 
             {isOpen && typeof document !== 'undefined' && createPortal(
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={() => handleToggle()}>
-                    <div className="bg-emerald-50 w-full max-w-sm sm:max-w-md max-h-[94dvh] rounded-2xl shadow-2xl border border-emerald-300 flex flex-col overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                <div className="fixed inset-0 z-[9999] flex items-start sm:items-center justify-center p-2.5 pt-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={() => handleToggle()}>
+                    <div className="bg-emerald-50 w-full max-w-sm sm:max-w-md max-h-[calc(100dvh-20px)] sm:max-h-[94dvh] rounded-2xl shadow-2xl border border-emerald-300 flex flex-col overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                         
-                        <div className="flex justify-between items-center gap-2 p-4 border-b border-emerald-100/50 bg-emerald-100/30 shrink-0">
+                        <div className="flex justify-between items-center gap-2 px-3.5 py-2.5 sm:p-4 border-b border-emerald-100/50 bg-emerald-100/30 shrink-0">
                             <span className="text-sm font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5 min-w-0">
                                 {isNoteStep ? (
                                     <><PenLine className="w-4 h-4 shrink-0"/> <span className="truncate">{t('diary.add_note', { defaultValue: 'Notiz hinzufügen' })}</span></>
@@ -573,7 +574,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                     if (!isSaveDisabled) handleSave(e, false);
                                 }}
                             >
-                                <div className="p-4 overflow-y-auto space-y-3.5">
+                                <div className="p-3 sm:p-4 overflow-y-auto space-y-2.5 sm:space-y-3.5">
                                     {mode === 'standalone' && names.length >= 2 && !onlySettlement && (
                                         <div className="flex bg-emerald-100/70 border border-emerald-200 rounded-xl p-1">
                                             <button
@@ -940,16 +941,17 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                     )}
                                 </div>
 
-                                <div className="p-4 pb-5 sm:pb-4 bg-emerald-100/50 border-t border-emerald-200/50 flex flex-col gap-2 shrink-0">
+                                <div className="p-3 sm:p-4 bg-emerald-100/50 border-t border-emerald-200/50 flex flex-row items-stretch gap-2 shrink-0">
                                      {!forceOpen && entryKind === 'expense' && (
                                          <button
                                             type="button"
                                             onMouseDown={(e) => e.preventDefault()}
                                             onClick={(e) => handleSave(e, true)}
                                             disabled={isSaveDisabled}
-                                            className="w-full py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold rounded-lg hover:bg-indigo-100 transition-all flex justify-center items-center gap-2 disabled:opacity-50"
+                                            className="px-3 py-2.5 sm:py-3 bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold rounded-xl hover:bg-indigo-100 transition-all flex justify-center items-center gap-1.5 shrink-0 disabled:opacity-50"
+                                            title={t('finance.save_and_diary', { defaultValue: 'Speichern & Notiz anlegen' })}
                                          >
-                                            <PenLine className="w-3.5 h-3.5"/> {t('finance.save_and_diary', { defaultValue: 'Speichern & Notiz anlegen' })}
+                                            <PenLine className="w-3.5 h-3.5"/> <span>{t('finance.save_and_diary_short', { defaultValue: '+ Notiz' })}</span>
                                          </button>
                                      )}
                                      <button
@@ -957,7 +959,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                         type="submit"
                                         onMouseDown={(e) => e.preventDefault()}
                                         disabled={isSaveDisabled}
-                                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+                                        className="flex-1 py-2.5 sm:py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
                                      >
                                         <Save className="w-4 h-4"/> {t('finance.save', { defaultValue: 'Speichern' })}
                                      </button>
@@ -977,4 +979,4 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         </div>
     );
 };
-// --- END OF FILE 980 Zeilen ---
+// --- END OF FILE 982 Zeilen ---
