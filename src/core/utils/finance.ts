@@ -1,3 +1,4 @@
+// [2026-11-18] [09:30] - FEAT: Added computeExpenseMatrix pure helper for payer x recipient overview matrix.
 // [2026-11-17] [16:51] - FEAT: Added buildInitialExactSplit helper for cent-accurate exact prefill when switching from equal/weights modes.
 // [2026-11-17] [16:46] - FEAT: Added formatSplitParticipantsLabel helper for showing participant names instead of anonymous counts.
 // [2026-11-17] [16:26] - FEAT: Added sortTravelerNames helper to sort active identity first followed by A-Z.
@@ -151,4 +152,54 @@ export const buildInitialExactSplit = (
 
   return result;
 };
-// --- END OF FILE 154 Zeilen ---
+
+export interface ExpenseMatrixResult {
+  matrix: Record<string, Record<string, number>>;
+  rowTotals: Record<string, number>;
+  colTotals: Record<string, number>;
+  grandTotal: number;
+}
+
+/**
+ * Computes a payer x recipient matrix in base currency (excluding settlements).
+ */
+export const computeExpenseMatrix = (
+  expenses: Expense[],
+  names: string[],
+  getRate: (currency: string) => number
+): ExpenseMatrixResult => {
+  const matrix: Record<string, Record<string, number>> = {};
+  const rowTotals: Record<string, number> = {};
+  const colTotals: Record<string, number> = {};
+  let grandTotal = 0;
+
+  names.forEach((payer) => {
+    matrix[payer] = {};
+    rowTotals[payer] = 0;
+    colTotals[payer] = 0;
+    names.forEach((recipient) => {
+      matrix[payer][recipient] = 0;
+    });
+  });
+
+  expenses.forEach((exp) => {
+    if (exp.isSettlement) return;
+    const rate = getRate(exp.currency || 'EUR');
+    const payer = exp.paidBy;
+    if (!matrix[payer]) {
+      matrix[payer] = {};
+      rowTotals[payer] = 0;
+    }
+    const shares = calculateExpenseSharesInBase(exp, rate);
+    Object.entries(shares).forEach(([recipient, amtBase]) => {
+      if (amtBase <= 0) return;
+      matrix[payer][recipient] = (matrix[payer][recipient] || 0) + amtBase;
+      rowTotals[payer] = (rowTotals[payer] || 0) + amtBase;
+      colTotals[recipient] = (colTotals[recipient] || 0) + amtBase;
+      grandTotal += amtBase;
+    });
+  });
+
+  return { matrix, rowTotals, colTotals, grandTotal };
+};
+// --- END OF FILE 205 Zeilen ---

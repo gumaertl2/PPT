@@ -1,3 +1,5 @@
+// [2026-11-18] [10:20] - FEAT/UX: Moved default weight editing into dedicated modal (read-only indicator in Pro Person) and added clickable Matrix drilldown filter into Table view.
+// [2026-11-18] [09:30] - FEAT: Added 'Wer hat für wen bezahlt?' cross-matrix table below Pro Person in Abrechnung tab.
 // [2026-11-17] [17:07] - UX: Auto-scrolled opened/expanded edit cards into view (fitting whole card or aligning top edge) without jumping if already visible.
 // [2026-11-17] [17:01] - UX: Expanded desktop modal footprint (sm:max-w-5xl xl:max-w-6xl sm:h-[94dvh]) and tightened edit form layout on desktop while keeping mobile touch-friendly.
 // [2026-11-17] [16:51] - UX: Prefilled exact split amounts from current equal/weighted distribution when switching to 'Exakt'.
@@ -39,7 +41,7 @@ import {
 } from 'lucide-react'; 
 import { QRCodeSVG } from 'qrcode.react';
 import type { Expense, LanguageCode, CurrencyConfig } from '../../core/types/shared';
-import { calculateExpenseSharesInBase, computeWeightedAmounts, sortTravelerNames, formatSplitParticipantsLabel, buildInitialExactSplit } from '../../core/utils/finance';
+import { calculateExpenseSharesInBase, computeWeightedAmounts, sortTravelerNames, formatSplitParticipantsLabel, buildInitialExactSplit, computeExpenseMatrix } from '../../core/utils/finance';
 import { ExpenseEntryButton } from './ExpenseEntryButton'; 
 import { CurrencyConfigModal } from './CurrencyConfigModal';
 import { LocationPickerModal } from './LocationPickerModal';
@@ -87,10 +89,11 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
   const [isEditingTripMeta, setIsEditingTripMeta] = useState(false);
   const [draftTripName, setDraftTripName] = useState('');
   const [draftTripDates, setDraftTripDates] = useState('');
-  const [isEditingDefaultWeights, setIsEditingDefaultWeights] = useState(false);
+  const [showDefaultWeightsModal, setShowDefaultWeightsModal] = useState(false);
   const [showQrCode, setShowQrCode] = useState(false);
   const [historySearch, setHistorySearch] = useState('');
   const [historyPersonFilter, setHistoryPersonFilter] = useState('');
+  const [historyMatrixFilter, setHistoryMatrixFilter] = useState<{ paidBy?: string; forPerson?: string } | null>(null);
   
   const [sortConfig, setSortConfig] = useState<{key: string, direction: 'asc'|'desc'}>({ key: 'timestamp', direction: 'desc' });
   const [showSubtotals, setShowSubtotals] = useState(false);
@@ -202,17 +205,30 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
               Boolean(exp.splitWeights && (exp.splitWeights[historyPersonFilter] || 0) > 0);
           if (!involved) return false;
       }
+      if (historyMatrixFilter) {
+          if (exp.isSettlement) return false;
+          if (historyMatrixFilter.paidBy && exp.paidBy !== historyMatrixFilter.paidBy) {
+              return false;
+          }
+          if (historyMatrixFilter.forPerson) {
+              const rate = getRateForCurrency(exp.currency || 'EUR');
+              const shares = calculateExpenseSharesInBase(exp, rate);
+              if ((shares[historyMatrixFilter.forPerson] || 0) <= 0.005) {
+                  return false;
+              }
+          }
+      }
       return true;
   };
 
   const filteredFeed = useMemo(
       () => sortedFeed.filter(matchesHistoryFilter),
-      [sortedFeed, historySearch, historyPersonFilter]
+      [sortedFeed, historySearch, historyPersonFilter, historyMatrixFilter, currencyConfig, baseCurrency]
   );
 
   const filteredTableData = useMemo(
       () => sortedTableData.filter(matchesHistoryFilter),
-      [sortedTableData, historySearch, historyPersonFilter]
+      [sortedTableData, historySearch, historyPersonFilter, historyMatrixFilter, currencyConfig, baseCurrency]
   );
 
   const handleSort = (key: string) => {
@@ -477,6 +493,11 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
       return { balances, paidTotals, spentTotals, transfers, totalsByCurrency, settledPayments };
   }, [expenses, allNames, currencyConfig, baseCurrency]);
 
+  const expenseMatrix = useMemo(
+      () => computeExpenseMatrix(expenses, allNames, getRateForCurrency),
+      [expenses, allNames, currencyConfig, baseCurrency]
+  );
+
   const handleMarkSettled = (from: string, to: string, amount: number) => {
       const formatted = amount.toFixed(2);
       if (!window.confirm(t('finance.confirm_settle', { defaultValue: `${from} hat ${formatted} ${baseCurrency} an ${to} bezahlt?`, from, to, amount: formatted, currency: baseCurrency }))) {
@@ -733,38 +754,14 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
 
   const renderDefaultWeightControl = (name: string) => {
     const defaultW = defaultExpenseWeights[name] ?? 1;
-    if (isEditingDefaultWeights && !isGuestMode && !isRoomClosed) {
-      return (
-        <span
-          className={`inline-flex items-center gap-0.5 rounded-md border px-1 py-0.5 text-[10px] font-bold print:hidden ${defaultW !== 1 ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-500'}`}
-          title={t('finance.default_weight_tooltip', { defaultValue: 'Standard-Anteile bei neuen Ausgaben' })}
-        >
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); handleStepDefaultWeight(name, -0.5); }}
-            className="px-1 hover:text-slate-900"
-          >
-            -
-          </button>
-          <span className="min-w-[22px] text-center">{defaultW}×</span>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); handleStepDefaultWeight(name, 0.5); }}
-            className="px-1 hover:text-slate-900"
-          >
-            +
-          </button>
-        </span>
-      );
-    }
     if (defaultW !== 1) {
       if (!isGuestMode && !isRoomClosed) {
         return (
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); setIsEditingDefaultWeights(true); }}
+            onClick={(e) => { e.stopPropagation(); setShowDefaultWeightsModal(true); }}
             className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 font-bold transition-colors"
-            title={t('finance.edit_weights', { defaultValue: 'Standard-Anteile anpassen' })}
+            title={t('finance.edit_weights', { defaultValue: 'Standard-Anteile für neue Ausgaben anpassen' })}
           >
             {defaultW}×
           </button>
@@ -781,27 +778,45 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
 
   const renderWeightsToggleButton = () => {
     if (isGuestMode || isRoomClosed || allNames.length === 0) return null;
+    const hasCustomDefaults = allNames.some((n) => (defaultExpenseWeights[n] ?? 1) !== 1);
     return (
       <button
         type="button"
-        onClick={() => setIsEditingDefaultWeights((prev) => !prev)}
-        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors print:hidden ${isEditingDefaultWeights ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-slate-50 hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 border-slate-200 hover:border-indigo-200'}`}
-        title={t('finance.edit_weights', { defaultValue: 'Standard-Anteile pro Person festlegen' })}
+        onClick={() => setShowDefaultWeightsModal(true)}
+        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors print:hidden ${hasCustomDefaults ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100' : 'bg-slate-50 hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 border-slate-200 hover:border-indigo-200'}`}
+        title={t('finance.edit_weights', { defaultValue: 'Standard-Anteile für neue Ausgaben festlegen' })}
       >
         <Edit3 className="w-3 h-3" />
-        {isEditingDefaultWeights ? t('actions.done', { defaultValue: 'Fertig' }) : t('finance.weights_short', { defaultValue: 'Anteile' })}
+        {t('finance.weights_short', { defaultValue: 'Anteile' })}
       </button>
     );
   };
 
-  const isFilterActive = Boolean(historySearch.trim() || historyPersonFilter);
+  const isFilterActive = Boolean(historySearch.trim() || historyPersonFilter || historyMatrixFilter);
 
   const clearAllFilters = () => {
     setHistorySearch('');
     setHistoryPersonFilter('');
+    setHistoryMatrixFilter(null);
   };
 
-  const renderFilterControls = (filteredCount: number, compact = false) => (
+  const openMatrixDrilldown = (filter: { paidBy?: string; forPerson?: string }) => {
+    setHistorySearch('');
+    setHistoryPersonFilter('');
+    setHistoryMatrixFilter(filter);
+    setActiveTab('table');
+  };
+
+  const renderFilterControls = (filteredCount: number, compact = false) => {
+    const matrixLabel = historyMatrixFilter
+      ? historyMatrixFilter.paidBy && historyMatrixFilter.forPerson
+        ? `${historyMatrixFilter.paidBy} → ${historyMatrixFilter.forPerson}`
+        : historyMatrixFilter.paidBy
+          ? `${t('finance.paid_by_short', { defaultValue: 'Gezahlt von' })} ${historyMatrixFilter.paidBy}`
+          : `${t('finance.share_of', { defaultValue: 'Anteil' })} ${historyMatrixFilter.forPerson}`
+      : null;
+
+    return (
     <div className={`flex flex-wrap items-center gap-2 ${compact ? '' : 'w-full'}`}>
       {renderSearchInput(compact)}
       <div className="flex flex-wrap items-center gap-2">
@@ -831,7 +846,11 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
             title={t('finance.clear_filters', { defaultValue: 'Alle Filter zurücksetzen' })}
           >
             <ListFilter className="w-3.5 h-3.5 text-amber-600" />
-            <span>{t('finance.filtered_count', { defaultValue: 'Gefiltert: {{filtered}} von {{total}}', filtered: filteredCount, total: expenses.length })}</span>
+            <span>
+              {matrixLabel
+                ? t('finance.filtered_matrix_count', { defaultValue: 'Gefiltert: {{label}} ({{filtered}} von {{total}})', label: matrixLabel, filtered: filteredCount, total: expenses.length })
+                : t('finance.filtered_count', { defaultValue: 'Gefiltert: {{filtered}} von {{total}}', filtered: filteredCount, total: expenses.length })}
+            </span>
             <X className="w-3.5 h-3.5" />
           </button>
         ) : (
@@ -841,7 +860,8 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
         )}
       </div>
     </div>
-  );
+    );
+  };
 
   const renderSearchInput = (compact = false) => {
     const hasSearch = Boolean(historySearch.trim());
@@ -1175,6 +1195,101 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                       </button>
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {showDefaultWeightsModal && !isGuestMode && !isRoomClosed && (
+              <div
+                className="absolute inset-0 z-[200] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 print:hidden"
+                onClick={() => setShowDefaultWeightsModal(false)}
+              >
+                <div
+                  className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 p-5 space-y-4 animate-in zoom-in-95 duration-150"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="p-2 bg-indigo-100 rounded-xl text-indigo-600 shrink-0">
+                        <Users className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-base font-bold text-slate-800 truncate">
+                          {t('finance.default_weights_modal_title', { defaultValue: 'Standard-Anteile (neue Ausgaben)' })}
+                        </h3>
+                        <p className="text-xs text-slate-500 truncate">
+                          {displayTripName}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowDefaultWeightsModal(false)}
+                      className="p-1 text-slate-400 hover:text-slate-700 rounded-lg"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="bg-indigo-50/70 border border-indigo-200 rounded-xl px-3 py-2.5 text-xs text-indigo-800 leading-relaxed">
+                    {t('finance.default_weights_modal_note', { defaultValue: 'Gilt nur als Vorbelegung für künftige Ausgaben (z. B. 2× für Paare/Familien). Bereits gespeicherte Rechnungen bleiben unverändert.' })}
+                  </div>
+
+                  <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-0.5">
+                    {allNames.map((n) => {
+                      const w = defaultExpenseWeights[n] ?? 1;
+                      const isMe = Boolean(activeIdentity && n === activeIdentity);
+                      return (
+                        <div key={`dwm-${n}`} className="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-xl border border-slate-200/70">
+                          <span className="text-sm font-bold text-slate-700 inline-flex items-center gap-1.5">
+                            {n}
+                            {isMe && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">
+                                {t('finance.you', { defaultValue: 'Du' })}
+                              </span>
+                            )}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleStepDefaultWeight(n, -0.5)}
+                              className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-100 transition-colors"
+                            >
+                              -
+                            </button>
+                            <span className={`w-11 text-center text-xs font-black tabular-nums ${w !== 1 ? 'text-indigo-700' : 'text-slate-700'}`}>
+                              {w}×
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleStepDefaultWeight(n, 0.5)}
+                              className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-100 transition-colors"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setDefaultExpenseWeights({})}
+                      disabled={!allNames.some((n) => (defaultExpenseWeights[n] ?? 1) !== 1)}
+                      className="px-3 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 border border-slate-200 disabled:opacity-40 transition-colors"
+                    >
+                      {t('finance.reset_weights', { defaultValue: 'Alle auf 1×' })}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowDefaultWeightsModal(false)}
+                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition-colors"
+                    >
+                      {t('actions.done', { defaultValue: 'Fertig' })}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -1595,11 +1710,6 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                                     </span>
                                                 ))}
                                             </div>
-                                            {!isGuestMode && isEditingDefaultWeights && (
-                                                <p className="text-[10px] text-indigo-600 font-medium">
-                                                    {t('finance.default_weights_hint', { defaultValue: 'Lege hier Standard-Anteile fest (z. B. 2× für Paare/Familien) und klicke danach auf „Fertig“.' })}
-                                                </p>
-                                            )}
                                         </div>
                                     )}
                                     <div className="flex gap-2">
@@ -1654,7 +1764,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                         </div>
                     </div>
                 ) : activeTab === 'settlement' ? (
-                    <div className="space-y-5 animate-in fade-in max-w-2xl mx-auto print:max-w-none">
+                    <div className="space-y-5 animate-in fade-in max-w-2xl lg:max-w-3xl mx-auto print:max-w-none">
                         
                         {/* Gesamtkosten + Ich bin */}
                         <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-sm print:shadow-none print:border-slate-300">
@@ -1868,7 +1978,133 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                     </tfoot>
                                 </table>
                             </div>
+                            {allNames.length > 0 && (
+                                <div className="px-4 py-2 bg-slate-50/60 border-t border-slate-100 text-[11px] text-slate-500 flex flex-wrap items-center justify-between gap-2">
+                                    <span>
+                                        {t('finance.default_split_info_label', { defaultValue: 'Standard (neue Ausgaben):' })}{' '}
+                                        <strong className="text-slate-700">
+                                            {allNames.some((n) => (defaultExpenseWeights[n] ?? 1) !== 1)
+                                                ? allNames.map((n) => `${n} ${defaultExpenseWeights[n] ?? 1}×`).join(', ')
+                                                : t('finance.default_split_equal_all', { defaultValue: 'Alle 1× (Gleichmäßig)' })}
+                                        </strong>
+                                    </span>
+                                    {!isGuestMode && !isRoomClosed && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowDefaultWeightsModal(true)}
+                                            className="text-indigo-600 hover:underline font-semibold print:hidden"
+                                        >
+                                            {t('actions.edit', { defaultValue: 'Ändern' })}
+                                        </button>
+                                    )}
+                                </div>
+                            )}
                         </div>
+
+                        {/* Wer hat für wen bezahlt? (Matrix) */}
+                        {allNames.length >= 2 && expenses.some(e => !e.isSettlement) && (
+                            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden print:shadow-none print:border-slate-300">
+                                <div className="p-4 sm:px-5 sm:py-3.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                                    <h3 className="text-xs font-bold text-slate-400 uppercase flex items-center gap-1.5">
+                                        <TableProperties className="w-3.5 h-3.5" />
+                                        {t('finance.matrix_title', { defaultValue: 'Wer hat für wen bezahlt?' })} ({baseCurrency})
+                                    </h3>
+                                    <span className="text-[11px] font-medium text-slate-400">
+                                        {t('finance.matrix_hint_click', { defaultValue: 'Bezahlt ↓ · Für → · Klick = Buchungen' })}
+                                    </span>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm text-left whitespace-nowrap">
+                                        <thead>
+                                            <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase bg-slate-50/70">
+                                                <th className="py-2.5 px-4 sticky left-0 bg-slate-50 z-10 border-r border-slate-100">
+                                                    {t('finance.matrix_corner', { defaultValue: 'Zahler \\ Für' })}
+                                                </th>
+                                                {allNames.map((recipient: string) => (
+                                                    <th key={`mh-${recipient}`} className="py-2.5 px-3 text-right">
+                                                        {recipient}
+                                                    </th>
+                                                ))}
+                                                <th className="py-2.5 px-4 text-right border-l border-slate-200 bg-slate-100/70 text-slate-600">
+                                                    {t('finance.paid', { defaultValue: 'Gezahlt' })}
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {allNames.map((payer: string) => {
+                                                const isMe = Boolean(activeIdentity && payer === activeIdentity);
+                                                const rowTotal = expenseMatrix.rowTotals[payer] || 0;
+                                                return (
+                                                    <tr key={`mr-${payer}`} className="hover:bg-slate-50/60">
+                                                        <td className="py-2.5 px-4 font-bold text-slate-700 sticky left-0 bg-white z-10 border-r border-slate-100">
+                                                            <span className="inline-flex items-center gap-1.5">
+                                                                {payer}
+                                                                {isMe && (
+                                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">
+                                                                        {t('finance.you', { defaultValue: 'Du' })}
+                                                                    </span>
+                                                                )}
+                                                            </span>
+                                                        </td>
+                                                        {allNames.map((recipient: string) => {
+                                                            const val = expenseMatrix.matrix[payer]?.[recipient] || 0;
+                                                            const isSelf = payer === recipient;
+                                                            const isClickable = val > 0.005;
+                                                            return (
+                                                                <td
+                                                                    key={`mc-${payer}-${recipient}`}
+                                                                    onClick={isClickable ? () => openMatrixDrilldown({ paidBy: payer, forPerson: recipient }) : undefined}
+                                                                    title={isClickable ? t('finance.matrix_cell_tooltip', { defaultValue: `Buchungen anzeigen: ${payer} → ${recipient}`, payer, recipient }) : undefined}
+                                                                    className={`py-2.5 px-3 text-right tabular-nums transition-colors ${
+                                                                        isSelf
+                                                                            ? 'bg-slate-50/70 text-slate-400'
+                                                                            : isClickable
+                                                                                ? 'text-slate-700 font-medium'
+                                                                                : 'text-slate-300'
+                                                                    } ${isClickable ? 'cursor-pointer hover:bg-emerald-50 hover:text-emerald-800 hover:underline' : ''}`}
+                                                                >
+                                                                    {isClickable ? val.toFixed(2) : '-'}
+                                                                </td>
+                                                            );
+                                                        })}
+                                                        <td
+                                                            onClick={rowTotal > 0.005 ? () => openMatrixDrilldown({ paidBy: payer }) : undefined}
+                                                            title={rowTotal > 0.005 ? t('finance.matrix_row_tooltip', { defaultValue: `Alle Ausgaben von ${payer} anzeigen`, payer }) : undefined}
+                                                            className={`py-2.5 px-4 text-right font-bold text-slate-800 tabular-nums border-l border-slate-200 bg-slate-50/50 print:text-black transition-colors ${rowTotal > 0.005 ? 'cursor-pointer hover:bg-emerald-50 hover:text-emerald-800 hover:underline' : ''}`}
+                                                        >
+                                                            {rowTotal.toFixed(2)}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                        <tfoot>
+                                            <tr className="bg-slate-50 border-t border-slate-200 text-xs font-bold text-slate-700">
+                                                <td className="py-2.5 px-4 uppercase sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
+                                                    {t('finance.share', { defaultValue: 'Anteil' })}
+                                                </td>
+                                                {allNames.map((recipient: string) => {
+                                                    const colTotal = expenseMatrix.colTotals[recipient] || 0;
+                                                    return (
+                                                        <td
+                                                            key={`mf-${recipient}`}
+                                                            onClick={colTotal > 0.005 ? () => openMatrixDrilldown({ forPerson: recipient }) : undefined}
+                                                            title={colTotal > 0.005 ? t('finance.matrix_col_tooltip', { defaultValue: `Alle Ausgaben mit Anteil für ${recipient} anzeigen`, recipient }) : undefined}
+                                                            className={`py-2.5 px-3 text-right tabular-nums transition-colors ${colTotal > 0.005 ? 'cursor-pointer hover:bg-emerald-100/70 hover:text-emerald-800 hover:underline' : ''}`}
+                                                        >
+                                                            {colTotal.toFixed(2)}
+                                                        </td>
+                                                    );
+                                                })}
+                                                <td className="py-2.5 px-4 text-right font-black text-emerald-700 tabular-nums border-l border-slate-200 print:text-black">
+                                                    {expenseMatrix.grandTotal.toFixed(2)}
+                                                </td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 ) : activeTab === 'feed' ? (
                     <div className="space-y-3 animate-in fade-in max-w-2xl lg:max-w-3xl mx-auto print:max-w-none">
@@ -2337,4 +2573,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 2340 Zeilen ---
+// --- END OF FILE 2576 Zeilen ---
