@@ -1,3 +1,4 @@
+// [2026-11-18] [11:43] - FEAT: Added QuickAddExpenseParams and parseQuickAddParams pure helper for Apple Pay / iOS Shortcut URL intake.
 // [2026-11-18] [09:30] - FEAT: Added computeExpenseMatrix pure helper for payer x recipient overview matrix.
 // [2026-11-17] [16:51] - FEAT: Added buildInitialExactSplit helper for cent-accurate exact prefill when switching from equal/weights modes.
 // [2026-11-17] [16:46] - FEAT: Added formatSplitParticipantsLabel helper for showing participant names instead of anonymous counts.
@@ -202,4 +203,63 @@ export const computeExpenseMatrix = (
 
   return { matrix, rowTotals, colTotals, grandTotal };
 };
-// --- END OF FILE 205 Zeilen ---
+
+export interface QuickAddExpenseParams {
+  amount?: string;
+  currency?: string;
+  title?: string;
+  location?: { lat: number; lng: number } | null;
+}
+
+const normalizeQuickAddAmount = (raw: string): string | undefined => {
+  const cleaned = raw.replace(/[^\d.,]/g, '').trim();
+  if (!cleaned) return undefined;
+  let normalized = cleaned;
+  if (cleaned.includes(',') && cleaned.includes('.')) {
+    normalized = cleaned.lastIndexOf(',') > cleaned.lastIndexOf('.')
+      ? cleaned.replace(/\./g, '').replace(',', '.')
+      : cleaned.replace(/,/g, '');
+  } else if (cleaned.includes(',')) {
+    normalized = cleaned.replace(',', '.');
+  }
+  const num = parseFloat(normalized);
+  return Number.isFinite(num) && num > 0 ? normalized : undefined;
+};
+
+const normalizeQuickAddCurrency = (raw: string): string | undefined => {
+  const val = raw.trim().toUpperCase();
+  if (!val) return undefined;
+  if (val === '€') return 'EUR';
+  if (val === '$' || val === 'US$') return 'USD';
+  if (val === '£') return 'GBP';
+  if (val === 'FR.' || val === 'SFR') return 'CHF';
+  return val;
+};
+
+/**
+ * Parses ?quickAdd=1&amount=...&currency=...&title=...&lat=...&lng=... URL parameters.
+ */
+export const parseQuickAddParams = (search: string): QuickAddExpenseParams | null => {
+  const params = new URLSearchParams(search);
+  const flag = params.get('quickAdd');
+  const isQuick = flag === '1' || flag === 'true' || params.has('amount');
+  if (!isQuick) return null;
+
+  const amount = normalizeQuickAddAmount(params.get('amount') || '');
+  const currency = normalizeQuickAddCurrency(params.get('currency') || '');
+  const title = (params.get('title') || '').trim() || undefined;
+  const lat = parseFloat((params.get('lat') || '').replace(',', '.'));
+  const lng = parseFloat((params.get('lng') || '').replace(',', '.'));
+  const hasCoords =
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    (Math.abs(lat) > 0.0001 || Math.abs(lng) > 0.0001);
+
+  return {
+    amount,
+    currency,
+    title,
+    location: hasCoords ? { lat, lng } : null
+  };
+};
+// --- END OF FILE 265 Zeilen ---

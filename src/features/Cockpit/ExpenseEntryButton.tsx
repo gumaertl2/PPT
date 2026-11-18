@@ -1,3 +1,4 @@
+// [2026-11-18] [11:43] - FEAT: Added defaultAmount/defaultCurrency prefill support and full customTitle editability for iOS Shortcut quick-add.
 // [2026-11-17] [17:01] - UX: Enlarged desktop modal width/height (sm:max-w-md max-h-[94dvh]) while keeping mobile compact.
 // [2026-11-17] [16:51] - UX: Prefilled exact split amounts from current equal/weighted distribution when switching to 'Exakt'.
 // [2026-11-17] [16:46] - UX: Showed sorted participant names instead of anonymous count in split toggle label.
@@ -32,6 +33,8 @@ export type ExpenseButtonMode = 'sight' | 'planner' | 'diary' | 'standalone';
 interface ExpenseEntryButtonProps {
     placeId?: string;
     defaultTitle?: string;
+    defaultAmount?: string;
+    defaultCurrency?: string;
     defaultLocation?: { lat: number, lng: number } | null;
     travelers: string;
     mode: ExpenseButtonMode;
@@ -44,6 +47,8 @@ interface ExpenseEntryButtonProps {
 export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({ 
     placeId, 
     defaultTitle = '', 
+    defaultAmount = '',
+    defaultCurrency,
     defaultLocation = null,
     travelers, 
     mode, 
@@ -137,8 +142,14 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         if (forceOpen) {
             setIsOpen(true);
             resetDate();
+            if (defaultTitle) setCustomTitle(defaultTitle);
+            if (defaultAmount) setAmount(defaultAmount);
+            if (defaultCurrency && availableCurrencies.includes(defaultCurrency)) {
+                setCurrency(defaultCurrency);
+            } else if (!availableCurrencies.includes(currency)) {
+                setCurrency(availableCurrencies[0]);
+            }
             if (defaultLocation) setLocation(defaultLocation);
-            if (!availableCurrencies.includes(currency)) setCurrency(availableCurrencies[0]);
             
             const currentNames = (travelers || '').split(',').map(n => n.trim()).filter(Boolean);
             if (currentNames.length > 0) {
@@ -270,9 +281,9 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         if (!isOpen) { 
             const defPaid = getDefaultPaidBy(names);
             setEntryKind(onlySettlement ? 'settlement' : 'expense');
-            setCustomTitle(''); 
-            setAmount(''); 
-            setCurrency(availableCurrencies[0]);
+            setCustomTitle(mode === 'standalone' ? defaultTitle : ''); 
+            setAmount(defaultAmount || ''); 
+            setCurrency(defaultCurrency && availableCurrencies.includes(defaultCurrency) ? defaultCurrency : availableCurrencies[0]);
             setPaidBy(defPaid); 
             setSettlementRecipient(names.find(n => n !== defPaid) || '');
             setSplitMode(getDefaultSplitMode(names)); 
@@ -551,7 +562,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                                 <label className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">
                                                     {entryKind === 'settlement' ? t('finance.note_optional', { defaultValue: 'Notiz (optional)' }) : t('finance.purpose', { defaultValue: 'Verwendungszweck' })}
                                                 </label>
-                                                <input type="text" list="expense-titles-new" placeholder={entryKind === 'settlement' ? t('finance.settlement_placeholder', { defaultValue: 'z.B. Teilzahlung, Kaution...' }) : t('finance.purpose_placeholder', { defaultValue: 'z.B. Supermarkt, Taxi...' })} value={customTitle || defaultTitle} onChange={e => setCustomTitle(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 shadow-sm" />
+                                                <input type="text" list="expense-titles-new" placeholder={entryKind === 'settlement' ? t('finance.settlement_placeholder', { defaultValue: 'z.B. Teilzahlung, Kaution...' }) : t('finance.purpose_placeholder', { defaultValue: 'z.B. Supermarkt, Taxi...' })} value={customTitle} onChange={e => setCustomTitle(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 shadow-sm" />
                                                 <datalist id="expense-titles-new">
                                                     {uniqueTitles.map(tTitle => <option key={tTitle} value={tTitle} />)}
                                                 </datalist>
@@ -849,4 +860,4 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         </div>
     );
 };
-// --- END OF FILE 852 Zeilen ---
+// --- END OF FILE 863 Zeilen ---

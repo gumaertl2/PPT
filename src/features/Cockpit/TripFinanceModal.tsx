@@ -1,3 +1,4 @@
+// [2026-11-18] [11:44] - FEAT: Added Apple Pay / iOS Shortcut quick-add intake (initialQuickAdd) and 'Kurzbefehl-URL kopieren' button in Share panel.
 // [2026-11-18] [10:20] - FEAT/UX: Moved default weight editing into dedicated modal (read-only indicator in Pro Person) and added clickable Matrix drilldown filter into Table view.
 // [2026-11-18] [09:30] - FEAT: Added 'Wer hat für wen bezahlt?' cross-matrix table below Pro Person in Abrechnung tab.
 // [2026-11-17] [17:07] - UX: Auto-scrolled opened/expanded edit cards into view (fitting whole card or aligning top edge) without jumping if already visible.
@@ -37,11 +38,11 @@ import {
   X, Wallet, ListFilter, Trash2, ArrowRightLeft, Banknote, Edit3, 
   Save, CheckCircle2, Users, MapPin, Landmark, Download, TableProperties,
   ChevronUp, ChevronDown, ChevronsUpDown, Sigma, Printer, Map as MapIcon,
-  Share2, Copy, Check, Cloud, Lock, Unlock, LogIn, UserPlus, User, Maximize2, Minimize2, AlertTriangle, MessageCircle, QrCode, Search
+  Share2, Copy, Check, Cloud, Lock, Unlock, LogIn, UserPlus, User, Maximize2, Minimize2, AlertTriangle, MessageCircle, QrCode, Search, Smartphone
 } from 'lucide-react'; 
 import { QRCodeSVG } from 'qrcode.react';
 import type { Expense, LanguageCode, CurrencyConfig } from '../../core/types/shared';
-import { calculateExpenseSharesInBase, computeWeightedAmounts, sortTravelerNames, formatSplitParticipantsLabel, buildInitialExactSplit, computeExpenseMatrix } from '../../core/utils/finance';
+import { calculateExpenseSharesInBase, computeWeightedAmounts, sortTravelerNames, formatSplitParticipantsLabel, buildInitialExactSplit, computeExpenseMatrix, type QuickAddExpenseParams } from '../../core/utils/finance';
 import { ExpenseEntryButton } from './ExpenseEntryButton'; 
 import { CurrencyConfigModal } from './CurrencyConfigModal';
 import { LocationPickerModal } from './LocationPickerModal';
@@ -63,9 +64,11 @@ interface TripFinanceModalProps {
   onClose: () => void;
   setViewMode?: (mode: any) => void;
   isGuestMode?: boolean;
+  initialQuickAdd?: QuickAddExpenseParams | null;
+  onClearQuickAdd?: () => void;
 }
 
-export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onClose, setViewMode, isGuestMode = false }) => {
+export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onClose, setViewMode, isGuestMode = false, initialQuickAdd = null, onClearQuickAdd }) => {
   const { project, setProject, addExpense, deleteExpense, updateExpense, setUIState, uiState, setCashSync, cashSyncError, isCashRoomLoaded, setTravelers, setDefaultExpenseWeights } = useTripStore();
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
@@ -76,6 +79,8 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedShortcutLink, setCopiedShortcutLink] = useState(false);
+  const [quickAddPending, setQuickAddPending] = useState<QuickAddExpenseParams | null>(initialQuickAdd);
   const [joinLinkInput, setJoinLinkInput] = useState('');
   const [availableRooms, setAvailableRooms] = useState<CashRoomListItem[]>([]);
   const [isLoadingRooms, setIsLoadingRooms] = useState(false);
@@ -729,6 +734,16 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     ? `${window.location.origin}${window.location.pathname}?cashRoom=${encodeURIComponent(cashSync.roomId)}&token=${encodeURIComponent(cashSync.writeToken)}`
     : '';
 
+  const shortcutBaseUrl = inviteUrl
+    ? `${inviteUrl}&quickAdd=1`
+    : `${window.location.origin}${window.location.pathname}?quickAdd=1`;
+
+  useEffect(() => {
+    if (initialQuickAdd) {
+      setQuickAddPending(initialQuickAdd);
+    }
+  }, [initialQuickAdd]);
+
   useEffect(() => {
     setMyIdentity(getStoredCashIdentity(identityScopeId));
     setIdentityDismissed(false);
@@ -1079,6 +1094,12 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
+  const handleCopyShortcutUrl = async () => {
+    await navigator.clipboard.writeText(shortcutBaseUrl);
+    setCopiedShortcutLink(true);
+    setTimeout(() => setCopiedShortcutLink(false), 2000);
+  };
+
   if (!isOpen) return null;
 
   const showIdentityPrompt =
@@ -1293,6 +1314,22 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                 </div>
               </div>
             )}
+
+            {quickAddPending && !isRoomClosed && (!cashSync?.enabled || isCashRoomLoaded) && allNames.length > 0 && Boolean(activeIdentity) && !showIdentityPrompt && (
+              <ExpenseEntryButton
+                travelers={rawNames}
+                mode="standalone"
+                forceOpen={true}
+                defaultTitle={quickAddPending.title || t('finance.card_payment', { defaultValue: 'Kartenzahlung' })}
+                defaultAmount={quickAddPending.amount || ''}
+                defaultCurrency={quickAddPending.currency}
+                defaultLocation={quickAddPending.location ?? null}
+                onClose={() => {
+                  setQuickAddPending(null);
+                  onClearQuickAdd?.();
+                }}
+              />
+            )}
             
             {/* Screen Header */}
             <div className="relative z-50 bg-white border-b border-slate-200 px-3 sm:px-5 py-3 sm:py-4 flex justify-between items-center shrink-0 print:hidden">
@@ -1482,6 +1519,15 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                         >
                           {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                           {copiedLink ? t('finance.copied', { defaultValue: 'Kopiert!' }) : t('finance.copy_link', { defaultValue: 'Link kopieren' })}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCopyShortcutUrl}
+                          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-slate-700 border border-emerald-200 hover:bg-emerald-100 font-bold transition-colors shrink-0"
+                          title={t('finance.shortcut_url_tooltip', { defaultValue: 'Basis-URL für iPhone Kurzbefehle (Apple Pay Automation) kopieren' })}
+                        >
+                          {copiedShortcutLink ? <Check className="w-4 h-4 text-emerald-600" /> : <Smartphone className="w-4 h-4 text-slate-500" />}
+                          {copiedShortcutLink ? t('finance.copied', { defaultValue: 'Kopiert!' }) : t('finance.shortcut_url', { defaultValue: 'Kurzbefehl-URL' })}
                         </button>
                       </div>
                     </div>
@@ -2573,4 +2619,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 2576 Zeilen ---
+// --- END OF FILE 2622 Zeilen ---

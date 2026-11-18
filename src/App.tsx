@@ -1,12 +1,14 @@
+// [2026-11-18] [11:43] - FEAT: Added URL ?quickAdd=1 parsing and URL cleanup for Apple Pay / iOS Shortcut intake.
 // [2026-11-17] [10:28] - FEAT: Added support for uiState.isCashOnlyMode focus view in App.tsx.
 // [2026-11-16] [17:15] - FEAT: Added URL detection for ?cashRoom=&token= guest mode and global useCashSync hook.
 // src/App.tsx
 // 14.01.2026 17:25 - FIX: Removed unmanaged global modals and added required onNext prop to AnalysisReviewView (No downstream view available yet).
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTripStore } from './store/useTripStore';
 import { useTripGeneration } from './hooks/useTripGeneration';
 import { useCashSync, type GuestRoomParams } from './hooks/useCashSync';
+import { parseQuickAddParams, type QuickAddExpenseParams } from './core/utils/finance';
 import { WorkflowSelectionModal } from './features/Workflow/WorkflowSelectionModal';
 import { WelcomeScreen } from './features/Welcome/WelcomeScreen';
 import { CockpitWizard } from './features/Cockpit/CockpitWizard';
@@ -45,6 +47,17 @@ function App() {
   }, []);
 
   useCashSync(guestCashParams);
+
+  const [initialQuickAdd, setInitialQuickAdd] = useState<QuickAddExpenseParams | null>(() =>
+    parseQuickAddParams(window.location.search)
+  );
+
+  useEffect(() => {
+    if (!initialQuickAdd) return;
+    const url = new URL(window.location.href);
+    ['quickAdd', 'amount', 'currency', 'title', 'lat', 'lng'].forEach((k) => url.searchParams.delete(k));
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+  }, [initialQuickAdd]);
 
   useEffect(() => {
     // Initiale Sprache setzen basierend auf Browser oder Projekt
@@ -85,9 +98,24 @@ function App() {
 
       {/* VIEW ROUTING */}
       {guestCashParams ? (
-        <TripFinanceModal isOpen={true} onClose={() => {}} isGuestMode={true} />
-      ) : uiState.isCashOnlyMode ? (
-        <TripFinanceModal isOpen={true} onClose={() => setUIState({ isCashOnlyMode: false })} isGuestMode={false} />
+        <TripFinanceModal
+          isOpen={true}
+          onClose={() => {}}
+          isGuestMode={true}
+          initialQuickAdd={initialQuickAdd}
+          onClearQuickAdd={() => setInitialQuickAdd(null)}
+        />
+      ) : uiState.isCashOnlyMode || Boolean(initialQuickAdd) ? (
+        <TripFinanceModal
+          isOpen={true}
+          onClose={() => {
+            setInitialQuickAdd(null);
+            setUIState({ isCashOnlyMode: false });
+          }}
+          isGuestMode={false}
+          initialQuickAdd={initialQuickAdd}
+          onClearQuickAdd={() => setInitialQuickAdd(null)}
+        />
       ) : (
         <>
           {view === 'welcome' && <WelcomeScreen />}
@@ -107,4 +135,4 @@ function App() {
 }
 
 export default App;
-// --- END OF FILE 112 Zeilen ---
+// --- END OF FILE 138 Zeilen ---
