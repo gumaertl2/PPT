@@ -1,3 +1,4 @@
+// [2026-11-18] [16:43] - UX: Optimized mobile/desktop expense entry (clear '×' button on title, collapsible date chip, iOS decimal numpad, 1-tap/Enter submit, smart autofocus).
 // [2026-11-18] [11:43] - FEAT: Added defaultAmount/defaultCurrency prefill support and full customTitle editability for iOS Shortcut quick-add.
 // [2026-11-17] [17:01] - UX: Enlarged desktop modal width/height (sm:max-w-md max-h-[94dvh]) while keeping mobile compact.
 // [2026-11-17] [16:51] - UX: Prefilled exact split amounts from current equal/weighted distribution when switching to 'Exakt'.
@@ -16,9 +17,9 @@
 // 09.04.2026 10:20 - UX: Added inline traveler names input for zero-friction expense entry when names are missing.
 // src/features/Cockpit/ExpenseEntryButton.tsx
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Banknote, X, Users, CheckCircle2, Save, MapPin, PenLine, MapPinOff, UserPlus } from 'lucide-react';
+import { Banknote, X, Users, CheckCircle2, Save, MapPin, PenLine, MapPinOff, UserPlus, Clock } from 'lucide-react';
 import { useTripStore } from '../../store/useTripStore';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
@@ -42,6 +43,7 @@ interface ExpenseEntryButtonProps {
     forceOpen?: boolean; 
     onClose?: () => void;
     onlySettlement?: boolean;
+    autoFocusTrigger?: boolean;
 }
 
 export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({ 
@@ -55,7 +57,8 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
     isMobile,
     forceOpen = false,
     onClose,
-    onlySettlement = false
+    onlySettlement = false,
+    autoFocusTrigger = false
 }) => {
     const { addExpense, project, setProject, setTravelers } = useTripStore();
     const { t } = useTranslation();
@@ -77,6 +80,10 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
     const [amount, setAmount] = useState('');
     const [currency, setCurrency] = useState(availableCurrencies[0]);
     const [entryDate, setEntryDate] = useState('');
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const titleInputRef = useRef<HTMLInputElement | null>(null);
+    const amountInputRef = useRef<HTMLInputElement | null>(null);
+    const saveBtnRef = useRef<HTMLButtonElement | null>(null);
     
     const currentCashIdentity = getStoredCashIdentity(project.data.cashSync?.roomId || project.meta?.id);
     const names = sortTravelerNames(
@@ -141,6 +148,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
     useEffect(() => {
         if (forceOpen) {
             setIsOpen(true);
+            setShowDatePicker(false);
             resetDate();
             if (defaultTitle) setCustomTitle(defaultTitle);
             if (defaultAmount) setAmount(defaultAmount);
@@ -173,6 +181,23 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
             setSplitWeights(buildDefaultWeights(names));
         }
     }, [isOpen, names.length, paidBy]);
+
+    useEffect(() => {
+        if (!isOpen || isNoteStep) return;
+        const timer = setTimeout(() => {
+            const hasTitle = Boolean((mode === 'standalone' || forceOpen) ? (customTitle.trim() || defaultTitle) : true);
+            const parsedAmt = parseFloat(amount.replace(',', '.'));
+            const hasValidAmount = !isNaN(parsedAmt) && parsedAmt > 0;
+            if (!hasTitle && (mode === 'standalone' || forceOpen)) {
+                titleInputRef.current?.focus();
+            } else if (!hasValidAmount) {
+                amountInputRef.current?.focus();
+            } else {
+                saveBtnRef.current?.focus();
+            }
+        }, 40);
+        return () => clearTimeout(timer);
+    }, [isOpen, isNoteStep]);
 
     useEffect(() => {
         if (!isOpen || location || !navigator.geolocation) return;
@@ -301,6 +326,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
             setShowAddPerson(false);
             setNewPersonName('');
             setNewPersonError(null);
+            setShowDatePicker(false);
             resetDate();
         } else {
             if (onClose) onClose();
@@ -308,7 +334,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         setIsOpen(!isOpen);
     };
 
-    const handleSave = (e: React.MouseEvent, promptForNote: boolean = false) => {
+    const handleSave = (e: React.SyntheticEvent, promptForNote: boolean = false) => {
         e.stopPropagation();
         const numAmount = parseFloat(amount.replace(',', '.'));
         if (isNaN(numAmount) || numAmount <= 0 || !paidBy) return;
@@ -427,7 +453,12 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                 : "flex justify-center items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors";
             
             return (
-                <button onClick={handleToggle} className={`${btnClass} ${isOpen ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white'}`}>
+                <button
+                    type="button"
+                    autoFocus={Boolean(autoFocusTrigger)}
+                    onClick={handleToggle}
+                    className={`${btnClass} ${isOpen ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white'}`}
+                >
                     <Banknote size={isMobile ? 16 : 14} /> 
                     <span className={isMobile ? "hidden sm:inline" : ""}>
                         {onlySettlement ? t('finance.repayment', { defaultValue: 'Rückzahlung' }) : t('finance.expense', { defaultValue: 'Ausgabe' })}
@@ -456,6 +487,11 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
     };
 
     const totalWeights = Object.values(splitWeights).reduce((s, w) => s + (w > 0 ? w : 0), 0);
+    const formattedEntryDate = useMemo(() => {
+        const dt = entryDate ? new Date(entryDate) : new Date();
+        if (isNaN(dt.getTime())) return entryDate;
+        return dt.toLocaleString(undefined, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    }, [entryDate]);
     const isSaveDisabled = (!amount && mode !== 'standalone') || 
                            (entryKind === 'expense' && mode === 'standalone' && !(customTitle.trim() || defaultTitle)) || 
                            isNaN(parseFloat(amount.replace(',', '.'))) || 
@@ -506,7 +542,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                     </>
                                 )}
                             </span>
-                            <button onClick={() => handleToggle()} className="text-emerald-600 hover:text-emerald-900 hover:bg-emerald-200 p-1.5 rounded-full transition-colors shrink-0"><X className="w-4 h-4"/></button>
+                            <button type="button" onClick={() => handleToggle()} className="text-emerald-600 hover:text-emerald-900 hover:bg-emerald-200 p-1.5 rounded-full transition-colors shrink-0"><X className="w-4 h-4"/></button>
                         </div>
 
                         {isNoteStep ? (
@@ -524,13 +560,20 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                     </div>
                                 </div>
                                 <div className="p-4 bg-emerald-100/50 border-t border-emerald-200/50 flex gap-2 shrink-0">
-                                    <button onClick={() => { setIsNoteStep(false); setIsOpen(false); if(onClose) onClose(); }} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold rounded-xl hover:bg-slate-50 transition-colors shadow-sm">{t('actions.skip', { defaultValue: 'Überspringen' })}</button>
-                                    <button onClick={handleSaveNote} className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl transition-all shadow-md flex justify-center items-center gap-2"><Save className="w-4 h-4"/> {t('actions.save', { defaultValue: 'Speichern' })}</button>
+                                    <button type="button" onClick={() => { setIsNoteStep(false); setIsOpen(false); if(onClose) onClose(); }} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold rounded-xl hover:bg-slate-50 transition-colors shadow-sm">{t('actions.skip', { defaultValue: 'Überspringen' })}</button>
+                                    <button type="button" onClick={handleSaveNote} className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl transition-all shadow-md flex justify-center items-center gap-2"><Save className="w-4 h-4"/> {t('actions.save', { defaultValue: 'Speichern' })}</button>
                                 </div>
                             </>
                         ) : (
-                            <>
-                                <div className="p-4 overflow-y-auto space-y-4">
+                            <form
+                                className="flex flex-col flex-1 min-h-0 overflow-hidden"
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (!isSaveDisabled) handleSave(e, false);
+                                }}
+                            >
+                                <div className="p-4 overflow-y-auto space-y-3.5">
                                     {mode === 'standalone' && names.length >= 2 && !onlySettlement && (
                                         <div className="flex bg-emerald-100/70 border border-emerald-200 rounded-xl p-1">
                                             <button
@@ -556,32 +599,90 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                         </div>
                                     )}
 
-                                    <div className="flex flex-col sm:flex-row gap-3">
-                                        {(mode === 'standalone' || forceOpen) && (
-                                            <div className="flex-[2]">
-                                                <label className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">
-                                                    {entryKind === 'settlement' ? t('finance.note_optional', { defaultValue: 'Notiz (optional)' }) : t('finance.purpose', { defaultValue: 'Verwendungszweck' })}
-                                                </label>
-                                                <input type="text" list="expense-titles-new" placeholder={entryKind === 'settlement' ? t('finance.settlement_placeholder', { defaultValue: 'z.B. Teilzahlung, Kaution...' }) : t('finance.purpose_placeholder', { defaultValue: 'z.B. Supermarkt, Taxi...' })} value={customTitle} onChange={e => setCustomTitle(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 shadow-sm" />
-                                                <datalist id="expense-titles-new">
-                                                    {uniqueTitles.map(tTitle => <option key={tTitle} value={tTitle} />)}
-                                                </datalist>
+                                    {(mode === 'standalone' || forceOpen) && (
+                                        <div>
+                                            <label className="text-[10px] font-bold text-emerald-700 uppercase block mb-1">
+                                                {entryKind === 'settlement' ? t('finance.note_optional', { defaultValue: 'Notiz (optional)' }) : t('finance.purpose', { defaultValue: 'Verwendungszweck' })}
+                                            </label>
+                                            <div className="relative">
+                                                <input
+                                                    ref={titleInputRef}
+                                                    type="text"
+                                                    list="expense-titles-new"
+                                                    placeholder={entryKind === 'settlement' ? t('finance.settlement_placeholder', { defaultValue: 'z.B. Teilzahlung, Kaution...' }) : t('finance.purpose_placeholder', { defaultValue: 'z.B. Supermarkt, Taxi...' })}
+                                                    value={customTitle}
+                                                    onChange={e => setCustomTitle(e.target.value)}
+                                                    className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2.5 pr-9 bg-white focus:ring-emerald-500 shadow-sm"
+                                                />
+                                                {customTitle.length > 0 && (
+                                                    <button
+                                                        type="button"
+                                                        onMouseDown={(e) => e.preventDefault()}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setCustomTitle('');
+                                                            titleInputRef.current?.focus();
+                                                        }}
+                                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors"
+                                                        title={t('actions.clear', { defaultValue: 'Eingabe löschen' })}
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                    </button>
+                                                )}
                                             </div>
-                                        )}
-                                        <div className={mode === 'standalone' || forceOpen ? "flex-1" : "w-full"}>
-                                            <label className="text-[10px] font-bold text-emerald-700 uppercase block mb-1.5">{t('finance.date', { defaultValue: 'Datum & Uhrzeit' })}</label>
-                                            <input type="datetime-local" value={entryDate} onChange={e => setEntryDate(e.target.value)} className="w-full text-sm font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 shadow-sm" />
+                                            <datalist id="expense-titles-new">
+                                                {uniqueTitles.map(tTitle => <option key={tTitle} value={tTitle} />)}
+                                            </datalist>
                                         </div>
-                                    </div>
+                                    )}
 
                                     <div className="flex gap-2">
-                                        <input type="number" step="0.01" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} className="flex-1 text-lg font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 shadow-sm" />
+                                        <input
+                                            ref={amountInputRef}
+                                            type="text"
+                                            inputMode="decimal"
+                                            enterKeyHint="done"
+                                            placeholder="0.00"
+                                            value={amount}
+                                            onChange={e => setAmount(e.target.value)}
+                                            className="flex-1 text-lg font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 shadow-sm"
+                                        />
                                         <select value={currency} onChange={e => setCurrency(e.target.value)} className="w-24 text-sm font-bold border-emerald-200 rounded-lg p-2.5 bg-white focus:ring-emerald-500 cursor-pointer shadow-sm">
                                             {availableCurrencies.map(c => (
                                                 <option key={c} value={c}>{c}</option>
                                             ))}
                                         </select>
                                     </div>
+
+                                    {showDatePicker ? (
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="datetime-local"
+                                                value={entryDate}
+                                                onChange={e => setEntryDate(e.target.value)}
+                                                className="flex-1 text-sm font-bold border-emerald-200 rounded-lg p-2 bg-white focus:ring-emerald-500 shadow-sm"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); setShowDatePicker(false); }}
+                                                className="px-2.5 py-2 text-xs font-bold text-emerald-700 bg-white border border-emerald-200 rounded-lg hover:bg-emerald-50"
+                                            >
+                                                {t('actions.done', { defaultValue: 'Fertig' })}
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); setShowDatePicker(true); }}
+                                                className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 hover:text-emerald-900 bg-emerald-100/60 hover:bg-emerald-100 px-2.5 py-1 rounded-full transition-colors"
+                                            >
+                                                <Clock className="w-3 h-3" />
+                                                <span>{formattedEntryDate}</span>
+                                                <PenLine className="w-2.5 h-2.5 opacity-70" />
+                                            </button>
+                                        </div>
+                                    )}
 
                                     {names.length === 0 ? (
                                         <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 shadow-inner">
@@ -607,6 +708,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                                     }}
                                                 />
                                                 <button 
+                                                    type="button"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         if (tempNames.trim()) setTravelers({ travelerNames: tempNames.trim() });
@@ -639,6 +741,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                                     {names.map(n => (
                                                         <button
                                                             key={n}
+                                                            type="button"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 setPaidBy(n);
@@ -697,6 +800,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                                         {names.filter(n => n !== paidBy).map(n => (
                                                             <button
                                                                 key={n}
+                                                                type="button"
                                                                 onClick={(e) => { e.stopPropagation(); setSettlementRecipient(n); }}
                                                                 className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${settlementRecipient === n ? 'bg-blue-600 text-white' : 'bg-white text-slate-700 border border-slate-200 hover:bg-blue-50'}`}
                                                             >
@@ -711,7 +815,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                                         const numTotal = parseFloat(amount.replace(',', '.')) || 0;
                                                         const perPerson = splitAmong.length > 0 && numTotal > 0 ? numTotal / splitAmong.length : 0;
                                                         return (
-                                                            <button onClick={(e) => { e.stopPropagation(); setShowSplit(!showSplit); }} className="text-xs font-bold text-emerald-800 flex items-center gap-1.5 bg-emerald-100/50 px-3 py-2 rounded-lg border border-emerald-200/50 hover:bg-emerald-100 transition-colors w-full">
+                                                            <button type="button" onClick={(e) => { e.stopPropagation(); setShowSplit(!showSplit); }} className="text-xs font-bold text-emerald-800 flex items-center gap-1.5 bg-emerald-100/50 px-3 py-2 rounded-lg border border-emerald-200/50 hover:bg-emerald-100 transition-colors w-full">
                                                                 <Users className="w-3.5 h-3.5 shrink-0" /> 
                                                                 <span className="truncate">
                                                                     {t('finance.split_among', { defaultValue: 'Aufgeteilt auf:' })} {splitMode === 'exact' ? t('finance.exact', { defaultValue: 'Exakt' }) : splitMode === 'weights' ? t('finance.weights', { defaultValue: 'Anteile (×)' }) : formatSplitParticipantsLabel(splitAmong, names, currentCashIdentity, t('finance.everyone', { defaultValue: 'Alle' }))}
@@ -724,9 +828,10 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                                     {showSplit && (
                                                         <div className="mt-2 p-3 bg-white rounded-xl border border-emerald-200 shadow-sm animate-in fade-in slide-in-from-top-1">
                                                             <div className="flex bg-emerald-50 border border-emerald-100 rounded-lg mb-3 p-1 gap-1">
-                                                                <button onClick={(e) => { e.stopPropagation(); setSplitMode('equal'); }} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${splitMode === 'equal' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.equal', { defaultValue: 'Gleichmäßig' })}</button>
-                                                                <button onClick={(e) => { e.stopPropagation(); setSplitMode('weights'); }} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${splitMode === 'weights' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.weights', { defaultValue: 'Anteile (×)' })}</button>
+                                                                <button type="button" onClick={(e) => { e.stopPropagation(); setSplitMode('equal'); }} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${splitMode === 'equal' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.equal', { defaultValue: 'Gleichmäßig' })}</button>
+                                                                <button type="button" onClick={(e) => { e.stopPropagation(); setSplitMode('weights'); }} className={`flex-1 text-[10px] py-1.5 rounded-md font-bold transition-colors ${splitMode === 'weights' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}>{t('finance.weights', { defaultValue: 'Anteile (×)' })}</button>
                                                                 <button
+                                                                    type="button"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         const hasExistingExact = Object.values(splitExact).some(v => (parseFloat((v || '').replace(',', '.')) || 0) > 0);
@@ -749,7 +854,7 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                                                     <div className="flex flex-wrap gap-1.5">
                                                                         {names.map(n => {
                                                                             const active = splitAmong.includes(n);
-                                                                            return <button key={n} onClick={(e) => { e.stopPropagation(); if(active) setSplitAmong(prev => prev.filter(x => x !== n)); else setSplitAmong(prev => [...prev, n]); }} className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${active ? 'bg-emerald-500 text-white border-blue-600 shadow-sm' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'}`}>{n} {active && '✓'}</button>;
+                                                                            return <button type="button" key={n} onClick={(e) => { e.stopPropagation(); if(active) setSplitAmong(prev => prev.filter(x => x !== n)); else setSplitAmong(prev => [...prev, n]); }} className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${active ? 'bg-emerald-500 text-white border-blue-600 shadow-sm' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'}`}>{n} {active && '✓'}</button>;
                                                                         })}
                                                                     </div>
                                                                     {(() => {
@@ -835,17 +940,29 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
                                     )}
                                 </div>
 
-                                <div className="p-4 bg-emerald-100/50 border-t border-emerald-200/50 flex flex-col gap-2 shrink-0">
+                                <div className="p-4 pb-5 sm:pb-4 bg-emerald-100/50 border-t border-emerald-200/50 flex flex-col gap-2 shrink-0">
                                      {!forceOpen && entryKind === 'expense' && (
-                                         <button onClick={(e) => handleSave(e, true)} disabled={isSaveDisabled} className="w-full py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold rounded-lg hover:bg-indigo-100 transition-all flex justify-center items-center gap-2">
+                                         <button
+                                            type="button"
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onClick={(e) => handleSave(e, true)}
+                                            disabled={isSaveDisabled}
+                                            className="w-full py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold rounded-lg hover:bg-indigo-100 transition-all flex justify-center items-center gap-2 disabled:opacity-50"
+                                         >
                                             <PenLine className="w-3.5 h-3.5"/> {t('finance.save_and_diary', { defaultValue: 'Speichern & Notiz anlegen' })}
                                          </button>
                                      )}
-                                     <button onClick={(e) => handleSave(e, false)} disabled={isSaveDisabled} className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2">
+                                     <button
+                                        ref={saveBtnRef}
+                                        type="submit"
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        disabled={isSaveDisabled}
+                                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+                                     >
                                         <Save className="w-4 h-4"/> {t('finance.save', { defaultValue: 'Speichern' })}
                                      </button>
                                 </div>
-                            </>
+                            </form>
                         )}
                     </div>
                 </div>,
@@ -860,4 +977,4 @@ export const ExpenseEntryButton: React.FC<ExpenseEntryButtonProps> = ({
         </div>
     );
 };
-// --- END OF FILE 863 Zeilen ---
+// --- END OF FILE 980 Zeilen ---

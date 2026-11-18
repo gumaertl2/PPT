@@ -1,3 +1,9 @@
+// [2026-11-18] [16:47] - UX: Added direct close '×' button inside top-right corner of the Share panel so users can dismiss it without reopening the Settings menu.
+// [2026-11-18] [16:42] - UX: Passed autoFocusTrigger to standalone ExpenseEntryButton so pressing Enter immediately opens expense entry.
+// [2026-11-18] [16:39] - FIX: Raised finance header z-index above tab bar (z-[150]) so all Settings dropdown items are visible, and restored !isGuestMode gating for trip meta edit & currencies.
+// [2026-11-18] [16:35] - FEAT/UX: Consolidated secondary header actions (Share, Currency, CSV, Print, Focus) into a compact Settings gear menu and improved mobile single-row header layout.
+// [2026-11-18] [16:22] - FEAT/UX: Enforced Option A PIN ownership (only original creator sets/changes/removes PIN; other devices see nothing unless PIN is active and unlock cleanly).
+// [2026-11-18] [15:56] - FEAT/FIX: Added multi-device Host PIN setup/unlock UI, gated delete/edit via canModifyExpenses, and added dismiss button on cashSyncError banner.
 // [2026-11-18] [11:44] - FEAT: Added Apple Pay / iOS Shortcut quick-add intake (initialQuickAdd) and 'Kurzbefehl-URL kopieren' button in Share panel.
 // [2026-11-18] [10:20] - FEAT/UX: Moved default weight editing into dedicated modal (read-only indicator in Pro Person) and added clickable Matrix drilldown filter into Table view.
 // [2026-11-18] [09:30] - FEAT: Added 'Wer hat für wen bezahlt?' cross-matrix table below Pro Person in Abrechnung tab.
@@ -38,7 +44,7 @@ import {
   X, Wallet, ListFilter, Trash2, ArrowRightLeft, Banknote, Edit3, 
   Save, CheckCircle2, Users, MapPin, Landmark, Download, TableProperties,
   ChevronUp, ChevronDown, ChevronsUpDown, Sigma, Printer, Map as MapIcon,
-  Share2, Copy, Check, Cloud, Lock, Unlock, LogIn, UserPlus, User, Maximize2, Minimize2, AlertTriangle, MessageCircle, QrCode, Search, Smartphone
+  Share2, Copy, Check, Cloud, Lock, Unlock, LogIn, UserPlus, User, Maximize2, Minimize2, AlertTriangle, MessageCircle, QrCode, Search, Smartphone, KeyRound, Settings
 } from 'lucide-react'; 
 import { QRCodeSVG } from 'qrcode.react';
 import type { Expense, LanguageCode, CurrencyConfig } from '../../core/types/shared';
@@ -56,6 +62,8 @@ import {
   addTravelerSafe,
   getStoredCashIdentity,
   setStoredCashIdentity,
+  setRoomAdminPin,
+  unlockCashRoomAsAdmin,
   type CashRoomListItem
 } from '../../services/firebaseCashService';
 
@@ -69,15 +77,27 @@ interface TripFinanceModalProps {
 }
 
 export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onClose, setViewMode, isGuestMode = false, initialQuickAdd = null, onClearQuickAdd }) => {
-  const { project, setProject, addExpense, deleteExpense, updateExpense, setUIState, uiState, setCashSync, cashSyncError, isCashRoomLoaded, setTravelers, setDefaultExpenseWeights } = useTripStore();
+  const { project, setProject, addExpense, deleteExpense, updateExpense, setUIState, uiState, setCashSync, cashSyncError, setCashSyncError, isCashRoomLoaded, isCashRoomHost, isCashRoomOriginalHost, cashRoomHasPassword, setTravelers, setDefaultExpenseWeights } = useTripStore();
+  const isLiveRoom = Boolean(project.data.cashSync?.enabled);
+  const canModifyExpenses = isLiveRoom ? isCashRoomHost : !isGuestMode;
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language.substring(0, 2) as LanguageCode;
   
   const [activeTab, setActiveTab] = useState<'feed' | 'settlement' | 'table'>('settlement');
   const [isCurrencyModalOpen, setIsCurrencyModalOpen] = useState(false);
   const [showSharePanel, setShowSharePanel] = useState(false);
+  const [showToolsMenu, setShowToolsMenu] = useState(false);
+  const toolsMenuRef = useRef<HTMLDivElement | null>(null);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
+  const [newRoomPin, setNewRoomPin] = useState('');
+  const [adminPinDraft, setAdminPinDraft] = useState('');
+  const [isSavingPin, setIsSavingPin] = useState(false);
+  const [pinStatusMsg, setPinStatusMsg] = useState<string | null>(null);
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const [unlockPinInput, setUnlockPinInput] = useState('');
+  const [unlockPinError, setUnlockPinError] = useState<string | null>(null);
+  const [isUnlocking, setIsUnlocking] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedShortcutLink, setCopiedShortcutLink] = useState(false);
   const [quickAddPending, setQuickAddPending] = useState<QuickAddExpenseParams | null>(initialQuickAdd);
@@ -638,7 +658,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
           allNames.forEach(n => groupShares[n] += shares[n]);
 
           rows.push(
-              <tr key={exp.id} className={`hover:bg-slate-50 transition-colors group ${isGuestMode ? '' : 'cursor-pointer'}`} onClick={isGuestMode ? undefined : () => {setActiveTab('feed'); setTimeout(() => startEdit(exp), 50)}}>
+              <tr key={exp.id} className={`hover:bg-slate-50 transition-colors group ${canModifyExpenses ? 'cursor-pointer' : ''}`} onClick={canModifyExpenses ? () => {setActiveTab('feed'); setTimeout(() => startEdit(exp), 50)} : undefined}>
                   <td className="p-3 text-slate-500 text-xs border-r border-slate-50">{date}</td>
                   <td className="p-3 font-bold text-slate-700 truncate max-w-[150px] sm:max-w-[250px]" title={exp.title}>
                       <div className="flex items-center gap-1.5">
@@ -737,6 +757,21 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
   const shortcutBaseUrl = inviteUrl
     ? `${inviteUrl}&quickAdd=1`
     : `${window.location.origin}${window.location.pathname}?quickAdd=1`;
+
+  useEffect(() => {
+    if (!showToolsMenu) return;
+    const handleOutsideClick = (event: MouseEvent | TouchEvent) => {
+      if (toolsMenuRef.current && !toolsMenuRef.current.contains(event.target as Node)) {
+        setShowToolsMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('touchstart', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('touchstart', handleOutsideClick);
+    };
+  }, [showToolsMenu]);
 
   useEffect(() => {
     if (initialQuickAdd) {
@@ -1021,13 +1056,60 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
         travelerNames: rawNames,
         currencyConfig,
         defaultWeights: project.data.defaultExpenseWeights,
-        initialExpenses: (project.data.expenses || {}) as Record<string, Expense>
+        initialExpenses: (project.data.expenses || {}) as Record<string, Expense>,
+        adminPin: newRoomPin.trim() || undefined
       });
+      setNewRoomPin('');
       setCashSync({ roomId, writeToken, enabled: true, roomStatus: 'open', tripDates: computedTripDates || undefined });
     } catch (err: any) {
       setShareError(err?.message || 'Fehler beim Erstellen der Live-Kasse.');
     } finally {
       setIsCreatingRoom(false);
+    }
+  };
+
+  const handleSaveAdminPin = async (pinToSave: string) => {
+    if (!cashSync?.roomId || !cashSync?.writeToken) return;
+    setIsSavingPin(true);
+    setShareError(null);
+    setPinStatusMsg(null);
+    try {
+      await setRoomAdminPin(cashSync.roomId, cashSync.writeToken, pinToSave);
+      setAdminPinDraft('');
+      setPinStatusMsg(
+        pinToSave.trim()
+          ? t('finance.pin_saved', { defaultValue: 'Bearbeitungs-PIN gespeichert.' })
+          : t('finance.pin_removed', { defaultValue: 'Bearbeitungs-PIN entfernt.' })
+      );
+      setTimeout(() => setPinStatusMsg(null), 2500);
+    } catch (err: any) {
+      setShareError(err?.message || 'Bearbeitungs-PIN konnte nicht gespeichert werden.');
+    } finally {
+      setIsSavingPin(false);
+    }
+  };
+
+  const handleUnlockAsHost = async () => {
+    if (!cashSync?.roomId) return;
+    if (!unlockPinInput.trim()) {
+      setUnlockPinError(t('finance.pin_required', { defaultValue: 'Bitte PIN eingeben.' }));
+      return;
+    }
+    setIsUnlocking(true);
+    setUnlockPinError(null);
+    try {
+      const res = await unlockCashRoomAsAdmin(cashSync.roomId, unlockPinInput);
+      if (!res.ok) {
+        setUnlockPinError(res.error || 'Entsperren fehlgeschlagen.');
+      } else {
+        setUnlockPinInput('');
+        setShowUnlockModal(false);
+        setCashSyncError(null);
+      }
+    } catch (err: any) {
+      setUnlockPinError(err?.message || 'Fehler beim Entsperren.');
+    } finally {
+      setIsUnlocking(false);
     }
   };
 
@@ -1332,14 +1414,17 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
             )}
             
             {/* Screen Header */}
-            <div className="relative z-50 bg-white border-b border-slate-200 px-3 sm:px-5 py-3 sm:py-4 flex justify-between items-center shrink-0 print:hidden">
-              <div className="flex items-center gap-2 text-slate-800 min-w-0 mr-2">
+            <div className="relative z-[150] bg-white border-b border-slate-200 px-3 sm:px-5 py-2.5 sm:py-4 flex justify-between items-center gap-2 shrink-0 print:hidden">
+              <div className="flex items-center gap-2 text-slate-800 min-w-0 flex-1">
                 <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600 shrink-0"><Wallet className="w-5 h-5" /></div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 min-w-0">
                     <h2 className="text-sm sm:text-lg font-bold truncate">
-                      {t('finance.title', { defaultValue: 'Reisekasse' })}
-                      {displayTripName ? ` · ${displayTripName}` : ''}
+                      <span className="sm:hidden">{displayTripName || t('finance.title', { defaultValue: 'Reisekasse' })}</span>
+                      <span className="hidden sm:inline">
+                        {t('finance.title', { defaultValue: 'Reisekasse' })}
+                        {displayTripName ? ` · ${displayTripName}` : ''}
+                      </span>
                     </h2>
                     {!isGuestMode && (
                       <button
@@ -1352,74 +1437,142 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                       </button>
                     )}
                     {cashSync?.enabled && (
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border shrink-0 ${isRoomClosed ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-                        {isRoomClosed ? <Lock className="w-3 h-3" /> : <Cloud className="w-3 h-3" />}
-                        {isRoomClosed ? t('finance.room_closed_badge', { defaultValue: 'Geschlossen' }) : 'Live'}
-                      </span>
+                      <>
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border shrink-0 ${isRoomClosed ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                          {isRoomClosed ? <Lock className="w-3 h-3" /> : <Cloud className="w-3 h-3" />}
+                          {isRoomClosed ? t('finance.room_closed_badge', { defaultValue: 'Geschlossen' }) : 'Live'}
+                        </span>
+                        {!isCashRoomHost && cashRoomHasPassword && (
+                          <button
+                            type="button"
+                            onClick={() => { setUnlockPinError(null); setShowUnlockModal((prev) => !prev); }}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border shrink-0 bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 transition-colors"
+                          >
+                            <KeyRound className="w-3 h-3" />
+                            {t('finance.unlock_host_short', { defaultValue: 'PIN eingeben' })}
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
-                  {computedTripDates && (
-                    <p className="text-[11px] text-slate-400 font-medium truncate">{computedTripDates}</p>
+                  {(computedTripDates || displayTripName) && (
+                    <p className="text-[11px] text-slate-400 font-medium truncate">
+                      <span className="sm:hidden">
+                        {displayTripName
+                          ? `${t('finance.title', { defaultValue: 'Reisekasse' })}${computedTripDates ? ` · ${computedTripDates}` : ''}`
+                          : computedTripDates}
+                      </span>
+                      <span className="hidden sm:inline">{computedTripDates}</span>
+                    </p>
                   )}
                 </div>
               </div>
               
-              <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 {allNames.length > 0 && Boolean(activeIdentity) && (!isRoomClosed || allNames.length >= 2) && (
-                  <ExpenseEntryButton travelers={rawNames} mode="standalone" isMobile={true} onlySettlement={isRoomClosed} />
+                  <ExpenseEntryButton
+                    travelers={rawNames}
+                    mode="standalone"
+                    isMobile={true}
+                    onlySettlement={isRoomClosed}
+                    autoFocusTrigger={!quickAddPending && !showUnlockModal && !isEditingTripMeta && !isCurrencyModalOpen}
+                  />
                 )}
 
-                <button
-                  onClick={handleToggleShare}
-                  disabled={isCreatingRoom}
-                  className={`p-2 rounded-lg transition-colors border shrink-0 ${cashSync?.enabled ? 'text-emerald-600 bg-emerald-50 border-emerald-200 hover:bg-emerald-100' : 'text-slate-500 border-transparent hover:text-blue-600 hover:bg-blue-50 hover:border-blue-100'}`}
-                  title={t('finance.share_live', { defaultValue: 'Live-Kasse teilen (Einladungslink)' })}
-                >
-                  <Share2 className="w-5 h-5" />
-                </button>
-                
-                <button onClick={() => window.print()} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100 shrink-0" title={t('finance.print_tooltip', { defaultValue: 'Ansicht drucken' })}>
-                    <Printer className="w-5 h-5" />
-                </button>
+                <div className="relative" ref={toolsMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowToolsMenu((prev) => !prev)}
+                    className={`relative p-2 rounded-lg transition-colors border shrink-0 ${showToolsMenu ? 'text-blue-600 bg-blue-50 border-blue-200' : 'text-slate-500 border-transparent hover:text-blue-600 hover:bg-blue-50 hover:border-blue-100'}`}
+                    title={t('finance.tools_menu', { defaultValue: 'Kassen-Optionen & Teilen' })}
+                    aria-expanded={showToolsMenu}
+                  >
+                    <Settings className="w-5 h-5" />
+                    {cashSync?.enabled && (
+                      <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white" />
+                    )}
+                  </button>
 
-                <button onClick={handleExportCSV} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100 shrink-0" title={t('finance.export_csv', { defaultValue: 'Als CSV exportieren' })}>
-                    <Download className="w-5 h-5" />
-                </button>
+                  {showToolsMenu && (
+                    <div className="absolute right-0 mt-1.5 w-60 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-[120] text-sm">
+                      <button
+                        type="button"
+                        onClick={() => { setShowToolsMenu(false); handleToggleShare(); }}
+                        disabled={isCreatingRoom}
+                        className="w-full px-3.5 py-2.5 text-left flex items-center gap-2.5 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                      >
+                        <Share2 className={`w-4 h-4 shrink-0 ${cashSync?.enabled ? 'text-emerald-600' : 'text-slate-500'}`} />
+                        <span className={`font-medium ${cashSync?.enabled ? 'text-emerald-700' : 'text-slate-700'}`}>
+                          {showSharePanel
+                            ? t('finance.hide_share_panel', { defaultValue: 'Teilen-Menü schließen' })
+                            : t('finance.share_live_short', { defaultValue: 'Live-Kasse & Teilen' })}
+                        </span>
+                      </button>
 
-                <button onClick={() => setIsCurrencyModalOpen(true)} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100 shrink-0" title={t('finance.currency_config_title', { defaultValue: 'Währungen konfigurieren' })}>
-                    <Landmark className="w-5 h-5" />
-                </button>
+                      {!isGuestMode && (
+                        <button
+                          type="button"
+                          onClick={() => { setShowToolsMenu(false); setIsCurrencyModalOpen(true); }}
+                          className="w-full px-3.5 py-2.5 text-left flex items-center gap-2.5 hover:bg-slate-50 text-slate-700 transition-colors"
+                        >
+                          <Landmark className="w-4 h-4 text-slate-500 shrink-0" />
+                          <span className="font-medium">{t('finance.currency_config_title', { defaultValue: 'Währungen & Wechselkurse' })}</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => { setShowToolsMenu(false); handleExportCSV(); }}
+                        className="w-full px-3.5 py-2.5 text-left flex items-center gap-2.5 hover:bg-slate-50 text-slate-700 transition-colors"
+                      >
+                        <Download className="w-4 h-4 text-slate-500 shrink-0" />
+                        <span className="font-medium">{t('finance.export_csv', { defaultValue: 'Als CSV exportieren' })}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => { setShowToolsMenu(false); window.print(); }}
+                        className="w-full px-3.5 py-2.5 text-left flex items-center gap-2.5 hover:bg-slate-50 text-slate-700 transition-colors"
+                      >
+                        <Printer className="w-4 h-4 text-slate-500 shrink-0" />
+                        <span className="font-medium">{t('finance.print_tooltip', { defaultValue: 'Ansicht drucken' })}</span>
+                      </button>
+
+                      {!isGuestMode && !uiState.isCashOnlyMode && (
+                        <>
+                          <div className="my-1 border-t border-slate-100" />
+                          <button
+                            type="button"
+                            onClick={() => { setShowToolsMenu(false); setUIState({ isCashOnlyMode: true }); }}
+                            className="w-full px-3.5 py-2.5 text-left flex items-center gap-2.5 hover:bg-slate-50 text-slate-700 transition-colors"
+                          >
+                            <Maximize2 className="w-4 h-4 text-slate-500 shrink-0" />
+                            <span className="font-medium">{t('finance.cash_only_mode', { defaultValue: 'Fokus-Modus: Nur Kasse' })}</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {!isGuestMode && (
                   uiState.isCashOnlyMode ? (
-                    <>
-                      <div className="w-px h-6 bg-slate-200 mx-1 hidden sm:block"></div>
-                      <button
-                        onClick={onClose}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 text-xs font-bold transition-colors shrink-0"
-                        title={t('finance.back_to_planner', { defaultValue: 'Zurück zum Reiseplaner' })}
-                      >
-                        <Minimize2 className="w-4 h-4" />
-                        <span className="hidden sm:inline">{t('finance.planner_short', { defaultValue: 'Planer' })}</span>
-                      </button>
-                    </>
+                    <button
+                      onClick={onClose}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 text-xs font-bold transition-colors shrink-0"
+                      title={t('finance.back_to_planner', { defaultValue: 'Zurück zum Reiseplaner' })}
+                    >
+                      <Minimize2 className="w-4 h-4" />
+                      <span className="hidden sm:inline">{t('finance.planner_short', { defaultValue: 'Planer' })}</span>
+                    </button>
                   ) : (
-                    <>
-                      <button
-                        onClick={() => setUIState({ isCashOnlyMode: true })}
-                        className="p-2 rounded-lg transition-colors border border-transparent text-slate-500 hover:text-blue-600 hover:bg-blue-50 hover:border-blue-100 shrink-0"
-                        title={t('finance.cash_only_mode', { defaultValue: 'Fokus-Modus: Nur Reisekasse anzeigen' })}
-                      >
-                        <Maximize2 className="w-5 h-5" />
-                      </button>
-                      <div className="w-px h-6 bg-slate-200 mx-1 hidden sm:block"></div>
-                      <button
-                        onClick={onClose}
-                        className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors shrink-0"
-                        title={t('actions.close', { defaultValue: 'Schließen' })}
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </>
+                    <button
+                      onClick={onClose}
+                      className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors shrink-0"
+                      title={t('actions.close', { defaultValue: 'Schließen' })}
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
                   )
                 )}
               </div>
@@ -1461,15 +1614,70 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
               </div>
             )}
 
+            {showUnlockModal && cashSync?.enabled && !isCashRoomHost && cashRoomHasPassword && (
+              <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 text-xs flex flex-wrap items-center gap-2 shrink-0 print:hidden">
+                <KeyRound className="w-4 h-4 text-amber-600 shrink-0" />
+                <span className="font-bold text-amber-900">
+                  {t('finance.unlock_host_title', { defaultValue: 'Bearbeiten & Löschen per PIN freischalten:' })}
+                </span>
+                <input
+                  type="password"
+                  value={unlockPinInput}
+                  onChange={(e) => { setUnlockPinInput(e.target.value); setUnlockPinError(null); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleUnlockAsHost(); }}
+                  placeholder={t('finance.enter_host_pin', { defaultValue: 'PIN eingeben...' })}
+                  autoComplete="off"
+                  className="px-2.5 py-1 bg-white border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 w-36 text-xs"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={handleUnlockAsHost}
+                  disabled={isUnlocking || !unlockPinInput.trim()}
+                  className="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold transition-colors disabled:opacity-50"
+                >
+                  {isUnlocking ? t('actions.checking', { defaultValue: 'Prüfe...' }) : t('finance.unlock_btn', { defaultValue: 'Freischalten' })}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowUnlockModal(false); setUnlockPinError(null); }}
+                  className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 font-medium"
+                >
+                  {t('actions.cancel', { defaultValue: 'Abbrechen' })}
+                </button>
+                {unlockPinError && (
+                  <span className="text-red-600 font-medium">{unlockPinError}</span>
+                )}
+              </div>
+            )}
+
             {cashSyncError && (
-              <div className="bg-red-50 border-b border-red-200 px-4 py-2 text-xs text-red-700 font-medium flex items-center gap-2 shrink-0 print:hidden">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                {cashSyncError}
+              <div className="bg-red-50 border-b border-red-200 px-4 py-2 text-xs text-red-700 font-medium flex items-center justify-between gap-2 shrink-0 print:hidden">
+                <div className="flex items-center gap-2 min-w-0">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  <span className="break-words">{cashSyncError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCashSyncError(null)}
+                  className="p-0.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded shrink-0"
+                  title={t('actions.close', { defaultValue: 'Schließen' })}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </div>
             )}
 
             {showSharePanel && (
-              <div className="bg-emerald-50 border-b border-emerald-200 px-4 py-3 text-xs sm:text-sm space-y-2.5 shrink-0 print:hidden">
+              <div className="relative bg-emerald-50 border-b border-emerald-200 px-4 py-3 pr-10 text-xs sm:text-sm space-y-2.5 shrink-0 print:hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowSharePanel(false)}
+                  className="absolute top-2.5 right-2.5 p-1 text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100 rounded-full transition-colors"
+                  title={t('actions.close', { defaultValue: 'Schließen' })}
+                >
+                  <X className="w-4 h-4" />
+                </button>
                 {shareError && (
                   <div className="text-red-600 font-medium">{shareError}</div>
                 )}
@@ -1542,49 +1750,134 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                       </div>
                     )}
 
-                    {!isGuestMode && (
-                      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-emerald-200/70">
-                        <button
-                          onClick={handleToggleRoomStatus}
-                          disabled={isCreatingRoom}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${isRoomClosed ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700' : 'bg-white text-amber-700 border-amber-300 hover:bg-amber-50'}`}
-                        >
-                          {isRoomClosed ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-                          {isRoomClosed ? t('finance.reopen_room', { defaultValue: 'Raum wieder öffnen' }) : t('finance.close_room', { defaultValue: 'Raum schließen (nur noch bezahlen)' })}
-                        </button>
-                        <button
-                          onClick={() => {
-                            rememberCashRoom({ roomId: cashSync.roomId, writeToken: cashSync.writeToken, tripName: displayTripName });
-                            setCashSync({ ...cashSync, enabled: false });
-                            setShowSharePanel(false);
-                          }}
-                          className="px-2.5 py-1.5 rounded-lg bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 text-xs font-medium"
-                        >
-                          {t('finance.pause_sync', { defaultValue: 'Sync pausieren' })}
-                        </button>
-                        <button
-                          onClick={handleDeleteRoom}
-                          disabled={isCreatingRoom}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white text-red-600 border border-red-200 hover:bg-red-50 text-xs font-semibold ml-auto"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          {t('finance.delete_room', { defaultValue: 'Raum löschen' })}
-                        </button>
+                    {(!isGuestMode || isCashRoomOriginalHost || (!isCashRoomHost && cashRoomHasPassword)) && (
+                      <div className="space-y-2 pt-2 border-t border-emerald-200/70">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {isCashRoomOriginalHost && (
+                            <button
+                              onClick={handleToggleRoomStatus}
+                              disabled={isCreatingRoom}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${isRoomClosed ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700' : 'bg-white text-amber-700 border-amber-300 hover:bg-amber-50'}`}
+                            >
+                              {isRoomClosed ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                              {isRoomClosed ? t('finance.reopen_room', { defaultValue: 'Raum wieder öffnen' }) : t('finance.close_room', { defaultValue: 'Raum schließen (nur noch bezahlen)' })}
+                            </button>
+                          )}
+                          {!isGuestMode && (
+                            <button
+                              onClick={() => {
+                                rememberCashRoom({ roomId: cashSync.roomId, writeToken: cashSync.writeToken, tripName: displayTripName });
+                                setCashSync({ ...cashSync, enabled: false });
+                                setShowSharePanel(false);
+                              }}
+                              className="px-2.5 py-1.5 rounded-lg bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 text-xs font-medium"
+                            >
+                              {t('finance.pause_sync', { defaultValue: 'Sync pausieren' })}
+                            </button>
+                          )}
+                          {!isCashRoomHost && cashRoomHasPassword && (
+                            <button
+                              type="button"
+                              onClick={() => { setUnlockPinError(null); setShowUnlockModal(true); }}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 text-xs font-semibold"
+                            >
+                              <KeyRound className="w-3.5 h-3.5" />
+                              {t('finance.unlock_with_pin', { defaultValue: 'Mit PIN freischalten (Bearbeiten & Löschen)' })}
+                            </button>
+                          )}
+                          {isCashRoomOriginalHost && (
+                            <button
+                              onClick={handleDeleteRoom}
+                              disabled={isCreatingRoom}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white text-red-600 border border-red-200 hover:bg-red-50 text-xs font-semibold ml-auto"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              {t('finance.delete_room', { defaultValue: 'Raum löschen' })}
+                            </button>
+                          )}
+                        </div>
+
+                        {isCashRoomOriginalHost && (
+                          <div className="space-y-1.5 pt-2 border-t border-emerald-200/50">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <div className="flex items-center gap-1.5 text-xs text-emerald-900 font-semibold">
+                                <KeyRound className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                <span>
+                                  {cashRoomHasPassword
+                                    ? t('finance.host_pin_active', { defaultValue: 'Bearbeitungs-PIN aktiv' })
+                                    : t('finance.host_pin_unset', { defaultValue: 'Bearbeitungs-PIN setzen (optional)' })}
+                                </span>
+                              </div>
+                              <input
+                                type="password"
+                                value={adminPinDraft}
+                                onChange={(e) => { setAdminPinDraft(e.target.value); setPinStatusMsg(null); }}
+                                placeholder={cashRoomHasPassword ? t('finance.new_pin_placeholder', { defaultValue: 'Neue PIN...' }) : t('finance.pin_placeholder', { defaultValue: 'z. B. 1234' })}
+                                autoComplete="new-password"
+                                className="w-28 sm:w-32 px-2 py-1 text-xs bg-white border border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleSaveAdminPin(adminPinDraft)}
+                                disabled={isSavingPin || !adminPinDraft.trim()}
+                                className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-bold disabled:opacity-50"
+                              >
+                                {cashRoomHasPassword
+                                  ? t('actions.change', { defaultValue: 'Ändern' })
+                                  : t('actions.save', { defaultValue: 'Speichern' })}
+                              </button>
+                              {cashRoomHasPassword && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveAdminPin('')}
+                                  disabled={isSavingPin}
+                                  className="px-2 py-1 rounded-lg bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 text-xs font-medium disabled:opacity-50"
+                                >
+                                  {t('finance.remove_pin', { defaultValue: 'Entfernen' })}
+                                </button>
+                              )}
+                              {pinStatusMsg && (
+                                <span className="text-[11px] font-medium text-emerald-700">{pinStatusMsg}</span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-emerald-800/80">
+                              {cashRoomHasPassword
+                                ? t('finance.host_pin_active_hint', { defaultValue: 'Andere Geräte können mit dieser PIN ebenfalls Ausgaben bearbeiten & löschen.' })
+                                : t('finance.host_pin_unset_hint', { defaultValue: 'Nur mit PIN dürfen andere Geräte Ausgaben bearbeiten/löschen. Ohne PIN darf das nur dieses Ersteller-Gerät.' })}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={handleCreateRoom}
-                          disabled={isCreatingRoom}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50 shrink-0"
-                        >
-                          <Share2 className="w-4 h-4" />
-                          {t('finance.start_live_room', { defaultValue: 'Live-Kasse starten & Link erstellen' })}
-                        </button>
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex items-center gap-1.5 bg-white border border-emerald-200 rounded-lg px-2 py-1">
+                            <KeyRound className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <input
+                              type="password"
+                              value={newRoomPin}
+                              onChange={(e) => setNewRoomPin(e.target.value)}
+                              placeholder={t('finance.optional_host_pin', { defaultValue: 'Bearbeitungs-PIN (optional)' })}
+                              autoComplete="new-password"
+                              className="w-40 sm:w-44 text-xs bg-transparent focus:outline-none text-slate-700 placeholder:text-slate-400"
+                            />
+                          </div>
+                          <button
+                            onClick={handleCreateRoom}
+                            disabled={isCreatingRoom}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50 shrink-0"
+                          >
+                            <Share2 className="w-4 h-4" />
+                            {t('finance.start_live_room', { defaultValue: 'Live-Kasse starten & Link erstellen' })}
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-emerald-800/80">
+                          {t('finance.optional_host_pin_hint', { defaultValue: 'Mit PIN dürfen auch andere Geräte bearbeiten/löschen. Ohne PIN darf das nur dieses Gerät.' })}
+                        </p>
                       </div>
                       {!isGuestMode && (
                         <div className="flex items-center gap-1.5 flex-1 max-w-md">
@@ -2371,7 +2664,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className={`bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-start gap-3 transition-colors group print:shadow-none print:border-slate-300 print:rounded-none ${isGuestMode ? '' : 'hover:border-blue-200 cursor-pointer'}`} onClick={isGuestMode ? undefined : () => startEdit(exp)}>
+                                    <div className={`bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-start gap-3 transition-colors group print:shadow-none print:border-slate-300 print:rounded-none ${canModifyExpenses ? 'hover:border-blue-200 cursor-pointer' : ''}`} onClick={canModifyExpenses ? () => startEdit(exp) : undefined}>
                                         <div className="p-2 bg-slate-50 rounded-lg text-slate-400 shrink-0 group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors print:hidden"><Banknote className="w-5 h-5" /></div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex justify-between items-start">
@@ -2455,7 +2748,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                                                 );
                                             })() : null}
                                         </div>
-                                        {!isGuestMode && (
+                                        {canModifyExpenses && (
                                           <button 
                                               onClick={(e) => { 
                                                   e.stopPropagation(); 
@@ -2619,4 +2912,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 2622 Zeilen ---
+// --- END OF FILE 2915 Zeilen ---

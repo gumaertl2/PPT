@@ -1,3 +1,5 @@
+// [2026-11-18] [16:21] - FEAT: Synced isCashRoomOriginalHost flag for Option A PIN ownership.
+// [2026-11-18] [15:54] - FIX/FEAT: Added pendingDeletesRef guard, preserved write/delete errors across snapshot rollbacks, and synced isCashRoomHost/cashRoomHasPassword.
 // [2026-11-17] [12:44] - FEAT: Synced defaultWeights and set isCashRoomLoaded transient flag when metadata arrives.
 // [2026-11-17] [12:00] - FEAT: Synced local tripName and tripDates edits to Firestore room metadata.
 // [2026-11-17] [10:28] - FEAT: Synced meta.tripDates into cashSync and forwarded syncError into store.
@@ -13,7 +15,8 @@ import {
   upsertRemoteExpense,
   deleteRemoteExpense,
   updateRemoteRoomMeta,
-  type CashRoomMeta
+  type CashRoomMeta,
+  type CashRoomAccessInfo
 } from '../services/firebaseCashService';
 import type { Expense, CurrencyConfig } from '../core/types/shared';
 
@@ -23,7 +26,7 @@ export interface GuestRoomParams {
 }
 
 export const useCashSync = (guestParams?: GuestRoomParams | null) => {
-  const { project, applyRemoteCashState, setCashSync, setCashSyncError, setCashRoomLoaded } = useTripStore();
+  const { project, applyRemoteCashState, setCashSync, setCashSyncError, setCashRoomLoaded, setCashRoomHost, setCashRoomOriginalHost, setCashRoomHasPassword } = useTripStore();
   const [syncError, setSyncErrorState] = useState<string | null>(null);
   const [isSynced, setIsSynced] = useState(false);
 
@@ -36,6 +39,9 @@ export const useCashSync = (guestParams?: GuestRoomParams | null) => {
   const activeToken = guestParams?.writeToken || (project.data.cashSync?.enabled ? project.data.cashSync.writeToken : null);
 
   const lastRemoteExpensesRef = useRef<Record<string, Expense>>({});
+  const lastServerExpensesRef = useRef<Record<string, Expense>>({});
+  const pendingDeletesRef = useRef<Set<string>>(new Set());
+  const hasWriteErrorRef = useRef(false);
   const lastRemoteMetaRef = useRef<{
     travelerNames?: string;
     currencyConfig?: CurrencyConfig;
@@ -60,15 +66,22 @@ export const useCashSync = (guestParams?: GuestRoomParams | null) => {
   useEffect(() => {
     if (!activeRoomId || !isFirebaseConfigured()) {
       setIsSynced(false);
+      setCashRoomHost(true);
+      setCashRoomOriginalHost(true);
+      setCashRoomHasPassword(false);
+      hasWriteErrorRef.current = false;
+      pendingDeletesRef.current.clear();
       return;
     }
 
     hasInitialSnapshotRef.current = false;
+    hasWriteErrorRef.current = false;
+    pendingDeletesRef.current.clear();
     setCashRoomLoaded(false);
     reportSyncError(null);
 
     const unsubscribe = subscribeCashRoom(activeRoomId, {
-      onMeta: (meta: CashRoomMeta) => {
+      onMeta: (meta: CashRoomMeta, access: CashRoomAccessInfo) => {
         lastRemoteMetaRef.current = {
           tripName: meta.tripName,
           tripDates: meta.tripDates,
@@ -88,19 +101,37 @@ export const useCashSync = (guestParams?: GuestRoomParams | null) => {
         if (currentSync && (currentSync.roomStatus !== nextStatus || currentSync.tripDates !== nextDates)) {
           setCashSync({ ...currentSync, roomStatus: nextStatus, tripDates: nextDates });
         }
+        setCashRoomHost(access.isHost);
+        setCashRoomOriginalHost(access.isOriginalHost);
+        setCashRoomHasPassword(access.hasAdminPassword);
         setCashRoomLoaded(true);
-        reportSyncError(null);
+        if (!hasWriteErrorRef.current) {
+          reportSyncError(null);
+        }
         setIsSynced(true);
       },
       onExpenses: (remoteExpenses: Record<string, Expense>) => {
-        lastRemoteExpensesRef.current = remoteExpenses;
+        lastServerExpensesRef.current = remoteExpenses;
+        let effectiveRemote = remoteExpenses;
+        if (pendingDeletesRef.current.size > 0) {
+          effectiveRemote = { ...remoteExpenses };
+          pendingDeletesRef.current.forEach((delId) => {
+            delete effectiveRemote[delId];
+          });
+        }
+        lastRemoteExpensesRef.current = effectiveRemote;
         hasInitialSnapshotRef.current = true;
-        applyRemoteCashState({ expenses: remoteExpenses });
-        reportSyncError(null);
+        applyRemoteCashState({ expenses: effectiveRemote });
+        if (!hasWriteErrorRef.current) {
+          reportSyncError(null);
+        }
         setIsSynced(true);
       },
       onRoomDeleted: () => {
         setCashSync(undefined);
+        setCashRoomHost(true);
+        setCashRoomOriginalHost(true);
+        setCashRoomHasPassword(false);
         setIsSynced(false);
         reportSyncError('Dieser Live-Raum wurde geschlossen bzw. gelöscht.');
       },
@@ -127,7 +158,22 @@ export const useCashSync = (guestParams?: GuestRoomParams | null) => {
       const prev = prevExpenses[id];
       if (!prev || JSON.stringify(prev) !== JSON.stringify(exp)) {
         lastRemoteExpensesRef.current = { ...lastRemoteExpensesRef.current, [id]: exp };
-        upsertRemoteExpense(activeRoomId, exp).catch((err) => reportSyncError(err.message));
+        upsertRemoteExpense(activeRoomId, exp)
+          .then(() => {
+            if (hasWriteErrorRef.current) {
+              hasWriteErrorRef.current = false;
+              reportSyncError(null);
+            }
+          })
+          .catch((err) => {
+            hasWriteErrorRef.current = true;
+            const isPerm = err?.code === 'permission-denied' || String(err?.message || '').toLowerCase().includes('permission');
+            reportSyncError(
+              isPerm
+                ? 'Speichern/Ändern nicht erlaubt: Dieser Browser ist nicht als Host des Live-Raums freigeschaltet.'
+                : (err?.message || 'Sync-Fehler beim Speichern')
+            );
+          });
       }
     }
 
@@ -137,7 +183,29 @@ export const useCashSync = (guestParams?: GuestRoomParams | null) => {
         const nextRef = { ...lastRemoteExpensesRef.current };
         delete nextRef[id];
         lastRemoteExpensesRef.current = nextRef;
-        deleteRemoteExpense(activeRoomId, id).catch((err) => reportSyncError(err.message));
+        pendingDeletesRef.current.add(id);
+        deleteRemoteExpense(activeRoomId, id)
+          .then(() => {
+            pendingDeletesRef.current.delete(id);
+            if (hasWriteErrorRef.current) {
+              hasWriteErrorRef.current = false;
+              reportSyncError(null);
+            }
+          })
+          .catch((err) => {
+            pendingDeletesRef.current.delete(id);
+            hasWriteErrorRef.current = true;
+            const isPerm = err?.code === 'permission-denied' || String(err?.message || '').toLowerCase().includes('permission');
+            reportSyncError(
+              isPerm
+                ? 'Löschen nicht erlaubt: Dieser Browser ist nicht als Host dieses Live-Raums freigeschaltet (ggf. per Host-PIN entsperren).'
+                : (err?.message || 'Fehler beim Löschen')
+            );
+            if (lastServerExpensesRef.current[id]) {
+              lastRemoteExpensesRef.current = { ...lastServerExpensesRef.current };
+              applyRemoteCashState({ expenses: { ...lastServerExpensesRef.current } });
+            }
+          });
       }
     }
   }, [activeRoomId, project.data.expenses]);
@@ -199,4 +267,4 @@ export const useCashSync = (guestParams?: GuestRoomParams | null) => {
 
   return { isSynced, syncError, activeRoomId };
 };
-// --- END OF FILE 193 Zeilen ---
+// --- END OF FILE 270 Zeilen ---

@@ -1,3 +1,4 @@
+// [2026-11-18] [15:53] - FEAT: Added optional adminSecretHash (Host PIN), setRoomAdminPin, unlockCashRoomAsAdmin, and admins/{uid} multi-device host verification in subscribeCashRoom.
 // [2026-11-17] [12:52] - FIX: Supported comma-separated multi-person input in addTravelerSafe with per-name duplicate check.
 // [2026-11-17] [12:44] - FEAT: Added defaultWeights to CashRoomMeta, createCashRoom, and updateRemoteRoomMeta.
 // [2026-11-17] [10:25] - FEAT: Added tripDates, addTravelerSafe (online+duplicate check), and local user identity helpers.
@@ -39,8 +40,15 @@ export interface CashRoomMeta {
   defaultWeights?: Record<string, number>;
   writeToken: string;
   hostUid: string;
+  adminSecretHash?: string;
   status?: 'open' | 'closed';
   updatedAt: number;
+}
+
+export interface CashRoomAccessInfo {
+  isHost: boolean;
+  isOriginalHost: boolean;
+  hasAdminPassword: boolean;
 }
 
 export interface CashRoomListItem {
@@ -157,6 +165,25 @@ const stripUndefined = <T extends Record<string, any>>(obj: T): T => {
   return clean as T;
 };
 
+export const hashAdminPin = async (pin: string): Promise<string> => {
+  const clean = pin.trim();
+  if (!clean) return '';
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    const encoded = new TextEncoder().encode(clean);
+    const digest = await crypto.subtle.digest('SHA-256', encoded);
+    return Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+  // Fallback for non-secure contexts without crypto.subtle
+  let hash = 2166136261;
+  for (let i = 0; i < clean.length; i++) {
+    hash ^= clean.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `fnv_${(hash >>> 0).toString(16)}`;
+};
+
 export const createCashRoom = async (params: {
   tripName: string;
   tripDates?: string;
@@ -164,12 +191,14 @@ export const createCashRoom = async (params: {
   currencyConfig?: CurrencyConfig;
   defaultWeights?: Record<string, number>;
   initialExpenses: Record<string, Expense>;
+  adminPin?: string;
 }): Promise<{ roomId: string; writeToken: string }> => {
   await ensureAnonymousAuth();
   const { db, auth } = getFirebaseClients();
 
   const roomId = crypto.randomUUID();
   const writeToken = `${crypto.randomUUID().replace(/-/g, '')}`;
+  const adminSecretHash = params.adminPin?.trim() ? await hashAdminPin(params.adminPin) : undefined;
 
   const roomRef = doc(db, 'cashRooms', roomId);
   const metaPayload: CashRoomMeta = stripUndefined({
@@ -180,6 +209,7 @@ export const createCashRoom = async (params: {
     defaultWeights: params.defaultWeights,
     writeToken,
     hostUid: auth.currentUser?.uid || '',
+    adminSecretHash,
     status: 'open',
     updatedAt: Date.now()
   });
@@ -203,7 +233,7 @@ export const createCashRoom = async (params: {
 export const subscribeCashRoom = (
   roomId: string,
   callbacks: {
-    onMeta: (meta: CashRoomMeta) => void;
+    onMeta: (meta: CashRoomMeta, access: CashRoomAccessInfo) => void;
     onExpenses: (expenses: Record<string, Expense>) => void;
     onRoomDeleted?: () => void;
     onError: (err: Error) => void;
@@ -211,24 +241,50 @@ export const subscribeCashRoom = (
 ): Unsubscribe => {
   let unsubRoom: Unsubscribe | null = null;
   let unsubExpenses: Unsubscribe | null = null;
+  let unsubAdminDoc: Unsubscribe | null = null;
+  let latestMeta: CashRoomMeta | null = null;
+  let hasAdminDoc = false;
   let cancelled = false;
+
+  const emitMetaIfReady = (uid: string) => {
+    if (!latestMeta) return;
+    const isOriginalHost = Boolean(uid && latestMeta.hostUid === uid);
+    const hasAdminPassword = Boolean(latestMeta.adminSecretHash);
+    const isHost = isOriginalHost || (hasAdminPassword && hasAdminDoc);
+    callbacks.onMeta(latestMeta, { isHost, isOriginalHost, hasAdminPassword });
+  };
 
   ensureAnonymousAuth()
     .then(() => {
       if (cancelled) return;
-      const { db } = getFirebaseClients();
+      const { db, auth } = getFirebaseClients();
+      const uid = auth.currentUser?.uid || '';
 
       unsubRoom = onSnapshot(
         doc(db, 'cashRooms', roomId),
         (snap) => {
           if (snap.exists()) {
-            callbacks.onMeta(snap.data() as CashRoomMeta);
+            latestMeta = snap.data() as CashRoomMeta;
+            emitMetaIfReady(uid);
           } else {
             callbacks.onRoomDeleted?.();
           }
         },
         (err) => callbacks.onError(err)
       );
+
+      if (uid) {
+        unsubAdminDoc = onSnapshot(
+          doc(db, 'cashRooms', roomId, 'admins', uid),
+          (snap) => {
+            hasAdminDoc = snap.exists();
+            emitMetaIfReady(uid);
+          },
+          () => {
+            hasAdminDoc = false;
+          }
+        );
+      }
 
       unsubExpenses = onSnapshot(
         collection(db, 'cashRooms', roomId, 'expenses'),
@@ -250,6 +306,7 @@ export const subscribeCashRoom = (
     cancelled = true;
     unsubRoom?.();
     unsubExpenses?.();
+    unsubAdminDoc?.();
   };
 };
 
@@ -291,6 +348,68 @@ export const setCashRoomStatus = async (
   status: 'open' | 'closed'
 ): Promise<void> => {
   await updateRemoteRoomMeta(roomId, writeToken, { status });
+};
+
+export const setRoomAdminPin = async (
+  roomId: string,
+  writeToken: string,
+  pin: string
+): Promise<void> => {
+  await ensureAnonymousAuth();
+  const { db } = getFirebaseClients();
+  const ref = doc(db, 'cashRooms', roomId);
+  const hash = pin.trim() ? await hashAdminPin(pin) : '';
+  await updateDoc(ref, {
+    adminSecretHash: hash,
+    writeToken,
+    updatedAt: Date.now()
+  });
+};
+
+export const unlockCashRoomAsAdmin = async (
+  roomId: string,
+  pin: string
+): Promise<{ ok: boolean; error?: string }> => {
+  const cleanPin = pin.trim();
+  if (!cleanPin) {
+    return { ok: false, error: 'Bitte gib eine Host-PIN ein.' };
+  }
+
+  await ensureAnonymousAuth();
+  const { db, auth } = getFirebaseClients();
+  const uid = auth.currentUser?.uid;
+  if (!uid) {
+    return { ok: false, error: 'Anonyme Anmeldung fehlgeschlagen.' };
+  }
+
+  const roomSnap = await getDocFromServer(doc(db, 'cashRooms', roomId));
+  if (!roomSnap.exists()) {
+    return { ok: false, error: 'Live-Raum wurde nicht gefunden.' };
+  }
+  const meta = roomSnap.data() as CashRoomMeta;
+  if (!meta.adminSecretHash) {
+    return { ok: false, error: 'Für diesen Raum wurde keine Host-PIN eingerichtet.' };
+  }
+
+  const candidateHash = await hashAdminPin(cleanPin);
+  if (candidateHash !== meta.adminSecretHash) {
+    return { ok: false, error: 'Falsche Host-PIN.' };
+  }
+
+  try {
+    await setDoc(doc(db, 'cashRooms', roomId, 'admins', uid), {
+      secretHash: candidateHash,
+      unlockedAt: Date.now()
+    });
+    return { ok: true };
+  } catch (err: any) {
+    return {
+      ok: false,
+      error: err?.message?.includes('permission') || err?.code === 'permission-denied'
+        ? 'Firebase-Berechtigung fehlt: Bitte aktualisiere einmalig die Firestore-Regeln für admins/{uid}.'
+        : (err?.message || 'Freischaltung fehlgeschlagen.')
+    };
+  }
 };
 
 export const deleteCashRoom = async (roomId: string): Promise<void> => {
@@ -445,4 +564,4 @@ export const addTravelerSafe = async (params: {
   const updatedTravelerNames = [...localList, ...uniqueInputs].join(', ');
   return { ok: true, updatedTravelerNames, addedNames: uniqueInputs };
 };
-// --- END OF FILE 447 Zeilen ---
+// --- END OF FILE 567 Zeilen ---

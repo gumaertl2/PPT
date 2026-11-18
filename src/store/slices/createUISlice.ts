@@ -1,3 +1,5 @@
+// [2026-11-18] [16:21] - FEAT: Added transient isCashRoomOriginalHost flag in UISlice for Option A PIN ownership.
+// [2026-11-18] [15:53] - FEAT: Added transient isCashRoomHost and cashRoomHasPassword flags in UISlice.
 // [2026-11-17] [12:44] - FEAT: Added transient 'isCashRoomLoaded' state for guest identity prompt timing.
 // [2026-11-17] [10:28] - FEAT: Added 'isCashOnlyMode' in UIState and transient 'cashSyncError' state in UISlice.
 // 21.04.2026 17:00 - FIX: Expanded 'resetUIFilter' to clear ALL view-dependent filters (category, prio, sorting) to prevent "empty view" ghosting on project change.
@@ -67,6 +69,12 @@ export interface UISlice {
   setCashSyncError: (error: string | null) => void;
   isCashRoomLoaded: boolean;
   setCashRoomLoaded: (loaded: boolean) => void;
+  isCashRoomHost: boolean;
+  setCashRoomHost: (isHost: boolean) => void;
+  isCashRoomOriginalHost: boolean;
+  setCashRoomOriginalHost: (isOriginalHost: boolean) => void;
+  cashRoomHasPassword: boolean;
+  setCashRoomHasPassword: (hasPassword: boolean) => void;
   isLoading: boolean;
   setIsLoading: (isLoading: boolean) => void;
 
@@ -134,6 +142,15 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
 
   isCashRoomLoaded: false,
   setCashRoomLoaded: (isCashRoomLoaded) => set({ isCashRoomLoaded }),
+
+  isCashRoomHost: true,
+  setCashRoomHost: (isCashRoomHost) => set({ isCashRoomHost }),
+
+  isCashRoomOriginalHost: true,
+  setCashRoomOriginalHost: (isCashRoomOriginalHost) => set({ isCashRoomOriginalHost }),
+
+  cashRoomHasPassword: false,
+  setCashRoomHasPassword: (cashRoomHasPassword) => set({ cashRoomHasPassword }),
   
   isLoading: false,
   setIsLoading: (isLoading) => set({ isLoading }),
@@ -256,4 +273,4 @@ export const createUISlice: StateCreator<any, [], [], UISlice> = (set, get) => (
       }
   })
 });
-// --- END OF FILE 258 Zeilen ---
+// --- END OF FILE 276 Zeilen ---
