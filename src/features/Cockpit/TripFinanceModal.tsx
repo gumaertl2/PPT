@@ -1,3 +1,4 @@
+// [2026-11-18] [17:33] - UX: Renamed 'Sync pausieren' consistently to 'Live-Raum verlassen' for all non-guest views.
 // [2026-11-18] [17:24] - UX: Removed duplicate header PIN badge & top unlock banner so PIN unlock lives solely and cleanly inline inside the Share panel.
 // [2026-11-18] [16:57] - UX: Cleaned up Share panel header/URL/buttons layout on desktop & mobile without close '×' overlap, and tightened mobile header spacing.
 // [2026-11-18] [16:47] - UX: Added direct close '×' button inside top-right corner of the Share panel so users can dismiss it without reopening the Settings menu.
@@ -1730,7 +1731,7 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
                               }}
                               className="px-2.5 py-1.5 rounded-lg bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 text-xs font-medium"
                             >
-                              {t('finance.pause_sync', { defaultValue: 'Sync pausieren' })}
+                              {t('finance.leave_room', { defaultValue: 'Live-Raum verlassen' })}
                             </button>
                           )}
                           {!isCashRoomHost && cashRoomHasPassword && (
@@ -2917,4 +2918,4 @@ export const TripFinanceModal: React.FC<TripFinanceModalProps> = ({ isOpen, onCl
     </>
   );
 };
-// --- END OF FILE 2920 Zeilen ---
+// --- END OF FILE 2921 Zeilen ---

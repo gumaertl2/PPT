@@ -1,3 +1,4 @@
+// [2026-11-18] [20:23] - DOCS: Synced Option-A Edit PIN (adminSecretHash, admins/{uid}, isCashRoomHost/isCashRoomOriginalHost), Gear menu, Matrix drilldown, pendingDeletesRef guard & mobile ?quickAdd=1 shortcuts.
 // 17.11.2026 13:48 - DOCS: Documented Firebase Live-Reisekasse (cashRooms, Guest-Mode, useCashSync), finance.ts weights/settlements, Fokusmodus (isCashOnlyMode) & Warm-Amber filter UX.
 // 25.10.2026 13:27 - DOCS: Upgraded Section 11 (Gemini Developer Protocols) with Reuse-Before-Invent, Architecture Veto, Defensive Null-Safety, UX/UI Guidelines & Dual-Mode Transmission Protocol V2.0.
 // 25.10.2026 13:14 - DOCS: Synced Briefing with current codebase (Gemini 2.5 Pro/Flash/Thinking, WizardSlice, withContext, Triple Dragnet Food, PlannerConflictModal, Exponential Backoff).
@@ -62,7 +63,7 @@ Der Store (\`useTripStore\`) ist ein Assembler, der folgende Slices zusammenfüg
 3.  **UISlice** (\`src/store/slices/createUISlice.ts\`):
     * Steuert Views (\`welcome\`, \`wizard\`, \`analysis\`).
     * Steuert die **Anreicherer-UI** (Filter, Listenansicht, Map-View-Mode) sowie den Kassen-Fokusmodus (\`isCashOnlyMode\`).
-    * Verwaltet \`selectedPlaceId\` für bidirektionale Navigation, \`plannerConflict\` für die Tagesplaner-Konfliktweiche sowie transiente Live-Sync-States (\`cashSyncError\`, \`isCashRoomLoaded\`).
+    * Verwaltet \`selectedPlaceId\` für bidirektionale Navigation, \`plannerConflict\` für die Tagesplaner-Konfliktweiche sowie transiente Live-Sync-States (\`cashSyncError\`, \`isCashRoomLoaded\`, \`isCashRoomHost\`, \`isCashRoomOriginalHost\`, \`cashRoomHasPassword\`).
 4.  **SystemSlice** (\`src/store/slices/createSystemSlice.ts\`):
     * Infrastruktur: API-Key, AI-Settings (Modell-Matrix, Chunk-Limits, \`enableCountryHarvester\`).
     * Logging: **Flight Recorder** (Auto-Logging aller KI-Calls).
@@ -270,12 +271,12 @@ Das System agiert als aktiver Reisebegleiter:
 * **Custom Entries (\`custom_diary\`):** Der User kann völlig freie, neue Einträge anlegen, die nicht von der KI kommen. Diese Einträge können direkt mit dem HTML5 GPS des Smartphones getaggt werden.
 
 **H. Smart-Currency & Live-Reisekasse (Trip Finance)**
-* **Datenmodell & Pure Finance Engine:** \`TripProject.data\` speichert \`expenses\` (inkl. \`splitExact\`, \`splitWeights\`, \`isSettlement\`), \`currencyConfig\`, \`defaultExpenseWeights\` und optional \`cashSync\`. Alle Anteils- und Gewichtsberechnungen laufen zentral und UI-frei in \`src/core/utils/finance.ts\` (\`calculateExpenseSharesInBase\`, \`computeWeightedAmounts\`).
+* **Datenmodell & Pure Finance Engine:** \`TripProject.data\` speichert \`expenses\` (inkl. \`splitExact\`, \`splitWeights\`, \`isSettlement\`), \`currencyConfig\`, \`defaultExpenseWeights\` und optional \`cashSync\`. Alle Anteils-, Matrix- und Gewichtsberechnungen laufen zentral und UI-frei in \`src/core/utils/finance.ts\` (\`calculateExpenseSharesInBase\`, \`computeWeightedAmounts\`, \`computeExpenseMatrix\`, \`sortTravelerNames\`, \`buildInitialExactSplit\`, \`parseQuickAddExpenseParams\`).
 * **CurrencyConfig Engine:** Speichert eine Hauptwährung und Fremdwährungen inkl. Wechselkurs. Kurse können per freier API (open.er-api.com) abgerufen werden, inkl. 1.75% Banken-Spread.
-* **Settlement Engine & Tilgung:** Im \`TripFinanceModal\` werden alle Ausgaben zur Laufzeit in die \`baseCurrency\` umgerechnet. Die finale Bilanz ("Wer schuldet wem") basiert ausschließlich auf der Hauptwährung. Schulden können direkt über **"Als bezahlt markieren"** (\`isSettlement\`, Historie „Bereits beglichen“) oder über den Modus **„Rückzahlung / Abschlag“** (\`onlySettlement\`) beglichen werden.
-* **Gewichtete Anteile (Option A Progressive Disclosure):** Standardmäßig gilt Gleichverteilung (\`1×\`); per Toggle-Button **\`Anteile\`** können pro Person Standard-Faktoren (\`defaultExpenseWeights\`) und pro Ausgabe individuelle Faktoren (\`splitWeights\`) gepflegt werden (z.B. Paare/Familien).
-* **Live-Sync & Gast-Modus (Firebase Opt-in):** \`firebaseCashService.ts\` und \`useCashSync.ts\` synchronisieren aktiv gestartete Räume (\`cashRooms\` inkl. Firestore \`persistentLocalCache\`, anonymer Auth und \`hostUid\`-Schutz) in Echtzeit. Einladung erfolgt per Link (\`?cashRoom=...&token=...\`), WhatsApp (\`wa.me\`), \`navigator.share\` oder Offline-QR-Code (\`qrcode.react\`). Gäste im Gast-Modus können Ausgaben erfassen, aber keine bestehenden Posten bearbeiten oder löschen; Räume lassen sich vom Host schließen/wiederöffnen/löschen und über \`papatours_known_cash_rooms\` verwalten.
-* **Fokusmodus, Identität & Zero-Friction Onboarding:** \`uiState.isCashOnlyMode\` bietet einen Vollbild-Fokusmodus inkl. editierbarem Reisetitel/-zeitraum. Die eigene Identität (**"Ich bin"**) wird lokal pro Raum (\`papatours_cash_identity_<roomId>\`) gespeichert und bei neuen Ausgaben vorausgewählt. \`addTravelerSafe\` unterstützt kommagetrennte Mehrfacheingaben inkl. Duplikatsprüfung und Online-Check; im leeren Zustand lassen sich Namen per Chip entfernen.
+* **Settlement Engine, Kreuzmatrix & Tilgung:** Im \`TripFinanceModal\` werden alle Ausgaben zur Laufzeit in die \`baseCurrency\` umgerechnet. Die finale Bilanz ("Wer schuldet wem") basiert ausschließlich auf der Hauptwährung; die interaktive Kreuzmatrix („Wer hat für wen bezahlt?“) filtert per Klick direkt in die Tabelle. Schulden können direkt über **"Als bezahlt markieren"** (\`isSettlement\`, Historie „Bereits beglichen“) oder über den Modus **„Rückzahlung / Abschlag“** (\`onlySettlement\`) beglichen werden.
+* **Gewichtete Anteile (Option A Progressive Disclosure):** Standardmäßig gilt Gleichverteilung (\`1×\`); über ein eigenes Modal (\`Anteile\`-Button) lassen sich Standard-Faktoren (\`defaultExpenseWeights\`) und pro Ausgabe individuelle Faktoren (\`splitWeights\`) pflegen (z.B. Paare/Familien).
+* **Live-Sync, Gast-Modus & Option-A Bearbeitungs-PIN (Firebase Opt-in):** \`firebaseCashService.ts\` und \`useCashSync.ts\` synchronisieren aktiv gestartete Räume (\`cashRooms\` inkl. Firestore \`persistentLocalCache\`, anonymer Auth und \`pendingDeletesRef\`-Rollback-Schutz) in Echtzeit. **Option A PIN-Besitz:** Nur der Original-Ersteller (\`hostUid\` / \`isCashRoomOriginalHost\`) legt optional eine \`adminSecretHash\`-PIN fest, schließt/öffnet oder löscht den Raum. Weitere Geräte ohne PIN sehen keinen PIN-Dialog und können nur erfassen; bei aktiver PIN können sie sich im Teilen-Panel dauerhaft über \`admins/{uid}\` (\`unlockCashRoomAsAdmin\`) zum Bearbeiten/Löschen freischalten. Einladung erfolgt per Link (\`?cashRoom=...&token=...\`), WhatsApp, \`navigator.share\`, Offline-QR-Code oder **\`Kurzbefehl-URL\` (\`?quickAdd=1\`)** für iPhone Apple Pay & Android Startbildschirm/MacroDroid. Räume lassen sich lokal über \`Live-Raum verlassen\` pausieren und via \`papatours_known_cash_rooms\` verwalten.
+* **Fokusmodus, Identität & Mobile-Zero-Friction:** \`uiState.isCashOnlyMode\` bietet einen Vollbild-Fokusmodus; sekundäre Header-Aktionen sitzen im \`⚙\`-Zahnrad-Menü. Die eigene Identität (**"Ich bin"**) wird lokal pro Raum gespeichert. \`ExpenseEntryButton\` dockt mobil oben an (\`items-start\`), nutzt iOS-Decimal-Numpad (\`inputMode="decimal"\`), \`Enter\`-Autofokus/Form-Submit, Clear-\`×\` am Titel und klappbares Datumsfeld. \`addTravelerSafe\` unterstützt kommagetrennte Mehrfacheingaben inkl. Duplikatsprüfung.
 * **Filter-Transparenz (Warm-Amber) & Tabellen-Fußzeile:** Historie und Tabelle teilen eine einheitliche Suche + Personenfilter (\`renderFilterControls\`). Aktive Filter werden in Warm-Amber hervorgehoben inkl. klickbarem Reset-Badge (\`Gefiltert: X von Y ×\`); die Tabellen-Fußzeile (\`tfoot\`) berechnet bei aktivem Filter exakt die gefilterten Summen (\`SUMME (FILTER: X von Y)\`, \`BEZAHLT VON (FILTER)\`) und kennzeichnet die Gesamtberechnung klar als \`BILANZ (GESAMTE KASSE)\` (ungefiltert ohne \`isSettlement\`, inkl. \`splitWeights\`).
 * **Stacking Contexts:** Modale für Währungen und Ausgaben nutzen zwingend \`createPortal(..., document.body)\`, um Z-Index-Fallen zu entgehen.
 
@@ -340,9 +341,9 @@ Die monolithischen Services wurden in spezialisierte Module zerlegt.
 | \`src/services/processors/PlanningProcessor.ts\`| ✅ Active | **Itinerary & Analysis Logic.** Verarbeitet ChefPlaner-Korrekturen, Tagespläne (inkl. Conflict Intercept) und Routen. |
 | \`src/services/LiveScout.ts\` | ✅ Active | **Realtime Service.** Prüft im Hintergrund Live-Status-Updates (Öffnungszeiten). |
 | \`src/hooks/useLiveStatusWorker.ts\` | ✅ Active | **Polling Hook.** Verbindet UI mit LiveScout. |
-| \`src/services/firebaseCashService.ts\` | ✅ Active | **Live-Kasse Service (Opt-in).** Verwaltet Firestore \`cashRooms\`, Anonymous Auth, \`hostUid\`-Schutz, Raum-Status & \`addTravelerSafe\`. |
-| \`src/hooks/useCashSync.ts\` | ✅ Active | **Realtime Sync Hook.** Synchronisiert lokale \`expenses\`/Meta-Daten bidirektional mit Firestore inkl. Gast-Modus (\`?cashRoom=&token=\`). |
-| \`src/core/utils/finance.ts\` | ✅ Active | **Pure Finance Engine.** Berechnet exakte, gewichtete (\`splitWeights\`) & gleichmäßige Anteile (\`calculateExpenseSharesInBase\`, \`computeWeightedAmounts\`). |
+| \`src/services/firebaseCashService.ts\` | ✅ Active | **Live-Kasse Service (Opt-in).** Verwaltet Firestore \`cashRooms\`, Anonymous Auth, Option-A \`adminSecretHash\` / \`admins/{uid}\` Multi-Device-Freischaltung & \`addTravelerSafe\`. |
+| \`src/hooks/useCashSync.ts\` | ✅ Active | **Realtime Sync Hook.** Synchronisiert \`expenses\`/Meta-Daten bidirektional inkl. Gast-Modus (\`?cashRoom=&token=\`), \`pendingDeletesRef\`-Guard & Host-Flags. |
+| \`src/core/utils/finance.ts\` | ✅ Active | **Pure Finance Engine.** Berechnet Anteile (\`calculateExpenseSharesInBase\`, \`computeWeightedAmounts\`), Kreuzmatrix (\`computeExpenseMatrix\`) & \`parseQuickAddExpenseParams\`. |
 
 ### B. Prompt Engineering (The Interface)
 Infrastruktur für typ-sichere KI-Interaktion.
@@ -390,8 +391,8 @@ Infrastruktur für typ-sichere KI-Interaktion.
 ### D. UI & Feature Components (Cockpit)
 | Datei | Beschreibung |
 | :--- | :--- |
-| \`TripFinanceModal.tsx\` | Das Haupt-Dashboard der Reisekasse (Live-Räume, QR/WhatsApp-Share, Ich-bin-Identität, Anteile-Option A, Tilgung, Abrechnung, Warm-Amber-Filter & Tabelle). |
-| \`ExpenseEntryButton.tsx\` | Universeller Button (React Portal) zur Erfassung von Ausgaben (Gleichmäßig/Anteile ×/Exakt), Rückzahlungen (\`onlySettlement\`) & kommagetrenntem Inline-Onboarding. |
+| \`TripFinanceModal.tsx\` | Das Haupt-Dashboard der Reisekasse (\`⚙\`-Zahnrad-Menü, Live-Räume, Option-A-PIN, Kreuzmatrix, Tilgung, Abrechnung, Warm-Amber-Filter & Tabelle). |
+| \`ExpenseEntryButton.tsx\` | Universeller Button/Modal (\`createPortal\`, \`Enter\`-Quickstart, \`×\`-Clear, iOS-Numpad, GPS-Tracking, Rückzahlungen & \`?quickAdd=1\` Prefill). |
 | \`CurrencyConfigModal.tsx\` | Modal für die Smart-Currency Logik inkl. Live-API-Abruf. |
 | \`PlanView.tsx\` | Zeigt Reiseroute und das Live-Reisetagebuch. |
 | \`PlannerConflictModal.tsx\` | Fängt nicht zuweisbare Prio-1/2- und Fix-Orte des Tagesplaners ab und lässt den User entscheiden. |
@@ -489,4 +490,4 @@ Merk dir, dass ich für das Papatours Projekt immer unter dem Strict Code Integr
 `
   }
 };
-// --- END OF FILE 492 Zeilen ---
+// --- END OF FILE 493 Zeilen ---

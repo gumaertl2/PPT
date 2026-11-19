@@ -1,3 +1,4 @@
+// [2026-11-18] [20:22] - DOCS: Updated DE & EN manual for Trip Finance gear menu, cross-matrix drilldown, Option-A Edit PIN, and iOS/Android Shortcut quick-add.
 // 17.11.2026 13:48 - DOCS: Updated German & English descriptions and technical manual for Live-Reisekasse (Live-Sync via Link/WhatsApp/QR, weights 'Anteile', settlements, focus mode, and filter UX).
 // 25.10.2026 13:12 - DOCS: Synced Technical Manual (DE & EN) with current code (6 Wizard steps, Header Toolbar layout, Actions Menu & full AI Specialist team).
 // 12.04.2026 14:40 - UX: Updated terminology (AI Workflows -> Reiseführer-Kapitel, Fundament -> Briefing) for full consistency.
@@ -138,7 +139,7 @@ Sieh dir alle Orte übersichtlich auf der Landkarte an. Die Farben entsprechen d
 * **Wo bin ich?** Klicke auf das kleine Fadenkreuz-Symbol oben rechts auf der Karte. Die App ortet dich per GPS und zeigt dir mit einem blauen Punkt, wo du gerade stehst.
 
 💸 **Direkt in der Kopfleiste: Kasse & Drucken**
-* **Live-Reisekasse (Wallet-Icon oben rechts):** Dein smartes Finanz-Tool (auch im Fokusmodus nutzbar). Erfasse Ausgaben oder Rückzahlungen direkt im Urlaub, wähle über **„Ich bin“** deine Person aus, splitte Kosten gleichmäßig, exakt oder gewichtet nach **Anteilen (\`1×\`, \`2×\`)** und hake Schulden per **„Als bezahlt markieren“** direkt ab. Mit **„Live-Kasse starten“** lädst du Mitreisende per Link, WhatsApp oder QR-Code ein; in **Historie** und **Tabelle** zeigen dir Suche, Personenfilter und das **„Gefiltert“-Badge** sofort jede Teilauswertung inklusive passender Summenzeilen an.
+* **Live-Reisekasse (Wallet-Icon oben rechts):** Dein smartes Finanz-Tool (auch im Fokusmodus nutzbar). Erfasse Ausgaben oder Rückzahlungen blitzschnell per **Enter** bzw. Smartphone-Schnellerfassung (inkl. **Kurzbefehl-URL** für iPhone Apple Pay / Android), wähle über **„Ich bin“** deine Person aus, splitte Kosten gleichmäßig, exakt oder gewichtet nach **Standard-Anteilen (\`1×\`, \`2×\`)** und hake Schulden per **„Als bezahlt markieren“** direkt ab. Die **Wer-für-wen-Kreuzmatrix** springt per Klick direkt in die gefilterte Tabelle; hinter dem **⚙-Zahnrad** findest du *Live-Kasse & Teilen* (Link, WhatsApp, QR-Code, \`Live-Raum verlassen\` & optionale **Bearbeitungs-PIN**, um weitere Geräte dauerhaft zum Bearbeiten/Löschen freizuschalten), *Währungen*, *CSV-Export*, *Drucken* und *Fokus-Modus*. In **Historie** und **Tabelle** zeigen dir Suche, Personenfilter und das **„Gefiltert“-Badge** sofort jede Teilauswertung inklusive passender Summenzeilen an.
 * **Schnell-Drucken (Drucker-Icon oben rechts):** Druckt die aktuelle Ansicht oder öffnet in der Kartenansicht direkt die Kartendruck-Vorschau.
 
 ### Phase 3: Das Aktionen-Menü (Deine Werkzeuge)
@@ -297,7 +298,7 @@ See all places clearly on the map. The colors correspond to their respective cat
 * **Where am I?** Click the small crosshair icon in the top right corner of the map. The app locates you via GPS and shows you exactly where you are with a blue dot.
 
 💸 **Directly in the Header Bar: Wallet & Print**
-* **Live Trip Finance (Wallet icon top right):** Your smart financial tool (also available in focus mode). Record expenses or repayments on vacation, pick yourself via **"I am"**, split costs equally, exactly, or weighted by **shares (\`1×\`, \`2×\`)**, and settle balances via **"Mark as paid"**. Start a **Live Wallet** to invite companions via link, WhatsApp, or QR code; in **History** and **Table**, search, person filters, and the **Filtered** badge immediately highlight subset results and matching footer totals.
+* **Live Trip Finance (Wallet icon top right):** Your smart financial tool (also available in focus mode). Quickly log expenses or repayments via **Enter** or mobile quick-add (**Shortcut URL** for iPhone Apple Pay & Android), pick yourself via **"I am"**, split costs equally, exactly, or by weighted **default shares (\`1×\`, \`2×\`)**, and settle balances via **"Mark as paid"**. Click any cell in the **"Who paid for whom"** matrix to jump straight into the filtered table; behind the **⚙ gear menu** you'll find *Live Wallet & Share* (link, WhatsApp, QR code, *Leave Live Room*, plus an optional **Edit PIN** to unlock editing/deleting on additional devices), *Currencies*, *CSV Export*, *Print*, and *Focus Mode*. In **History** and **Table**, search, person filters, and the **Filtered** badge immediately highlight subset results and matching footer totals.
 * **Quick Print (Printer icon top right):** Prints the current view or opens the map print preview directly when in Map view.
 
 ### Phase 3: The Actions Menu (Your Tools)
@@ -330,4 +331,4 @@ In the "Guide Chapters" menu, you can watch our team of digital specialists at w
 * 🚗 **Transfer Planner (10. Optimize Transfers):** Calculates travel times and optimizes logistics between scheduled appointments.`
   }
 };
-// --- END OF FILE 333 Zeilen ---
+// --- END OF FILE 334 Zeilen ---

@@ -2,6 +2,7 @@
 trigger: always_on
 description: Papatours V40/V51 Master-Protokoll (Strict Code Integrity Protocol, 5-Stage Prompt Factory, Data Shields & UX/UI Guidelines)
 ---
+// [2026-11-18] [20:25] - DOCS: Synced Live-Reisekasse (Option-A Bearbeitungs-PIN adminSecretHash/admins/{uid}, ?quickAdd=1 iOS/Android Shortcuts, computeExpenseMatrix, Gear menu, pendingDeletesRef guard).
 // [2026-11-17] [13:48] - DOCS: Synced Live-Reisekasse (Firebase Firestore Opt-in, Guest-Mode, finance.ts weights/settlements, isCashOnlyMode, Warm-Amber filter UX).
 // [2026-10-25] [13:32] - Auto-Load Workspace-Rule für Papatours (synchron mit ai_prompt.md & AGENTS.md)
 
@@ -51,7 +52,7 @@ Bestätige zu Beginn jeder neuen Session explizit den **Pflicht-Handshake**:
 ### 💎 3. UX/UI EXCELLENCE GUIDELINES & 🔄 4. WORKFLOW
 - **Farbcodierung:** Blau (`blue-600`) für aktive Views/Primär-Buttons, Warm-Amber (`amber-500`) für aktive Filter/Hilfe/Food-Radar, Smaragdgrün (`emerald-600`) für Reisekasse & Check-ins, Violett (`purple-500`) für KI-Spezialisten, Rot (`red-600`) für Lösch-Aktionen & Konflikte.
 - **SightCard & Reserve:** 3 Detailstufen (`+/-`). Reserve-Orte (`-1`) bleiben in ihrer Kategorie/Tour, wandern dort ans Ende und werden visuell gedimmt dargestellt.
-- **Karte, Modals & Live-Reisekasse:** Priorisierte Orte als Kreise, Standard-Orte als Quadrate. Finanz-/Währungs-Modals zwingend per `createPortal(..., document.body)`. Pure Finance-Helper in `src/core/utils/finance.ts` (`splitWeights`, `defaultExpenseWeights` Option A, `isSettlement`); Warm-Amber-Filter-Hervorhebung (`Gefiltert: X von Y ×`) & filtergenaue `tfoot`-Summen; `isCashOnlyMode` Fokusmodus. Nicht zuweisbare `Prio 1/2`- oder `Fix`-Orte im Tagesplaner öffnen `PlannerConflictModal.tsx`. Developer-Settings (`SettingsModal.tsx`) öffnen exklusiv per **Doppelklick auf den `Info`-Button ("i")**.
+- **Karte, Modals & Live-Reisekasse:** Priorisierte Orte als Kreise, Standard-Orte als Quadrate. Finanz-/Währungs-Modals zwingend per `createPortal(..., document.body)`. Pure Finance-Helper in `src/core/utils/finance.ts` (`splitWeights`, `defaultExpenseWeights` Option A, `isSettlement`, `computeExpenseMatrix`, `parseQuickAddExpenseParams`); Option-A Bearbeitungs-PIN (`adminSecretHash`/`admins/{uid}`, `pendingDeletesRef`-Guard), `?quickAdd=1` iOS/Android Shortcuts, `⚙`-Zahnrad-Menü (`Live-Raum verlassen`), Warm-Amber-Filter-Hervorhebung (`Gefiltert: X von Y ×`) & filtergenaue `tfoot`-Summen; `isCashOnlyMode` Fokusmodus. Nicht zuweisbare `Prio 1/2`- oder `Fix`-Orte im Tagesplaner öffnen `PlannerConflictModal.tsx`. Developer-Settings (`SettingsModal.tsx`) öffnen exklusiv per **Doppelklick auf den `Info`-Button ("i")**.
 - **Drei-Schritte-Workflow:** 1. Analyse, 2. Operations-Plan (Dateien + Zeilennummern) & warten auf `"OK"`, 3. Chirurgischer Edit + Bestätigung: *"Ich habe den Original-Code 1:1 übernommen und nur die angeforderten Stellen geändert."*
 
 ---
@@ -69,4 +70,4 @@ Bestätige zu Beginn jeder neuen Session explizit den **Pflicht-Handshake**:
    - `hotelScout` & `ideenScout`: Stationär vs. Rundreise, Budget & **Camper-Switch**; Wetter-/Wildcard-Ideen (`category: 'special'`).
    - `initialTagesplaner` & `transferPlanner`: 60m/120m Flugpuffer, **Hotel-Loop**, Transfers mit Abfahrtszeit, **4h+ Immersive Block Rule**, **Golden Hour Rule (ab 17:00 Uhr keine Museen/Indoor-Sights)**, 30m Lückenfüller & `PlannerConflictModal`.
 
-// --- END OF FILE 72 Zeilen ---
+// --- END OF FILE 73 Zeilen ---
